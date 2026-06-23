@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="18.77" height="24.842" viewBox="0 0 18.77 24.842">
+  <g id="Profile" transform="translate(0.75 0.75)" opacity="0.4">
+    <ellipse id="Oval" cx="5.442" cy="5.802" rx="5.442" ry="5.802" transform="translate(3.19 0)" fill="none" stroke="#cdcdcd" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" stroke-width="1.5"/>
+    <path id="Path" d="M0,3.662A2.839,2.839,0,0,1,.25,2.484C.771,1.373,2.241.784,3.461.517A18,18,0,0,1,6.13.117a26.753,26.753,0,0,1,4.993,0,18.211,18.211,0,0,1,2.669.4c1.22.267,2.689.8,3.211,1.967a2.922,2.922,0,0,1,0,2.367c-.521,1.167-1.991,1.7-3.211,1.956a16.867,16.867,0,0,1-2.669.411,27.591,27.591,0,0,1-4.066.067,4.342,4.342,0,0,1-.928-.067,16.541,16.541,0,0,1-2.658-.411C2.241,6.552.782,6.019.25,4.852A2.921,2.921,0,0,1,0,3.662Z" transform="translate(0 16.011)" fill="none" stroke="#cdcdcd" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" stroke-width="1.5"/>
+  </g>
+</svg>

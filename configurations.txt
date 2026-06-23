@@ -1,0 +1,196 @@
+Project Overview:
+The app enables users to book tickets for events and allows creators to manage their events, ticket types, and sales. It also includes a marketplace where tickets can be sold.
+
+1. Project Configuration
+Flutter SDK
+Version: Flutter 3.24.3
+Dart SDK: >= 3.5.3
+
+Packages:
+
+State Management: GetX for reactive state management and routing.
+Firebase: For authentication, real-time data sync, and notifications.
+Payment Integration: Stripe/PayPal for handling ticket purchases.
+Image Picker: For event creators to upload images for events.
+
+Dependencies
+get: State management and navigation.
+firebase_core: Core Firebase functions.
+firebase_auth: Authentication for users.
+cloud_firestore: For managing event data.
+stripe_payment: Payment processing.
+image_picker: For uploading images when creating events.
+razorpay_flutter: Optional for ticket purchases if targeting local markets.
+intl: For formatting date, time, and currency.
+flutter_local_notifications: For local notifications.
+google_maps_flutter: For displaying event locations on a map.
+
+
+2. Project Structure
+Frontend (Flutter)
+Presentation Layer:
+
+HomePage: Displays upcoming events and a search feature.
+EventDetailsPage: Shows event details, ticket types, and booking options.
+MarketplacePage: Lists available tickets for resale.
+MyTicketsPage: Lists tickets that the user has purchased.
+CreateEventPage: Allows event creators to design and publish new events.
+EventManagementPage: For event creators to manage events, view ticket sales, and modify event details.
+
+
+State Management:
+
+GetX Controllers:
+EventController: Manages events data.
+TicketController: Manages ticket booking and sales.
+UserController: Handles user login, logout, and profile.
+PaymentController: Handles payment logic.
+Backend (Firebase & Payment Gateways)
+Authentication: Firebase Auth for email/password-based sign-in or social login (Google, Facebook).
+
+Database: Firestore for storing event information, tickets, and user profiles.
+
+Events Collection: Stores event metadata (title, date, description, image, venue).
+Tickets Collection: Stores ticket information for each event, including ticket types and availability.
+Users Collection: Stores user details, including purchased tickets and events they are organizing.
+
+
+Payments:
+
+Stripe/PayPal Integration: For processing payments for ticket purchases. Each ticket purchase creates a transaction record that is linked to both the user and the event.
+Notifications:
+
+Firebase Cloud Messaging for push notifications regarding event updates and ticket purchases.
+Local notifications using flutter_local_notifications for reminders of upcoming events.
+
+
+APIs & Services
+Third-Party APIs:
+Google Maps API for displaying event locations.
+Payment Gateway APIs (Stripe/PayPal) for managing ticket payments.
+Social media APIs for sharing events and linking social logins.
+
+
+3. User Roles & Access
+
+Event Creators:
+
+Can create, edit, and delete their events.
+Can view analytics on ticket sales (how many sold, revenue generated).
+Can create different types of tickets (VIP, General, Early Bird, etc.).
+Can manage refund requests and cancellations.
+
+Attendees (Users):
+
+Can browse events in the marketplace.
+Can buy tickets directly through the app.
+Can view their purchased tickets and resell them on the marketplace.
+Receive notifications for event updates and reminders.
+
+4. Ticket Types & Marketplace
+
+Ticket Types:
+
+General Admission: Standard tickets.
+VIP: Special access tickets with perks (early entry, seating).
+Early Bird: Discounted tickets available for a limited time.
+
+Marketplace:
+
+Allows users to list their purchased tickets for resale.
+Resale tickets will be validated by the system before they are listed.
+Payment for resale tickets is processed through the same payment gateways.
+
+
+5. Security
+Authentication & Authorization:
+
+Firebase Authentication for user identity.
+Role-based access control (RBAC) where Event Creators have more permissions compared to regular users.
+All API requests to sensitive data are authenticated and authorized.
+
+Data Protection:
+
+Secure Storage for user credentials and payment information.
+Firestore security rules to prevent unauthorized access to user data.
+
+
+6. Analytics & Tracking
+
+Firebase Analytics: Tracks user behavior, ticket sales, and app usage.
+Crashlytics: To monitor app crashes and resolve issues.
+Custom Event Tracking: Track conversions, ticket sales, and event engagements.
+
+
+7. Deployment
+
+iOS and Android: Build and deploy on both platforms using standard Flutter build configurations.
+CI/CD: Use GitHub Actions or Bitrise for continuous integration and deployment.
+
+
+
+
+Architecture:
+
+
+This project follows the MVC (Model-View-Controller) architecture, where the application is divided into three main components—Model, View, and Controller—each handling specific responsibilities.
+In this ticket booking and event management application, the Model refers primarily to the data layer, which is managed using Firebase Firestore. This layer contains all the data related to events, tickets, users, and other relevant entities.
+It handles the retrieval, storage, and manipulation of data.
+For instance, collections in Firestore like "Events," "Tickets," and "Users" act as the backend data structure, representing the Model in the MVC architecture.
+These models reflect the state of the application, and whenever a user books a ticket or an event is created, the Model updates accordingly.
+
+The View component is responsible for displaying the data to the user and handling the user interface.
+This project’s views are built using Flutter’s widgets and consist of pages like HomePage, EventDetailsPage, MarketplacePage, and CreateEventPage.
+Each of these views focuses on specific tasks such as browsing events, viewing ticket details, purchasing tickets, or creating new events.
+The View listens to changes in the Model through the Controller, ensuring that users always see the updated state of the application.
+These Flutter pages manage the app’s presentation, including UI components like buttons, forms, and text fields, while also ensuring that user inputs and feedback are visually conveyed.
+
+The Controller component acts as the intermediary between the Model and the View.
+In this project, GetX controllers like EventController, TicketController, and UserController manage the business logic.
+These controllers retrieve data from the Firebase backend (Model), process it according to business rules, and then update the View accordingly.
+For instance, when a user requests to book a ticket, the TicketController interacts with Firestore to verify ticket availability, processes the payment, and then updates the user's purchased tickets list.
+The controller also responds to user actions in the View (like clicking on a button to purchase a ticket), retrieves or manipulates data in the Model, and sends updated information back to the View for display.
+This division of labor allows for better separation of concerns, making the project easier to manage and scale.
+The MVC architecture in this project ensures that each part of the app focuses on a single responsibility, leading to cleaner, more maintainable code.
+
+
+Folder Structure:
+
+lib/
+│
+├── app/
+├── app/data/
+│   ├── core/app_export.dart  // for export multiple most usable libraries in a single line
+│   ├── localization/  // this folder contains app_localization file and translations for english
+│   ├── theme/app_style.dart this file used to keep text styles that are mostly used
+│   ├── utils/ //this folder contains multiple utilities for app like colors, size utils, models, permission handlers, helper functions, constants used in app
+│   └── widgets/ //this folder contains widget classes that are used in main states used in app
+│
+├── modules/  // here are the all screens that are used in the app
+│   ├── binding/class_binding.dart // in binding folder there will be binding class of state which binds state with main app flow
+│   ├── controller/class_controller.dart // this class contains state's controller in which all variables and functions of that state will be declared
+│   └── views/class_view.dart  // this class contains widgets/design code of the state
+│
+├── routes/
+│   ├── app_pages.dart  // contains the list of all pages that have paths and used in the app
+│   ├── app_routes.dart  // routes are declared in this class on which basis user will be navigated from one class to another
+│
+├── services/
+│   ├── firebase_service.dart
+│   ├── payment_service.dart
+│   ├── api_call_status.dart
+│   ├── api_exceptions.dart
+│   ├── base_client.dart
+│   └── notification_service.dart
+│
+├── Shared_preferences/
+│   └── app_preferences.dart
+│
+│
+└── main.dart
+
+
+
+
+
+
