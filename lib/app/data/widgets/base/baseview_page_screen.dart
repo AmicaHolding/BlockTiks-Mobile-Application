@@ -114,7 +114,7 @@ class BaseViewPageScreen extends StatelessWidget {
                                   bottom: BorderSide(
                                       color: showDivider == true
                                           ? ColorConstant.textFieldHintColor
-                                              .withOpacity(0.5)
+                                              .withValues(alpha: 0.5)
                                           : Colors.transparent,
                                       width: 0.5),
                                 ),
@@ -152,7 +152,7 @@ class BaseViewPageScreen extends StatelessWidget {
                                                 height:getSize(30),
                                                 width:getSize(30),
                                                 decoration: BoxDecoration(
-                                                  color: ColorConstant.whiteA700.withOpacity(0.1),
+                                                  color: ColorConstant.whiteA700.withValues(alpha: 0.1),
                                                   borderRadius: BorderRadius.circular(8)
                                                 ),
                                                 alignment: Alignment.center,

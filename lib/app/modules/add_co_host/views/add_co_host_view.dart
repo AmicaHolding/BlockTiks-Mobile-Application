@@ -26,7 +26,7 @@ class AddCoHostView extends GetView<AddCoHostController> {
       //     onTap: (){
       //       Get.toNamed(Routes.MANAGE_TEAMS,arguments: {'fromCoHost': true});
       //     },
-      //     child: Icon(Icons.person_add_alt_outlined,color: ColorConstant.whiteA700.withOpacity(.7),
+      //     child: Icon(Icons.person_add_alt_outlined,color: ColorConstant.whiteA700.withValues(alpha: .7),
       //     ),
       //   ),
       // ],
@@ -146,7 +146,7 @@ class AddCoHostTile extends StatelessWidget{
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: ColorConstant.whiteA700.withOpacity(.05),
+        color: ColorConstant.whiteA700.withValues(alpha: .05),
         borderRadius: BorderRadius.circular(getSize(5))
       ),
       padding: getPadding(left: 12,right: 12,top: 10,bottom: 10),
@@ -161,7 +161,7 @@ class AddCoHostTile extends StatelessWidget{
               svgPath: model.isSelected.value ? ImageConstant.check : ImageConstant.uncheck,
               height: getSize(24),
               width: getSize(24),
-              color: ColorConstant.whiteA700.withOpacity(.35),
+              color: ColorConstant.whiteA700.withValues(alpha: .35),
             )),
           ),
           SizedBox(width: getSize(20),),
@@ -180,7 +180,7 @@ class AddCoHostTile extends StatelessWidget{
             height: getSize(30),
             padding: getPadding(left: 5,right: 5,),
             decoration: BoxDecoration(
-                color: ColorConstant.whiteA700.withOpacity(0.1),
+                color: ColorConstant.whiteA700.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8)
             ),
             child: Obx(() => DropdownButton<String>(

@@ -74,7 +74,7 @@ class SendTicketsView extends GetView<SendTicketsController> {
                         Container(
                           height: getSize(35),
                           decoration: BoxDecoration(
-                            color: ColorConstant.whiteA700.withOpacity(0.3),
+                            color: ColorConstant.whiteA700.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(5)
                           ),
                           padding: getPadding(left: 10,right: 10),
@@ -146,9 +146,9 @@ class SendTicketsView extends GetView<SendTicketsController> {
                     getPadding(left: 15, right: 15, top: 10, bottom: 10),
                     margin: getMargin(bottom: 15),
                     decoration: BoxDecoration(
-                        color: ColorConstant.gray50.withOpacity(0.05),
+                        color: ColorConstant.gray50.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: controller.selectedUser.value == index ? ColorConstant.primaryPink : ColorConstant.gray50.withOpacity(0.05))
+                        border: Border.all(color: controller.selectedUser.value == index ? ColorConstant.primaryPink : ColorConstant.gray50.withValues(alpha: 0.05))
                     ),
                     child: Row(
                       children: [

@@ -153,7 +153,7 @@ class CreateEventController extends GetxController {
                           width:getSize(30),
                           margin: getMargin(right: 10),
                           decoration: BoxDecoration(
-                              color: ColorConstant.whiteA700.withOpacity(0.1),
+                              color: ColorConstant.whiteA700.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8)
                           ),
                           alignment: Alignment.center,

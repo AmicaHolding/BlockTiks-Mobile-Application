@@ -97,8 +97,7 @@ class OtpVerificationScreenView
                           TextSpan(
                               text: "lbl_resend".tr,
                               style: AppStyle.pinkInterNormal16.copyWith(
-                                color: ColorConstant.primaryPink.withOpacity(
-                                    controller.sec.value != 0 ? 0.5 : 1),
+                                color: ColorConstant.primaryPink.withValues(alpha: controller.sec.value != 0 ? 0.5 : 1),
                               ))
                         ]),
                         textAlign: TextAlign.left))))

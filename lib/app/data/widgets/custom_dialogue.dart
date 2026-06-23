@@ -68,7 +68,7 @@ class CustomDialogue extends StatelessWidget {
             const Spacer(),
             Container(
               height: 0.7,
-              color: ColorConstant.textFieldHintColor.withOpacity(0.6),
+              color: ColorConstant.textFieldHintColor.withValues(alpha: 0.6),
             ),
 
             // Row()
@@ -101,7 +101,7 @@ class CustomDialogue extends StatelessWidget {
                   ),
                   Container(
                     width: 1,
-                    color: ColorConstant.textFieldHintColor.withOpacity(0.6),
+                    color: ColorConstant.textFieldHintColor.withValues(alpha: 0.6),
                   ),
                   Expanded(
                     child: GestureDetector(

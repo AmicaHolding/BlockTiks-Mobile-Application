@@ -341,7 +341,7 @@ class TicketCounter extends StatelessWidget {
                 margin: getMargin(right: 8,left: 8,top: 4,bottom: 4),
                 padding: getPadding(top: 5, bottom: 5,left: 5,right: 5),
                 decoration: BoxDecoration(
-                    color: ColorConstant.containerBg.withOpacity(.3),
+                    color: ColorConstant.containerBg.withValues(alpha: .3),
                     borderRadius: BorderRadius.circular(10)
             ),
             child: Row(
@@ -362,11 +362,11 @@ class TicketCounter extends StatelessWidget {
                         borderRadius: BorderRadius.circular(5),
                         color: count > 0
                             ? ColorConstant.primaryPink
-                            : ColorConstant.gray50.withOpacity(0.5),
+                            : ColorConstant.gray50.withValues(alpha: 0.5),
                         // border: Border.all(
                         //     color: count > 0
                         //         ? ColorConstant.primaryPink
-                        //         : ColorConstant.gray50.withOpacity(0.5)
+                        //         : ColorConstant.gray50.withValues(alpha: 0.5)
                         // )
                     ),
                     padding: getPadding(left: 8, right: 8,),
@@ -391,11 +391,11 @@ class TicketCounter extends StatelessWidget {
                         borderRadius: BorderRadius.circular(5),
                         color: count < 10
                             ? ColorConstant.primaryPink
-                            : ColorConstant.gray50.withOpacity(0.5),
+                            : ColorConstant.gray50.withValues(alpha: 0.5),
                         // border: Border.all(
                         //     color: count < 10
                         //         ? ColorConstant.primaryPink
-                        //         : ColorConstant.gray50.withOpacity(0.5)
+                        //         : ColorConstant.gray50.withValues(alpha: 0.5)
                         // )
                     ),
                     padding: getPadding(left: 8, right: 8,),
@@ -433,8 +433,8 @@ class StageViewScreen extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                ColorConstant.primaryPink.withOpacity(0.01),
-                ColorConstant.primaryPink.withOpacity(0.5),
+                ColorConstant.primaryPink.withValues(alpha: 0.01),
+                ColorConstant.primaryPink.withValues(alpha: 0.5),
               ])),
       height: height,
       child: Stack(

@@ -33,7 +33,7 @@ class TransactionsView extends GetView<TransactionsController> {
             width: size.width,
             height: getSize(45),
             decoration: BoxDecoration(
-                color: ColorConstant.primaryPink.withOpacity(0.15),
+                color: ColorConstant.primaryPink.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(15)),
             child: Row(
               children: [
@@ -78,7 +78,7 @@ class TransactionsView extends GetView<TransactionsController> {
             decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(15),
                 color: controller.selectedTab.value == index
-                    ? ColorConstant.gray50.withOpacity(0.5)
+                    ? ColorConstant.gray50.withValues(alpha: 0.5)
                     : null,
                 border: Border.all(
                   color: controller.selectedTab.value == index
@@ -109,7 +109,7 @@ class TransactionsView extends GetView<TransactionsController> {
       decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(5),
           border: Border.all(
-              color: ColorConstant.blue.withOpacity(0.5), width: 0.3)),
+              color: ColorConstant.blue.withValues(alpha: 0.5), width: 0.3)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [

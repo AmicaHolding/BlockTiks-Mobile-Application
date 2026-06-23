@@ -217,7 +217,7 @@ class CustomTextFormField extends StatelessWidget {
         return OutlineInputBorder(
           borderRadius: _setOutlineBorderRadius(),
           borderSide: BorderSide(
-            color: ColorConstant.whiteA700.withOpacity(.4),
+            color: ColorConstant.whiteA700.withValues(alpha: .4),
             width: 1,
           ),
         );
@@ -244,9 +244,9 @@ class CustomTextFormField extends StatelessWidget {
       case TextFormFieldVariant.FillOrangeA20033:
         return ColorConstant.orangeA20033;
       case TextFormFieldVariant.FillGray50:
-        return ColorConstant.gray50.withOpacity(0.2);
+        return ColorConstant.gray50.withValues(alpha: 0.2);
       case TextFormFieldVariant.None:
-        return ColorConstant.gray50.withOpacity(0.05);
+        return ColorConstant.gray50.withValues(alpha: 0.05);
       default:
         return ColorConstant.whiteA700;
     }

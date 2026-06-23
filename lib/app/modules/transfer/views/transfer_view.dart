@@ -90,9 +90,9 @@ class TransferView extends GetView<TransferController> {
                     getPadding(left: 15, right: 15, top: 10, bottom: 10),
                     margin: getMargin(bottom: 15),
                     decoration: BoxDecoration(
-                        color: ColorConstant.gray50.withOpacity(0.05),
+                        color: ColorConstant.gray50.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: controller.selectedUser.value == index ? ColorConstant.primaryPink : ColorConstant.gray50.withOpacity(0.05))
+                      border: Border.all(color: controller.selectedUser.value == index ? ColorConstant.primaryPink : ColorConstant.gray50.withValues(alpha: 0.05))
                     ),
                     child: Row(
                       children: [

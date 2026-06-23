@@ -33,7 +33,7 @@ class AddDropView extends GetView<AddDropController> {
             //   padding: getPadding(left: 16, right: 16),
             //   margin: getMargin(bottom: 20),
             //   decoration: BoxDecoration(
-            //     color: Colors.white.withOpacity(0.1),
+            //     color: Colors.white.withValues(alpha: 0.1),
             //     borderRadius: BorderRadius.circular(10),
             //   ),
             //   alignment: Alignment.center,
@@ -67,7 +67,7 @@ class AddDropView extends GetView<AddDropController> {
                     padding: getPadding(left: 16,right: 16,top: 10,bottom: 10),
                     margin: getMargin(bottom: 15),
                     decoration: BoxDecoration(
-                        color: ColorConstant.whiteA700.withOpacity(.15),
+                        color: ColorConstant.whiteA700.withValues(alpha: .15),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: ColorConstant.grayBorder)
                     ),
@@ -103,7 +103,7 @@ class AddDropView extends GetView<AddDropController> {
             Obx(() => controller.isTicketAddClick.value?
             Container(
               decoration: BoxDecoration(
-                border: Border.all(color: ColorConstant.grayBorder.withOpacity(.5)),
+                border: Border.all(color: ColorConstant.grayBorder.withValues(alpha: .5)),
                 borderRadius: BorderRadius.circular(getSize(10)),
               ),
               padding: getPadding(all: 15),
@@ -178,7 +178,7 @@ class AddDropView extends GetView<AddDropController> {
                       padding: getPadding(left: 16, right: 16,bottom: 12,top: 12),
                       margin: getMargin(bottom: 20),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       alignment: Alignment.centerLeft,
@@ -240,7 +240,7 @@ class AddDropView extends GetView<AddDropController> {
                   height: getSize(50),
                   padding: getPadding(left: 20),
                   decoration: BoxDecoration(
-                      color: ColorConstant.whiteA700.withOpacity(.05),
+                      color: ColorConstant.whiteA700.withValues(alpha: .05),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: ColorConstant.grayBorder)
                   ),

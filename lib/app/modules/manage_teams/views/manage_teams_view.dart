@@ -180,7 +180,7 @@ class TeamTile extends StatelessWidget {
         padding: getPadding(left: 15, right: 15, top: 10, bottom: 10),
         margin: getMargin(bottom: 15),
         decoration: BoxDecoration(
-            color: ColorConstant.whiteA700.withOpacity(0.05),
+            color: ColorConstant.whiteA700.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(10)),
         child: Row(
           children: [

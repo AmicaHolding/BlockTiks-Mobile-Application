@@ -34,8 +34,8 @@ class EditProfileView extends GetView<EditProfileController> {
             foregroundDecoration: BoxDecoration(
                 gradient: LinearGradient(
               colors: [
-                Colors.black.withOpacity(0.1),
-                Colors.black.withOpacity(0.9),
+                Colors.black.withValues(alpha: 0.1),
+                Colors.black.withValues(alpha: 0.9),
               ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,

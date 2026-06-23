@@ -192,7 +192,7 @@ class CustomButton extends StatelessWidget {
       case ButtonVariant.FillWhiteA700:
         return ColorConstant.whiteA700;
       case ButtonVariant.FillGray300:
-        return ColorConstant.gray300.withOpacity(0.2);
+        return ColorConstant.gray300.withValues(alpha: 0.2);
       case ButtonVariant.FillBlueA400:
         return ColorConstant.blueA400;
       case ButtonVariant.OutlineBluegray100:

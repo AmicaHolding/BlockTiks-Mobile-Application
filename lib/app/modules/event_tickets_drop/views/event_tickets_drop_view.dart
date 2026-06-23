@@ -35,7 +35,7 @@ class EventTicketsDropView extends GetView<EventTicketsDropController> {
                   child: Container(
                     padding: getPadding(left: 16,right: 16,top: 10,bottom: 10),
                     decoration: BoxDecoration(
-                        color: ColorConstant.whiteA700.withOpacity(.15),
+                        color: ColorConstant.whiteA700.withValues(alpha: .15),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: ColorConstant.grayBorder)
                     ),
@@ -82,7 +82,7 @@ class EventTicketsDropView extends GetView<EventTicketsDropController> {
                 height: getSize(50),
                 padding: getPadding(left: 20),
                 decoration: BoxDecoration(
-                  color: ColorConstant.whiteA700.withOpacity(.05),
+                  color: ColorConstant.whiteA700.withValues(alpha: .05),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: ColorConstant.grayBorder)
                 ),

@@ -18,8 +18,10 @@ class UserDashboardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     responsive.setContext(context);
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
         showDialog(
             context: context,
             builder: (context) {
@@ -34,7 +36,6 @@ class UserDashboardView extends StatelessWidget {
                 },
               );
             });
-        return true;
       },
       child: Obx(
         () => BaseviewScreen(

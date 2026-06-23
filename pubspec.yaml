@@ -44,7 +44,7 @@ dependencies:
   gesture_zoom_box: ^0.0.4
   debounce_textfield: ^0.0.2
   flutter_staggered_grid_view: ^0.7.0
-  google_fonts: ^5.0.0
+  google_fonts: ^6.2.1
   qr_code_scanner: ^1.0.1
 #  geocoding: ^2.1.0
 #  latlong2: ^0.8.0

@@ -71,7 +71,7 @@ class ResellTabController extends GetxController
             children: [
               Container(
                 decoration: BoxDecoration(
-                    color: ColorConstant.whiteA700.withOpacity(.9),
+                    color: ColorConstant.whiteA700.withValues(alpha: .9),
                     borderRadius: BorderRadius.circular(
                       14,
                     )),

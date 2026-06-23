@@ -39,7 +39,7 @@ class AnalyticView extends StatelessWidget {
               //   margin: getMargin(bottom: 16),
               //   padding: getPadding(left: 16, right: 16),
               //   decoration: BoxDecoration(
-              //     color: Colors.white.withOpacity(0.1),
+              //     color: Colors.white.withValues(alpha: 0.1),
               //     borderRadius: BorderRadius.circular(10),
               //   ),
               //   child: TextField(
@@ -162,7 +162,7 @@ class AnalyticView extends StatelessWidget {
                     lineBarsData: [
                       LineChartBarData(
                         isCurved: true,
-                        color: ColorConstant.primaryPink.withOpacity(0.8),
+                        color: ColorConstant.primaryPink.withValues(alpha: 0.8),
                         barWidth: 3,
                         belowBarData: BarAreaData(
                           show: true,
@@ -170,8 +170,8 @@ class AnalyticView extends StatelessWidget {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              ColorConstant.primaryPink.withOpacity(0.5),
-                              ColorConstant.primaryPink.withOpacity(0.05),
+                              ColorConstant.primaryPink.withValues(alpha: 0.5),
+                              ColorConstant.primaryPink.withValues(alpha: 0.05),
                             ]
                           ),
                           // color: ColorConstant.primaryPink,

@@ -452,7 +452,7 @@ class TrendingCard extends StatelessWidget {
                   height: getSize(35),
                   decoration: BoxDecoration(
                     // shape: BoxShape.circle,
-                    color: ColorConstant.white60.withOpacity(0.2),
+                    color: ColorConstant.white60.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   padding: getPadding(left: 10,right: 10),

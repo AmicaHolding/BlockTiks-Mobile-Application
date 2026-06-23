@@ -59,7 +59,7 @@ class PromoCodesView extends GetView<PromoCodesController> {
   Widget promoCodeWidget({bool isUsed = false}) {
     return Container(
       decoration: BoxDecoration(
-          color: ColorConstant.gray50.withOpacity(0.1),
+          color: ColorConstant.gray50.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10)),
       padding: const EdgeInsets.fromLTRB(12, 12, 13.8, 9),
       child: Column(

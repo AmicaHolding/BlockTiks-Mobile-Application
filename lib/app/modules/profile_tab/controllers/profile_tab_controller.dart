@@ -21,11 +21,15 @@ class ProfileTabController extends GetxController
 
   getUserData() async {
     var data = await _appPreferences.getUserData();
-    Map<String, dynamic> userMap = jsonDecode(data ?? "");
-    print('map $userMap');
-    // profileData = SignupModel.fromJson(userMap).obs;
-    if (data != null) {
+    if (data == null || data.isEmpty) {
+      profileData.refresh();
+      return;
+    }
+    try {
+      Map<String, dynamic> userMap = jsonDecode(data);
       profileData.value = SignupModel.fromJson(userMap);
+    } catch (_) {
+      // stored data is malformed, ignore
     }
     profileData.refresh();
   }

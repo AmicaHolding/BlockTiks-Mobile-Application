@@ -106,7 +106,7 @@ class EventSettingsView extends GetView<EventSettingsController> {
                     decoration: BoxDecoration(
                       border: Border.all(color: ColorConstant.grayBorder),
                       borderRadius: BorderRadius.circular(getSize(10)),
-                      color: ColorConstant.whiteA700.withOpacity(0.15)
+                      color: ColorConstant.whiteA700.withValues(alpha: 0.15)
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,7 +138,7 @@ class EventSettingsView extends GetView<EventSettingsController> {
                                       style: AppStyle.white60InterNormal14.copyWith(fontSize: getFontSize(16))),
                                   TextSpan(
                                       text: "(Optional)".tr,
-                                      style: AppStyle.white60InterNormal14.copyWith(color: ColorConstant.white60.withOpacity(.3))),
+                                      style: AppStyle.white60InterNormal14.copyWith(color: ColorConstant.white60.withValues(alpha: .3))),
                                 ]),
                                 textAlign: TextAlign.left),
                             Spacer(),
@@ -147,7 +147,7 @@ class EventSettingsView extends GetView<EventSettingsController> {
                               child: Container(
                                 padding: getPadding(left: 16, ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.3),
+                                  color: Colors.white.withValues(alpha: 0.3),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: TextField(
@@ -180,7 +180,7 @@ class EventSettingsView extends GetView<EventSettingsController> {
                                   style: AppStyle.white60InterNormal14.copyWith(fontSize: getFontSize(16))),
                               TextSpan(
                                   text: "(Optional)".tr,
-                                  style: AppStyle.white60InterNormal14.copyWith(color: ColorConstant.white60.withOpacity(.3))),
+                                  style: AppStyle.white60InterNormal14.copyWith(color: ColorConstant.white60.withValues(alpha: .3))),
                             ]),
                             textAlign: TextAlign.left),
                         SizedBox(height: getSize(15),),
@@ -197,7 +197,7 @@ class EventSettingsView extends GetView<EventSettingsController> {
                               padding: getPadding(left: 12,right: 10 ),
                               width: 35,
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.3),
+                                color: Colors.white.withValues(alpha: 0.3),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: TextField(
@@ -226,7 +226,7 @@ class EventSettingsView extends GetView<EventSettingsController> {
                               width: 35,
                               padding: getPadding(left: 12,right: 10 ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.3),
+                                color: Colors.white.withValues(alpha: 0.3),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: TextField(
@@ -273,7 +273,7 @@ class EventSettingsView extends GetView<EventSettingsController> {
                   child: Container(
                     padding: getPadding(left: 16, ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: TextField(

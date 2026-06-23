@@ -196,7 +196,7 @@ class PlaceBidView extends GetView<PlaceBidController> {
               borderRadius: BorderRadius.circular(8.0),
               boxShadow: [
                 BoxShadow(
-                  color: borderColor.withOpacity(0.2), // Shadow color
+                  color: borderColor.withValues(alpha: 0.2), // Shadow color
                   spreadRadius: 1, // How much the shadow spreads
                   blurRadius: 6, // How blurred the shadow is
                   offset: const Offset(0, 40), // Offset in X and Y directions
@@ -219,7 +219,7 @@ class PlaceBidView extends GetView<PlaceBidController> {
             Container(
               decoration: BoxDecoration(
                 border:
-                    Border.all(color: ColorConstant.gray50.withOpacity(0.5)),
+                    Border.all(color: ColorConstant.gray50.withValues(alpha: 0.5)),
                 borderRadius: BorderRadius.circular(8.0),
               ),
               child: Row(
@@ -228,13 +228,13 @@ class PlaceBidView extends GetView<PlaceBidController> {
                   Container(
                     width: 0.5,
                     height: 30,
-                    color: ColorConstant.gray50.withOpacity(0.5),
+                    color: ColorConstant.gray50.withValues(alpha: 0.5),
                   ),
                   _buildPriceColumn('Lowest Ask', lowestAsk),
                   Container(
                     width: 0.5,
                     height: 30,
-                    color: ColorConstant.gray50.withOpacity(0.5),
+                    color: ColorConstant.gray50.withValues(alpha: 0.5),
                   ),
                   _buildPriceColumn('Recent Sale', recentSale),
                 ],
@@ -293,7 +293,7 @@ class MarketPlaceListWidget extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-            color: ColorConstant.gray50.withOpacity(0.05),
+            color: ColorConstant.gray50.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(10)),
         margin: getMargin(bottom: 10),
         padding: getPadding(left: 16, right: 16, top: 10, bottom: 10),

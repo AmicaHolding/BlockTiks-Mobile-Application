@@ -25,7 +25,7 @@ class SearchView extends GetView<MySearchController> {
             Container(
               padding: getPadding(left: 16, right: 16),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Stack(
@@ -91,7 +91,7 @@ class SearchView extends GetView<MySearchController> {
                                           top: 5,
                                           bottom: 5),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.1),
+                                        color: Colors.white.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(5),
                                       ),
                                       margin: getMargin(right: 10),
@@ -197,7 +197,7 @@ class SearchView extends GetView<MySearchController> {
                                             margin: getMargin(bottom: 10),
                                             decoration: BoxDecoration(
                                                 color: ColorConstant.gray50
-                                                    .withOpacity(0.05),
+                                                    .withValues(alpha: 0.05),
                                                 borderRadius:
                                                     BorderRadius.circular(10)),
                                             child: Row(
@@ -238,7 +238,7 @@ class SearchView extends GetView<MySearchController> {
                                                   margin: getMargin(right: 15),
                                                   alignment: Alignment.center,
                                                   decoration: BoxDecoration(
-                                                      color: ColorConstant.whiteA700.withOpacity(0.05),
+                                                      color: ColorConstant.whiteA700.withValues(alpha: 0.05),
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                               10)),
@@ -253,7 +253,7 @@ class SearchView extends GetView<MySearchController> {
                                                   height: 60,
                                                   alignment: Alignment.center,
                                                   decoration: BoxDecoration(
-                                                      color: ColorConstant.whiteA700.withOpacity(0.05),
+                                                      color: ColorConstant.whiteA700.withValues(alpha: 0.05),
                                                       borderRadius: BorderRadius.circular(10)),
                                                   child: MyText(
                                                     title:
@@ -289,7 +289,7 @@ class SearchView extends GetView<MySearchController> {
                                         margin: getMargin(bottom: 15),
                                         decoration: BoxDecoration(
                                             color: ColorConstant.gray50
-                                                .withOpacity(0.05),
+                                                .withValues(alpha: 0.05),
                                             borderRadius:
                                                 BorderRadius.circular(10)),
                                         child: Row(

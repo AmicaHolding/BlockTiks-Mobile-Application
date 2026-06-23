@@ -31,8 +31,8 @@ class ProfileTabView extends GetView<ProfileTabController> {
                   foregroundDecoration: BoxDecoration(
                       gradient: LinearGradient(
                     colors: [
-                      Colors.black.withOpacity(0.1),
-                      Colors.black.withOpacity(0.9),
+                      Colors.black.withValues(alpha: 0.1),
+                      Colors.black.withValues(alpha: 0.9),
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -197,7 +197,7 @@ class ProfileTabView extends GetView<ProfileTabController> {
                               children: [
                                 MyText(
                                   title: "cloudmusic.com",
-                                  clr: ColorConstant.primaryPink.withOpacity(0.8),
+                                  clr: ColorConstant.primaryPink.withValues(alpha: 0.8),
                                   fontSize: (15),
                                 ),
                                 Container(

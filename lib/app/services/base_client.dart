@@ -64,7 +64,7 @@ class BaseClient {
         print(response);
         // 3) return response (api done successfully)
         await onSuccess(response);
-      } on DioError catch (error) {
+      } on DioException catch (error) {
         // dio error (api reach the server but not performed successfully
         // no internet connection
         print(error);
@@ -167,7 +167,7 @@ class BaseClient {
       );
       // 3) return response (api done successfully)
       await onSuccess.call(response);
-    } on DioError catch (error) {
+    } on DioException catch (error) {
       // dio error (api reach the server but not performed successfully
 
       // no internet connection
@@ -271,7 +271,7 @@ class BaseClient {
       );
       // 3) return response (api done successfully)
       await onSuccess.call(response);
-    } on DioError catch (error) {
+    } on DioException catch (error) {
       // dio error (api reach the server but not performed successfully
 
       // no internet connection
@@ -377,7 +377,7 @@ class BaseClient {
       );
       // 3) return response (api done successfully)
       await onSuccess.call(response);
-    } on DioError catch (error) {
+    } on DioException catch (error) {
       // dio error (api reach the server but not performed successfully
       // no internet connection
       if (error.response!.data['message'].toLowerCase().contains('socket')) {
@@ -470,7 +470,7 @@ class BaseClient {
       );
       // 3) return response (api done successfully)
       await onSuccess.call(response);
-    } on DioError catch (error) {
+    } on DioException catch (error) {
       // dio error (api reach the server but not performed successfully
       // no internet connection
       if (error.message!.toLowerCase().contains('socket')) {

@@ -48,7 +48,7 @@ class CreateEventView extends GetView<CreateEventController> {
                 padding: getPadding(left: 16, right: 16),
                 margin: getMargin(bottom: 20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 alignment: Alignment.center,
@@ -103,7 +103,7 @@ class CreateEventView extends GetView<CreateEventController> {
                   padding: getPadding(left: 16, right: 16,bottom: 12,top: 12),
                   margin: getMargin(bottom: 20),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
+                    color: Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   alignment: Alignment.centerLeft,
@@ -118,7 +118,7 @@ class CreateEventView extends GetView<CreateEventController> {
                 padding: getPadding(left: 16, right: 16,top: 5,bottom: 5),
                 margin: getMargin(bottom: 20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 alignment: Alignment.center,
@@ -147,7 +147,7 @@ class CreateEventView extends GetView<CreateEventController> {
                 padding: getPadding(left: 16, right: 16,top: 5,bottom: 5),
                 margin: getMargin(bottom: 20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -330,7 +330,7 @@ class CreateEventView extends GetView<CreateEventController> {
         padding: getPadding(left: 16, right: 16,top: 5,bottom: 5),
         margin: getMargin(bottom: 20),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(

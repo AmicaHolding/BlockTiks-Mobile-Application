@@ -17,7 +17,7 @@ class NotificationsItem extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               color: item.isRead.value
                   ? Colors.transparent
-                  : ColorConstant.gray50.withOpacity(0.1),
+                  : ColorConstant.gray50.withValues(alpha: 0.1),
             ),
             padding: getPadding(left: 16, right: 16, top: 8, bottom: 8),
             child: Row(

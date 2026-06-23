@@ -49,7 +49,7 @@ class CreatorPromoCodeController extends GetxController {
                             height:getSize(30),
                             width:getSize(30),
                             decoration: BoxDecoration(
-                                color: ColorConstant.whiteA700.withOpacity(0.1),
+                                color: ColorConstant.whiteA700.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8)
                             ),
                             alignment: Alignment.center,
@@ -90,7 +90,7 @@ class CreatorPromoCodeController extends GetxController {
                           padding: getPadding(left: 16, right: 16),
                           margin: getMargin(bottom: 15),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
+                            color: Colors.white.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           alignment: Alignment.center,
@@ -131,7 +131,7 @@ class CreatorPromoCodeController extends GetxController {
                               child: Container(
                                 padding: getPadding(left: 16,right: 16 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.1),
+                                  color: Colors.white.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: TextFormField(
@@ -183,7 +183,7 @@ class CreatorPromoCodeController extends GetxController {
                             padding: getPadding(left: 16, right: 16,bottom: 12,top: 12),
                             margin: getMargin(bottom: 20),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
+                              color: Colors.white.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             alignment: Alignment.centerLeft,

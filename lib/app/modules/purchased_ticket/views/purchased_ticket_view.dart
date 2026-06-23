@@ -32,8 +32,8 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
               foregroundDecoration: BoxDecoration(
                   gradient: LinearGradient(
                 colors: [
-                  Colors.black.withOpacity(0.1),
-                  Colors.black.withOpacity(0.9),
+                  Colors.black.withValues(alpha: 0.1),
+                  Colors.black.withValues(alpha: 0.9),
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -62,7 +62,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
                           height:getSize(30),
                           width:getSize(30),
                           decoration: BoxDecoration(
-                              color: ColorConstant.whiteA700.withOpacity(0.1),
+                              color: ColorConstant.whiteA700.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8)
                           ),
                           alignment: Alignment.center,
@@ -504,7 +504,7 @@ class DottedLinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     var paint = Paint()
-      ..color = ColorConstant.dividerColor.withOpacity(0.3)
+      ..color = ColorConstant.dividerColor.withValues(alpha: 0.3)
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 

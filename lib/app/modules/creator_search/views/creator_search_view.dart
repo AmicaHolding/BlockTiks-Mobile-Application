@@ -27,7 +27,7 @@ class CreatorSearchView extends GetView<CreatorSearchController> {
             Container(
               padding: getPadding(left: 16, right: 16),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Stack(
@@ -149,7 +149,7 @@ class CreatorSearchView extends GetView<CreatorSearchController> {
                           margin: getMargin(bottom: 10),
                           decoration: BoxDecoration(
                               color: ColorConstant.gray50
-                                  .withOpacity(0.05),
+                                  .withValues(alpha: 0.05),
                               borderRadius:
                               BorderRadius.circular(10)),
                           child: Row(
@@ -190,7 +190,7 @@ class CreatorSearchView extends GetView<CreatorSearchController> {
                                 margin: getMargin(right: 15),
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                    color: ColorConstant.whiteA700.withOpacity(0.05),
+                                    color: ColorConstant.whiteA700.withValues(alpha: 0.05),
                                     borderRadius:
                                     BorderRadius.circular(
                                         10)),
@@ -205,7 +205,7 @@ class CreatorSearchView extends GetView<CreatorSearchController> {
                                 height: 60,
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                    color: ColorConstant.whiteA700.withOpacity(0.05),
+                                    color: ColorConstant.whiteA700.withValues(alpha: 0.05),
                                     borderRadius: BorderRadius.circular(10)),
                                 child: MyText(
                                   title:
@@ -241,7 +241,7 @@ class CreatorSearchView extends GetView<CreatorSearchController> {
                 //         margin: getMargin(bottom: 15),
                 //         decoration: BoxDecoration(
                 //             color: ColorConstant.gray50
-                //                 .withOpacity(0.05),
+                //                 .withValues(alpha: 0.05),
                 //             borderRadius:
                 //             BorderRadius.circular(10)),
                 //         child: Row(

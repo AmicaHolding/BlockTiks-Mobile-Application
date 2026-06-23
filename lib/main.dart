@@ -5,7 +5,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 // import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:keyboard_actions/external/platform_check/platform_check.dart';
 import 'package:block_tix/app/data/utils/check_internet_connection.dart';
-import 'package:block_tix/app/data/utils/helper_functions.dart';
 
 import 'app/data/core/app_export.dart';
 import 'app/data/localization/app_localization.dart';
@@ -199,7 +198,7 @@ class _MyAppState extends State<MyApp> {
         getPages: AppPages.routes,
         builder: (context, child) {
           return MediaQuery(
-              data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
+              data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.0)),
               child: child!);
         });
   }
@@ -226,7 +225,9 @@ Future<void> onSelectNotification(dynamic map1) async {
   debugPrint("onSelectNotification clicked");
   debugPrint(map1);
   var map = jsonDecode(map1);
+  // ignore: unused_local_variable
   var ref_id = map['ref_id'];
+  // ignore: unused_local_variable
   var type = map['notification_type'];
 
   // var payload = ExtraPayload(refId: ref_id, type: type);

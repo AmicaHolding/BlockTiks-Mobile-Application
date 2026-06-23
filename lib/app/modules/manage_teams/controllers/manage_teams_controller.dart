@@ -65,7 +65,7 @@ class ManageTeamsController extends GetxController with GetSingleTickerProviderS
                         //     height:getSize(30),
                         //     width:getSize(30),
                         //     decoration: BoxDecoration(
-                        //         color: ColorConstant.whiteA700.withOpacity(0.1),
+                        //         color: ColorConstant.whiteA700.withValues(alpha: 0.1),
                         //         borderRadius: BorderRadius.circular(8)
                         //     ),
                         //     alignment: Alignment.center,
@@ -113,7 +113,7 @@ class ManageTeamsController extends GetxController with GetSingleTickerProviderS
                         margin: getMargin(bottom: 30),
                         padding: getPadding(left: 15,right: 15,),
                         decoration: BoxDecoration(
-                            color: ColorConstant.whiteA700.withOpacity(0.1),
+                            color: ColorConstant.whiteA700.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8)
                         ),
                         child: Obx(() => DropdownButton<String>(

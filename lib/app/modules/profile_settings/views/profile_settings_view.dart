@@ -32,7 +32,7 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
             Container(
               padding: getPadding(left: 16, right: 16),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: TextField(
@@ -116,7 +116,7 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
         margin: getMargin(bottom: 10),
         padding: getPadding(left: 12, right: 12, top: 7, bottom: 10),
         decoration: BoxDecoration(
-            color: ColorConstant.containerBg.withOpacity(0.5),
+            color: ColorConstant.containerBg.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(10)),
         child: Row(
           children: [
@@ -136,7 +136,7 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
                   MyText(
                     title: desc,
                     fontSize: getFontSize(14),
-                    clr: ColorConstant.whiteA700.withOpacity(0.7),
+                    clr: ColorConstant.whiteA700.withValues(alpha: 0.7),
                     toverflow: TextOverflow.ellipsis,
                     line: 1,
                   ),

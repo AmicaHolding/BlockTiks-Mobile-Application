@@ -115,7 +115,7 @@ class SetDateView extends GetView<SetDateController> {
                       TimeOfDay time = controller.timeSlots[index];
                       return Obx(() => Container(
                         decoration: BoxDecoration(
-                          color: time == (controller.isStartDateSelected.value ? controller.selectedTime.value : controller.selectedEndTime.value) ? Colors.white.withOpacity(0.1) : Colors.transparent,
+                          color: time == (controller.isStartDateSelected.value ? controller.selectedTime.value : controller.selectedEndTime.value) ? Colors.white.withValues(alpha: 0.1) : Colors.transparent,
                         ),
                         child: ListTile(
                           title: Center(

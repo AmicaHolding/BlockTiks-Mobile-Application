@@ -87,7 +87,7 @@ class CreatorSearchController extends GetxController {
                         //     height:getSize(30),
                         //     width:getSize(30),
                         //     decoration: BoxDecoration(
-                        //         color: ColorConstant.whiteA700.withOpacity(0.1),
+                        //         color: ColorConstant.whiteA700.withValues(alpha: 0.1),
                         //         borderRadius: BorderRadius.circular(8)
                         //     ),
                         //     alignment: Alignment.center,
@@ -126,7 +126,7 @@ class CreatorSearchController extends GetxController {
                         margin: getMargin(bottom: 30),
                         padding: getPadding(left: 15,right: 15,),
                         decoration: BoxDecoration(
-                            color: ColorConstant.whiteA700.withOpacity(0.1),
+                            color: ColorConstant.whiteA700.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8)
                         ),
                         child: Obx(() => DropdownButton<String>(
@@ -153,7 +153,7 @@ class CreatorSearchController extends GetxController {
                         margin: getMargin(bottom: 30),
                         padding: getPadding(left: 15, right: 15,top: 16,bottom: 16),
                         decoration: BoxDecoration(
-                          color: ColorConstant.whiteA700.withOpacity(0.1),
+                          color: ColorConstant.whiteA700.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Obx(() => GestureDetector(
@@ -179,7 +179,7 @@ class CreatorSearchController extends GetxController {
                         margin: getMargin(bottom: 30),
                         padding: getPadding(left: 15,right: 15,),
                         decoration: BoxDecoration(
-                            color: ColorConstant.whiteA700.withOpacity(0.1),
+                            color: ColorConstant.whiteA700.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8)
                         ),
                         child: Obx(() => DropdownButton<String>(
@@ -206,7 +206,7 @@ class CreatorSearchController extends GetxController {
                         margin: getMargin(bottom: 30),
                         padding: getPadding(left: 15,right: 15,),
                         decoration: BoxDecoration(
-                            color: ColorConstant.whiteA700.withOpacity(0.1),
+                            color: ColorConstant.whiteA700.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8)
                         ),
                         child: TextField(
@@ -238,7 +238,7 @@ class CreatorSearchController extends GetxController {
                         max: 500, // Maximum price
                         divisions: 100, // Number of steps in the slider
                         activeColor: ColorConstant.primaryPink, // Customize the active color
-                        inactiveColor: ColorConstant.primaryPink.withOpacity(0.2), // Customize the inactive color
+                        inactiveColor: ColorConstant.primaryPink.withValues(alpha: 0.2), // Customize the inactive color
                         labels: RangeLabels(
                           '${_currentRangeValues.value.start.toInt()}',
                           '${_currentRangeValues.value.end.toInt()}',

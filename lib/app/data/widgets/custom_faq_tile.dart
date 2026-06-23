@@ -57,7 +57,7 @@ class _FAQTileState extends State<FAQTile> with SingleTickerProviderStateMixin {
                       topRight: Radius.circular(10),
                       topLeft: Radius.circular(10))
                   : BorderRadius.circular(10),
-              color: ColorConstant.gray50.withOpacity(0.1),
+              color: ColorConstant.gray50.withValues(alpha: 0.1),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -100,7 +100,7 @@ class _FAQTileState extends State<FAQTile> with SingleTickerProviderStateMixin {
                     borderRadius: const BorderRadius.only(
                         bottomLeft: Radius.circular(10),
                         bottomRight: Radius.circular(10)),
-                    color: ColorConstant.gray50.withOpacity(0.1),
+                    color: ColorConstant.gray50.withValues(alpha: 0.1),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   child: MyText(

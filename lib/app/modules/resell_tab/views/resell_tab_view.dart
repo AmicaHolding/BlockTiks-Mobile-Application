@@ -145,7 +145,7 @@ class BidWidget extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-            color: ColorConstant.gray50.withOpacity(0.05),
+            color: ColorConstant.gray50.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(10)),
         margin: getMargin(bottom: 10),
         padding: getPadding(left: 16, right: 16, top: 10, bottom: 10),

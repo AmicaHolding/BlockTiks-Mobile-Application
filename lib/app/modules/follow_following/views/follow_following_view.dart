@@ -23,7 +23,7 @@ class FollowFollowingView extends GetView<FollowFollowingController> {
             margin: getMargin(bottom: 16),
             padding: getPadding(left: 16, right: 16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: TextField(
@@ -112,7 +112,7 @@ class UserTile extends StatelessWidget {
         padding: getPadding(left: 15, right: 15, top: 10, bottom: 10),
         margin: getMargin(bottom: 15),
         decoration: BoxDecoration(
-            color: ColorConstant.whiteA700.withOpacity(0.05),
+            color: ColorConstant.whiteA700.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(10)),
         child: Row(
           children: [

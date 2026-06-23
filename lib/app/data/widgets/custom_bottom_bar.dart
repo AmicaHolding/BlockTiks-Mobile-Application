@@ -25,7 +25,7 @@ class CustomBottomBar extends StatelessWidget {
           maxHeight: Platform.isIOS ? getSize(85) : getSize(75)
         ),
         decoration: BoxDecoration(
-          // color: ColorConstant.whiteColor.withOpacity(0.1),
+          // color: ColorConstant.whiteColor.withValues(alpha: 0.1),
           boxShadow: [
             BoxShadow(
               // color: ColorConstant.black9004c,
@@ -76,7 +76,7 @@ class CustomBottomBar extends StatelessWidget {
           ? Container(
               padding: getPadding(left: 10,right: 10, top: 8,bottom: 8),
               decoration: BoxDecoration(
-                color: ColorConstant.whiteA700.withOpacity(0.1),
+                color: ColorConstant.whiteA700.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(getSize(20)),
               ),
               child: Row(

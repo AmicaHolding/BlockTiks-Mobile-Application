@@ -86,7 +86,7 @@ class AddCoHostController extends GetxController with GetSingleTickerProviderSta
                       Container(
                         padding: getPadding(left: 15,right: 15,),
                         decoration: BoxDecoration(
-                            color: ColorConstant.whiteA700.withOpacity(0.1),
+                            color: ColorConstant.whiteA700.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8)
                         ),
                         child: Obx(() => DropdownButton<String>(

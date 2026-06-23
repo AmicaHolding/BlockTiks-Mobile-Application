@@ -117,7 +117,7 @@ class BaseviewScreen extends StatelessWidget {
                                     bottom: BorderSide(
                                         color: showDivider == true
                                             ? ColorConstant.textFieldHintColor
-                                                .withOpacity(0.5)
+                                                .withValues(alpha: 0.5)
                                             : Colors.transparent,
                                         width: 0.5),
                                   ),
@@ -222,7 +222,7 @@ class BaseviewScreen extends StatelessWidget {
                                     bottom: BorderSide(
                                         color: showDivider == true
                                             ? ColorConstant.textFieldHintColor
-                                                .withOpacity(0.5)
+                                                .withValues(alpha: 0.5)
                                             : Colors.transparent,
                                         width: 0.5),
                                   ),

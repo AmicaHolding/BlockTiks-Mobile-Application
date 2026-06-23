@@ -9,7 +9,7 @@ class ColorConstant {
   static Color bg = fromHex('#121212');
   static Color containerBg = fromHex('#363636');
   static Color blue = fromHex('#007AFF');
-  static Color white60 = Colors.white.withOpacity(.6);
+  static Color white60 = Colors.white.withValues(alpha: .6);
   static Color whiteA700 = fromHex('#ffffff');
   static Color unselectedIcon = fromHex('#CDCDCD');
   static Color grayBorder = fromHex('#707070');
