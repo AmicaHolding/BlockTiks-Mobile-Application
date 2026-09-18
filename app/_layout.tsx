@@ -1,24 +1,13 @@
 import { useEffect, useState } from 'react';
-import { useFonts } from 'expo-font';
-import { Stack, useRouter, useSegments } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
+import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+import { Manrope_400Regular, Manrope_600SemiBold, Manrope_700Bold } from '@expo-google-fonts/manrope';
+import { Stack, SplashScreen } from 'expo-router';
 import { ThemeProvider } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-} from '@expo-google-fonts/inter';
-import {
-  Manrope_400Regular,
-  Manrope_600SemiBold,
-  Manrope_700Bold,
-} from '@expo-google-fonts/manrope';
-
-import { Colors, Theme } from '@/constants/Colors';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Theme } from '@/constants/Colors';
 import { ToastProvider } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
+import * as SecureStore from 'expo-secure-store';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -33,52 +22,33 @@ export default function RootLayout() {
     Manrope_700Bold,
   });
 
-  const router = useRouter();
-  const segments = useSegments();
-  const { token, isHydrated, hydrate } = useAuthStore();
   const [isReady, setIsReady] = useState(false);
+  const hydrate = useAuthStore((s) => s.hydrate);
 
   useEffect(() => {
-    hydrate();
+    hydrate().finally(() => setIsReady(true));
   }, [hydrate]);
 
   useEffect(() => {
-    if (fontError) throw fontError;
-  }, [fontError]);
-
-  useEffect(() => {
-    if (fontsLoaded && isHydrated) {
+    if ((fontsLoaded || fontError) && isReady) {
       SplashScreen.hideAsync();
-      setIsReady(true);
     }
-  }, [fontsLoaded, isHydrated]);
+  }, [fontsLoaded, fontError, isReady]);
 
-  useEffect(() => {
-    if (!isReady) return;
-
-    const inAuthGroup = segments[0] === '(auth)';
-    const inAppGroup = segments[0] === '(app)';
-
-    if (token && !inAppGroup) {
-      router.replace('/(app)');
-    } else if (!token && !inAuthGroup) {
-      router.replace('/(auth)');
-    }
-  }, [isReady, token, segments, router]);
-
-  if (!isReady) {
-    return null;
-  }
+  if (!fontsLoaded && !fontError) return null;
+  if (!isReady) return null;
 
   return (
-    <ThemeProvider value={Theme}>
-      <ToastProvider>
-        <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background } }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(app)" />
-        </Stack>
-      </ToastProvider>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider value={Theme}>
+        <ToastProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(app)" />
+            <Stack.Screen name="+not-found" options={{ presentation: 'modal' }} />
+          </Stack>
+        </ToastProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

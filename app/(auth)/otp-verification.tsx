@@ -1,138 +1,118 @@
 import { useState, useRef } from 'react';
-import { View, StyleSheet, TextInput, NativeSyntheticEvent, TextInputKeyPressEventData } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import { Text, Button, Screen, IconButton, useToast } from '@/components/ui';
-import { Colors } from '@/constants/Colors';
-import { ApiConstants } from '@/constants/Api';
+import { View, TextInput, StyleSheet, NativeSyntheticEvent, TextInputKeyPressEventData } from 'react-native';
+import { router } from 'expo-router';
+import { Text, Screen, Button, useToast, IconButton } from '@/components/ui';
+import { Colors, Spacing, Radius } from '@/constants/Colors';
+
+const OTP_LENGTH = 4;
 
 export default function OtpVerificationScreen() {
-  const { email, from } = useLocalSearchParams<{ email?: string; from?: 'forgot' | 'signup' }>();
-  const [code, setCode] = useState<string[]>(new Array(ApiConstants.otpLength).fill(''));
+  const [otp, setOtp] = useState<string[]>(new Array(OTP_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
-  const { show } = useToast();
   const inputs = useRef<TextInput[]>([]);
+  const { show } = useToast();
 
   const handleChange = (text: string, index: number) => {
-    const newCode = [...code];
-    newCode[index] = text;
-    setCode(newCode);
-
-    if (text && index < ApiConstants.otpLength - 1) {
+    const updated = [...otp];
+    updated[index] = text.slice(-1);
+    setOtp(updated);
+    if (text && index < OTP_LENGTH - 1) {
       inputs.current[index + 1]?.focus();
     }
   };
 
   const handleKeyPress = (e: NativeSyntheticEvent<TextInputKeyPressEventData>, index: number) => {
-    if (e.nativeEvent.key === 'Backspace' && !code[index] && index > 0) {
+    if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
       inputs.current[index - 1]?.focus();
     }
   };
 
   const handleSubmit = async () => {
-    const otp = code.join('');
-    if (otp.length !== ApiConstants.otpLength) {
-      show('Please enter the full code', 'error');
+    const code = otp.join('');
+    if (code.length !== OTP_LENGTH) {
+      show('Please enter the full OTP', 'error');
       return;
     }
-
     setLoading(true);
-    try {
-      // Verify OTP via API when ready
-      show('OTP verified', 'success');
-      if (from === 'forgot') {
-        router.push({ pathname: '/(auth)/reset-password', params: { email } });
-      } else {
-        router.replace('/(app)');
-      }
-    } catch {
-      show('Invalid OTP', 'error');
-    } finally {
+    setTimeout(() => {
       setLoading(false);
-    }
+      show('OTP verified', 'success');
+      router.push('/(auth)/reset-password');
+    }, 1200);
   };
 
   return (
     <Screen scrollable keyboardAvoiding>
-      <IconButton
-        name="arrow-back"
-        onPress={() => router.back()}
-        style={styles.backButton}
-      />
+      <IconButton name="chevron-back" onPress={() => router.back()} style={styles.back} />
       <Text variant="heading1" weight="bold" style={styles.title}>
-        Verify OTP
+        OTP Verification
       </Text>
       <Text variant="body" color={Colors.textMuted} style={styles.subtitle}>
-        Enter the 6-digit code sent to {email || 'your email'}.
+        We sent a 4-digit code to your email. Enter it below.
       </Text>
 
-      <View style={styles.codeContainer}>
-        {code.map((digit, index) => (
+      <View style={styles.otpRow}>
+        {otp.map((digit, idx) => (
           <TextInput
-            key={index}
+            key={idx}
             ref={(ref) => {
-              if (ref) inputs.current[index] = ref;
+              if (ref) inputs.current[idx] = ref;
             }}
-            style={styles.codeInput}
+            value={digit}
+            onChangeText={(text) => handleChange(text, idx)}
+            onKeyPress={(e) => handleKeyPress(e, idx)}
             keyboardType="number-pad"
             maxLength={1}
-            value={digit}
-            onChangeText={(text) => handleChange(text, index)}
-            onKeyPress={(e) => handleKeyPress(e, index)}
+            style={styles.otpInput}
             selectionColor={Colors.primary}
           />
         ))}
       </View>
 
-      <Button title="Verify" loading={loading} onPress={handleSubmit} />
+      <Button title="Verify" loading={loading} onPress={handleSubmit} style={styles.submit} />
 
-      <View style={styles.resend}>
-        <Text variant="bodySmall" color={Colors.textMuted}>
-          Didn't receive the code?
+      <Text variant="bodySmall" color={Colors.textMuted} center style={styles.resend}>
+        Didn't receive it?{' '}
+        <Text variant="bodySmall" weight="bold" color={Colors.primary}>
+          Resend
         </Text>
-        <Button
-          title="Resend"
-          variant="ghost"
-          size="small"
-          fullWidth={false}
-          onPress={() => show('OTP resent', 'info')}
-        />
-      </View>
+      </Text>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  backButton: {
-    marginBottom: 16,
+  back: {
+    marginBottom: Spacing.md,
+    alignSelf: 'flex-start',
   },
   title: {
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   subtitle: {
-    marginBottom: 32,
+    marginBottom: Spacing.xxl,
   },
-  codeContainer: {
+  otpRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 32,
+    marginBottom: Spacing.xxl,
   },
-  codeInput: {
-    width: 48,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: Colors.backgroundElevated,
-    borderWidth: 1,
-    borderColor: Colors.border,
+  otpInput: {
+    width: 64,
+    height: 64,
+    borderRadius: Radius.lg,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     color: Colors.text,
-    fontSize: 24,
-    textAlign: 'center',
+    fontSize: 28,
     fontFamily: 'Inter_700Bold',
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  submit: {
+    marginBottom: Spacing.lg,
   },
   resend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 24,
-    gap: 4,
+    marginTop: Spacing.md,
   },
 });

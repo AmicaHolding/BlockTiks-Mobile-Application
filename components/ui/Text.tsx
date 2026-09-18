@@ -2,7 +2,7 @@ import { Text as RNText, TextProps, StyleSheet } from 'react-native';
 import { Colors } from '@/constants/Colors';
 
 interface Props extends TextProps {
-  variant?: 'heading1' | 'heading2' | 'heading3' | 'body' | 'bodySmall' | 'caption' | 'label';
+  variant?: 'hero' | 'heading1' | 'heading2' | 'heading3' | 'body' | 'bodySmall' | 'caption' | 'label';
   color?: string;
   weight?: 'regular' | 'medium' | 'semibold' | 'bold';
   center?: boolean;
@@ -35,17 +35,21 @@ const styles = StyleSheet.create({
   base: {
     color: Colors.text,
   },
+  hero: {
+    fontSize: 36,
+    lineHeight: 44,
+  },
   heading1: {
-    fontSize: 32,
-    lineHeight: 40,
+    fontSize: 28,
+    lineHeight: 36,
   },
   heading2: {
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: 22,
+    lineHeight: 30,
   },
   heading3: {
-    fontSize: 20,
-    lineHeight: 28,
+    fontSize: 18,
+    lineHeight: 26,
   },
   body: {
     fontSize: 16,
@@ -62,7 +66,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     lineHeight: 20,
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   regular: {
     fontFamily: 'Inter_400Regular',

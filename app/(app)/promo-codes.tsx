@@ -1,5 +1,14 @@
-import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { FeatureScreen } from '@/components/ui';
 
 export default function PromoCodesScreen() {
-  return <PlaceholderScreen title="Promo Codes" />;
+  return (
+    <FeatureScreen
+      title="Promo Codes"
+      icon="pricetag-outline"
+      description="Create discount codes and track redemptions."
+      inputLabel="Code"
+      placeholder="SUMMER20"
+      buttonTitle="Create Promo Code"
+    />
+  );
 }

@@ -6,14 +6,19 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Text } from './Text';
-import { Colors } from '@/constants/Colors';
+import { Colors, Radius } from '@/constants/Colors';
+
+type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'dark';
+type ButtonSize = 'small' | 'medium' | 'large';
 
 interface Props extends TouchableOpacityProps {
   title: string;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
-  size?: 'small' | 'medium' | 'large';
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   loading?: boolean;
   fullWidth?: boolean;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
 }
 
 export function Button({
@@ -22,36 +27,51 @@ export function Button({
   size = 'large',
   loading = false,
   fullWidth = true,
+  leftIcon,
+  rightIcon,
   disabled,
   style,
   ...props
 }: Props) {
   const isDisabled = disabled || loading;
-  const buttonStyles = [
-    styles.base,
-    styles[size],
-    styles[variant],
-    fullWidth && styles.fullWidth,
-    isDisabled && styles.disabled,
-    style,
-  ] as ViewStyle[];
 
-  const textColor =
-    variant === 'primary' ? Colors.white : variant === 'secondary' ? Colors.text : Colors.primary;
+  const textColorMap: Record<ButtonVariant, string> = {
+    primary: Colors.black,
+    secondary: Colors.text,
+    outline: Colors.text,
+    ghost: Colors.primary,
+    dark: Colors.text,
+  };
 
   return (
     <TouchableOpacity
       activeOpacity={0.8}
       disabled={isDisabled}
-      style={buttonStyles}
+      style={[
+        styles.base,
+        styles[size],
+        styles[variant],
+        fullWidth && styles.fullWidth,
+        isDisabled && styles.disabled,
+        style,
+      ]}
       {...props}
     >
       {loading ? (
-        <ActivityIndicator color={textColor} />
+        <ActivityIndicator color={textColorMap[variant]} />
       ) : (
-        <Text variant="label" weight="semibold" color={textColor}>
-          {title}
-        </Text>
+        <>
+          {leftIcon}
+          <Text
+            variant="bodySmall"
+            weight="semibold"
+            color={textColorMap[variant]}
+            style={leftIcon || rightIcon ? styles.textWithIcon : undefined}
+          >
+            {title}
+          </Text>
+          {rightIcon}
+        </>
       )}
     </TouchableOpacity>
   );
@@ -59,40 +79,47 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: Radius.md,
   },
   small: {
     paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
   },
   medium: {
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
   },
   large: {
-    paddingVertical: 16,
+    paddingVertical: 15,
     paddingHorizontal: 24,
   },
   primary: {
     backgroundColor: Colors.primary,
   },
   secondary: {
-    backgroundColor: Colors.backgroundElevated,
+    backgroundColor: Colors.surface,
   },
   outline: {
     backgroundColor: Colors.transparent,
     borderWidth: 1,
-    borderColor: Colors.primary,
+    borderColor: Colors.white,
   },
   ghost: {
     backgroundColor: Colors.transparent,
+  },
+  dark: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   fullWidth: {
     width: '100%',
   },
   disabled: {
     opacity: 0.5,
+  },
+  textWithIcon: {
+    marginHorizontal: 8,
   },
 });

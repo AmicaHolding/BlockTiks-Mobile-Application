@@ -1,72 +1,85 @@
-import { View, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet, Image, Dimensions } from 'react-native';
 import { router } from 'expo-router';
-import { Text, Button, Screen } from '@/components/ui';
+import { StatusBar } from 'expo-status-bar';
+import { Text, Button } from '@/components/ui';
 import { Colors } from '@/constants/Colors';
+
+const { width, height } = Dimensions.get('window');
 
 export default function GetStartedScreen() {
   return (
-    <Screen scrollable={false} contentStyle={styles.container}>
-      <View style={styles.top}>
-        <View style={styles.logoContainer}>
-          <Image
-            source={require('@/assets/images/splash-icon.png')}
-            style={styles.logo}
-            resizeMode="contain"
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      <Image
+        source={{ uri: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&q=80' }}
+        style={styles.background}
+        resizeMode="cover"
+      />
+      <View style={styles.overlay} />
+
+      <View style={styles.content}>
+        <View style={styles.logoBox}>
+          <Text variant="heading1" weight="bold" color={Colors.primary} center>
+            BlockTiks
+          </Text>
+        </View>
+
+        <Text variant="heading2" weight="bold" center style={styles.headline}>
+          Book premium event tickets here
+        </Text>
+        <Text variant="body" color={Colors.textMuted} center style={styles.subtitle}>
+          Discover, buy, and resell tickets for the hottest concerts, sports, and shows.
+        </Text>
+
+        <View style={styles.buttonGroup}>
+          <Button title="Log In" onPress={() => router.push('/(auth)/sign-in')} />
+          <Button
+            title="Create an account"
+            variant="outline"
+            onPress={() => router.push('/(auth)/sign-up')}
           />
         </View>
-        <Text variant="heading1" weight="bold" center>
-          BlockTiks
-        </Text>
-        <Text variant="body" color={Colors.textMuted} center style={styles.tagline}>
-          Discover events, buy tickets, and manage your experiences all in one place.
-        </Text>
       </View>
-
-      <View style={styles.bottom}>
-        <Button title="Get Started" onPress={() => router.push('/(auth)/sign-up')} />
-        <Button
-          title="I already have an account"
-          variant="ghost"
-          onPress={() => router.push('/(auth)/sign-in')}
-          style={styles.secondaryButton}
-        />
-      </View>
-    </Screen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'space-between',
-    paddingVertical: 48,
+    backgroundColor: Colors.black,
   },
-  top: {
+  background: {
+    position: 'absolute',
+    width,
+    height,
+  },
+  overlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+  },
+  content: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 24,
+    paddingBottom: 56,
   },
-  logoContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 28,
-    backgroundColor: Colors.backgroundElevated,
-    alignItems: 'center',
-    justifyContent: 'center',
+  logoBox: {
+    alignSelf: 'center',
     marginBottom: 24,
   },
-  logo: {
-    width: 80,
-    height: 80,
+  headline: {
+    marginBottom: 12,
   },
-  tagline: {
-    marginTop: 12,
-    paddingHorizontal: 24,
+  subtitle: {
+    marginBottom: 40,
+    paddingHorizontal: 16,
   },
-  bottom: {
-    width: '100%',
-  },
-  secondaryButton: {
-    marginTop: 8,
+  buttonGroup: {
+    gap: 16,
   },
 });

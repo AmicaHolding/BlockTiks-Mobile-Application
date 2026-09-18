@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
-import { Text, Button, Input, Screen, IconButton, useToast } from '@/components/ui';
-import { Colors } from '@/constants/Colors';
-import { useAuthStore } from '@/store/authStore';
-import { ApiUrls } from '@/constants/Api';
+import { Ionicons } from '@expo/vector-icons';
+import { Text, Screen, Input, Button, useToast, IconButton } from '@/components/ui';
+import { Colors, Spacing, Radius } from '@/constants/Colors';
 import { api } from '@/services/api';
+import { ApiUrls } from '@/constants/Api';
+import { useAuthStore } from '@/store/authStore';
 
 export default function SignUpScreen() {
   const [firstName, setFirstName] = useState('');
@@ -14,8 +15,8 @@ export default function SignUpScreen() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { setAuth } = useAuthStore();
   const { show } = useToast();
+  const { setAuth } = useAuthStore();
 
   const handleSignUp = async () => {
     if (!firstName || !lastName || !email || !password) {
@@ -47,6 +48,7 @@ export default function SignUpScreen() {
         }
       );
       show('Account created!', 'success');
+      router.replace('/(app)');
     } catch {
       show('Sign up failed. Try again.', 'error');
     } finally {
@@ -57,7 +59,7 @@ export default function SignUpScreen() {
   return (
     <Screen scrollable keyboardAvoiding>
       <IconButton
-        name="arrow-back"
+        name="chevron-back"
         onPress={() => router.back()}
         style={styles.backButton}
       />
@@ -68,25 +70,31 @@ export default function SignUpScreen() {
         Start exploring events and selling tickets today.
       </Text>
 
+      <View style={styles.row}>
+        <Input
+          label="First Name"
+          placeholder="John"
+          value={firstName}
+          onChangeText={setFirstName}
+          containerStyle={styles.flex}
+        />
+        <Input
+          label="Last Name"
+          placeholder="Doe"
+          value={lastName}
+          onChangeText={setLastName}
+          containerStyle={styles.flex}
+        />
+      </View>
+
       <Input
-        label="First Name"
-        placeholder="John"
-        value={firstName}
-        onChangeText={setFirstName}
-      />
-      <Input
-        label="Last Name"
-        placeholder="Doe"
-        value={lastName}
-        onChangeText={setLastName}
-      />
-      <Input
-        label="Email"
-        placeholder="john@example.com"
+        label="Email address"
+        placeholder="Enter your email"
         keyboardType="email-address"
         autoCapitalize="none"
         value={email}
         onChangeText={setEmail}
+        leftIcon={<Ionicons name="mail-outline" size={20} color={Colors.textMuted} />}
       />
       <Input
         label="Phone"
@@ -94,51 +102,82 @@ export default function SignUpScreen() {
         keyboardType="phone-pad"
         value={phone}
         onChangeText={setPhone}
+        leftIcon={<Ionicons name="call-outline" size={20} color={Colors.textMuted} />}
       />
       <Input
         label="Password"
-        placeholder="Min. 8 characters"
+        placeholder="Create a password"
         secure
         value={password}
         onChangeText={setPassword}
+        leftIcon={<Ionicons name="lock-closed-outline" size={20} color={Colors.textMuted} />}
       />
 
-      <Button title="Sign Up" loading={loading} onPress={handleSignUp} style={styles.submit} />
+      <Button title="Create Account" loading={loading} onPress={handleSignUp} style={styles.submit} />
 
-      <View style={styles.footer}>
-        <Text variant="bodySmall" color={Colors.textMuted}>
-          Already have an account?
+      <View style={styles.dividerRow}>
+        <View style={styles.divider} />
+        <Text variant="caption" color={Colors.textMuted}>
+          or continue with
         </Text>
-        <Button
-          title="Sign In"
-          variant="ghost"
-          size="small"
-          fullWidth={false}
-          onPress={() => router.push('/(auth)/sign-in')}
-        />
+        <View style={styles.divider} />
       </View>
+
+      <Button
+        title="Continue with Google"
+        variant="outline"
+        leftIcon={<Ionicons name="logo-google" size={20} color={Colors.text} />}
+        onPress={() => show('Google sign-up coming soon', 'info')}
+      />
+
+      <TouchableOpacity onPress={() => router.push('/(auth)/sign-in')} style={styles.switch}>
+        <Text variant="body" color={Colors.textMuted}>
+          Already have an account?{' '}
+        </Text>
+        <Text variant="body" weight="bold" color={Colors.primary}>
+          Sign In
+        </Text>
+      </TouchableOpacity>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   backButton: {
-    marginBottom: 16,
+    marginBottom: Spacing.md,
+    alignSelf: 'flex-start',
   },
   title: {
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   subtitle: {
-    marginBottom: 32,
+    marginBottom: Spacing.xxl,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  flex: {
+    flex: 1,
   },
   submit: {
-    marginTop: 8,
+    marginBottom: Spacing.xl,
+    marginTop: Spacing.md,
   },
-  footer: {
+  dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    marginBottom: Spacing.lg,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  switch: {
+    flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 24,
-    gap: 4,
+    marginTop: Spacing.xl,
   },
 });

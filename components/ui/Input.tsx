@@ -8,28 +8,46 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from './Text';
-import { Colors } from '@/constants/Colors';
+import { Colors, Radius } from '@/constants/Colors';
 
 interface Props extends TextInputProps {
   label?: string;
   error?: string;
+  leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   secure?: boolean;
+  containerStyle?: View['props']['style'];
 }
 
-export function Input({ label, error, rightIcon, secure, style, ...props }: Props) {
+export function Input({
+  label,
+  error,
+  leftIcon,
+  rightIcon,
+  secure,
+  style,
+  containerStyle,
+  ...props
+}: Props) {
   const [isSecure, setIsSecure] = useState(secure);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerStyle]}>
       {label && (
-        <Text variant="label" color={Colors.textMuted} style={styles.label}>
+        <Text variant="bodySmall" weight="medium" color={Colors.text} style={styles.label}>
           {label}
         </Text>
       )}
-      <View style={[styles.inputContainer, error && styles.inputError]}>
+      <View
+        style={[
+          styles.inputContainer,
+          leftIcon ? styles.withLeftIcon : undefined,
+          error ? styles.inputError : undefined,
+        ]}
+      >
+        {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
         <TextInput
-          placeholderTextColor={Colors.textDisabled}
+          placeholderTextColor={Colors.textMuted}
           secureTextEntry={isSecure}
           style={[styles.input, style]}
           {...props}
@@ -59,17 +77,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
-    marginBottom: 6,
+    marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.backgroundElevated,
-    borderRadius: 12,
+    backgroundColor: Colors.inputBg,
+    borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.transparent,
     paddingHorizontal: 14,
     minHeight: 52,
+  },
+  withLeftIcon: {
+    paddingLeft: 12,
   },
   inputError: {
     borderColor: Colors.error,
@@ -81,10 +102,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     paddingVertical: 12,
   },
+  leftIcon: {
+    marginRight: 10,
+  },
   icon: {
     marginLeft: 8,
   },
   error: {
-    marginTop: 4,
+    marginTop: 6,
   },
 });

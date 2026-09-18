@@ -1,6 +1,6 @@
 import { TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/Colors';
+import { Colors, Radius } from '@/constants/Colors';
 
 interface Props {
   name: keyof typeof Ionicons.glyphMap;
@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
   button: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },

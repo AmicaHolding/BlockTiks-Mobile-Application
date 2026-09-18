@@ -1,18 +1,19 @@
 import { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
-import { Text, Button, Input, Screen, IconButton, useToast } from '@/components/ui';
-import { Colors } from '@/constants/Colors';
-import { useAuthStore } from '@/store/authStore';
-import { ApiUrls } from '@/constants/Api';
+import { Ionicons } from '@expo/vector-icons';
+import { Text, Screen, Input, Button, useToast, IconButton } from '@/components/ui';
+import { Colors, Spacing, Radius } from '@/constants/Colors';
 import { api } from '@/services/api';
+import { ApiUrls } from '@/constants/Api';
+import { useAuthStore } from '@/store/authStore';
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { setAuth } = useAuthStore();
   const { show } = useToast();
+  const { setAuth } = useAuthStore();
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -22,7 +23,6 @@ export default function SignInScreen() {
 
     setLoading(true);
     try {
-      // Replace with real API call when backend is ready
       const response = await api.post<{
         token?: string;
         refreshToken?: string;
@@ -30,7 +30,6 @@ export default function SignInScreen() {
         lastName?: string;
       }>(ApiUrls.login, { email, password }).catch(() => null);
 
-      // Mock successful sign in for Expo Go preview
       await setAuth(
         response?.token || 'mock_token',
         response?.refreshToken || 'mock_refresh',
@@ -42,6 +41,7 @@ export default function SignInScreen() {
         }
       );
       show('Welcome back!', 'success');
+      router.replace('/(app)');
     } catch (error) {
       show('Sign in failed. Try again.', 'error');
     } finally {
@@ -52,24 +52,25 @@ export default function SignInScreen() {
   return (
     <Screen scrollable keyboardAvoiding>
       <IconButton
-        name="arrow-back"
+        name="chevron-back"
         onPress={() => router.back()}
         style={styles.backButton}
       />
       <Text variant="heading1" weight="bold" style={styles.title}>
-        Sign In
+        Welcome Back!
       </Text>
       <Text variant="body" color={Colors.textMuted} style={styles.subtitle}>
-        Welcome back! Please enter your details.
+        All your needs for the ultimate event experience.
       </Text>
 
       <Input
-        label="Email"
+        label="Email address"
         placeholder="Enter your email"
         keyboardType="email-address"
         autoCapitalize="none"
         value={email}
         onChangeText={setEmail}
+        leftIcon={<Ionicons name="mail-outline" size={20} color={Colors.textMuted} />}
       />
       <Input
         label="Password"
@@ -77,54 +78,76 @@ export default function SignInScreen() {
         secure
         value={password}
         onChangeText={setPassword}
+        leftIcon={<Ionicons name="lock-closed-outline" size={20} color={Colors.textMuted} />}
       />
+
+      <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')}>
+        <Text variant="bodySmall" weight="medium" color={Colors.primary} style={styles.forgot}>
+          Forgot Password?
+        </Text>
+      </TouchableOpacity>
+
+      <Button title="Sign In" loading={loading} onPress={handleSignIn} style={styles.submit} />
+
+      <View style={styles.dividerRow}>
+        <View style={styles.divider} />
+        <Text variant="caption" color={Colors.textMuted}>
+          or continue with
+        </Text>
+        <View style={styles.divider} />
+      </View>
 
       <Button
-        title="Forgot password?"
-        variant="ghost"
-        size="small"
-        fullWidth={false}
-        onPress={() => router.push('/(auth)/forgot-password')}
-        style={styles.forgot}
+        title="Continue with Google"
+        variant="outline"
+        leftIcon={<Ionicons name="logo-google" size={20} color={Colors.text} />}
+        onPress={() => show('Google sign-in coming soon', 'info')}
       />
 
-      <Button title="Sign In" loading={loading} onPress={handleSignIn} />
-
-      <View style={styles.footer}>
-        <Text variant="bodySmall" color={Colors.textMuted}>
-          Don't have an account?
+      <TouchableOpacity onPress={() => router.push('/(auth)/sign-up')} style={styles.switch}>
+        <Text variant="body" color={Colors.textMuted}>
+          Don't have an account?{' '}
         </Text>
-        <Button
-          title="Sign Up"
-          variant="ghost"
-          size="small"
-          fullWidth={false}
-          onPress={() => router.push('/(auth)/sign-up')}
-        />
-      </View>
+        <Text variant="body" weight="bold" color={Colors.primary}>
+          Register
+        </Text>
+      </TouchableOpacity>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   backButton: {
-    marginBottom: 16,
+    marginBottom: Spacing.md,
+    alignSelf: 'flex-start',
   },
   title: {
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   subtitle: {
-    marginBottom: 32,
+    marginBottom: Spacing.xxl,
   },
   forgot: {
-    alignSelf: 'flex-end',
-    marginBottom: 16,
+    alignSelf: 'flex-start',
+    marginBottom: Spacing.xl,
   },
-  footer: {
+  submit: {
+    marginBottom: Spacing.xl,
+  },
+  dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    marginBottom: Spacing.lg,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  switch: {
+    flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 24,
-    gap: 4,
+    marginTop: Spacing.xl,
   },
 });

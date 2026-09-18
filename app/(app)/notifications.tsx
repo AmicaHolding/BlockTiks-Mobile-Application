@@ -1,8 +1,9 @@
-import { View, StyleSheet, FlatList } from 'react-native';
+import { View, StyleSheet, FlatList, Image } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Text, Screen, PressableCard, IconButton } from '@/components/ui';
-import { Colors } from '@/constants/Colors';
+import { Text, Screen, AppHeader, PressableCard } from '@/components/ui';
+import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { EVENTS } from '@/services/data';
 
 const NOTIFICATIONS = [
   {
@@ -11,6 +12,7 @@ const NOTIFICATIONS = [
     body: 'DJ MaksMellow Orignawa - General Admission',
     time: '2h ago',
     read: false,
+    image: EVENTS[0].image,
   },
   {
     id: '2',
@@ -18,6 +20,7 @@ const NOTIFICATIONS = [
     body: 'NBA Finals: Game 4 starts in 24 hours.',
     time: '1d ago',
     read: true,
+    image: EVENTS[1].image,
   },
   {
     id: '3',
@@ -25,19 +28,14 @@ const NOTIFICATIONS = [
     body: '$120 has been refunded to your wallet.',
     time: '2d ago',
     read: true,
+    image: null,
   },
 ];
 
 export default function NotificationsScreen() {
   return (
     <Screen>
-      <View style={styles.header}>
-        <IconButton name="arrow-back" onPress={() => router.back()} />
-        <Text variant="heading2" weight="bold">
-          Notifications
-        </Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <AppHeader title="Notifications" showBack />
 
       <FlatList
         data={NOTIFICATIONS}
@@ -45,19 +43,22 @@ export default function NotificationsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <PressableCard style={[styles.notificationCard, !item.read && styles.unread]}>
+          <PressableCard
+            variant="pressed"
+            style={[styles.card, !item.read && styles.unread]}
+          >
             <View style={styles.iconBox}>
-              <Ionicons
-                name={item.read ? 'mail-open-outline' : 'mail-unread-outline'}
-                size={22}
-                color={item.read ? Colors.textMuted : Colors.primary}
-              />
+              {item.image ? (
+                <Image source={{ uri: item.image }} style={styles.image} />
+              ) : (
+                <Ionicons name="wallet-outline" size={22} color={item.read ? Colors.textMuted : Colors.primary} />
+              )}
             </View>
             <View style={styles.textBlock}>
-              <Text variant="body" weight={item.read ? 'regular' : 'semibold'}>
+              <Text variant="bodySmall" weight={item.read ? 'regular' : 'bold'}>
                 {item.title}
               </Text>
-              <Text variant="bodySmall" color={Colors.textMuted} numberOfLines={2}>
+              <Text variant="caption" color={Colors.textMuted} numberOfLines={2}>
                 {item.body}
               </Text>
             </View>
@@ -79,17 +80,11 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
   list: {
     gap: 10,
     paddingBottom: 24,
   },
-  notificationCard: {
+  card: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
@@ -99,13 +94,18 @@ const styles = StyleSheet.create({
     borderColor: `${Colors.primary}40`,
   },
   iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: Colors.background,
+    width: 48,
+    height: 48,
+    borderRadius: Radius.lg,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  image: {
+    width: 48,
+    height: 48,
   },
   textBlock: {
     flex: 1,

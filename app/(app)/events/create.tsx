@@ -3,10 +3,9 @@ import { View, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-nat
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { Text, Screen, Button, Input, IconButton, Card, useToast } from '@/components/ui';
-import { Colors } from '@/constants/Colors';
-
-const EVENT_CATEGORIES = ['Music', 'Sports', 'Theater', 'Comedy', 'Festivals', 'Conference'];
+import { Text, Screen, AppHeader, Button, Input, Card, useToast } from '@/components/ui';
+import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { EVENT_CATEGORIES } from '@/services/data';
 
 export default function CreateEventScreen() {
   const [title, setTitle] = useState('');
@@ -14,7 +13,7 @@ export default function CreateEventScreen() {
   const [location, setLocation] = useState('');
   const [date, setDate] = useState('');
   const [price, setPrice] = useState('');
-  const [category, setCategory] = useState('Music');
+  const [category, setCategory] = useState(EVENT_CATEGORIES[0]);
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { show } = useToast();
@@ -39,7 +38,6 @@ export default function CreateEventScreen() {
     }
 
     setLoading(true);
-    // TODO: wire to API
     setTimeout(() => {
       setLoading(false);
       show('Event created successfully!', 'success');
@@ -49,106 +47,96 @@ export default function CreateEventScreen() {
 
   return (
     <Screen scrollable keyboardAvoiding>
-      <View style={styles.header}>
-        <IconButton name="arrow-back" onPress={() => router.back()} />
-        <Text variant="heading2" weight="bold">
-          Create Event
-        </Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <AppHeader title="Create Event" showBack />
 
       <TouchableOpacity onPress={pickImage} style={styles.imagePicker}>
         {image ? (
           <Image source={{ uri: image }} style={styles.imagePreview} />
         ) : (
           <View style={styles.imagePlaceholder}>
-            <Ionicons name="camera-outline" size={32} color={Colors.primary} />
-            <Text variant="bodySmall" color={Colors.textMuted}>
+            <Ionicons name="camera-outline" size={36} color={Colors.primary} />
+            <Text variant="bodySmall" color={Colors.textMuted} style={{ marginTop: 8 }}>
               Add Event Cover
             </Text>
           </View>
         )}
       </TouchableOpacity>
 
-      <Card style={styles.formCard}>
-        <Input
-          label="Event Title"
-          placeholder="e.g. Summer Music Festival"
-          value={title}
-          onChangeText={setTitle}
-        />
+      <Input
+        label="Event Title"
+        placeholder="e.g. Summer Music Festival"
+        value={title}
+        onChangeText={setTitle}
+      />
 
-        <Text variant="label" color={Colors.textMuted} style={styles.label}>
-          Category
-        </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
-          {EVENT_CATEGORIES.map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              onPress={() => setCategory(cat)}
-              style={[styles.categoryChip, category === cat && styles.categoryChipActive]}
+      <Text variant="bodySmall" weight="medium" style={styles.label}>
+        Category
+      </Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoryRow}
+      >
+        {EVENT_CATEGORIES.map((cat) => (
+          <TouchableOpacity
+            key={cat}
+            onPress={() => setCategory(cat)}
+            style={[styles.categoryChip, category === cat && styles.categoryChipActive]}
+          >
+            <Text
+              variant="bodySmall"
+              weight={category === cat ? 'bold' : 'regular'}
+              color={category === cat ? Colors.black : Colors.text}
             >
-              <Text
-                variant="bodySmall"
-                weight={category === cat ? 'semibold' : 'regular'}
-                color={category === cat ? Colors.white : Colors.textMuted}
-              >
-                {cat}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+              {cat}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
-        <Input
-          label="Date & Time"
-          placeholder="e.g. Oct 25, 8:00 PM"
-          value={date}
-          onChangeText={setDate}
-        />
-        <Input
-          label="Location"
-          placeholder="e.g. Madison Square Garden, NY"
-          value={location}
-          onChangeText={setLocation}
-        />
-        <Input
-          label="Ticket Price"
-          placeholder="e.g. 85"
-          keyboardType="numeric"
-          value={price}
-          onChangeText={setPrice}
-        />
-        <Input
-          label="Description"
-          placeholder="Describe your event..."
-          multiline
-          numberOfLines={4}
-          value={description}
-          onChangeText={setDescription}
-          style={styles.descriptionInput}
-        />
+      <Input
+        label="Date & Time"
+        placeholder="e.g. Oct 25, 8:00 PM"
+        value={date}
+        onChangeText={setDate}
+      />
+      <Input
+        label="Location"
+        placeholder="e.g. Madison Square Garden, NY"
+        value={location}
+        onChangeText={setLocation}
+      />
+      <Input
+        label="Base Ticket Price"
+        placeholder="e.g. 85"
+        keyboardType="numeric"
+        value={price}
+        onChangeText={setPrice}
+      />
+      <Input
+        label="Description"
+        placeholder="Describe your event..."
+        multiline
+        numberOfLines={4}
+        value={description}
+        onChangeText={setDescription}
+        style={styles.descriptionInput}
+      />
 
-        <Button title="Create Event" loading={loading} onPress={handleSubmit} />
-      </Card>
+      <Button title="Create Event" loading={loading} onPress={handleSubmit} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
   imagePicker: {
     height: 180,
-    borderRadius: 16,
-    backgroundColor: Colors.backgroundElevated,
+    borderRadius: Radius.lg,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   imagePreview: {
     width: '100%',
@@ -156,23 +144,19 @@ const styles = StyleSheet.create({
   },
   imagePlaceholder: {
     alignItems: 'center',
-    gap: 8,
-  },
-  formCard: {
-    marginBottom: 24,
   },
   label: {
-    marginBottom: 6,
+    marginBottom: Spacing.sm,
   },
   categoryRow: {
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   categoryChip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    marginRight: 8,
+    borderRadius: Radius.round,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginRight: Spacing.md,
   },
   categoryChipActive: {
     backgroundColor: Colors.primary,

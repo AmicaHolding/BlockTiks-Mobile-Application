@@ -3,7 +3,7 @@ import { View, StyleSheet, Dimensions } from 'react-native';
 import { router } from 'expo-router';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import { Text, Screen, Button, IconButton, useToast } from '@/components/ui';
-import { Colors } from '@/constants/Colors';
+import { Colors, Radius } from '@/constants/Colors';
 
 const { width } = Dimensions.get('window');
 const CUTOUT = 260;
@@ -29,7 +29,7 @@ export default function ScannerScreen() {
   if (!permission?.granted) {
     return (
       <Screen contentStyle={styles.center}>
-        <Text variant="heading3" weight="bold" center>
+        <Text variant="heading2" weight="bold" center>
           Camera Permission Required
         </Text>
         <Text variant="body" color={Colors.textMuted} center style={styles.permissionText}>
@@ -45,9 +45,7 @@ export default function ScannerScreen() {
       <CameraView
         style={StyleSheet.absoluteFill}
         facing="back"
-        barcodeScannerSettings={{
-          barcodeTypes: ['qr'],
-        }}
+        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
         onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
       />
 
@@ -123,7 +121,7 @@ const styles = StyleSheet.create({
   cutout: {
     width: CUTOUT,
     height: CUTOUT,
-    borderRadius: 16,
+    borderRadius: Radius.lg,
     borderWidth: 2,
     borderColor: Colors.primary,
     backgroundColor: 'transparent',

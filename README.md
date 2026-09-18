@@ -1,71 +1,100 @@
 # BlockTiks — Expo Go Version
 
-This is a React Native + Expo SDK rewrite of the original Flutter `BlockTiks-Mobile-Application`. It lives in a separate folder so the Flutter codebase remains untouched.
+A React Native + Expo SDK rewrite of the original Flutter `BlockTiks-Mobile-Application`. It lives in a separate folder so the Flutter codebase remains untouched.
 
-## Why a separate folder/repo?
+## Identity & Design
 
-The original app is a Flutter project. Building an Expo Go version requires a full React Native rewrite. Keeping it in a sibling folder (`BlockTiks-Expo-Go`) lets both codebases coexist without mixing Dart and TypeScript files.
+BlockTiks is a premium event-ticketing and ticket-resale platform for fans and event creators.
 
-## What's included
+- **For fans:** discover events, buy tickets, store them in a wallet, resell or transfer them.
+- **For creators:** publish events, manage ticket tiers, teams, promo codes, guest lists, and view analytics.
+- **Visual identity:** dark, high-contrast, nightlife/event aesthetic. Primary purple `#B620E0`, neon green success `#43FF00`, near-black background `#121212`.
+- **Typography:** Inter for UI text, Manrope for display/headings.
 
-- **Expo SDK 57** with file-based routing via **Expo Router**
-- Dark theme matching the original app’s pink/black palette
-- Shared UI component library (`Text`, `Button`, `Input`, `Card`, `Screen`, etc.)
-- Auth stack: Get Started, Sign In, Sign Up, OTP, Forgot/Reset Password
-- Main app shell with bottom tabs: Home, Search, Tickets, Profile
-- Core screens wired up: Event Detail, Create Event, Wallet, Settings, Notifications, QR Scanner, Creator Dashboard
-- Placeholder screens for remaining Flutter modules
-- Axios-based API client mirroring the original `BaseClient`
-- SecureStore-backed auth store (Zustand)
-- Expo Go-compatible packages for camera, image picker, notifications, etc.
+## Tech Stack
 
-## Running in Expo Go
+- Expo SDK 57
+- Expo Router (file-based routing)
+- React 19 / React Native 0.86
+- TypeScript
+- Zustand + expo-secure-store (auth & session)
+- Axios (API client)
+- react-native-chart-kit (analytics)
+- expo-image-picker, expo-camera, expo-notifications (Expo Go-compatible native features)
+
+## Project Structure
+
+```
+app/
+  (auth)/           # Auth stack: get started, sign in/up, OTP, forgot/reset password
+  (app)/
+    user/           # Attendee tabs: For You, Resell, Wallet, Profile
+    creator/        # Creator tabs: Home, Analytics, Profile
+    events/[id].tsx # Event detail with ticket selection
+    events/create.tsx # Create / edit event
+    search.tsx      # Global search (events + people)
+    profile-settings.tsx
+    purchased-ticket.tsx
+    payment-page.tsx
+    wallet.tsx      # (tab)
+    ...             # other stack screens for teams, guests, promo codes, etc.
+components/ui/      # Shared design system components
+store/              # Zustand stores
+services/           # API client, storage helpers, mock data
+constants/          # Colors, spacing, typography tokens
+```
+
+## Run in Expo Go
 
 ```bash
 cd BlockTiks-Expo-Go
-npx expo start
+npm install
+npx expo start --go
 ```
 
-Then scan the QR code with the **Expo Go** app on iOS or Android.
+Then scan the QR code with the **Expo Go** app.
 
-## Project scripts
+If the CLI asks you to sign in to Expo Go, make sure the Expo Go app on your phone is signed in with the same account.
+
+## Verification
 
 ```bash
-npx expo start        # Start the dev server for Expo Go
-npx expo start --web  # Run in browser
-npx tsc --noEmit      # Type check
-npx expo export --platform web   # Verify the bundle builds
+npx tsc --noEmit                  # Type check
+npx expo export --platform web    # Verify the bundle builds
 ```
 
-## Flutter → Expo mapping notes
+## Feature Mapping from Flutter
 
-| Flutter package | Expo / React Native replacement |
+| Flutter Module | Expo Screen(s) |
 |---|---|
-| `get` (state/routing) | Expo Router + Zustand |
-| `dio` | `axios` |
-| `amazon_cognito_identity_dart_2` | `@aws-amplify/auth` / `amazon-cognito-identity-js` |
-| `shared_preferences` | `expo-secure-store` |
-| `qr_code_scanner` | `expo-camera` barcode scanning |
-| `flutter_local_notifications` | `expo-notifications` |
-| `image_picker` / `images_picker` | `expo-image-picker` |
-| `permission_handler` | Per-module Expo permission APIs |
-| `cached_network_image` | `expo-image` |
-| `flutter_svg` | `react-native-svg` |
-| `fl_chart` | `react-native-chart-kit` |
-| `flutter_credit_card` | Custom form (or Stripe SDK in dev build) |
-| `google_fonts` | `@expo-google-fonts/inter` + `@expo-google-fonts/manrope` |
+| For You / Home | `app/(app)/user/index.tsx` |
+| Resell / Marketplace / Asks / Bids | `app/(app)/user/resell.tsx` |
+| Wallet | `app/(app)/user/wallet.tsx` |
+| Profile Tab | `app/(app)/user/profile.tsx` |
+| Creator Dashboard | `app/(app)/creator/index.tsx` |
+| Analytics | `app/(app)/creator/analytics.tsx` + `app/(app)/analytics.tsx` |
+| Search | `app/(app)/search.tsx` |
+| Event Detail | `app/(app)/events/[id].tsx` |
+| Create Event | `app/(app)/events/create.tsx` |
+| Purchased Ticket / QR | `app/(app)/purchased-ticket.tsx` |
+| Payment | `app/(app)/payment-page.tsx` |
+| Transfer / Send Tickets | `app/(app)/transfer.tsx`, `app/(app)/send-tickets.tsx` |
+| Place Bid / Ask Bid | `app/(app)/place-bid.tsx`, `app/(app)/ask-bid.tsx` |
+| Notifications | `app/(app)/notifications.tsx` |
+| Settings | `app/(app)/profile-settings.tsx` |
+| Manage Teams / Guests / Scanner | `app/(app)/manage-teams.tsx`, `app/(app)/all-guests.tsx`, `app/(app)/scanner.tsx` |
+| Promo Codes / Venue Layout | `app/(app)/promo-codes.tsx`, `app/(app)/venue-layout.tsx` |
 
-## Known limitations in Expo Go
+## Known Limitations in Expo Go
 
-- **Image cropping UI**: `expo-image-picker` supports `allowsEditing` and aspect ratios but does not provide the same dedicated cropper UI as `images_picker`. A custom cropper or a development build can restore the exact native behavior.
-- **Payments**: The original app had Stripe/Apple Pay/Google Pay UI commented out and not wired. Real in-app payment capture requires a Stripe SDK and an Expo **development build**, not Expo Go.
-- **Push notifications via FCM**: Expo Go supports local notifications and Expo Push. Firebase Cloud Messaging requires a development build.
-- **Firebase native SDKs** (Auth, Firestore, Crashlytics): require a development build.
+- **Payments:** Card capture uses a placeholder form. Real Stripe / Apple Pay / Google Pay requires a development build.
+- **Image cropping:** `expo-image-picker` supports basic editing; a dedicated native cropper requires a development build.
+- **Push notifications:** Expo Go supports local notifications and Expo Push. FCM / custom push providers require a development build.
+- **Firebase native SDKs:** require a development build if enabled later.
 
-## Next steps to complete
+## Next Steps
 
 1. Wire the real auth endpoints in `app/(auth)/sign-in.tsx` and `app/(auth)/sign-up.tsx`.
-2. Replace mock event data in `app/(app)/(tabs)/index.tsx` with API calls.
-3. Fill out placeholder screens for modules like Analytics, Manage Teams, Venue Layout, etc.
-4. Add real payment flow via Stripe in a development build if needed.
-5. Configure EAS Build / EAS Update for store distribution.
+2. Replace mock event/ticket data in `services/data.ts` with API calls.
+3. Add real payment flow via Stripe in a development build if needed.
+4. Configure EAS Build / EAS Update for store distribution.

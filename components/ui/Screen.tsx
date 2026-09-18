@@ -8,7 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Colors } from '@/constants/Colors';
+import { Colors, Spacing } from '@/constants/Colors';
 import { StatusBar } from 'expo-status-bar';
 
 interface Props {
@@ -18,6 +18,7 @@ interface Props {
   style?: ViewStyle;
   contentStyle?: ViewStyle;
   keyboardAvoiding?: boolean;
+  noPadding?: boolean;
 }
 
 export function Screen({
@@ -27,9 +28,10 @@ export function Screen({
   style,
   contentStyle,
   keyboardAvoiding = true,
+  noPadding = false,
 }: Props) {
   const Wrapper = safe ? SafeAreaView : View;
-  const contentPadding = { paddingHorizontal: 16 };
+  const contentPadding = noPadding ? undefined : { paddingHorizontal: Spacing.lg };
 
   const innerContent = scrollable ? (
     <ScrollView
@@ -71,10 +73,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: Spacing.lg,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingVertical: 16,
+    paddingVertical: Spacing.lg,
   },
 });

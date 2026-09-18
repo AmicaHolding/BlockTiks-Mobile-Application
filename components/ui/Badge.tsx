@@ -1,16 +1,17 @@
 import { View, StyleSheet } from 'react-native';
 import { Text } from './Text';
-import { Colors } from '@/constants/Colors';
+import { Colors, Radius } from '@/constants/Colors';
 
 interface Props {
   text: string;
   color?: string;
+  textColor?: string;
 }
 
-export function Badge({ text, color = Colors.primary }: Props) {
+export function Badge({ text, color = Colors.primaryFaded, textColor = Colors.primaryLight }: Props) {
   return (
     <View style={[styles.badge, { backgroundColor: color }]}>
-      <Text variant="caption" weight="semibold" color={Colors.white}>
+      <Text variant="caption" weight="semibold" color={textColor}>
         {text}
       </Text>
     </View>
@@ -19,9 +20,9 @@ export function Badge({ text, color = Colors.primary }: Props) {
 
 const styles = StyleSheet.create({
   badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.round,
     alignSelf: 'flex-start',
   },
 });
