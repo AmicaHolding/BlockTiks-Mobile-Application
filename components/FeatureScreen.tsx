@@ -1,4 +1,5 @@
-import { View, StyleSheet, TextInput } from 'react-native';
+import { useState } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Text } from './ui/Text';
@@ -9,7 +10,13 @@ import { Input } from './ui/Input';
 import { PressableCard } from './ui/Card';
 import { useToast } from './ui/Toast';
 import { Colors, Spacing, Radius } from '@/constants/Colors';
-import { useState } from 'react';
+import { haptic } from '@/services/haptics';
+
+interface FeatureItem {
+  label: string;
+  sublabel?: string;
+  onPress?: () => void;
+}
 
 interface Props {
   title: string;
@@ -18,8 +25,9 @@ interface Props {
   placeholder?: string;
   inputLabel?: string;
   buttonTitle?: string;
-  list?: string[];
+  list?: FeatureItem[];
   onAction?: () => void;
+  destructive?: boolean;
 }
 
 export function FeatureScreen({
@@ -31,6 +39,7 @@ export function FeatureScreen({
   buttonTitle = 'Continue',
   list,
   onAction,
+  destructive,
 }: Props) {
   const [value, setValue] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,6 +55,7 @@ export function FeatureScreen({
       return;
     }
     setLoading(true);
+    haptic.medium();
     setTimeout(() => {
       setLoading(false);
       show(`${title} saved`, 'success');
@@ -58,7 +68,7 @@ export function FeatureScreen({
       <AppHeader title={title} showBack />
 
       <View style={styles.iconCircle}>
-        <Ionicons name={icon} size={40} color={Colors.primary} />
+        <Ionicons name={icon} size={40} color={Colors.primaryBright} />
       </View>
 
       <Text variant="heading2" weight="bold" center style={styles.title}>
@@ -80,17 +90,31 @@ export function FeatureScreen({
       {list && (
         <View style={styles.list}>
           {list.map((item, idx) => (
-            <PressableCard key={idx} variant="pressed" style={styles.listItem}>
-              <Text variant="bodySmall" weight="medium">
-                {item}
-              </Text>
+            <PressableCard
+              key={idx}
+              variant="pressed"
+              style={styles.listItem}
+              onPress={item.onPress || (() => {})}
+            >
+              <View style={styles.listText}>
+                <Text variant="body" weight="medium">{item.label}</Text>
+                {item.sublabel && (
+                  <Text variant="caption" color={Colors.textMuted}>{item.sublabel}</Text>
+                )}
+              </View>
               <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
             </PressableCard>
           ))}
         </View>
       )}
 
-      <Button title={buttonTitle} loading={loading} onPress={handlePress} style={styles.button} />
+      <Button
+        title={buttonTitle}
+        loading={loading}
+        onPress={handlePress}
+        style={styles.button}
+        variant={destructive ? 'dark' : 'primary'}
+      />
     </Screen>
   );
 }
@@ -100,7 +124,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(182, 32, 224, 0.12)',
+    backgroundColor: `${Colors.primary}12`,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
@@ -122,6 +146,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 14,
+  },
+  listText: {
+    flex: 1,
+    marginRight: 8,
   },
   button: {
     marginTop: 'auto',

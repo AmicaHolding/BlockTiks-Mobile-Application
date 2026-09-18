@@ -8,7 +8,7 @@ export default function AddIndividualScreen() {
       description="Add a single person to a team or guest list."
       inputLabel="Name"
       placeholder="John Doe"
-      buttonTitle="Add Individual"
+      buttonTitle="Add individual"
     />
   );
 }

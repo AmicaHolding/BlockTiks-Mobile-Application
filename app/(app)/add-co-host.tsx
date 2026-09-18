@@ -6,9 +6,12 @@ export default function AddCoHostScreen() {
       title="Add Co-Host"
       icon="person-add-outline"
       description="Invite a co-host to help manage this event."
-      inputLabel="Email or Username"
+      inputLabel="Email or username"
       placeholder="cohost@example.com"
-      buttonTitle="Send Invite"
+      buttonTitle="Send invite"
+      list={[
+        { label: 'Existing co-hosts', sublabel: '2 active co-hosts' },
+      ]}
     />
   );
 }

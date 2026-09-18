@@ -12,6 +12,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text, Screen, IconButton, Badge, useToast } from '@/components/ui';
 import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { haptic } from '@/services/haptics';
 import { EVENTS } from '@/services/data';
 
 const { width } = Dimensions.get('window');
@@ -134,7 +135,10 @@ export default function EventDetailScreen() {
         </View>
         <TouchableOpacity
           style={styles.getTicketsButton}
-          onPress={() => router.push(`/(app)/events/${event.id}/tickets`)}
+          onPress={() => {
+            haptic.medium();
+            router.push(`/(app)/events/${event.id}/tickets`);
+          }}
         >
           <Text variant="body" weight="semibold" color={Colors.ink}>
             Get tickets

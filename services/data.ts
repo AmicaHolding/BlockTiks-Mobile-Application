@@ -147,3 +147,37 @@ export const ANALYTICS = {
   eventsLive: 6,
   revenue: 9820,
 };
+
+export interface MarketListing {
+  id: string;
+  eventId: string;
+  sellerName: string;
+  tier: string;
+  quantity: number;
+  price: number;
+  faceValue: number;
+  listedAt: string;
+  sellerRating: number;
+}
+
+export const MARKET_LISTINGS: MarketListing[] = [
+  { id: 'm1', eventId: '1', sellerName: 'Alex M.', tier: 'General Admission', quantity: 2, price: 95, faceValue: 85, listedAt: '2h ago', sellerRating: 4.9 },
+  { id: 'm2', eventId: '2', sellerName: 'Sarah L.', tier: 'VIP', quantity: 1, price: 135, faceValue: 150, listedAt: '5h ago', sellerRating: 4.8 },
+  { id: 'm3', eventId: '3', sellerName: 'Mike J.', tier: 'Orchestra', quantity: 2, price: 175, faceValue: 150, listedAt: '1d ago', sellerRating: 4.7 },
+  { id: 'm4', eventId: '1', sellerName: 'DJ Fan 99', tier: 'Backstage Pass', quantity: 1, price: 320, faceValue: 295, listedAt: '1d ago', sellerRating: 5.0 },
+];
+
+export interface UserListing {
+  id: string;
+  eventId: string;
+  tier: string;
+  quantity: number;
+  price: number;
+  status: 'active' | 'sold' | 'pending';
+  type: 'ask' | 'bid';
+}
+
+export const USER_LISTINGS: UserListing[] = [
+  { id: 'u1', eventId: '2', tier: 'VIP', quantity: 1, price: 140, status: 'active', type: 'ask' },
+  { id: 'u2', eventId: '1', tier: 'General Admission', quantity: 2, price: 90, status: 'sold', type: 'ask' },
+];

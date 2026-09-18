@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text, Screen, AppHeader, Button, PressableCard, Input, useToast } from '@/components/ui';
 import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { haptic } from '@/services/haptics';
 import { EVENTS } from '@/services/data';
 
 const TIERS: Record<string, { name: string; price: number }> = {
@@ -33,9 +34,11 @@ export default function PaymentPageScreen() {
   const orderTotal = ticketsTotal + fees;
 
   const handlePay = () => {
+    haptic.medium();
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
+      haptic.success();
       show('Tickets secured!', 'success');
       router.replace('/(app)/purchased-ticket');
     }, 1500);

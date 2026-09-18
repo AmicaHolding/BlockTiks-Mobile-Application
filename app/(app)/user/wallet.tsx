@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text, Screen, AppHeader, Button, PressableCard } from '@/components/ui';
 import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { haptic } from '@/services/haptics';
 import { EVENTS, TRANSACTIONS } from '@/services/data';
 
 const TABS = ['Tickets', 'Wallet'];
@@ -25,7 +26,10 @@ export default function WalletScreen() {
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === idx && styles.tabActive]}
-            onPress={() => setActiveTab(idx)}
+            onPress={() => {
+              haptic.light();
+              setActiveTab(idx);
+            }}
           >
             <Text
               variant="body"
@@ -84,14 +88,20 @@ export default function WalletScreen() {
               <Button
                 title="Deposit"
                 size="small"
-                onPress={() => router.push('/(app)/withdraw')}
+                onPress={() => {
+                  haptic.medium();
+                  router.push('/(app)/withdraw');
+                }}
                 style={styles.actionButton}
               />
               <Button
                 title="Withdraw"
                 variant="outline"
                 size="small"
-                onPress={() => router.push('/(app)/withdraw')}
+                onPress={() => {
+                  haptic.medium();
+                  router.push('/(app)/withdraw');
+                }}
                 style={styles.actionButton}
               />
             </View>

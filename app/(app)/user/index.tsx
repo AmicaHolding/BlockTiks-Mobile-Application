@@ -12,6 +12,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text, Screen, EventCard, SearchField } from '@/components/ui';
 import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { haptic } from '@/services/haptics';
 import { EVENTS, CATEGORIES } from '@/services/data';
 
 const { width } = Dimensions.get('window');
@@ -26,7 +27,10 @@ export default function ForYouScreen() {
     return (
       <TouchableOpacity
         activeOpacity={0.9}
-        onPress={() => router.push(`/(app)/events/${hero.id}`)}
+        onPress={() => {
+            haptic.light();
+            router.push(`/(app)/events/${hero.id}`);
+          }}
         style={styles.heroCard}
       >
         <Image source={{ uri: hero.image }} style={styles.heroImage} />
@@ -78,7 +82,10 @@ export default function ForYouScreen() {
           return (
             <TouchableOpacity
               key={filter}
-              onPress={() => setActiveFilter(filter)}
+              onPress={() => {
+                haptic.light();
+                setActiveFilter(filter);
+              }}
               style={[styles.filterChip, active && styles.filterChipActive]}
             >
               <Text
@@ -108,7 +115,10 @@ export default function ForYouScreen() {
           renderItem={({ item }) => (
             <TouchableOpacity
               activeOpacity={0.9}
-              onPress={() => router.push(`/(app)/events/${item.id}`)}
+              onPress={() => {
+              haptic.light();
+              router.push(`/(app)/events/${item.id}`);
+            }}
               style={styles.feedCard}
             >
               <Image source={{ uri: item.image }} style={styles.feedImage} />

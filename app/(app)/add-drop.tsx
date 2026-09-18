@@ -6,9 +6,9 @@ export default function AddDropScreen() {
       title="Add Drop"
       icon="download-outline"
       description="Add a new ticket tier or limited release."
-      inputLabel="Drop Name"
+      inputLabel="Drop name"
       placeholder="VIP Backstage"
-      buttonTitle="Add Drop"
+      buttonTitle="Add drop"
     />
   );
 }

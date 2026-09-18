@@ -7,6 +7,8 @@ import {
   ViewStyle,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
+  RefreshControlProps,
 } from 'react-native';
 import { Colors, Spacing } from '@/constants/Colors';
 import { StatusBar } from 'expo-status-bar';
@@ -19,6 +21,7 @@ interface Props {
   contentStyle?: ViewStyle;
   keyboardAvoiding?: boolean;
   noPadding?: boolean;
+  refreshControl?: RefreshControlProps;
 }
 
 export function Screen({
@@ -29,6 +32,7 @@ export function Screen({
   contentStyle,
   keyboardAvoiding = true,
   noPadding = false,
+  refreshControl,
 }: Props) {
   const Wrapper = safe ? SafeAreaView : View;
   const contentPadding = noPadding ? undefined : { paddingHorizontal: Spacing.lg };
@@ -37,6 +41,7 @@ export function Screen({
     <ScrollView
       showsVerticalScrollIndicator={false}
       contentContainerStyle={[styles.scrollContent, contentPadding, contentStyle]}
+      refreshControl={refreshControl ? <RefreshControl {...refreshControl} /> : undefined}
     >
       {children}
     </ScrollView>

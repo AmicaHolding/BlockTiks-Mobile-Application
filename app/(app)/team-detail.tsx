@@ -6,8 +6,14 @@ export default function TeamDetailScreen() {
       title="Team Detail"
       icon="people-circle-outline"
       description="View team members and assigned responsibilities."
-      list={['Manager: Jane Doe', 'Scanner: Mike Smith', 'Support: Anna Lee']}
-      buttonTitle="Manage Members"
+      inputLabel="Add member email"
+      placeholder="teammate@example.com"
+      buttonTitle="Invite member"
+      list={[
+        { label: 'Jane Doe', sublabel: 'Manager' },
+        { label: 'Mike Smith', sublabel: 'Scanner' },
+        { label: 'Anna Lee', sublabel: 'Support' },
+      ]}
     />
   );
 }

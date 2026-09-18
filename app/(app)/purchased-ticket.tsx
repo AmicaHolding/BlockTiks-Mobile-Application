@@ -1,51 +1,45 @@
 import { View, StyleSheet, Image } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import QRCode from 'react-qr-code';
 import { Text, Screen, AppHeader, Button, Card } from '@/components/ui';
 import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { haptic } from '@/services/haptics';
+import { MY_TICKETS } from '@/services/data';
 
 export default function PurchasedTicketScreen() {
+  const ticket = MY_TICKETS[0];
+
   return (
     <Screen scrollable>
       <AppHeader title="My ticket" showBack />
 
       <Card style={styles.ticketCard}>
-        <Image
-          source={{ uri: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&q=80' }}
-          style={styles.eventImage}
-        />
+        <Image source={{ uri: ticket.image }} style={styles.eventImage} />
         <View style={styles.ticketInfo}>
           <Text variant="heading2" weight="bold" style={styles.title}>
-            DJ MaksMellow Orignawa
+            {ticket.eventTitle}
           </Text>
           <View style={styles.detailRow}>
             <Ionicons name="calendar-outline" size={16} color={Colors.primaryBright} />
             <Text variant="bodySmall" color={Colors.textMuted} style={styles.detailText}>
-              April 20, 2024 · 8:00 PM
+              {ticket.date} · 8:00 PM
             </Text>
           </View>
           <View style={styles.detailRow}>
             <Ionicons name="location-outline" size={16} color={Colors.primaryBright} />
             <Text variant="bodySmall" color={Colors.textMuted} style={styles.detailText}>
-              Madison Square Garden
+              {ticket.location}
             </Text>
           </View>
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
-              <Text variant="caption" color={Colors.textMuted}>
-                Section
-              </Text>
-              <Text variant="body" weight="bold">
-                GA
-              </Text>
+              <Text variant="caption" color={Colors.textMuted}>Type</Text>
+              <Text variant="body" weight="bold">{ticket.type}</Text>
             </View>
             <View style={styles.metaItem}>
-              <Text variant="caption" color={Colors.textMuted}>
-                Quantity
-              </Text>
-              <Text variant="body" weight="bold">
-                2
-              </Text>
+              <Text variant="caption" color={Colors.textMuted}>Quantity</Text>
+              <Text variant="body" weight="bold">1</Text>
             </View>
           </View>
         </View>
@@ -53,9 +47,12 @@ export default function PurchasedTicketScreen() {
 
       <View style={styles.qrSection}>
         <View style={styles.qrBox}>
-          <Ionicons name="qr-code" size={120} color={Colors.ink} />
+          <QRCode value={ticket.qrCode} size={180} bgColor={Colors.white} fgColor={Colors.ink} />
         </View>
         <Text variant="caption" color={Colors.textMuted} center style={styles.qrHint}>
+          {ticket.qrCode}
+        </Text>
+        <Text variant="caption" color={Colors.textMuted} center>
           Show this at the entrance. Screenshots won't work.
         </Text>
       </View>
@@ -64,14 +61,18 @@ export default function PurchasedTicketScreen() {
         <Button
           title="Transfer to a friend"
           variant="outline"
-          onPress={() => router.push('/(app)/transfer')}
-          style={styles.actionButton}
+          onPress={() => {
+            haptic.medium();
+            router.push('/(app)/transfer');
+          }}
         />
         <Button
           title="Sell on marketplace"
           variant="outline"
-          onPress={() => router.push('/(app)/place-bid')}
-          style={styles.actionButton}
+          onPress={() => {
+            haptic.medium();
+            router.push('/(app)/place-bid');
+          }}
         />
       </View>
     </Screen>
@@ -121,15 +122,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 16,
   },
   qrHint: {
     marginTop: Spacing.md,
-    paddingHorizontal: 32,
+    marginBottom: 4,
   },
   actions: {
     gap: 12,
-  },
-  actionButton: {
-    marginBottom: 0,
   },
 });

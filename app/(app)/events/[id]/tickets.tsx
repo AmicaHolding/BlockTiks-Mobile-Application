@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text, Screen, AppHeader, Button, IconButton, useToast } from '@/components/ui';
 import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { haptic } from '@/services/haptics';
 import { EVENTS } from '@/services/data';
 
 const TIERS = [
@@ -30,6 +31,7 @@ export default function TicketSelectionScreen() {
       show('Select a ticket type', 'error');
       return;
     }
+    haptic.medium();
     router.push(`/(app)/payment-page?eventId=${event.id}&tier=${selectedTier}&qty=${quantity}` as any);
   };
 
@@ -51,7 +53,10 @@ export default function TicketSelectionScreen() {
             <TouchableOpacity
               key={t.id}
               activeOpacity={0.9}
-              onPress={() => setSelectedTier(t.id)}
+              onPress={() => {
+              haptic.light();
+              setSelectedTier(t.id);
+            }}
               style={[styles.tierCard, active && styles.tierCardActive]}
             >
               <View style={styles.tierHeader}>

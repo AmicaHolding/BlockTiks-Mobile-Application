@@ -6,9 +6,13 @@ export default function EventTicketsDropScreen() {
       title="Ticket Drop"
       icon="ticket-outline"
       description="Schedule timed ticket releases and limited drops for your event."
-      inputLabel="Drop Name"
+      inputLabel="Drop name"
       placeholder="Early Bird Release"
-      buttonTitle="Schedule Drop"
+      buttonTitle="Schedule drop"
+      list={[
+        { label: 'Early Bird', sublabel: 'Oct 1, 9:00 AM · 100 tickets' },
+        { label: 'General Sale', sublabel: 'Oct 5, 10:00 AM · 500 tickets' },
+      ]}
     />
   );
 }

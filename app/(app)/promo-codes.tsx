@@ -6,9 +6,13 @@ export default function PromoCodesScreen() {
       title="Promo Codes"
       icon="pricetag-outline"
       description="Create discount codes and track redemptions."
-      inputLabel="Code"
+      inputLabel="Discount code"
       placeholder="SUMMER20"
-      buttonTitle="Create Promo Code"
+      buttonTitle="Create code"
+      list={[
+        { label: 'EARLYBIRD', sublabel: '20% off · 34 used' },
+        { label: 'VIP2024', sublabel: '$50 off · 12 used' },
+      ]}
     />
   );
 }

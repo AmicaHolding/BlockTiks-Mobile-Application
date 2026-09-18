@@ -6,7 +6,11 @@ export default function ReferralsScreen() {
       title="Referrals"
       icon="share-social-outline"
       description="Invite friends and earn credits when they buy their first ticket."
-      list={['Your referral code: BLOCK123', 'Credits earned: $45', 'Friends joined: 9']}
+      list={[
+        { label: 'Your referral code', sublabel: 'BLOCK123' },
+        { label: 'Credits earned', sublabel: '$45' },
+        { label: 'Friends joined', sublabel: '9' },
+      ]}
       buttonTitle="Share Invite"
     />
   );

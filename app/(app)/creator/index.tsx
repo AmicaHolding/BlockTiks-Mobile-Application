@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text, Screen, AppHeader, Button, PressableCard } from '@/components/ui';
 import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { haptic } from '@/services/haptics';
 import { ANALYTICS, EVENTS } from '@/services/data';
 
 const QUICK_ACTIONS = [
@@ -50,7 +51,10 @@ export default function CreatorHomeScreen() {
             key={action.label}
             variant="pressed"
             style={styles.actionCard}
-            onPress={() => router.push(action.route as any)}
+            onPress={() => {
+              haptic.light();
+              router.push(action.route as any);
+            }}
           >
             <Ionicons name={action.icon as any} size={26} color={Colors.primaryBright} />
             <Text variant="caption" weight="medium" center style={styles.actionLabel}>
@@ -87,7 +91,10 @@ export default function CreatorHomeScreen() {
 
         <Button
           title="Create new event"
-          onPress={() => router.push('/(app)/events/create')}
+          onPress={() => {
+            haptic.medium();
+            router.push('/(app)/events/create');
+          }}
           style={styles.createButton}
         />
       </View>

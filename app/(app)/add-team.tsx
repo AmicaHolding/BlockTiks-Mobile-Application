@@ -6,9 +6,9 @@ export default function AddTeamScreen() {
       title="Add Team"
       icon="people-outline"
       description="Create a new team for your event operations."
-      inputLabel="Team Name"
+      inputLabel="Team name"
       placeholder="Box Office"
-      buttonTitle="Create Team"
+      buttonTitle="Create team"
     />
   );
 }

@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text, Screen, Input, Button, useToast, IconButton } from '@/components/ui';
 import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { haptic } from '@/services/haptics';
 import { api } from '@/services/api';
 import { ApiUrls } from '@/constants/Api';
 import { useAuthStore } from '@/store/authStore';
@@ -40,9 +41,11 @@ export default function SignInScreen() {
           role: 'user',
         }
       );
+      haptic.success();
       show('Welcome back!', 'success');
       router.replace('/(app)');
     } catch (error) {
+      haptic.error();
       show('Sign in failed. Try again.', 'error');
     } finally {
       setLoading(false);

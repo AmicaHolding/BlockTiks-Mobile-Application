@@ -6,9 +6,9 @@ export default function SetDateScreen() {
       title="Set Date"
       icon="calendar-outline"
       description="Pick the date and time for your event."
-      inputLabel="Event Date & Time"
+      inputLabel="Event date & time"
       placeholder="April 20, 2024 at 8:00 PM"
-      buttonTitle="Confirm Date"
+      buttonTitle="Confirm date"
     />
   );
 }
