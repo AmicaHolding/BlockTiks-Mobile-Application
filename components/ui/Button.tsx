@@ -36,7 +36,7 @@ export function Button({
   const isDisabled = disabled || loading;
 
   const textColorMap: Record<ButtonVariant, string> = {
-    primary: Colors.black,
+    primary: Colors.ink,
     secondary: Colors.text,
     outline: Colors.text,
     ghost: Colors.primary,
@@ -45,7 +45,7 @@ export function Button({
 
   return (
     <TouchableOpacity
-      activeOpacity={0.8}
+      activeOpacity={0.75}
       disabled={isDisabled}
       style={[
         styles.base,
@@ -82,42 +82,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Radius.md,
+    borderRadius: Radius.full,
   },
   small: {
     paddingVertical: 8,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
   },
   medium: {
     paddingVertical: 12,
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
   },
   large: {
     paddingVertical: 15,
     paddingHorizontal: 24,
   },
   primary: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.white,
   },
   secondary: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.backgroundElevated,
   },
   outline: {
-    backgroundColor: Colors.transparent,
+    backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: Colors.white,
+    borderColor: Colors.divider,
   },
   ghost: {
-    backgroundColor: Colors.transparent,
+    backgroundColor: 'transparent',
   },
   dark: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: Colors.surface,
   },
   fullWidth: {
     width: '100%',
   },
   disabled: {
-    opacity: 0.5,
+    opacity: 0.45,
   },
   textWithIcon: {
     marginHorizontal: 8,

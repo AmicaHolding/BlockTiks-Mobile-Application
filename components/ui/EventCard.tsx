@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     top: Spacing.sm,
     right: Spacing.sm,
     backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: Radius.round,
+    borderRadius: Radius.full,
     paddingHorizontal: 10,
     paddingVertical: 4,
     zIndex: 1,

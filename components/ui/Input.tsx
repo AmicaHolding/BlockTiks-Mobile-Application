@@ -34,7 +34,7 @@ export function Input({
   return (
     <View style={[styles.container, containerStyle]}>
       {label && (
-        <Text variant="bodySmall" weight="medium" color={Colors.text} style={styles.label}>
+        <Text variant="bodySmall" weight="medium" color={Colors.textMuted} style={styles.label}>
           {label}
         </Text>
       )}
@@ -47,7 +47,7 @@ export function Input({
       >
         {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
         <TextInput
-          placeholderTextColor={Colors.textMuted}
+          placeholderTextColor={Colors.textDim}
           secureTextEntry={isSecure}
           style={[styles.input, style]}
           {...props}
@@ -57,7 +57,7 @@ export function Input({
             <Ionicons
               name={isSecure ? 'eye-off-outline' : 'eye-outline'}
               size={20}
-              color={Colors.textMuted}
+              color={Colors.textDim}
             />
           </TouchableOpacity>
         )}
@@ -82,10 +82,10 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.inputBg,
+    backgroundColor: Colors.backgroundElevated,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.transparent,
+    borderColor: Colors.divider,
     paddingHorizontal: 14,
     minHeight: 52,
   },

@@ -7,7 +7,7 @@ type StyleProp = ViewStyle | Falsy | (ViewStyle | Falsy)[];
 interface CardProps {
   children: React.ReactNode;
   style?: StyleProp;
-  variant?: 'default' | 'elevated' | 'outline' | 'ghost' | 'pressed';
+  variant?: 'default' | 'elevated' | 'outline' | 'ghost' | 'pressed' | 'light';
 }
 
 export function Card({ children, style, variant = 'default' }: CardProps) {
@@ -17,12 +17,12 @@ export function Card({ children, style, variant = 'default' }: CardProps) {
 interface PressableCardProps extends TouchableOpacityProps {
   children: React.ReactNode;
   style?: StyleProp;
-  variant?: 'default' | 'elevated' | 'outline' | 'ghost' | 'pressed';
+  variant?: 'default' | 'elevated' | 'outline' | 'ghost' | 'pressed' | 'light';
 }
 
 export function PressableCard({ children, style, variant = 'default', ...props }: PressableCardProps) {
   return (
-    <TouchableOpacity activeOpacity={0.8} style={[styles.base, styles[variant], style]} {...props}>
+    <TouchableOpacity activeOpacity={0.75} style={[styles.base, styles[variant], style]} {...props}>
       {children}
     </TouchableOpacity>
   );
@@ -32,27 +32,30 @@ const styles = StyleSheet.create({
   base: {
     borderRadius: Radius.lg,
     padding: Spacing.lg,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.backgroundElevated,
   },
   default: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.backgroundElevated,
   },
   elevated: {
     backgroundColor: Colors.backgroundElevated,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: Colors.divider,
   },
   outline: {
-    backgroundColor: Colors.transparent,
+    backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.divider,
   },
   pressed: {
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
   ghost: {
-    backgroundColor: Colors.transparent,
+    backgroundColor: 'transparent',
     padding: 0,
     borderRadius: 0,
+  },
+  light: {
+    backgroundColor: Colors.surfaceCard,
   },
 });

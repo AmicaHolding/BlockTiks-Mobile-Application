@@ -1,76 +1,58 @@
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, FlatList, Image } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  Text,
-  Screen,
-  AppHeader,
-  Card,
-  PressableCard,
-  Button,
-  SectionHeader,
-} from '@/components/ui';
+import { Text, Screen, AppHeader, Button, PressableCard } from '@/components/ui';
 import { Colors, Spacing, Radius } from '@/constants/Colors';
-import { ANALYTICS } from '@/services/data';
+import { ANALYTICS, EVENTS } from '@/services/data';
 
-const ACTIONS = [
-  { label: 'Create Event', icon: 'add-circle-outline', route: '/(app)/events/create' },
-  { label: 'Manage Teams', icon: 'people-outline', route: '/(app)/manage-teams' },
-  { label: 'Venue Layout', icon: 'grid-outline', route: '/(app)/venue-layout' },
-  { label: 'Promo Codes', icon: 'pricetag-outline', route: '/(app)/promo-codes' },
-  { label: 'Guests', icon: 'list-outline', route: '/(app)/all-guests' },
-  { label: 'Broadcast', icon: 'megaphone-outline', route: '/(app)/broadcast-message' },
+const QUICK_ACTIONS = [
+  { label: 'Create event', icon: 'add-circle-outline', route: '/(app)/events/create' },
+  { label: 'Guests', icon: 'people-outline', route: '/(app)/all-guests' },
+  { label: 'Scan tickets', icon: 'scan-outline', route: '/(app)/scanner' },
+  { label: 'Promo codes', icon: 'pricetag-outline', route: '/(app)/promo-codes' },
 ];
 
 export default function CreatorHomeScreen() {
   return (
-    <Screen>
-      <AppHeader title="Creator Home" showNotification />
-
-      <View style={styles.statsGrid}>
-        <Card style={styles.statCard}>
+    <Screen scrollable noPadding>
+      <View style={styles.header}>
+        <View>
           <Text variant="caption" color={Colors.textMuted}>
-            Total Sales
+            Total revenue
           </Text>
-          <Text variant="heading2" weight="bold" style={styles.statValue}>
+          <Text variant="display" weight="bold" style={styles.revenue}>
             ${ANALYTICS.totalSales.toLocaleString()}
           </Text>
-        </Card>
-        <Card style={styles.statCard}>
-          <Text variant="caption" color={Colors.textMuted}>
-            Tickets Sold
-          </Text>
-          <Text variant="heading2" weight="bold" style={styles.statValue}>
-            {ANALYTICS.ticketsSold}
-          </Text>
-        </Card>
-        <Card style={styles.statCard}>
-          <Text variant="caption" color={Colors.textMuted}>
-            Events Live
-          </Text>
-          <Text variant="heading2" weight="bold" style={styles.statValue}>
-            {ANALYTICS.eventsLive}
-          </Text>
-        </Card>
-        <Card style={styles.statCard}>
-          <Text variant="caption" color={Colors.textMuted}>
-            Revenue
-          </Text>
-          <Text variant="heading2" weight="bold" style={styles.statValue}>
-            ${ANALYTICS.revenue.toLocaleString()}
-          </Text>
-        </Card>
+        </View>
+        <PressableCard
+          variant="pressed"
+          style={styles.analyticsButton}
+          onPress={() => router.push('/(app)/analytics')}
+        >
+          <Ionicons name="bar-chart-outline" size={22} color={Colors.text} />
+        </PressableCard>
       </View>
 
-      <SectionHeader title="Quick Actions" />
+      <View style={styles.statsRow}>
+        <View style={styles.stat}>
+          <Text variant="heading2" weight="bold">{ANALYTICS.ticketsSold}</Text>
+          <Text variant="bodySmall" color={Colors.textMuted}>Tickets sold</Text>
+        </View>
+        <View style={styles.stat}>
+          <Text variant="heading2" weight="bold">{ANALYTICS.eventsLive}</Text>
+          <Text variant="bodySmall" color={Colors.textMuted}>Live events</Text>
+        </View>
+      </View>
+
       <View style={styles.actionsGrid}>
-        {ACTIONS.map((action) => (
+        {QUICK_ACTIONS.map((action) => (
           <PressableCard
             key={action.label}
+            variant="pressed"
             style={styles.actionCard}
             onPress={() => router.push(action.route as any)}
           >
-            <Ionicons name={action.icon as any} size={28} color={Colors.primary} />
+            <Ionicons name={action.icon as any} size={26} color={Colors.primaryBright} />
             <Text variant="caption" weight="medium" center style={styles.actionLabel}>
               {action.label}
             </Text>
@@ -78,39 +60,110 @@ export default function CreatorHomeScreen() {
         ))}
       </View>
 
-      <Button title="Create New Event" onPress={() => router.push('/(app)/events/create')} />
+      <View style={styles.sectionPadding}>
+        <Text variant="heading2" weight="bold" style={styles.sectionTitle}>
+          Your events
+        </Text>
+        <FlatList
+          data={EVENTS.slice(0, 4)}
+          keyExtractor={(item) => item.id}
+          scrollEnabled={false}
+          contentContainerStyle={styles.eventsList}
+          renderItem={({ item }) => (
+            <PressableCard
+              variant="pressed"
+              style={styles.eventRow}
+              onPress={() => router.push('/(app)/creator-event')}
+            >
+              <Image source={{ uri: item.image }} style={styles.eventThumb} />
+              <View style={styles.eventInfo}>
+                <Text variant="body" weight="medium" numberOfLines={1}>{item.title}</Text>
+                <Text variant="caption" color={Colors.textMuted}>{item.date}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+            </PressableCard>
+          )}
+        />
+
+        <Button
+          title="Create new event"
+          onPress={() => router.push('/(app)/events/create')}
+          style={styles.createButton}
+        />
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  statsGrid: {
+  header: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: Spacing.lg,
+    paddingTop: 12,
+    paddingBottom: Spacing.lg,
+  },
+  revenue: {
+    marginTop: 8,
+    fontSize: 44,
+    lineHeight: 50,
+  },
+  analyticsButton: {
+    padding: 10,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.xl,
     marginBottom: Spacing.xl,
   },
-  statCard: {
-    width: '47%',
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  statValue: {
-    marginTop: 8,
+  stat: {
+    alignItems: 'flex-start',
   },
   actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    gap: 10,
+    marginBottom: Spacing.xxl,
   },
   actionCard: {
-    width: '30.5%',
+    width: '23.3%',
     alignItems: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 4,
   },
   actionLabel: {
     marginTop: 8,
+  },
+  sectionPadding: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 40,
+  },
+  sectionTitle: {
+    marginBottom: Spacing.lg,
+  },
+  eventsList: {
+    gap: 10,
+    marginBottom: Spacing.xl,
+  },
+  eventRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+  },
+  eventThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: Radius.sm,
+    marginRight: 12,
+  },
+  eventInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  createButton: {
+    marginTop: Spacing.md,
   },
 });

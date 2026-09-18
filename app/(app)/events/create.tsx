@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   categoryChip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: Radius.round,
+    borderRadius: Radius.full,
     backgroundColor: 'rgba(255,255,255,0.08)',
     marginRight: Spacing.md,
   },

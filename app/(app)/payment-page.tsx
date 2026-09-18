@@ -1,86 +1,67 @@
 import { useState } from 'react';
 import { View, StyleSheet, Image } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  Text,
-  Screen,
-  AppHeader,
-  Button,
-  Card,
-  PressableCard,
-  Input,
-  useToast,
-} from '@/components/ui';
+import { Text, Screen, AppHeader, Button, PressableCard, Input, useToast } from '@/components/ui';
 import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { EVENTS } from '@/services/data';
+
+const TIERS: Record<string, { name: string; price: number }> = {
+  ga: { name: 'General Admission', price: 85 },
+  vip: { name: 'VIP', price: 150 },
+  backstage: { name: 'Backstage Pass', price: 295 },
+};
 
 const PAYMENT_METHODS = [
-  { id: 'card', label: 'Credit / Debit Card', icon: 'card-outline' },
-  { id: 'wallet', label: 'Wallet Balance', icon: 'wallet-outline' },
-  { id: 'paypal', label: 'PayPal', icon: 'logo-paypal' },
+  { id: 'apple', label: 'Apple Pay', icon: 'logo-apple' },
+  { id: 'card', label: 'Credit or debit card', icon: 'card-outline' },
+  { id: 'wallet', label: 'BlockTiks Wallet', icon: 'wallet-outline' },
 ] as const;
 
 export default function PaymentPageScreen() {
+  const { eventId = EVENTS[0].id, tier = 'ga', qty = '1' } = useLocalSearchParams();
+  const event = EVENTS.find((e) => e.id === eventId) || EVENTS[0];
+  const tierInfo = TIERS[tier as string] || TIERS.ga;
+  const quantity = parseInt(qty as string, 10) || 1;
+
   const [method, setMethod] = useState('card');
   const [loading, setLoading] = useState(false);
   const { show } = useToast();
+
+  const ticketsTotal = tierInfo.price * quantity;
+  const fees = Math.round(ticketsTotal * 0.12);
+  const orderTotal = ticketsTotal + fees;
 
   const handlePay = () => {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      show('Ticket purchased successfully!', 'success');
+      show('Tickets secured!', 'success');
       router.replace('/(app)/purchased-ticket');
     }, 1500);
   };
 
   return (
-    <Screen>
+    <Screen scrollable>
       <AppHeader title="Checkout" showBack />
 
-      <Card style={styles.summaryCard}>
-        <Image
-          source={{ uri: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&q=80' }}
-          style={styles.eventImage}
-        />
-        <View style={styles.summaryText}>
-          <Text variant="heading3" weight="bold">
-            DJ MaksMellow Orignawa
+      <View style={styles.eventSummary}>
+        <Image source={{ uri: event.image }} style={styles.eventImage} />
+        <View style={styles.eventInfo}>
+          <Text variant="heading3" weight="bold" numberOfLines={2}>
+            {event.title}
           </Text>
           <Text variant="bodySmall" color={Colors.textMuted}>
-            2 tickets · Platinum
+            {event.date}
+          </Text>
+          <Text variant="bodySmall" color={Colors.textMuted}>
+            {quantity} × {tierInfo.name}
           </Text>
         </View>
-      </Card>
+      </View>
 
       <Text variant="heading3" weight="bold" style={styles.sectionTitle}>
-        Order Summary
-      </Text>
-      <Card style={styles.totalsCard}>
-        <View style={styles.row}>
-          <Text variant="bodySmall" color={Colors.textMuted}>
-            Subtotal
-          </Text>
-          <Text variant="bodySmall">$810.00</Text>
-        </View>
-        <View style={styles.row}>
-          <Text variant="bodySmall" color={Colors.textMuted}>
-            Service Fee
-          </Text>
-          <Text variant="bodySmall">$12.50</Text>
-        </View>
-        <View style={[styles.row, styles.totalRow]}>
-          <Text variant="body" weight="bold">
-            Total
-          </Text>
-          <Text variant="heading3" weight="bold" color={Colors.success}>
-            $822.50
-          </Text>
-        </View>
-      </Card>
-
-      <Text variant="heading3" weight="bold" style={styles.sectionTitle}>
-        Payment Method
+        Pay with
       </Text>
       {PAYMENT_METHODS.map((m) => (
         <PressableCard
@@ -90,56 +71,117 @@ export default function PaymentPageScreen() {
           onPress={() => setMethod(m.id)}
         >
           <View style={styles.methodLeft}>
-            <Ionicons name={m.icon as any} size={22} color={method === m.id ? Colors.primary : Colors.text} />
-            <Text variant="bodySmall" weight="medium" style={styles.methodLabel}>
+            <Ionicons name={m.icon as any} size={22} color={method === m.id ? Colors.primaryBright : Colors.text} />
+            <Text variant="body" weight="medium" style={styles.methodLabel}>
               {m.label}
             </Text>
           </View>
           <View
-            style={[
-              styles.radio,
-              method === m.id && { backgroundColor: Colors.primary, borderColor: Colors.primary },
-            ]}
+            style={[styles.radio, method === m.id && { backgroundColor: Colors.primary, borderColor: Colors.primary }]}
           />
         </PressableCard>
       ))}
 
       {method === 'card' && (
-        <>
-          <Input label="Cardholder Name" placeholder="John Doe" />
-          <Input label="Card Number" placeholder="0000 0000 0000 0000" keyboardType="number-pad" />
+        <View style={styles.cardForm}>
+          <Input label="Name on card" placeholder="John Doe" />
+          <Input label="Card number" placeholder="0000 0000 0000 0000" keyboardType="number-pad" />
           <View style={styles.cardRow}>
             <Input label="Expiry" placeholder="MM/YY" containerStyle={styles.flex} />
-            <Input label="CVV" placeholder="123" keyboardType="number-pad" secure containerStyle={styles.flex} />
+            <Input label="CVC" placeholder="123" keyboardType="number-pad" containerStyle={styles.flex} />
           </View>
-        </>
+        </View>
       )}
 
-      <View style={{ flex: 1 }} />
-      <Button title={`Pay $822.50`} loading={loading} onPress={handlePay} style={styles.payButton} />
+      <View style={styles.totalsCard}>
+        <View style={styles.row}>
+          <Text variant="bodySmall" color={Colors.textMuted}>
+            Tickets
+          </Text>
+          <Text variant="bodySmall">${ticketsTotal}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text variant="bodySmall" color={Colors.textMuted}>
+            Fees
+          </Text>
+          <Text variant="bodySmall">${fees}</Text>
+        </View>
+        <View style={[styles.row, styles.totalRow]}>
+          <Text variant="body" weight="bold">
+            Total
+          </Text>
+          <Text variant="heading2" weight="bold">
+            ${orderTotal}
+          </Text>
+        </View>
+      </View>
+
+      <Button title={`Pay $${orderTotal}`} loading={loading} onPress={handlePay} />
+
+      <Text variant="caption" color={Colors.textMuted} center style={styles.disclaimer}>
+        Payment processed securely. No card data is stored on this device.
+      </Text>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  summaryCard: {
+  eventSummary: {
     flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: Spacing.xl,
   },
   eventImage: {
-    width: 80,
-    height: 80,
+    width: 88,
+    height: 88,
     borderRadius: Radius.md,
     marginRight: Spacing.md,
   },
-  summaryText: {
+  eventInfo: {
     flex: 1,
+    justifyContent: 'center',
   },
   sectionTitle: {
     marginBottom: Spacing.md,
   },
+  methodCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingVertical: 16,
+  },
+  methodActive: {
+    borderColor: Colors.primary,
+  },
+  methodLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  methodLabel: {
+    marginLeft: 14,
+  },
+  radio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: Colors.textMuted,
+  },
+  cardForm: {
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  flex: {
+    flex: 1,
+  },
   totalsCard: {
+    backgroundColor: Colors.backgroundElevated,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
     marginBottom: Spacing.xl,
   },
   row: {
@@ -151,41 +193,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderTopColor: Colors.divider,
   },
-  methodCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    marginBottom: 10,
-  },
-  methodActive: {
-    borderWidth: 1,
-    borderColor: Colors.primary,
-  },
-  methodLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  methodLabel: {
-    marginLeft: 12,
-  },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: Colors.textMuted,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  flex: {
-    flex: 1,
-  },
-  payButton: {
+  disclaimer: {
     marginTop: Spacing.lg,
   },
 });

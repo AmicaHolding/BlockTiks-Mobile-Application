@@ -1,15 +1,26 @@
 # BlockTiks — Expo Go Version
 
-A React Native + Expo SDK rewrite of the original Flutter `BlockTiks-Mobile-Application`. It lives in a separate folder so the Flutter codebase remains untouched.
+A React Native + Expo SDK rewrite of the original Flutter `BlockTiks-Mobile-Application`, redesigned around the patterns used by **Luma**, **Partiful**, and **dice.fm**.
 
-## Identity & Design
+## Product purpose
 
-BlockTiks is a premium event-ticketing and ticket-resale platform for fans and event creators.
+BlockTiks is a premium event-ticketing and resale marketplace.
 
-- **For fans:** discover events, buy tickets, store them in a wallet, resell or transfer them.
-- **For creators:** publish events, manage ticket tiers, teams, promo codes, guest lists, and view analytics.
-- **Visual identity:** dark, high-contrast, nightlife/event aesthetic. Primary purple `#B620E0`, neon green success `#43FF00`, near-black background `#121212`.
-- **Typography:** Inter for UI text, Manrope for display/headings.
+- **Fans** discover events, buy tickets in seconds, store them in a wallet, and resell or transfer them safely.
+- **Creators** publish events, manage ticket tiers, promo codes, guest lists, and view real-time performance.
+
+The UI is intentionally **content-first and commerce-simple**: big event posters, clear CTAs, upfront pricing, and fast checkout.
+
+## Design approach
+
+The design system is inspired by **Revolut** (installed via `getdesign`): high-contrast, near-black canvas, pill-shaped CTAs, generous whitespace, and a single cobalt-violet accent used sparingly. For an event app, that translates to:
+
+- Immersive dark discovery feeds (like **dice.fm**).
+- Clean event pages with social proof and a single "Get tickets" CTA (like **Luma**).
+- Simple ticket-tier selection with transparent fees and fast checkout (like **Partiful** / **dice.fm**).
+- A creator dashboard that surfaces revenue, live events, and quick actions in one place (like **Luma** host tools).
+
+See `DESIGN.md` for the full token reference.
 
 ## Tech Stack
 
@@ -17,31 +28,33 @@ BlockTiks is a premium event-ticketing and ticket-resale platform for fans and e
 - Expo Router (file-based routing)
 - React 19 / React Native 0.86
 - TypeScript
-- Zustand + expo-secure-store (auth & session)
+- Zustand + `expo-secure-store` (auth & session)
 - Axios (API client)
-- react-native-chart-kit (analytics)
-- expo-image-picker, expo-camera, expo-notifications (Expo Go-compatible native features)
+- `react-native-chart-kit` (analytics)
+- `expo-image-picker`, `expo-camera`, `expo-notifications`
 
 ## Project Structure
 
 ```
 app/
-  (auth)/           # Auth stack: get started, sign in/up, OTP, forgot/reset password
+  (auth)/               # Get started, sign in/up, OTP, forgot/reset password
   (app)/
-    user/           # Attendee tabs: For You, Resell, Wallet, Profile
-    creator/        # Creator tabs: Home, Analytics, Profile
-    events/[id].tsx # Event detail with ticket selection
-    events/create.tsx # Create / edit event
-    search.tsx      # Global search (events + people)
-    profile-settings.tsx
+    user/               # Attendee tabs: For You, Resell, Wallet, Profile
+    creator/            # Creator tabs: Home, Analytics, Profile
+    events/[id].tsx     # Event detail
+    events/[id]/tickets.tsx  # Ticket tier selection
+    events/create.tsx   # Create event
+    search.tsx          # Global search
+    payment-page.tsx    # Checkout
     purchased-ticket.tsx
-    payment-page.tsx
-    wallet.tsx      # (tab)
-    ...             # other stack screens for teams, guests, promo codes, etc.
-components/ui/      # Shared design system components
-store/              # Zustand stores
-services/           # API client, storage helpers, mock data
-constants/          # Colors, spacing, typography tokens
+    wallet.tsx / withdraw.tsx / transfer.tsx / place-bid.tsx / ask-bid.tsx
+    notifications.tsx / profile-settings.tsx / edit-profile.tsx / faqs.tsx
+    ...                 # creator tools (teams, guests, scanner, promo codes, etc.)
+components/ui/          # Shared design-system components
+store/                  # Zustand stores
+services/               # API client, storage helpers, mock data
+constants/              # Colors, spacing, typography tokens
+DESIGN.md               # Revolut-inspired design tokens
 ```
 
 ## Run in Expo Go
@@ -63,38 +76,24 @@ npx tsc --noEmit                  # Type check
 npx expo export --platform web    # Verify the bundle builds
 ```
 
-## Feature Mapping from Flutter
+## Key UX changes from the first pass
 
-| Flutter Module | Expo Screen(s) |
-|---|---|
-| For You / Home | `app/(app)/user/index.tsx` |
-| Resell / Marketplace / Asks / Bids | `app/(app)/user/resell.tsx` |
-| Wallet | `app/(app)/user/wallet.tsx` |
-| Profile Tab | `app/(app)/user/profile.tsx` |
-| Creator Dashboard | `app/(app)/creator/index.tsx` |
-| Analytics | `app/(app)/creator/analytics.tsx` + `app/(app)/analytics.tsx` |
-| Search | `app/(app)/search.tsx` |
-| Event Detail | `app/(app)/events/[id].tsx` |
-| Create Event | `app/(app)/events/create.tsx` |
-| Purchased Ticket / QR | `app/(app)/purchased-ticket.tsx` |
-| Payment | `app/(app)/payment-page.tsx` |
-| Transfer / Send Tickets | `app/(app)/transfer.tsx`, `app/(app)/send-tickets.tsx` |
-| Place Bid / Ask Bid | `app/(app)/place-bid.tsx`, `app/(app)/ask-bid.tsx` |
-| Notifications | `app/(app)/notifications.tsx` |
-| Settings | `app/(app)/profile-settings.tsx` |
-| Manage Teams / Guests / Scanner | `app/(app)/manage-teams.tsx`, `app/(app)/all-guests.tsx`, `app/(app)/scanner.tsx` |
-| Promo Codes / Venue Layout | `app/(app)/promo-codes.tsx`, `app/(app)/venue-layout.tsx` |
+1. **Discovery → dice.fm-style feed**: vertical poster cards, filter pills, location selector, minimal metadata.
+2. **Event detail → Luma-style page**: hero image, date/venue/lineup, social proof, single sticky "Get tickets" CTA.
+3. **Ticket purchase → Partiful/dice.fm-style tier selection**: selectable cards, quantity stepper, fees shown upfront, clear total.
+4. **Wallet → Tickets / Wallet tabs**: tickets are the default; wallet balance and transactions live under the second tab.
+5. **Creator dashboard → Luma host dashboard**: total revenue, live stats, quick actions, and your events list.
+6. **Design system → Revolut-inspired tokens**: true-black canvas, elevated dark cards, white pill primary CTA, cobalt-violet accent.
 
-## Known Limitations in Expo Go
+## Known Expo Go Limitations
 
-- **Payments:** Card capture uses a placeholder form. Real Stripe / Apple Pay / Google Pay requires a development build.
-- **Image cropping:** `expo-image-picker` supports basic editing; a dedicated native cropper requires a development build.
-- **Push notifications:** Expo Go supports local notifications and Expo Push. FCM / custom push providers require a development build.
-- **Firebase native SDKs:** require a development build if enabled later.
+- **Payments:** The checkout form is a UI placeholder. Real Apple Pay / Google Pay / card capture requires an Expo **development build**.
+- **Image cropping:** `expo-image-picker` supports basic editing only; a native cropper UI needs a development build.
+- **Push notifications:** Expo Go supports local notifications and Expo Push. FCM / custom providers need a development build.
 
 ## Next Steps
 
-1. Wire the real auth endpoints in `app/(auth)/sign-in.tsx` and `app/(auth)/sign-up.tsx`.
-2. Replace mock event/ticket data in `services/data.ts` with API calls.
+1. Wire real auth endpoints in `app/(auth)/sign-in.tsx` and `app/(auth)/sign-up.tsx`.
+2. Replace mock data in `services/data.ts` with API calls.
 3. Add real payment flow via Stripe in a development build if needed.
 4. Configure EAS Build / EAS Update for store distribution.

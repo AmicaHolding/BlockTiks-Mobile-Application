@@ -31,6 +31,7 @@ export default function AppLayout() {
       <Stack.Screen name="user" options={{ animation: 'fade' }} />
       <Stack.Screen name="creator" options={{ animation: 'fade' }} />
       <Stack.Screen name="events/[id]" />
+      <Stack.Screen name="events/[id]/tickets" />
       <Stack.Screen name="events/create" />
       <Stack.Screen name="notifications" />
       <Stack.Screen name="scanner" options={{ presentation: 'fullScreenModal' }} />

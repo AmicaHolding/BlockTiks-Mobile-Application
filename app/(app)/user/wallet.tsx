@@ -1,218 +1,207 @@
-import { View, StyleSheet, Image, FlatList } from 'react-native';
+import { useState } from 'react';
+import { View, StyleSheet, FlatList, Image, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  Text,
-  Screen,
-  AppHeader,
-  SearchField,
-  Button,
-  PressableCard,
-  SectionHeader,
-} from '@/components/ui';
+import { Text, Screen, AppHeader, Button, PressableCard } from '@/components/ui';
 import { Colors, Spacing, Radius } from '@/constants/Colors';
 import { EVENTS, TRANSACTIONS } from '@/services/data';
 
+const TABS = ['Tickets', 'Wallet'];
+
+const MY_TICKETS = [
+  { id: 't1', eventId: EVENTS[0].id, title: EVENTS[0].title, date: EVENTS[0].date, tier: 'General Admission', qty: 2 },
+  { id: 't2', eventId: EVENTS[1].id, title: EVENTS[1].title, date: EVENTS[1].date, tier: 'VIP', qty: 1 },
+];
+
 export default function WalletScreen() {
+  const [activeTab, setActiveTab] = useState(0);
+
   return (
     <Screen>
       <AppHeader title="Wallet" showNotification />
-      <SearchField
-        readOnly
-        onPress={() => router.push('/(app)/search')}
-        containerStyle={styles.search}
-      />
 
-      <View style={styles.balanceRow}>
-        <View>
-          <Text variant="bodySmall" color={Colors.textMuted}>
-            Balance
-          </Text>
-          <View style={styles.balanceValue}>
-            <Text variant="heading1" weight="bold">
-              $2,000
+      <View style={styles.tabRow}>
+        {TABS.map((tab, idx) => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tab, activeTab === idx && styles.tabActive]}
+            onPress={() => setActiveTab(idx)}
+          >
+            <Text
+              variant="body"
+              weight={activeTab === idx ? 'bold' : 'medium'}
+              color={activeTab === idx ? Colors.ink : Colors.text}
+            >
+              {tab}
             </Text>
-            <Text variant="body" weight="medium" color={Colors.textMuted} style={styles.currency}>
-              USD
-            </Text>
-            <Ionicons name="caret-down-outline" size={18} color={Colors.text} />
-          </View>
-          <View style={styles.growthRow}>
-            <Text variant="bodySmall" color={Colors.textMuted}>
-              This week
-            </Text>
-            <Text variant="bodySmall" weight="bold" color={Colors.success}>
-              +10%
-            </Text>
-          </View>
-        </View>
-        <PressableCard style={styles.analyticsButton} onPress={() => router.push('/(app)/analytics')}>
-          <Ionicons name="trending-up-outline" size={22} color={Colors.primary} />
-        </PressableCard>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      <View style={styles.actionRow}>
-        <Button
-          title="Deposit"
-          onPress={() => router.push('/(app)/withdraw')}
-          style={styles.actionButton}
+      {activeTab === 0 ? (
+        <FlatList
+          data={MY_TICKETS}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <Text variant="body" color={Colors.textMuted} center>
+              No tickets yet.
+            </Text>
+          }
+          renderItem={({ item }) => (
+            <PressableCard
+              variant="pressed"
+              style={styles.ticketCard}
+              onPress={() => router.push('/(app)/purchased-ticket')}
+            >
+              <Image source={{ uri: EVENTS.find((e) => e.id === item.eventId)?.image || EVENTS[0].image }} style={styles.ticketImage} />
+              <View style={styles.ticketInfo}>
+                <Text variant="heading3" weight="bold" numberOfLines={2}>
+                  {item.title}
+                </Text>
+                <Text variant="bodySmall" color={Colors.textMuted}>
+                  {item.date}
+                </Text>
+                <Text variant="caption" color={Colors.textMuted}>
+                  {item.qty} × {item.tier}
+                </Text>
+              </View>
+              <Ionicons name="qr-code-outline" size={28} color={Colors.text} />
+            </PressableCard>
+          )}
         />
-        <Button
-          title="Withdraw"
-          variant="outline"
-          onPress={() => router.push('/(app)/withdraw')}
-          style={styles.actionButton}
-        />
-        <Button
-          title="Transfer"
-          variant="outline"
-          onPress={() => router.push('/(app)/transfer')}
-          style={styles.actionButton}
-        />
-      </View>
-
-      <SectionHeader title="Upcoming Events" />
-      <PressableCard
-        style={styles.featuredEvent}
-        onPress={() => router.push('/(app)/upcoming-event')}
-      >
-        <Image source={{ uri: EVENTS[0].image }} style={styles.featuredImage} />
-        <View style={styles.featuredInfo}>
-          <Text variant="bodySmall" weight="bold">
-            {EVENTS[0].title}
-          </Text>
-          <Text variant="caption" color={Colors.textMuted}>
-            {EVENTS[0].category}
-          </Text>
-        </View>
-      </PressableCard>
-
-      <SectionHeader title="My Tickets" actionLabel="See All" onAction={() => router.push('/(app)/purchased-ticket')} />
-      <PressableCard style={styles.ticketCard} onPress={() => router.push('/(app)/purchased-ticket')}>
-        <Image source={{ uri: EVENTS[0].image }} style={styles.ticketImage} />
-        <View style={styles.ticketInfo}>
-          <Text variant="bodySmall" weight="bold">
-            DJ MaksMellow Orignawa
-          </Text>
-          <Text variant="caption" color={Colors.textMuted}>
-            Platinum · Apr 20, 2024
-          </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
-      </PressableCard>
-
-      <SectionHeader title="Recent Transactions" />
-      <FlatList
-        data={TRANSACTIONS}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.transactionsList}
-        renderItem={({ item }) => (
-          <View style={styles.transactionRow}>
-            <View style={styles.transactionIconBox}>
-              <Ionicons
-                name={item.type === 'credit' ? 'arrow-down-outline' : 'arrow-up-outline'}
-                size={18}
-                color={item.type === 'credit' ? Colors.success : Colors.error}
+      ) : (
+        <>
+          <View style={styles.balanceCard}>
+            <Text variant="caption" color={Colors.textMuted}>
+              Available balance
+            </Text>
+            <Text variant="display" weight="bold" style={styles.balanceAmount}>
+              $2,000.00
+            </Text>
+            <View style={styles.actionRow}>
+              <Button
+                title="Deposit"
+                size="small"
+                onPress={() => router.push('/(app)/withdraw')}
+                style={styles.actionButton}
+              />
+              <Button
+                title="Withdraw"
+                variant="outline"
+                size="small"
+                onPress={() => router.push('/(app)/withdraw')}
+                style={styles.actionButton}
               />
             </View>
-            <View style={styles.transactionInfo}>
-              <Text variant="bodySmall" weight="medium">
-                {item.title}
-              </Text>
-              <Text variant="caption" color={Colors.textMuted}>
-                {item.date}
-              </Text>
-            </View>
-            <Text
-              variant="bodySmall"
-              weight="bold"
-              color={item.type === 'credit' ? Colors.success : Colors.error}
-            >
-              {item.type === 'credit' ? '+' : ''}${Math.abs(item.amount)}
-            </Text>
           </View>
-        )}
-      />
+
+          <Text variant="heading3" weight="bold" style={styles.sectionTitle}>
+            Recent activity
+          </Text>
+          <FlatList
+            data={TRANSACTIONS}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.list}
+            renderItem={({ item }) => (
+              <View style={styles.transactionRow}>
+                <View style={styles.iconBox}>
+                  <Ionicons
+                    name={item.type === 'credit' ? 'arrow-down-outline' : 'arrow-up-outline'}
+                    size={18}
+                    color={item.type === 'credit' ? Colors.success : Colors.error}
+                  />
+                </View>
+                <View style={styles.transactionInfo}>
+                  <Text variant="body" weight="medium">
+                    {item.title}
+                  </Text>
+                  <Text variant="caption" color={Colors.textMuted}>
+                    {item.date}
+                  </Text>
+                </View>
+                <Text
+                  variant="body"
+                  weight="bold"
+                  color={item.type === 'credit' ? Colors.success : Colors.error}
+                >
+                  {item.type === 'credit' ? '+' : '-'}${Math.abs(item.amount)}
+                </Text>
+              </View>
+            )}
+          />
+        </>
+      )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  search: {
-    marginBottom: Spacing.lg,
-  },
-  balanceRow: {
+  tabRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.lg,
-  },
-  balanceValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  currency: {
-    marginLeft: 8,
-    marginRight: 2,
-  },
-  growthRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 6,
-  },
-  analyticsButton: {
-    padding: 10,
-    borderRadius: Radius.lg,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 10,
+    backgroundColor: Colors.backgroundElevated,
+    borderRadius: Radius.full,
+    padding: 4,
     marginBottom: Spacing.xl,
   },
-  actionButton: {
+  tab: {
     flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: Radius.full,
   },
-  featuredEvent: {
-    padding: 0,
-    overflow: 'hidden',
-    marginBottom: Spacing.xl,
+  tabActive: {
+    backgroundColor: Colors.white,
   },
-  featuredImage: {
-    width: '100%',
-    height: 160,
-  },
-  featuredInfo: {
-    padding: Spacing.md,
+  list: {
+    gap: 12,
+    paddingBottom: 24,
   },
   ticketCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.xl,
+    padding: 12,
   },
   ticketImage: {
-    width: 56,
-    height: 56,
-    borderRadius: Radius.sm,
+    width: 72,
+    height: 72,
+    borderRadius: Radius.md,
+    marginRight: 14,
   },
   ticketInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginRight: 12,
   },
-  transactionsList: {
-    gap: 10,
-    paddingBottom: 24,
+  balanceCard: {
+    backgroundColor: Colors.backgroundElevated,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  balanceAmount: {
+    marginTop: 8,
+    marginBottom: Spacing.xl,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+  },
+  sectionTitle: {
+    marginBottom: Spacing.md,
   },
   transactionRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  transactionIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  iconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.full,
     backgroundColor: 'rgba(255,255,255,0.05)',
     alignItems: 'center',
     justifyContent: 'center',

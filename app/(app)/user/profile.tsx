@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, StyleSheet, Image, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Text, Screen, Button, Avatar, PressableCard, EventCard } from '@/components/ui';
+import { Text, Screen, Avatar, EventCard, Button } from '@/components/ui';
 import { Colors, Spacing, Radius } from '@/constants/Colors';
 import { EVENTS, USER_PROFILE } from '@/services/data';
 import { useAuthStore } from '@/store/authStore';
@@ -23,7 +23,7 @@ export default function ProfileScreen() {
     <Screen scrollable noPadding>
       <View style={styles.headerImageContainer}>
         <Image source={{ uri: EVENTS[0].image }} style={styles.headerImage} />
-        <View style={styles.headerGradient} />
+        <View style={styles.headerOverlay} />
         <TouchableOpacity
           style={styles.settingsButton}
           onPress={() => router.push('/(app)/profile-settings')}
@@ -34,10 +34,10 @@ export default function ProfileScreen() {
 
       <View style={styles.sheet}>
         <View style={styles.avatarWrapper}>
-          <Avatar uri={USER_PROFILE.avatar} name={USER_PROFILE.name} size={96} />
+          <Avatar uri={USER_PROFILE.avatar} name={USER_PROFILE.name} size={100} />
         </View>
 
-        <Text variant="heading2" weight="bold" center>
+        <Text variant="heading1" weight="bold" center>
           {USER_PROFILE.name}
         </Text>
         <Text variant="body" color={Colors.textMuted} center style={styles.roleText}>
@@ -45,71 +45,36 @@ export default function ProfileScreen() {
         </Text>
 
         <View style={styles.statsRow}>
-          <TouchableOpacity
-            style={styles.statItem}
-            onPress={() => router.push('/(app)/follow-following')}
-          >
-            <Text variant="heading3" weight="bold" center>
-              {USER_PROFILE.followers}
-            </Text>
-            <Text variant="bodySmall" color={Colors.textMuted} center>
-              Followers
-            </Text>
+          <TouchableOpacity style={styles.statItem} onPress={() => router.push('/(app)/follow-following')}>
+            <Text variant="heading2" weight="bold" center>{USER_PROFILE.followers}</Text>
+            <Text variant="bodySmall" color={Colors.textMuted} center>Followers</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.statItem}
-            onPress={() => router.push('/(app)/follow-following')}
-          >
-            <Text variant="heading3" weight="bold" center>
-              41k
-            </Text>
-            <Text variant="bodySmall" color={Colors.textMuted} center>
-              Following
-            </Text>
+          <TouchableOpacity style={styles.statItem} onPress={() => router.push('/(app)/follow-following')}>
+            <Text variant="heading2" weight="bold" center>41k</Text>
+            <Text variant="bodySmall" color={Colors.textMuted} center>Following</Text>
           </TouchableOpacity>
         </View>
 
-        <Text variant="heading3" weight="bold" style={styles.bioTitle}>
-          Bio
-        </Text>
+        <Text variant="heading3" weight="bold" style={styles.bioTitle}>Bio</Text>
         <Text variant="bodySmall" color={Colors.textMuted} style={styles.bioText}>
           {USER_PROFILE.bio}
         </Text>
-
-        <View style={styles.socialRow}>
-          <Text variant="bodySmall" weight="medium" color={Colors.primary}>
-            {USER_PROFILE.website}
-          </Text>
-          <View style={styles.divider} />
-          <Ionicons name="logo-twitter" size={20} color={Colors.text} style={styles.socialIcon} />
-          <Ionicons name="logo-instagram" size={20} color={Colors.text} style={styles.socialIcon} />
-          <Ionicons name="logo-facebook" size={20} color={Colors.text} />
-        </View>
 
         <View style={styles.tabRow}>
           {TABS.map((tab, idx) => (
             <TouchableOpacity
               key={tab}
-              style={styles.tabButton}
+              style={[styles.tab, activeTab === idx && styles.tabActive]}
               onPress={() => setActiveTab(idx)}
             >
-              <Text
-                variant="bodySmall"
-                weight={activeTab === idx ? 'bold' : 'regular'}
-                color={activeTab === idx ? Colors.text : Colors.textMuted}
-              >
+              <Text variant="body" weight={activeTab === idx ? 'bold' : 'regular'} color={activeTab === idx ? Colors.ink : Colors.text}>
                 {tab}
               </Text>
-              {activeTab === idx && <View style={styles.tabIndicator} />}
             </TouchableOpacity>
           ))}
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.eventsRow}
-        >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.eventsRow}>
           {EVENTS.slice(0, 3).map((event) => (
             <EventCard
               key={event.id}
@@ -143,7 +108,7 @@ const styles = StyleSheet.create({
     width,
     height: 220,
   },
-  headerGradient: {
+  headerOverlay: {
     position: 'absolute',
     left: 0,
     right: 0,
@@ -157,7 +122,7 @@ const styles = StyleSheet.create({
     right: Spacing.lg,
     width: 44,
     height: 44,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.full,
     backgroundColor: 'rgba(0,0,0,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -168,13 +133,13 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 30,
     marginTop: -40,
     paddingHorizontal: Spacing.lg,
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingTop: 64,
+    paddingBottom: 60,
     minHeight: 600,
   },
   avatarWrapper: {
     position: 'absolute',
-    top: -48,
+    top: -52,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -195,40 +160,24 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   bioText: {
-    marginBottom: Spacing.md,
-    lineHeight: 22,
-  },
-  socialRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: Spacing.xl,
-  },
-  divider: {
-    width: 1,
-    height: 16,
-    backgroundColor: Colors.divider,
-    marginHorizontal: Spacing.md,
-  },
-  socialIcon: {
-    marginRight: Spacing.md,
+    lineHeight: 22,
   },
   tabRow: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: Colors.backgroundElevated,
+    borderRadius: Radius.full,
+    padding: 4,
     marginBottom: Spacing.lg,
   },
-  tabButton: {
+  tab: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
+    borderRadius: Radius.full,
   },
-  tabIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    width: '60%',
-    height: 3,
-    backgroundColor: Colors.primary,
+  tabActive: {
+    backgroundColor: Colors.white,
   },
   eventsRow: {
     gap: 0,
@@ -236,6 +185,5 @@ const styles = StyleSheet.create({
   },
   switchButton: {
     marginTop: Spacing.xl,
-    marginBottom: 40,
   },
 });

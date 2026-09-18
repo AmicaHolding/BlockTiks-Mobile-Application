@@ -10,26 +10,16 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  Text,
-  Screen,
-  Button,
-  Card,
-  IconButton,
-  Badge,
-  TicketCounter,
-  useToast,
-} from '@/components/ui';
+import { Text, Screen, IconButton, Badge, useToast } from '@/components/ui';
 import { Colors, Spacing, Radius } from '@/constants/Colors';
 import { EVENTS } from '@/services/data';
 
 const { width } = Dimensions.get('window');
 
-const TICKET_TYPES = [
-  { title: 'Platinum Ticket', price: 405, color: '#3B88C4' },
-  { title: 'Gold Ticket', price: 305, color: '#FEA846' },
-  { title: 'Silver Ticket', price: 205, color: '#A0A0B0' },
-  { title: 'Bronze Ticket', price: 105, color: '#8B4513' },
+const GOING_FACES = [
+  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&q=80',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80',
+  'https://images.unsplash.com/photo-1527980965255-d84b6e48f3e5?w=100&q=80',
 ];
 
 export default function EventDetailScreen() {
@@ -37,27 +27,8 @@ export default function EventDetailScreen() {
   const event = EVENTS.find((e) => e.id === id) || EVENTS[0];
   const { show } = useToast();
 
-  const [counts, setCounts] = useState<Record<string, number>>({
-    'Platinum Ticket': 0,
-    'Gold Ticket': 0,
-    'Silver Ticket': 0,
-    'Bronze Ticket': 0,
-  });
-
-  const subtotal = TICKET_TYPES.reduce((sum, t) => sum + counts[t.title] * t.price, 0);
-
-  const handleNext = () => {
-    if (subtotal === 0) {
-      show('Please select at least one ticket', 'error');
-      return;
-    }
-    router.push('/(app)/payment-page');
-  };
-
   const openDirections = () => {
-    const lat = event.coordinates?.lat ?? 25.1975;
-    const lng = event.coordinates?.lng ?? 55.2743;
-    Linking.openURL(`https://maps.google.com/?q=${lat},${lng}`);
+    Linking.openURL(`https://maps.google.com/?q=${event.location}`);
   };
 
   return (
@@ -83,65 +54,71 @@ export default function EventDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        <Badge text={event.category} />
+        <View style={styles.headerRow}>
+          <Badge text={event.category} color="rgba(255,255,255,0.15)" textColor={Colors.text} />
+          <View style={styles.socialProof}>
+            <View style={styles.faceStack}>
+              {GOING_FACES.map((uri, idx) => (
+                <Image key={idx} source={{ uri }} style={[styles.face, { marginLeft: idx > 0 ? -10 : 0 }]} />
+              ))}
+            </View>
+            <Text variant="caption" color={Colors.textMuted}>
+              +42 going
+            </Text>
+          </View>
+        </View>
+
         <Text variant="heading1" weight="bold" style={styles.title}>
           {event.title}
         </Text>
-        <Text variant="heading3" weight="bold" color={Colors.text} style={styles.subtitle}>
-          {event.description.slice(0, 40)}...
-        </Text>
 
-        <View style={styles.infoRow}>
-          <Ionicons name="calendar-outline" size={22} color={Colors.primary} />
-          <View style={styles.infoText}>
-            <Text variant="body" weight="medium">
-              {event.date}
-            </Text>
-            <Text variant="bodySmall" color={Colors.textMuted}>
-              {event.time}
-            </Text>
+        <View style={styles.infoBlock}>
+          <View style={styles.infoRow}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="calendar-outline" size={20} color={Colors.text} />
+            </View>
+            <View>
+              <Text variant="body" weight="medium">
+                {event.date}
+              </Text>
+              <Text variant="bodySmall" color={Colors.textMuted}>
+                {event.time}
+              </Text>
+            </View>
           </View>
-        </View>
 
-        <View style={styles.infoRow}>
-          <Ionicons name="location-outline" size={22} color={Colors.primary} />
-          <View style={styles.infoText}>
-            <Text variant="body" weight="medium" style={styles.locationText}>
-              {event.location}
-            </Text>
-          </View>
-          <TouchableOpacity onPress={openDirections}>
-            <Text variant="bodySmall" weight="medium" color={Colors.primary}>
-              Direction
-            </Text>
+          <TouchableOpacity onPress={openDirections} style={styles.infoRow}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="location-outline" size={20} color={Colors.text} />
+            </View>
+            <View style={styles.locationText}>
+              <Text variant="body" weight="medium">
+                {event.location}
+              </Text>
+              <Text variant="bodySmall" color={Colors.primaryBright}>
+                Get directions
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
           </TouchableOpacity>
         </View>
 
-        <Text variant="heading3" weight="bold" style={styles.sectionTitle}>
-          About Event
-        </Text>
         <Text variant="bodySmall" color={Colors.textMuted} style={styles.description}>
           {event.description}
         </Text>
 
         <Text variant="heading3" weight="bold" style={styles.sectionTitle}>
-          Select Tickets
+          Lineup
         </Text>
-        {TICKET_TYPES.map((ticket) => (
-          <TicketCounter
-            key={ticket.title}
-            title={ticket.title}
-            price={ticket.price}
-            count={counts[ticket.title]}
-            color={ticket.color}
-            onIncrement={() =>
-              setCounts((prev) => ({ ...prev, [ticket.title]: Math.min(prev[ticket.title] + 1, 10) }))
-            }
-            onDecrement={() =>
-              setCounts((prev) => ({ ...prev, [ticket.title]: Math.max(prev[ticket.title] - 1, 0) }))
-            }
-          />
-        ))}
+        <View style={styles.lineup}>
+          {['DJ MaksMellow', 'Orignawa', 'Special Guest'].map((artist) => (
+            <View key={artist} style={styles.artistChip}>
+              <Text variant="bodySmall" weight="medium">
+                {artist}
+              </Text>
+            </View>
+          ))}
+        </View>
 
         <View style={{ height: 120 }} />
       </ScrollView>
@@ -149,13 +126,20 @@ export default function EventDetailScreen() {
       <View style={styles.footer}>
         <View>
           <Text variant="caption" color={Colors.textMuted}>
-            Subtotal
+            From
           </Text>
-          <Text variant="heading2" weight="bold" color={Colors.success}>
-            ${subtotal}
+          <Text variant="heading2" weight="bold">
+            ${event.price}
           </Text>
         </View>
-        <Button title="Next" onPress={handleNext} style={styles.buyButton} />
+        <TouchableOpacity
+          style={styles.getTicketsButton}
+          onPress={() => router.push(`/(app)/events/${event.id}/tickets`)}
+        >
+          <Text variant="body" weight="semibold" color={Colors.ink}>
+            Get tickets
+          </Text>
+        </TouchableOpacity>
       </View>
     </Screen>
   );
@@ -164,11 +148,11 @@ export default function EventDetailScreen() {
 const styles = StyleSheet.create({
   imageContainer: {
     position: 'relative',
-    height: 340,
+    height: 380,
   },
   image: {
     width,
-    height: 340,
+    height: 380,
   },
   overlay: {
     position: 'absolute',
@@ -176,7 +160,7 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.25)',
   },
   backButton: {
     position: 'absolute',
@@ -189,34 +173,71 @@ const styles = StyleSheet.create({
     right: 16,
   },
   content: {
-    padding: 16,
+    padding: Spacing.lg,
     paddingTop: 24,
   },
-  title: {
-    marginTop: 12,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
   },
-  subtitle: {
-    marginTop: 4,
-    marginBottom: 20,
+  socialProof: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  faceStack: {
+    flexDirection: 'row',
+    marginRight: 8,
+  },
+  face: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: Colors.background,
+  },
+  title: {
+    marginBottom: Spacing.lg,
+  },
+  infoBlock: {
+    gap: 14,
+    marginBottom: Spacing.xl,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
   },
-  infoText: {
-    marginLeft: 12,
-    flex: 1,
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.backgroundElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
   },
   locationText: {
-    flexShrink: 1,
-  },
-  sectionTitle: {
-    marginTop: 24,
-    marginBottom: 12,
+    flex: 1,
+    marginRight: 8,
   },
   description: {
     lineHeight: 22,
+    marginBottom: Spacing.xl,
+  },
+  sectionTitle: {
+    marginBottom: Spacing.md,
+  },
+  lineup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  artistChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.backgroundElevated,
   },
   footer: {
     position: 'absolute',
@@ -227,12 +248,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: Colors.backgroundElevated,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderTopColor: Colors.divider,
   },
-  buyButton: {
-    width: 140,
+  getTicketsButton: {
+    backgroundColor: Colors.white,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: Radius.full,
   },
 });

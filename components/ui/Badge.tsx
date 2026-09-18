@@ -8,7 +8,7 @@ interface Props {
   textColor?: string;
 }
 
-export function Badge({ text, color = Colors.primaryFaded, textColor = Colors.primaryLight }: Props) {
+export function Badge({ text, color = 'rgba(255,255,255,0.15)', textColor = Colors.text }: Props) {
   return (
     <View style={[styles.badge, { backgroundColor: color }]}>
       <Text variant="caption" weight="semibold" color={textColor}>
@@ -22,7 +22,7 @@ const styles = StyleSheet.create({
   badge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: Radius.round,
+    borderRadius: Radius.full,
     alignSelf: 'flex-start',
   },
 });

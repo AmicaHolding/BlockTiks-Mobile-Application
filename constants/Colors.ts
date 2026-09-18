@@ -1,63 +1,119 @@
-// BlockTiks design tokens — extracted from the Flutter source.
-// Identity: premium dark-mode event ticketing + marketplace.
-// Primary purple (#B620E0), neon green success (#43FF00), near-black background (#121212).
+/**
+ * BlockTiks design tokens — adapted from Revolut's high-contrast,
+ * editorial two-mode system for an event-ticketing product.
+ *
+ * Core idea:
+ * - Canvas is near-black for immersive event storytelling.
+ * - Cards and form surfaces are elevated dark or clean light.
+ * - Primary accent is a saturated cobalt-violet.
+ * - Buttons are full pills; chips and inputs are rounded.
+ * - Typography is tight display + Inter body.
+ */
 
 export const Colors = {
-  // Backgrounds
-  background: '#121212',
-  backgroundElevated: '#1E1E1E',
-  surface: '#363636',
-  container: '#363636',
-  inputBg: 'rgba(255, 255, 255, 0.1)',
-
   // Brand
-  primary: '#B620E0',
-  primaryLight: '#D46AED',
-  primaryDark: '#8A17A8',
-  primaryFaded: 'rgba(182, 32, 224, 0.15)',
+  primary: '#494fdf',
+  primaryBright: '#4f55f1',
+  primaryDeep: '#3a40c4',
+  onPrimary: '#ffffff',
 
-  // Feedback
-  success: '#43FF00',
-  successDark: '#38640A',
-  error: '#FF1A1A',
-  warning: '#FEA846',
-  info: '#007AFF',
+  // Canvas
+  background: '#000000',
+  backgroundElevated: '#16181a',
+  backgroundDeep: '#0a0a0a',
+  surface: '#1f2226',
+  surfaceSoft: '#f4f4f4',
+  surfaceCard: '#ffffff',
 
   // Text
-  text: '#FFFFFF',
-  textMuted: 'rgba(255, 255, 255, 0.6)',
-  textDisabled: 'rgba(255, 255, 255, 0.38)',
-  textGrey: '#A3A8AD',
-  answerColor: '#676666',
+  text: '#ffffff',
+  textMuted: 'rgba(255,255,255,0.72)',
+  textDim: 'rgba(255,255,255,0.52)',
+  ink: '#191c1f',
+  inkMuted: '#505a63',
 
-  // Borders / dividers
-  border: '#707070',
-  divider: '#646464',
+  // Dividers & outlines
+  divider: 'rgba(255,255,255,0.12)',
+  hairlineLight: '#e2e2e7',
+  hairlineStrong: '#191c1f',
 
-  // Misc
-  white: '#FFFFFF',
+  // Status
+  success: '#00a87e',
+  successBright: '#43FF00',
+  successDark: '#006400',
+  error: '#e23b4a',
+  warning: '#ec7e00',
+  info: '#376cd5',
+
+  // Pure
+  white: '#ffffff',
   black: '#000000',
-  overlay: 'rgba(0, 0, 0, 0.6)',
-  transparent: 'transparent',
 } as const;
 
 export const Spacing = {
-  xs: 4,
+  xxs: 4,
+  xs: 6,
   sm: 8,
-  md: 12,
+  md: 14,
   lg: 16,
-  xl: 20,
-  xxl: 24,
-  xxxl: 32,
+  xl: 24,
+  xxl: 32,
+  xxxl: 48,
+  block: 80,
 } as const;
 
 export const Radius = {
+  none: 0,
   sm: 8,
-  md: 10,
-  lg: 12,
-  xl: 16,
-  xxl: 20,
-  round: 999,
+  md: 12,
+  lg: 20,
+  xl: 28,
+  full: 9999,
+} as const;
+
+export const Typography = {
+  display: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 48,
+    lineHeight: 52,
+    letterSpacing: -0.96,
+  },
+  heading1: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 32,
+    lineHeight: 38,
+    letterSpacing: -0.48,
+  },
+  heading2: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 24,
+    lineHeight: 30,
+    letterSpacing: -0.24,
+  },
+  heading3: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 18,
+    lineHeight: 24,
+    letterSpacing: -0.18,
+  },
+  body: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.24,
+  },
+  bodySmall: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0,
+  },
+  caption: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: 0,
+  },
 } as const;
 
 export const Theme = {
@@ -65,9 +121,9 @@ export const Theme = {
   colors: {
     primary: Colors.primary,
     background: Colors.background,
-    card: Colors.surface,
+    card: Colors.backgroundElevated,
     text: Colors.text,
-    border: Colors.border,
+    border: Colors.divider,
     notification: Colors.primary,
   },
   fonts: {
@@ -77,3 +133,5 @@ export const Theme = {
     heavy: { fontFamily: 'Inter_700Bold', fontWeight: '700' as const },
   },
 };
+
+export type Theme = typeof Theme;

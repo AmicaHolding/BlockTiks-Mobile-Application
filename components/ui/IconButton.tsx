@@ -17,7 +17,7 @@ export function IconButton({
   color = Colors.text,
   onPress,
   style,
-  backgroundColor = Colors.transparent,
+  backgroundColor = 'transparent',
 }: Props) {
   return (
     <TouchableOpacity

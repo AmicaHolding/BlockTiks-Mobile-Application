@@ -7,7 +7,7 @@ import { Colors, Spacing, Radius } from '@/constants/Colors';
 export default function PurchasedTicketScreen() {
   return (
     <Screen scrollable>
-      <AppHeader title="My Ticket" showBack />
+      <AppHeader title="My ticket" showBack />
 
       <Card style={styles.ticketCard}>
         <Image
@@ -15,71 +15,60 @@ export default function PurchasedTicketScreen() {
           style={styles.eventImage}
         />
         <View style={styles.ticketInfo}>
-          <Text variant="heading3" weight="bold">
+          <Text variant="heading2" weight="bold" style={styles.title}>
             DJ MaksMellow Orignawa
           </Text>
           <View style={styles.detailRow}>
-            <Ionicons name="calendar-outline" size={16} color={Colors.primary} />
+            <Ionicons name="calendar-outline" size={16} color={Colors.primaryBright} />
             <Text variant="bodySmall" color={Colors.textMuted} style={styles.detailText}>
               April 20, 2024 · 8:00 PM
             </Text>
           </View>
           <View style={styles.detailRow}>
-            <Ionicons name="location-outline" size={16} color={Colors.primary} />
+            <Ionicons name="location-outline" size={16} color={Colors.primaryBright} />
             <Text variant="bodySmall" color={Colors.textMuted} style={styles.detailText}>
               Madison Square Garden
             </Text>
           </View>
-          <View style={styles.divider} />
-          <View style={styles.ticketMeta}>
-            <View>
+          <View style={styles.metaRow}>
+            <View style={styles.metaItem}>
               <Text variant="caption" color={Colors.textMuted}>
-                Ticket Type
+                Section
               </Text>
-              <Text variant="bodySmall" weight="bold">
-                Platinum
+              <Text variant="body" weight="bold">
+                GA
               </Text>
             </View>
-            <View>
+            <View style={styles.metaItem}>
               <Text variant="caption" color={Colors.textMuted}>
-                Seat
+                Quantity
               </Text>
-              <Text variant="bodySmall" weight="bold">
-                A-12
-              </Text>
-            </View>
-            <View>
-              <Text variant="caption" color={Colors.textMuted}>
-                Gate
-              </Text>
-              <Text variant="bodySmall" weight="bold">
-                4
+              <Text variant="body" weight="bold">
+                2
               </Text>
             </View>
           </View>
-          <View style={styles.qrWrapper}>
-            <View style={styles.qrBox}>
-              <Ionicons name="qr-code" size={80} color={Colors.text} />
-              <Text variant="caption" color={Colors.textMuted} style={styles.qrText}>
-                BT-TICKET-PLT-001
-              </Text>
-            </View>
-          </View>
-          <Text variant="caption" color={Colors.textMuted} center>
-            Show this QR code at the entrance
-          </Text>
         </View>
       </Card>
 
+      <View style={styles.qrSection}>
+        <View style={styles.qrBox}>
+          <Ionicons name="qr-code" size={120} color={Colors.ink} />
+        </View>
+        <Text variant="caption" color={Colors.textMuted} center style={styles.qrHint}>
+          Show this at the entrance. Screenshots won't work.
+        </Text>
+      </View>
+
       <View style={styles.actions}>
         <Button
-          title="Transfer"
+          title="Transfer to a friend"
           variant="outline"
           onPress={() => router.push('/(app)/transfer')}
           style={styles.actionButton}
         />
         <Button
-          title="Resell"
+          title="Sell on marketplace"
           variant="outline"
           onPress={() => router.push('/(app)/place-bid')}
           style={styles.actionButton}
@@ -102,45 +91,45 @@ const styles = StyleSheet.create({
   ticketInfo: {
     padding: Spacing.lg,
   },
+  title: {
+    marginBottom: Spacing.md,
+  },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginBottom: 8,
   },
   detailText: {
     marginLeft: 8,
   },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    marginVertical: Spacing.lg,
-  },
-  ticketMeta: {
+  metaRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    marginTop: Spacing.lg,
+    gap: 48,
   },
-  qrWrapper: {
+  metaItem: {
+    alignItems: 'flex-start',
+  },
+  qrSection: {
     alignItems: 'center',
-    marginTop: Spacing.xl,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.xl,
   },
   qrBox: {
-    width: 180,
-    height: 180,
+    width: 220,
+    height: 220,
     borderRadius: Radius.lg,
     backgroundColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  qrText: {
-    marginTop: 8,
-    color: Colors.black,
+  qrHint: {
+    marginTop: Spacing.md,
+    paddingHorizontal: 32,
   },
   actions: {
-    flexDirection: 'row',
     gap: 12,
   },
   actionButton: {
-    flex: 1,
+    marginBottom: 0,
   },
 });

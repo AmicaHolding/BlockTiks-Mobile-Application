@@ -1,28 +1,44 @@
 import { useState } from 'react';
-import { View, StyleSheet, FlatList, Image } from 'react-native';
+import { View, StyleSheet, FlatList, Image, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  Text,
-  Screen,
-  AppHeader,
-  SearchField,
-  PressableCard,
-  Button,
-} from '@/components/ui';
+import { Text, Screen, AppHeader, SearchField, PressableCard } from '@/components/ui';
 import { Colors, Spacing, Radius } from '@/constants/Colors';
 import { EVENTS } from '@/services/data';
 
 const TABS = ['Marketplace', 'Asks', 'Bids', 'History'];
 
-const BID_ITEMS = [
-  { id: '1', title: 'Cyberpunk', price: 110, type: 'Music Concert', expiry: '2d left' },
-  { id: '2', title: 'Rock N Roll', price: 140, type: 'Music Concert', expiry: '5h left' },
-  { id: '3', title: 'Epic Bass', price: 60, type: 'Music Concert', expiry: '1d left' },
+const LISTINGS = [
+  { id: '1', eventId: '1', type: 'Selling', qty: 2, price: 95, original: 85 },
+  { id: '2', eventId: '2', type: 'Buying', qty: 1, price: 120, original: 150 },
+  { id: '3', eventId: '3', type: 'Selling', qty: 1, price: 210, original: 200 },
 ];
 
 export default function ResellScreen() {
   const [activeTab, setActiveTab] = useState(0);
+
+  const renderEventMarketItem = (event: typeof EVENTS[0]) => (
+    <PressableCard
+      key={event.id}
+      variant="pressed"
+      style={styles.marketCard}
+      onPress={() => router.push('/(app)/place-bid')}
+    >
+      <Image source={{ uri: event.image }} style={styles.marketImage} />
+      <View style={styles.marketInfo}>
+        <Text variant="body" weight="medium" numberOfLines={1}>{event.title}</Text>
+        <Text variant="caption" color={Colors.textMuted}>{event.date}</Text>
+      </View>
+      <View style={styles.priceStack}>
+        <Text variant="bodySmall" weight="bold">${event.price}</Text>
+        <Text variant="caption" color={Colors.textMuted}>Face value</Text>
+      </View>
+      <View style={[styles.priceStack, { marginLeft: 12 }]}>
+        <Text variant="bodySmall" weight="bold" color={Colors.successBright}>${event.price + 10}</Text>
+        <Text variant="caption" color={Colors.textMuted}>Market</Text>
+      </View>
+    </PressableCard>
+  );
 
   return (
     <Screen>
@@ -30,26 +46,24 @@ export default function ResellScreen() {
       <SearchField
         readOnly
         onPress={() => router.push('/(app)/search')}
-        containerStyle={styles.search}
+        containerStyle={{ marginBottom: Spacing.lg }}
       />
 
       <View style={styles.tabRow}>
         {TABS.map((tab, idx) => (
-          <PressableCard
+          <TouchableOpacity
             key={tab}
-            variant="ghost"
-            style={styles.tabButton}
+            style={[styles.tab, activeTab === idx && styles.tabActive]}
             onPress={() => setActiveTab(idx)}
           >
             <Text
               variant="bodySmall"
               weight={activeTab === idx ? 'bold' : 'regular'}
-              color={activeTab === idx ? Colors.primary : Colors.textMuted}
+              color={activeTab === idx ? Colors.ink : Colors.text}
             >
               {tab}
             </Text>
-            {activeTab === idx && <View style={styles.tabIndicator} />}
-          </PressableCard>
+          </TouchableOpacity>
         ))}
       </View>
 
@@ -59,63 +73,38 @@ export default function ResellScreen() {
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <PressableCard style={styles.marketCard} onPress={() => router.push('/(app)/place-bid')}>
-              <Image source={{ uri: item.image }} style={styles.marketImage} />
-              <View style={styles.marketInfo}>
-                <Text variant="bodySmall" weight="bold">
-                  {item.title}
-                </Text>
-                <Text variant="caption" color={Colors.textMuted}>
-                  {item.category}
-                </Text>
-              </View>
-              <View style={styles.marketPrices}>
-                <View style={styles.priceBox}>
-                  <Text variant="caption" color={Colors.textMuted} center>
-                    Store
-                  </Text>
-                  <Text variant="bodySmall" weight="bold" center>
-                    ${Math.floor(Math.random() * 900 + 100)}
-                  </Text>
-                </View>
-                <View style={styles.priceBox}>
-                  <Text variant="caption" color={Colors.textMuted} center>
-                    Market
-                  </Text>
-                  <Text variant="bodySmall" weight="bold" center>
-                    ${Math.floor(Math.random() * 900 + 100)}
-                  </Text>
-                </View>
-              </View>
-            </PressableCard>
-          )}
+          renderItem={({ item }) => renderEventMarketItem(item)}
         />
       )}
 
       {activeTab !== 0 && (
         <FlatList
-          data={BID_ITEMS}
+          data={LISTINGS}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <PressableCard style={styles.bidCard} onPress={() => router.push('/(app)/place-bid')}>
-              <Image source={{ uri: EVENTS[0].image }} style={styles.bidImage} />
-              <View style={styles.bidInfo}>
-                <Text variant="bodySmall" weight="bold">
-                  {item.title}
-                </Text>
-                <Text variant="caption" color={Colors.textMuted}>
-                  {item.type}
-                </Text>
-                <Text variant="caption" color={Colors.primary}>
-                  ${item.price} · {item.expiry}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
-            </PressableCard>
-          )}
+          renderItem={({ item }) => {
+            const event = EVENTS.find((e) => e.id === item.eventId) || EVENTS[0];
+            return (
+              <PressableCard
+                variant="pressed"
+                style={styles.bidCard}
+                onPress={() => router.push('/(app)/place-bid')}
+              >
+                <Image source={{ uri: event.image }} style={styles.bidImage} />
+                <View style={styles.bidInfo}>
+                  <Text variant="body" weight="medium" numberOfLines={1}>{event.title}</Text>
+                  <Text variant="caption" color={Colors.textMuted}>
+                    {item.type} · {item.qty} ticket{item.qty > 1 ? 's' : ''}
+                  </Text>
+                  <Text variant="bodySmall" weight="bold" color={item.type === 'Selling' ? Colors.success : Colors.primaryBright}>
+                    ${item.price}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+              </PressableCard>
+            );
+          }}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text variant="body" color={Colors.textMuted} center>
@@ -130,31 +119,24 @@ export default function ResellScreen() {
 }
 
 const styles = StyleSheet.create({
-  search: {
-    marginBottom: Spacing.md,
-  },
   tabRow: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: Colors.backgroundElevated,
+    borderRadius: Radius.full,
+    padding: 4,
     marginBottom: Spacing.lg,
   },
-  tabButton: {
+  tab: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
+    borderRadius: Radius.full,
   },
-  tabIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    width: '60%',
-    height: 3,
-    backgroundColor: Colors.primary,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
+  tabActive: {
+    backgroundColor: Colors.white,
   },
   list: {
-    gap: 12,
+    gap: 10,
     paddingBottom: 24,
   },
   marketCard: {
@@ -163,23 +145,17 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   marketImage: {
-    width: 56,
-    height: 56,
+    width: 60,
+    height: 60,
     borderRadius: Radius.sm,
+    marginRight: 12,
   },
   marketInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginRight: 8,
   },
-  marketPrices: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  priceBox: {
-    width: 58,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: Radius.sm,
+  priceStack: {
+    alignItems: 'flex-end',
   },
   bidCard: {
     flexDirection: 'row',
@@ -190,10 +166,11 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: Radius.sm,
+    marginRight: 12,
   },
   bidInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginRight: 8,
   },
   empty: {
     marginTop: 48,
