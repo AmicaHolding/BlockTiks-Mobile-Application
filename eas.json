@@ -1,0 +1,16 @@
+{
+  "cli": {
+    "version": ">= 24.0.0"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "environment": "preview"
+    }
+  },
+  "submit": {
+    "preview": {
+      "ascAppId": "YOUR_APP_ID"
+    }
+  }
+}
