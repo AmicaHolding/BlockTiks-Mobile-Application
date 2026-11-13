@@ -1,13 +1,13 @@
-import { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Text, Screen, Input, Button, useToast, IconButton } from '@/components/ui';
-import { Colors, Spacing, Radius } from '@/constants/Colors';
-import { haptic } from '@/services/haptics';
-import { api } from '@/services/api';
+import { Button, IconButton, Input, Screen, Text, useToast } from '@/components/ui';
 import { ApiUrls } from '@/constants/Api';
+import { Colors, Spacing } from '@/constants/Colors';
+import { api } from '@/services/api';
+import { haptic } from '@/services/haptics';
 import { useAuthStore } from '@/store/authStore';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function SignUpScreen() {
   const [firstName, setFirstName] = useState('');
@@ -27,33 +27,42 @@ export default function SignUpScreen() {
 
     setLoading(true);
     try {
-      const response = await api
-        .post<{ token?: string; refreshToken?: string }>(ApiUrls.signup, {
-          firstName,
-          lastName,
-          email,
-          phone,
-          password,
-        })
-        .catch(() => null);
+      const response = await api.post<{ token?: string; refreshToken?: string }>(
+        ApiUrls.signup,
+        { firstName, lastName, email, phone, password }
+      );
 
-      await setAuth(
-        response?.token || 'mock_token',
-        response?.refreshToken || 'mock_refresh',
-        {
+      if (!response?.token) {
+        throw new Error('No token in response');
+      }
+
+      await setAuth(response.token, response.refreshToken || '', {
+        email,
+        firstName,
+        lastName,
+        phone,
+        role: 'user',
+      });
+      haptic.success();
+      show('Account created!', 'success');
+      router.replace('/(app)');
+    } catch {
+      if (__DEV__) {
+        // Dev-only bypass so the UI can be previewed before the MVP backend is live.
+        await setAuth('mock_token', 'mock_refresh', {
           email,
           firstName,
           lastName,
           phone,
           role: 'user',
-        }
-      );
-      haptic.success();
-      show('Account created!', 'success');
-      router.replace('/(app)');
-    } catch {
-      haptic.error();
-      show('Sign up failed. Try again.', 'error');
+        });
+        haptic.success();
+        show('Dev mode: signed in without backend', 'info');
+        router.replace('/(app)');
+      } else {
+        haptic.error();
+        show('Sign up failed. Check your details and try again.', 'error');
+      }
     } finally {
       setLoading(false);
     }

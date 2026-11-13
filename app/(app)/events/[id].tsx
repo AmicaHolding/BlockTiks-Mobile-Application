@@ -1,19 +1,20 @@
+import { Badge, IconButton, Screen, Text, useToast } from '@/components/ui';
+import { Colors, Radius, Spacing } from '@/constants/Colors';
+import { EVENTS } from '@/services/data';
+import { haptic } from '@/services/haptics';
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
-  View,
-  StyleSheet,
-  Image,
-  ScrollView,
-  Dimensions,
-  TouchableOpacity,
-  Linking,
+    Dimensions,
+    Image,
+    Linking,
+    ScrollView,
+    Share,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Text, Screen, IconButton, Badge, useToast } from '@/components/ui';
-import { Colors, Spacing, Radius } from '@/constants/Colors';
-import { haptic } from '@/services/haptics';
-import { EVENTS } from '@/services/data';
 
 const { width } = Dimensions.get('window');
 
@@ -27,10 +28,25 @@ export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const event = EVENTS.find((e) => e.id === id) || EVENTS[0];
   const { show } = useToast();
+  const [saved, setSaved] = useState(false);
 
   const openDirections = () => {
-    Linking.openURL(`https://maps.google.com/?q=${event.location}`);
+    Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(event.location)}`);
   };
+
+  const shareEvent = async () => {
+    try {
+      await Share.share({
+        message: `${event.title} — ${event.date}, ${event.location}. Get tickets on BlockTiks.`,
+      });
+    } catch {
+      show('Could not open share sheet', 'error');
+    }
+  };
+
+  const fromPrice = event.tiers?.length
+    ? Math.min(...event.tiers.map((t) => t.price))
+    : event.price;
 
   return (
     <Screen safe={false} scrollable={false} noPadding>
@@ -41,14 +57,26 @@ export default function EventDetailScreen() {
           name="chevron-back"
           onPress={() => router.back()}
           style={styles.backButton}
-          backgroundColor="rgba(0,0,0,0.3)"
+          backgroundColor="rgba(0,0,0,0.4)"
         />
-        <IconButton
-          name="share-outline"
-          onPress={() => show('Share coming soon', 'info')}
-          style={styles.shareButton}
-          backgroundColor="rgba(0,0,0,0.3)"
-        />
+        <View style={styles.topRight}>
+          <IconButton
+            name={saved ? 'heart' : 'heart-outline'}
+            onPress={() => {
+              haptic.light();
+              setSaved((s) => !s);
+            }}
+            style={styles.shareButton}
+            backgroundColor="rgba(0,0,0,0.4)"
+            color={saved ? Colors.primaryBright : Colors.text}
+          />
+          <IconButton
+            name="share-outline"
+            onPress={shareEvent}
+            style={styles.shareButton}
+            backgroundColor="rgba(0,0,0,0.4)"
+          />
+        </View>
       </View>
 
       <ScrollView
@@ -56,17 +84,19 @@ export default function EventDetailScreen() {
         contentContainerStyle={styles.content}
       >
         <View style={styles.headerRow}>
-          <Badge text={event.category} color="rgba(255,255,255,0.15)" textColor={Colors.text} />
-          <View style={styles.socialProof}>
-            <View style={styles.faceStack}>
-              {GOING_FACES.map((uri, idx) => (
-                <Image key={idx} source={{ uri }} style={[styles.face, { marginLeft: idx > 0 ? -10 : 0 }]} />
-              ))}
+          <Badge text={event.category} color="rgba(255,255,255,0.14)" textColor={Colors.text} />
+          {event.going ? (
+            <View style={styles.socialProof}>
+              <View style={styles.faceStack}>
+                {GOING_FACES.map((uri, idx) => (
+                  <Image key={idx} source={{ uri }} style={[styles.face, { marginLeft: idx > 0 ? -10 : 0 }]} />
+                ))}
+              </View>
+              <Text variant="caption" color={Colors.textMuted}>
+                {event.going.toLocaleString()} going
+              </Text>
             </View>
-            <Text variant="caption" color={Colors.textMuted}>
-              +42 going
-            </Text>
-          </View>
+          ) : null}
         </View>
 
         <Text variant="heading1" weight="bold" style={styles.title}>
@@ -102,24 +132,37 @@ export default function EventDetailScreen() {
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
           </TouchableOpacity>
+
+          <View style={styles.infoRow}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="person-outline" size={20} color={Colors.text} />
+            </View>
+            <Text variant="body" weight="medium">
+              Hosted by {event.organizer}
+            </Text>
+          </View>
         </View>
 
         <Text variant="bodySmall" color={Colors.textMuted} style={styles.description}>
           {event.description}
         </Text>
 
-        <Text variant="heading3" weight="bold" style={styles.sectionTitle}>
-          Lineup
-        </Text>
-        <View style={styles.lineup}>
-          {['DJ MaksMellow', 'Orignawa', 'Special Guest'].map((artist) => (
-            <View key={artist} style={styles.artistChip}>
-              <Text variant="bodySmall" weight="medium">
-                {artist}
-              </Text>
+        {event.lineup && event.lineup.length > 0 && (
+          <>
+            <Text variant="heading3" weight="bold" style={styles.sectionTitle}>
+              Lineup
+            </Text>
+            <View style={styles.lineup}>
+              {event.lineup.map((artist) => (
+                <View key={artist} style={styles.artistChip}>
+                  <Text variant="bodySmall" weight="medium">
+                    {artist}
+                  </Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
+          </>
+        )}
 
         <View style={{ height: 120 }} />
       </ScrollView>
@@ -130,7 +173,7 @@ export default function EventDetailScreen() {
             From
           </Text>
           <Text variant="heading2" weight="bold">
-            ${event.price}
+            ${fromPrice}
           </Text>
         </View>
         <TouchableOpacity
@@ -152,11 +195,11 @@ export default function EventDetailScreen() {
 const styles = StyleSheet.create({
   imageContainer: {
     position: 'relative',
-    height: 380,
+    height: 400,
   },
   image: {
     width,
-    height: 380,
+    height: 400,
   },
   overlay: {
     position: 'absolute',
@@ -164,17 +207,22 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    backgroundColor: 'rgba(0,0,0,0.2)',
   },
   backButton: {
     position: 'absolute',
     top: 56,
     left: 16,
   },
-  shareButton: {
+  topRight: {
     position: 'absolute',
     top: 56,
     right: 16,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  shareButton: {
+    marginLeft: 0,
   },
   content: {
     padding: Spacing.lg,

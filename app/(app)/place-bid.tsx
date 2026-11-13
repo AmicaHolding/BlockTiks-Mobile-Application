@@ -1,54 +1,59 @@
+import { AppHeader, Button, Card, Input, Screen, Text, useToast } from '@/components/ui';
+import { Colors, Radius, Spacing } from '@/constants/Colors';
+import { EVENTS, MARKET_LISTINGS } from '@/services/data';
+import { haptic } from '@/services/haptics';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { View, StyleSheet, Image } from 'react-native';
-import { router } from 'expo-router';
-import { Text, Screen, AppHeader, Input, Button, Card, useToast } from '@/components/ui';
-import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { Image, StyleSheet } from 'react-native';
 
 export default function PlaceBidScreen() {
+  const { listingId } = useLocalSearchParams<{ listingId?: string }>();
+  const listing = MARKET_LISTINGS.find((l) => l.id === listingId);
+  const event = EVENTS.find((e) => e.id === (listing?.eventId ?? '')) || EVENTS[0];
+
   const [bid, setBid] = useState('');
   const [loading, setLoading] = useState(false);
   const { show } = useToast();
 
   const handlePlaceBid = () => {
-    if (!bid) {
-      show('Please enter a bid amount', 'error');
+    const amount = parseFloat(bid);
+    if (!bid || isNaN(amount) || amount <= 0) {
+      show('Please enter a valid bid amount', 'error');
       return;
     }
     setLoading(true);
+    // TODO(backend): POST /marketplace/bids once the MVP API is live.
     setTimeout(() => {
       setLoading(false);
-      show('Bid placed successfully', 'success');
+      haptic.success();
+      show('Bid placed', 'success');
       router.back();
     }, 1200);
   };
 
   return (
     <Screen scrollable keyboardAvoiding>
-      <AppHeader title="Place Bid" showBack />
+      <AppHeader title="Make an offer" showBack />
 
       <Card style={styles.card}>
-        <Image
-          source={{ uri: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&q=80' }}
-          style={styles.image}
-        />
+        <Image source={{ uri: event.image }} style={styles.image} />
         <Text variant="heading3" weight="bold" style={styles.title}>
-          Cyberpunk Music Concert
+          {event.title}
         </Text>
         <Text variant="bodySmall" color={Colors.textMuted}>
-          Current market price: $140
+          {listing ? `${listing.tier} · listed at $${listing.price}` : 'Select a listing to bid on'}
         </Text>
       </Card>
 
       <Input
-        label="Your Bid"
-        placeholder="Enter bid amount"
+        label="Your offer"
+        placeholder="Enter amount"
         keyboardType="decimal-pad"
         value={bid}
         onChangeText={setBid}
       />
-      <Input label="Expiration (optional)" placeholder="e.g. 24 hours" />
 
-      <Button title="Place Bid" loading={loading} onPress={handlePlaceBid} />
+      <Button title="Place offer" loading={loading} onPress={handlePlaceBid} />
     </Screen>
   );
 }

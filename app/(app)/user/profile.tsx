@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { View, StyleSheet, Image, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Text, Screen, Avatar, EventCard, Button } from '@/components/ui';
-import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { Avatar, Button, EventCard, Screen, Text } from '@/components/ui';
+import { Colors, Radius, Spacing } from '@/constants/Colors';
 import { EVENTS, USER_PROFILE } from '@/services/data';
 import { useAuthStore } from '@/store/authStore';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { Dimensions, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 const TABS = ['Hosted', 'Attended'];
@@ -50,7 +50,7 @@ export default function ProfileScreen() {
             <Text variant="bodySmall" color={Colors.textMuted} center>Followers</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.statItem} onPress={() => router.push('/(app)/follow-following')}>
-            <Text variant="heading2" weight="bold" center>41k</Text>
+            <Text variant="heading2" weight="bold" center>{USER_PROFILE.following.toLocaleString()}</Text>
             <Text variant="bodySmall" color={Colors.textMuted} center>Following</Text>
           </TouchableOpacity>
         </View>

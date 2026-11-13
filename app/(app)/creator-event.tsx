@@ -1,12 +1,10 @@
-import { View, StyleSheet, Image } from 'react-native';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Text, Screen, AppHeader, Button, PressableCard } from '@/components/ui';
-import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { AppHeader, Button, PressableCard, Screen, Text } from '@/components/ui';
+import { Colors, Radius, Spacing } from '@/constants/Colors';
+import { ANALYTICS, EVENTS } from '@/services/data';
 import { haptic } from '@/services/haptics';
-import { EVENTS, ANALYTICS } from '@/services/data';
-
-const event = EVENTS[0];
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Image, StyleSheet, View } from 'react-native';
 
 const ACTIONS = [
   { label: 'Edit event', icon: 'create-outline', route: '/(app)/events/create' },
@@ -18,6 +16,9 @@ const ACTIONS = [
 ];
 
 export default function CreatorEventScreen() {
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const event = EVENTS.find((e) => e.id === id) || EVENTS[0];
+
   return (
     <Screen scrollable>
       <AppHeader title="Manage event" showBack />

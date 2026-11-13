@@ -1,16 +1,32 @@
-import { useState } from 'react';
-import { View, StyleSheet, FlatList, Image, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Text, Screen, AppHeader, SearchField, PressableCard, EmptyState, Button } from '@/components/ui';
-import { Colors, Spacing, Radius } from '@/constants/Colors';
-import { haptic } from '@/services/haptics';
+import { AppHeader, Button, EmptyState, PressableCard, Screen, SearchField, Text } from '@/components/ui';
+import { Colors, Radius, Spacing } from '@/constants/Colors';
 import { EVENTS, MARKET_LISTINGS, USER_LISTINGS } from '@/services/data';
+import { haptic } from '@/services/haptics';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { FlatList, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 const TABS = ['Marketplace', 'My listings', 'History'];
 
+type SortMode = 'recent' | 'price-asc' | 'price-desc';
+
 export default function ResellScreen() {
   const [activeTab, setActiveTab] = useState(0);
+  const [sortMode, setSortMode] = useState<SortMode>('recent');
+
+  const sortedListings = [...MARKET_LISTINGS].sort((a, b) => {
+    if (sortMode === 'price-asc') return a.price - b.price;
+    if (sortMode === 'price-desc') return b.price - a.price;
+    return 0;
+  });
+
+  const cycleSort = () => {
+    haptic.light();
+    setSortMode((s) => (s === 'recent' ? 'price-asc' : s === 'price-asc' ? 'price-desc' : 'recent'));
+  };
+
+  const sortLabel = sortMode === 'recent' ? 'Recent' : sortMode === 'price-asc' ? 'Price ↑' : 'Price ↓';
 
   const marketRenderItem = ({ item }: { item: typeof MARKET_LISTINGS[0] }) => {
     const event = EVENTS.find((e) => e.id === item.eventId) || EVENTS[0];
@@ -22,7 +38,7 @@ export default function ResellScreen() {
         style={styles.marketCard}
         onPress={() => {
           haptic.light();
-          router.push('/(app)/place-bid');
+          router.push({ pathname: '/(app)/place-bid', params: { listingId: item.id } } as any);
         }}
       >
         <Image source={{ uri: event.image }} style={styles.marketImage} />
@@ -109,15 +125,16 @@ export default function ResellScreen() {
 
       {activeTab === 0 && (
         <FlatList
-          data={MARKET_LISTINGS}
+          data={sortedListings}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.list}
           ListHeaderComponent={
             <View style={styles.marketHeader}>
               <Text variant="heading3" weight="bold">Available now</Text>
-              <PressableCard variant="ghost" onPress={() => {}}>
-                <Text variant="bodySmall" color={Colors.primaryBright}>Sort</Text>
+              <PressableCard variant="ghost" onPress={cycleSort} style={styles.sortButton}>
+                <Ionicons name="swap-vertical-outline" size={16} color={Colors.primaryBright} />
+                <Text variant="bodySmall" color={Colors.primaryBright}>{sortLabel}</Text>
               </PressableCard>
             </View>
           }
@@ -139,7 +156,7 @@ export default function ResellScreen() {
               title="List a ticket"
               onPress={() => {
                 haptic.medium();
-                router.push('/(app)/place-bid');
+                router.push('/(app)/ask-bid');
               }}
             />
           }
@@ -150,7 +167,7 @@ export default function ResellScreen() {
               title="No listings yet"
               subtitle="Sell tickets you can't use on the marketplace."
               actionTitle="List a ticket"
-              onAction={() => router.push('/(app)/place-bid')}
+              onAction={() => router.push('/(app)/ask-bid')}
             />
           }
         />
@@ -193,6 +210,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.md,
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   marketCard: {
     flexDirection: 'row',

@@ -1,10 +1,10 @@
-import { View, StyleSheet, FlatList, Image } from 'react-native';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Text, Screen, AppHeader, Button, PressableCard } from '@/components/ui';
-import { Colors, Spacing, Radius } from '@/constants/Colors';
-import { haptic } from '@/services/haptics';
+import { Button, PressableCard, Screen, Text } from '@/components/ui';
+import { Colors, Radius, Spacing } from '@/constants/Colors';
 import { ANALYTICS, EVENTS } from '@/services/data';
+import { haptic } from '@/services/haptics';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { FlatList, Image, StyleSheet, View } from 'react-native';
 
 const QUICK_ACTIONS = [
   { label: 'Create event', icon: 'add-circle-outline', route: '/(app)/events/create' },
@@ -77,7 +77,7 @@ export default function CreatorHomeScreen() {
             <PressableCard
               variant="pressed"
               style={styles.eventRow}
-              onPress={() => router.push('/(app)/creator-event')}
+              onPress={() => router.push({ pathname: '/(app)/creator-event', params: { id: item.id } } as any)}
             >
               <Image source={{ uri: item.image }} style={styles.eventThumb} />
               <View style={styles.eventInfo}>

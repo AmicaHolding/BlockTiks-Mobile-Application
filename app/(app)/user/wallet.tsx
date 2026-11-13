@@ -1,18 +1,15 @@
-import { useState } from 'react';
-import { View, StyleSheet, FlatList, Image, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Text, Screen, AppHeader, Button, PressableCard } from '@/components/ui';
-import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { AppHeader, Button, EmptyState, PressableCard, Screen, Text } from '@/components/ui';
+import { Colors, Radius, Spacing } from '@/constants/Colors';
+import { MY_TICKETS, TRANSACTIONS } from '@/services/data';
 import { haptic } from '@/services/haptics';
-import { EVENTS, TRANSACTIONS } from '@/services/data';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { FlatList, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 
-const TABS = ['Tickets', 'Wallet'];
+const TABS = ['Tickets', 'Balance'];
 
-const MY_TICKETS = [
-  { id: 't1', eventId: EVENTS[0].id, title: EVENTS[0].title, date: EVENTS[0].date, tier: 'General Admission', qty: 2 },
-  { id: 't2', eventId: EVENTS[1].id, title: EVENTS[1].title, date: EVENTS[1].date, tier: 'VIP', qty: 1 },
-];
+const WALLET_BALANCE = 84.5;
 
 export default function WalletScreen() {
   const [activeTab, setActiveTab] = useState(0);
@@ -33,7 +30,7 @@ export default function WalletScreen() {
           >
             <Text
               variant="body"
-              weight={activeTab === idx ? 'bold' : 'medium'}
+              weight={activeTab === idx ? 'semibold' : 'medium'}
               color={activeTab === idx ? Colors.ink : Colors.text}
             >
               {tab}
@@ -49,26 +46,35 @@ export default function WalletScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <Text variant="body" color={Colors.textMuted} center>
-              No tickets yet.
-            </Text>
+            <EmptyState
+              icon="qr-code-outline"
+              title="No tickets yet"
+              subtitle="Tickets you buy will show up here with a QR code for the door."
+              actionTitle="Discover events"
+              onAction={() => router.push('/(app)/user')}
+            />
           }
           renderItem={({ item }) => (
             <PressableCard
               variant="pressed"
               style={styles.ticketCard}
-              onPress={() => router.push('/(app)/purchased-ticket')}
+              onPress={() =>
+                router.push({
+                  pathname: '/(app)/purchased-ticket',
+                  params: { eventId: item.eventId },
+                } as any)
+              }
             >
-              <Image source={{ uri: EVENTS.find((e) => e.id === item.eventId)?.image || EVENTS[0].image }} style={styles.ticketImage} />
+              <Image source={{ uri: item.image }} style={styles.ticketImage} />
               <View style={styles.ticketInfo}>
                 <Text variant="heading3" weight="bold" numberOfLines={2}>
-                  {item.title}
+                  {item.eventTitle}
                 </Text>
                 <Text variant="bodySmall" color={Colors.textMuted}>
                   {item.date}
                 </Text>
                 <Text variant="caption" color={Colors.textMuted}>
-                  {item.qty} × {item.tier}
+                  {item.type}
                 </Text>
               </View>
               <Ionicons name="qr-code-outline" size={28} color={Colors.text} />
@@ -81,19 +87,13 @@ export default function WalletScreen() {
             <Text variant="caption" color={Colors.textMuted}>
               Available balance
             </Text>
-            <Text variant="display" weight="bold" style={styles.balanceAmount}>
-              $2,000.00
+            <Text variant="heading1" weight="bold" style={styles.balanceAmount}>
+              ${WALLET_BALANCE.toFixed(2)}
+            </Text>
+            <Text variant="caption" color={Colors.textMuted} style={styles.balanceHint}>
+              Balance is added automatically when your ticket listings sell.
             </Text>
             <View style={styles.actionRow}>
-              <Button
-                title="Deposit"
-                size="small"
-                onPress={() => {
-                  haptic.medium();
-                  router.push('/(app)/withdraw');
-                }}
-                style={styles.actionButton}
-              />
               <Button
                 title="Withdraw"
                 variant="outline"
@@ -192,7 +192,10 @@ const styles = StyleSheet.create({
   },
   balanceAmount: {
     marginTop: 8,
-    marginBottom: Spacing.xl,
+    marginBottom: 6,
+  },
+  balanceHint: {
+    marginBottom: Spacing.lg,
   },
   actionRow: {
     flexDirection: 'row',

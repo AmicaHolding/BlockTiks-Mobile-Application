@@ -1,13 +1,13 @@
-import { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Text, Screen, Input, Button, useToast, IconButton } from '@/components/ui';
-import { Colors, Spacing, Radius } from '@/constants/Colors';
-import { haptic } from '@/services/haptics';
-import { api } from '@/services/api';
+import { Button, IconButton, Input, Screen, Text, useToast } from '@/components/ui';
 import { ApiUrls } from '@/constants/Api';
+import { Colors, Spacing } from '@/constants/Colors';
+import { api } from '@/services/api';
+import { haptic } from '@/services/haptics';
 import { useAuthStore } from '@/store/authStore';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
@@ -29,24 +29,37 @@ export default function SignInScreen() {
         refreshToken?: string;
         firstName?: string;
         lastName?: string;
-      }>(ApiUrls.login, { email, password }).catch(() => null);
+      }>(ApiUrls.login, { email, password });
 
-      await setAuth(
-        response?.token || 'mock_token',
-        response?.refreshToken || 'mock_refresh',
-        {
-          email,
-          firstName: response?.firstName || 'Block',
-          lastName: response?.lastName || 'Tiks',
-          role: 'user',
-        }
-      );
+      if (!response?.token) {
+        throw new Error('No token in response');
+      }
+
+      await setAuth(response.token, response.refreshToken || '', {
+        email,
+        firstName: response.firstName || 'Block',
+        lastName: response.lastName || 'Tiks',
+        role: 'user',
+      });
       haptic.success();
       show('Welcome back!', 'success');
       router.replace('/(app)');
-    } catch (error) {
-      haptic.error();
-      show('Sign in failed. Try again.', 'error');
+    } catch {
+      if (__DEV__) {
+        // Dev-only bypass so the UI can be previewed before the MVP backend is live.
+        await setAuth('mock_token', 'mock_refresh', {
+          email,
+          firstName: 'Block',
+          lastName: 'Tiks',
+          role: 'user',
+        });
+        haptic.success();
+        show('Dev mode: signed in without backend', 'info');
+        router.replace('/(app)');
+      } else {
+        haptic.error();
+        show('Sign in failed. Check your credentials and try again.', 'error');
+      }
     } finally {
       setLoading(false);
     }

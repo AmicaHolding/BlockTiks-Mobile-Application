@@ -1,29 +1,27 @@
-import { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Text, Screen, AppHeader, Button, IconButton, useToast } from '@/components/ui';
-import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { AppHeader, Button, Input, Screen, Text, useToast } from '@/components/ui';
+import { Colors, Radius, Spacing } from '@/constants/Colors';
+import { DEFAULT_TIERS, EVENTS } from '@/services/data';
 import { haptic } from '@/services/haptics';
-import { EVENTS } from '@/services/data';
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
-const TIERS = [
-  { id: 'ga', name: 'General Admission', description: 'Standing room, main floor access', price: 85, remaining: 120 },
-  { id: 'vip', name: 'VIP', description: 'Priority entry + balcony access', price: 150, remaining: 24 },
-  { id: 'backstage', name: 'Backstage Pass', description: 'Meet & greet + after-party', price: 295, remaining: 6 },
-];
+const FEE_RATE = 0.12;
 
 export default function TicketSelectionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const event = EVENTS.find((e) => e.id === id) || EVENTS[0];
+  const tiers = event.tiers?.length ? event.tiers : DEFAULT_TIERS;
   const { show } = useToast();
 
-  const [selectedTier, setSelectedTier] = useState(TIERS[0].id);
+  const [selectedTier, setSelectedTier] = useState(tiers[0].id);
   const [quantity, setQuantity] = useState(1);
+  const [promo, setPromo] = useState('');
 
-  const tier = TIERS.find((t) => t.id === selectedTier) || TIERS[0];
+  const tier = tiers.find((t) => t.id === selectedTier) || tiers[0];
   const total = tier.price * quantity;
-  const fees = Math.round(total * 0.12);
+  const fees = Math.round(total * FEE_RATE);
   const finalTotal = total + fees;
 
   const handleContinue = () => {
@@ -32,7 +30,8 @@ export default function TicketSelectionScreen() {
       return;
     }
     haptic.medium();
-    router.push(`/(app)/payment-page?eventId=${event.id}&tier=${selectedTier}&qty=${quantity}` as any);
+    const params = `eventId=${event.id}&tier=${selectedTier}&qty=${quantity}${promo ? `&promo=${encodeURIComponent(promo)}` : ''}`;
+    router.push(`/(app)/payment-page?${params}` as any);
   };
 
   return (
@@ -47,20 +46,22 @@ export default function TicketSelectionScreen() {
       </Text>
 
       <View style={styles.tiers}>
-        {TIERS.map((t) => {
+        {tiers.map((t) => {
           const active = selectedTier === t.id;
+          const soldOut = t.remaining <= 0;
           return (
             <TouchableOpacity
               key={t.id}
               activeOpacity={0.9}
+              disabled={soldOut}
               onPress={() => {
-              haptic.light();
-              setSelectedTier(t.id);
-            }}
-              style={[styles.tierCard, active && styles.tierCardActive]}
+                haptic.light();
+                setSelectedTier(t.id);
+              }}
+              style={[styles.tierCard, active && styles.tierCardActive, soldOut && styles.tierCardSoldOut]}
             >
               <View style={styles.tierHeader}>
-                <View>
+                <View style={styles.tierTitleWrap}>
                   <Text variant="heading3" weight="bold">
                     {t.name}
                   </Text>
@@ -73,8 +74,8 @@ export default function TicketSelectionScreen() {
                 />
               </View>
               <View style={styles.tierFooter}>
-                <Text variant="caption" color={Colors.textMuted}>
-                  {t.remaining} left
+                <Text variant="caption" color={soldOut ? Colors.error : Colors.textMuted}>
+                  {soldOut ? 'Sold out' : `${t.remaining} left`}
                 </Text>
                 <Text variant="heading3" weight="bold" color={active ? Colors.primaryBright : Colors.text}>
                   ${t.price}
@@ -102,13 +103,22 @@ export default function TicketSelectionScreen() {
           </Text>
           <TouchableOpacity
             style={styles.qtyButton}
-            onPress={() => setQuantity((q) => Math.min(8, q + 1))}
-            disabled={quantity >= 8}
+            onPress={() => setQuantity((q) => Math.min(Math.min(8, tier.remaining), q + 1))}
+            disabled={quantity >= Math.min(8, tier.remaining)}
           >
             <Ionicons name="add" size={20} color={Colors.text} />
           </TouchableOpacity>
         </View>
       </View>
+
+      <Input
+        label="Promo code (optional)"
+        placeholder="Enter code"
+        value={promo}
+        onChangeText={setPromo}
+        autoCapitalize="characters"
+        containerStyle={styles.promoInput}
+      />
 
       <View style={styles.summary}>
         <View style={styles.summaryRow}>
@@ -151,7 +161,7 @@ const styles = StyleSheet.create({
   },
   tiers: {
     gap: 12,
-    marginBottom: Spacing.xxl,
+    marginBottom: Spacing.xl,
   },
   tierCard: {
     borderRadius: Radius.lg,
@@ -162,12 +172,19 @@ const styles = StyleSheet.create({
   },
   tierCardActive: {
     borderColor: Colors.primary,
-    backgroundColor: `${Colors.primary}10`,
+    backgroundColor: 'rgba(124,92,255,0.08)',
+  },
+  tierCardSoldOut: {
+    opacity: 0.45,
   },
   tierHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: Spacing.md,
+  },
+  tierTitleWrap: {
+    flex: 1,
+    marginRight: 12,
   },
   radio: {
     width: 24,
@@ -186,7 +203,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Spacing.xxl,
+    marginBottom: Spacing.lg,
   },
   quantityControls: {
     flexDirection: 'row',
@@ -204,6 +221,9 @@ const styles = StyleSheet.create({
   qtyValue: {
     minWidth: 32,
     textAlign: 'center',
+  },
+  promoInput: {
+    marginBottom: Spacing.xl,
   },
   summary: {
     backgroundColor: Colors.backgroundElevated,

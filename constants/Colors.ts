@@ -1,49 +1,47 @@
 /**
- * BlockTiks design tokens — adapted from Revolut's high-contrast,
- * editorial two-mode system for an event-ticketing product.
+ * BlockTiks design tokens — Luma-minimal direction.
  *
  * Core idea:
- * - Canvas is near-black for immersive event storytelling.
- * - Cards and form surfaces are elevated dark or clean light.
- * - Primary accent is a saturated cobalt-violet.
- * - Buttons are full pills; chips and inputs are rounded.
- * - Typography is tight display + Inter body.
+ * - Near-black canvas, photography-led event cards, generous whitespace.
+ * - One electric violet accent used sparingly (active states, links, live).
+ * - Primary CTA is a white pill; accent is never the main button.
+ * - Manrope for display/headings, Inter for body/UI.
  */
 
 export const Colors = {
   // Brand
-  primary: '#494fdf',
-  primaryBright: '#4f55f1',
-  primaryDeep: '#3a40c4',
+  primary: '#7c5cff',
+  primaryBright: '#9b85ff',
+  primaryDeep: '#6a4ae0',
   onPrimary: '#ffffff',
 
   // Canvas
-  background: '#000000',
-  backgroundElevated: '#16181a',
-  backgroundDeep: '#0a0a0a',
-  surface: '#1f2226',
-  surfaceSoft: '#f4f4f4',
+  background: '#0a0a0b',
+  backgroundElevated: '#141416',
+  backgroundDeep: '#08080a',
+  surface: '#1c1c1f',
+  surfaceSoft: '#1c1c1f',
   surfaceCard: '#ffffff',
 
   // Text
-  text: '#ffffff',
-  textMuted: 'rgba(255,255,255,0.72)',
-  textDim: 'rgba(255,255,255,0.52)',
-  ink: '#191c1f',
-  inkMuted: '#505a63',
+  text: '#f5f5f7',
+  textMuted: 'rgba(245,245,247,0.64)',
+  textDim: 'rgba(245,245,247,0.4)',
+  ink: '#0a0a0b',
+  inkMuted: '#6b6b70',
 
   // Dividers & outlines
-  divider: 'rgba(255,255,255,0.12)',
-  hairlineLight: '#e2e2e7',
-  hairlineStrong: '#191c1f',
+  divider: 'rgba(255,255,255,0.08)',
+  hairlineLight: '#e8e8ec',
+  hairlineStrong: '#0a0a0b',
 
   // Status
-  success: '#00a87e',
-  successBright: '#43FF00',
-  successDark: '#006400',
-  error: '#e23b4a',
-  warning: '#ec7e00',
-  info: '#376cd5',
+  success: '#34c77b',
+  successBright: '#43ff00',
+  successDark: '#1d7a4f',
+  error: '#ff5c5c',
+  warning: '#ff9f43',
+  info: '#5c8dff',
 
   // Pure
   white: '#ffffff',
@@ -54,53 +52,53 @@ export const Spacing = {
   xxs: 4,
   xs: 6,
   sm: 8,
-  md: 14,
+  md: 12,
   lg: 16,
   xl: 24,
   xxl: 32,
   xxxl: 48,
-  block: 80,
+  block: 64,
 } as const;
 
 export const Radius = {
   none: 0,
   sm: 8,
   md: 12,
-  lg: 20,
-  xl: 28,
+  lg: 16,
+  xl: 24,
   full: 9999,
 } as const;
 
 export const Typography = {
   display: {
-    fontFamily: 'Inter_700Bold',
-    fontSize: 48,
-    lineHeight: 52,
-    letterSpacing: -0.96,
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 40,
+    lineHeight: 44,
+    letterSpacing: -1.2,
   },
   heading1: {
-    fontFamily: 'Inter_700Bold',
-    fontSize: 32,
-    lineHeight: 38,
-    letterSpacing: -0.48,
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 30,
+    lineHeight: 36,
+    letterSpacing: -0.6,
   },
   heading2: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 24,
-    lineHeight: 30,
-    letterSpacing: -0.24,
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 22,
+    lineHeight: 28,
+    letterSpacing: -0.4,
   },
   heading3: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 18,
+    fontFamily: 'Manrope_600SemiBold',
+    fontSize: 17,
     lineHeight: 24,
-    letterSpacing: -0.18,
+    letterSpacing: -0.2,
   },
   body: {
     fontFamily: 'Inter_400Regular',
     fontSize: 16,
     lineHeight: 24,
-    letterSpacing: 0.24,
+    letterSpacing: 0,
   },
   bodySmall: {
     fontFamily: 'Inter_400Regular',
@@ -130,7 +128,7 @@ export const Theme = {
     regular: { fontFamily: 'Inter_400Regular', fontWeight: '400' as const },
     medium: { fontFamily: 'Inter_500Medium', fontWeight: '500' as const },
     bold: { fontFamily: 'Inter_700Bold', fontWeight: '700' as const },
-    heavy: { fontFamily: 'Inter_700Bold', fontWeight: '700' as const },
+    heavy: { fontFamily: 'Manrope_700Bold', fontWeight: '700' as const },
   },
 };
 

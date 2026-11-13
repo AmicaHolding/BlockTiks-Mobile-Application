@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { View, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
-import { router } from 'expo-router';
+import { AppHeader, Button, Input, Screen, Text, useToast } from '@/components/ui';
+import { Colors, Radius, Spacing } from '@/constants/Colors';
+import { EVENT_CATEGORIES } from '@/services/data';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { Text, Screen, AppHeader, Button, Input, Card, useToast } from '@/components/ui';
-import { Colors, Spacing, Radius } from '@/constants/Colors';
-import { EVENT_CATEGORIES } from '@/services/data';
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function CreateEventScreen() {
   const [title, setTitle] = useState('');
@@ -36,11 +36,16 @@ export default function CreateEventScreen() {
       show('Please fill in all fields', 'error');
       return;
     }
+    if (isNaN(parseFloat(price)) || parseFloat(price) < 0) {
+      show('Enter a valid ticket price', 'error');
+      return;
+    }
 
     setLoading(true);
+    // TODO(backend): POST /events once the MVP API is live.
     setTimeout(() => {
       setLoading(false);
-      show('Event created successfully!', 'success');
+      show('Event created', 'success');
       router.back();
     }, 1200);
   };

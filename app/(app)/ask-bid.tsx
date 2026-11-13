@@ -1,54 +1,60 @@
+import { AppHeader, Button, Card, Input, Screen, Text, useToast } from '@/components/ui';
+import { Colors, Radius, Spacing } from '@/constants/Colors';
+import { EVENTS, MY_TICKETS } from '@/services/data';
+import { haptic } from '@/services/haptics';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { View, StyleSheet, Image } from 'react-native';
-import { router } from 'expo-router';
-import { Text, Screen, AppHeader, Input, Button, Card, useToast } from '@/components/ui';
-import { Colors, Spacing, Radius } from '@/constants/Colors';
+import { Image, StyleSheet } from 'react-native';
 
 export default function AskBidScreen() {
-  const [price, setPrice] = useState('');
+  const params = useLocalSearchParams<{ eventId?: string; tier?: string; price?: string }>();
+  const ticket = MY_TICKETS.find((t) => t.eventId === params.eventId);
+  const event = EVENTS.find((e) => e.id === (params.eventId ?? ticket?.eventId)) || EVENTS[0];
+
+  const [price, setPrice] = useState(params.price ?? '');
   const [loading, setLoading] = useState(false);
   const { show } = useToast();
 
   const handleAsk = () => {
-    if (!price) {
-      show('Please enter an asking price', 'error');
+    const amount = parseFloat(price);
+    if (!price || isNaN(amount) || amount <= 0) {
+      show('Please enter a valid asking price', 'error');
       return;
     }
     setLoading(true);
+    // TODO(backend): POST /marketplace/listings once the MVP API is live.
     setTimeout(() => {
       setLoading(false);
-      show('Ask listed successfully', 'success');
+      haptic.success();
+      show('Listing created', 'success');
       router.back();
     }, 1200);
   };
 
   return (
     <Screen scrollable keyboardAvoiding>
-      <AppHeader title="Ask Bid" showBack />
+      <AppHeader title="List for sale" showBack />
 
       <Card style={styles.card}>
-        <Image
-          source={{ uri: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&q=80' }}
-          style={styles.image}
-        />
+        <Image source={{ uri: event.image }} style={styles.image} />
         <Text variant="heading3" weight="bold" style={styles.title}>
-          Cyberpunk Music Concert
+          {event.title}
         </Text>
         <Text variant="bodySmall" color={Colors.textMuted}>
-          Face value: $110
+          {params.tier ?? ticket?.type ?? 'General Admission'}
+          {ticket ? ` · face value $${ticket.price}` : ''}
         </Text>
       </Card>
 
       <Input
-        label="Asking Price"
-        placeholder="Enter asking price"
+        label="Asking price"
+        placeholder="Enter price"
         keyboardType="decimal-pad"
         value={price}
         onChangeText={setPrice}
       />
-      <Input label="Expiration (optional)" placeholder="e.g. 48 hours" />
 
-      <Button title="List Ask" loading={loading} onPress={handleAsk} />
+      <Button title="List ticket" loading={loading} onPress={handleAsk} />
     </Screen>
   );
 }
