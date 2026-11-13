@@ -4,6 +4,7 @@ import 'package:block_tix/app/data/widgets/otp_text_feild.dart';
 import '../../../data/core/app_export.dart';
 import '../../../data/widgets/custom_toast.dart';
 import '../controllers/otp_verification_screen_controller.dart';
+import '../../sign_in/views/widgets/auth_pill_button.dart';
 
 class OtpVerificationScreenView
     extends GetView<OtpVerificationScreenController> {
@@ -23,17 +24,17 @@ class OtpVerificationScreenView
             SizedBox(
               height: getSize(30),
             ),
-            MyText(
-              title: "Enter 6 digit verification".tr,
-              fontSize: 18,
+            Text(
+              "Enter 6 digit verification".tr,
+              style: AppStyle.heading1Manrope,
             ),
             SizedBox(
               height: getSize(10),
             ),
-            MyText(
-              title: "Code sent to  ".tr +
+            Text(
+              "Code sent to  ".tr +
                   HelperFunction.maskString(controller.email.value),
-              clr: ColorConstant.white60,
+              style: AppStyle.bodySmallInter,
             ),
             SizedBox(
               height: getSize(30),
@@ -43,11 +44,7 @@ class OtpVerificationScreenView
               child: OtpTextField(
                 //semanticsLabel: SemanticsLabel.LAB_OTP_FIELD,
                 controller: controller.otpController,
-                onChanged: (a) {
-                  if (a.length == Constants.otpLength) {
-                    // onComplete();
-                  }
-                },
+                onChanged: (a) {},
                 onComplete: (a) {
                   if (a.length == Constants.otpLength) {
                     onComplete();
@@ -65,17 +62,15 @@ class OtpVerificationScreenView
                       '${"msg_request_new_code".tr}0${controller.min}:${controller.sec.toString().length == 1 ? '0${controller.sec}' : controller.sec}',
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.left,
-                      style: AppStyle.txtAgeoMedium14Gray700.copyWith(
-                          letterSpacing: getHorizontalSize(0.05),
+                      style: AppStyle.bodySmallInter.copyWith(
                           color: ColorConstant.whiteA700))),
             ),
             SizedBox(
               height: getVerticalSize(60),
             ),
-            CustomButton(
+            AuthPillButton(
               controller: controller.btnController,
               text: "lbl_verify".tr,
-              fontStyle: ButtonFontStyle.AgeoSemiBold14Black900,
               onTap: () {
                 onComplete();
               },
@@ -93,11 +88,12 @@ class OtpVerificationScreenView
                         text: TextSpan(children: [
                           TextSpan(
                               text: "msg_didn_t_get_code".tr + " ",
-                              style: AppStyle.white60InterNormal14),
+                              style: AppStyle.bodySmallInter),
                           TextSpan(
                               text: "lbl_resend".tr,
-                              style: AppStyle.pinkInterNormal16.copyWith(
-                                color: ColorConstant.primaryPink.withValues(alpha: controller.sec.value != 0 ? 0.5 : 1),
+                              style: AppStyle.bodySmallInter.copyWith(
+                                color: ColorConstant.primaryAccent.withValues(alpha: controller.sec.value != 0 ? 0.5 : 1),
+                                fontWeight: FontWeight.w600,
                               ))
                         ]),
                         textAlign: TextAlign.left))))

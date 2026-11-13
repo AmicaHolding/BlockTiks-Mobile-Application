@@ -1,6 +1,7 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/search/search_field.dart';
-import 'package:block_tix/app/modules/for_you/views/for_you_view.dart';
+import 'package:block_tix/app/modules/payment_page/views/payment_page_view.dart';
 
 import '../controllers/wallet_controller.dart';
 
@@ -32,7 +33,11 @@ class WalletView extends StatelessWidget {
                     const SizedBox(
                       height: 5,
                     ),
-                    const MyText(title: "Balance"),
+                    const MyText(
+                      title: "Balance",
+                      family: 'Inter',
+                      fontSize: 13,
+                    ),
                     const SizedBox(
                       height: 3,
                     ),
@@ -40,15 +45,19 @@ class WalletView extends StatelessWidget {
                       children: [
                         const MyText(
                           title: "\$2000",
-                          fontSize: 28,
+                          family: 'Manrope',
+                          fontSize: 30,
                           customWeight: FontWeight.w800,
+                          height: 1.1,
                         ),
                         const SizedBox(
                           width: 10,
                         ),
-                        const MyText(
+                        MyText(
                           title: "USD",
-                          fontSize: 16,
+                          family: 'Inter',
+                          fontSize: 14,
+                          clr: ColorConstant.white60,
                         ),
                         const SizedBox(
                           width: 5,
@@ -66,6 +75,8 @@ class WalletView extends StatelessWidget {
                       children: [
                         MyText(
                           title: "This week",
+                          family: 'Inter',
+                          fontSize: 13,
                           clr: ColorConstant.white60,
                         ),
                         const SizedBox(
@@ -73,7 +84,8 @@ class WalletView extends StatelessWidget {
                         ),
                         MyText(
                           title: "+10%",
-                          clr: ColorConstant.green,
+                          family: 'Inter',
+                          clr: ColorConstant.successGreen,
                         ),
                       ],
                     ),
@@ -107,13 +119,14 @@ class WalletView extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                        color: ColorConstant.primaryPink,
-                        borderRadius: BorderRadius.circular(10)),
+                        color: ColorConstant.whiteA700,
+                        borderRadius: BorderRadius.circular(999)),
                     child: MyText(
                       title: "Deposit",
-                      clr: ColorConstant.whiteA700,
-                      fontSize: getFontSize(14),
+                      family: 'Manrope',
                       customWeight: FontWeight.w600,
+                      fontSize: 14,
+                      clr: ColorConstant.canvas,
                     ),
                   ),
                 ),
@@ -131,15 +144,16 @@ class WalletView extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
+                        color: ColorConstant.elevated,
                         border: Border.all(
-                          color: ColorConstant.primaryPink,
+                          color: ColorConstant.hairline,
                         ),
-                        borderRadius: BorderRadius.circular(10)),
-                    child: MyText(
+                        borderRadius: BorderRadius.circular(999)),
+                    child: const MyText(
                       title: "Withdraw",
-                      clr: ColorConstant.whiteA700,
-                      fontSize: getFontSize(14),
+                      family: 'Manrope',
                       customWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
                 ),
@@ -159,15 +173,16 @@ class WalletView extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
+                        color: ColorConstant.elevated,
                         border: Border.all(
-                          color: ColorConstant.primaryPink,
+                          color: ColorConstant.hairline,
                         ),
-                        borderRadius: BorderRadius.circular(10)),
-                    child: MyText(
+                        borderRadius: BorderRadius.circular(999)),
+                    child: const MyText(
                       title: "Transfer",
-                      clr: ColorConstant.whiteA700,
-                      fontSize: getFontSize(14),
+                      family: 'Manrope',
                       customWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
                 ),
@@ -180,34 +195,186 @@ class WalletView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  margin: getMargin(left: 16),
-                  child: MyText(
-                    title: "Upcoming Events",
-                    clr: ColorConstant.whiteA700,
-                    fontSize: getFontSize(16),
-                    customWeight: FontWeight.w600,
-                  ),
-                ),
-                Container(
-                  margin: getMargin(top: 15, bottom: 20, left: 16, right: 16),
-                  height: 200,
-                  child: TrendingCard(
-                    onTap: ()=> Get.toNamed(Routes.UPCOMING_EVENT),
-                      imageUrl: ImageConstant.splashBg,
-                      // Replace with your image URL
-                      title: 'Cyberpunk',
-                      type: "Music Concert",
-                      price: '\$110',
-                      isExpanded: true),
-                ),
-                CustomListView(title: "My Tickets",onTap: ()=> Get.toNamed(Routes.PURCHASED_TICKET,arguments: {Constants.paramShowBack :true}),),
-                CustomListView(title: "Expired Tickets",onTap: ()=> Get.toNamed(Routes.PURCHASED_TICKET,arguments: {Constants.paramTicket: 7})),
+                // Real tickets from GET /tickets with loading/empty/error.
+                Obx(() {
+                  if (controller.isLoading.value) {
+                    return Padding(
+                      padding: getPadding(top: 40, bottom: 40),
+                      child: Center(
+                        child: SizedBox(
+                          height: 28,
+                          width: 28,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: ColorConstant.primaryAccent,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  if (controller.loadError.value != null) {
+                    return Padding(
+                      padding: getPadding(all: 24),
+                      child: Column(
+                        children: [
+                          MyText(
+                            title: "Couldn't load tickets",
+                            family: 'Manrope',
+                            customWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                          const SizedBox(height: 8),
+                          MyText(
+                            title: controller.loadError.value ?? '',
+                            family: 'Inter',
+                            fontSize: 13,
+                            clr: ColorConstant.white60,
+                            center: true,
+                          ),
+                          const SizedBox(height: 16),
+                          PrimaryPillButton(
+                            text: 'Retry',
+                            onTap: () => controller.fetchTickets(),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  if (controller.tickets.isEmpty) {
+                    return Padding(
+                      padding: getPadding(top: 40, bottom: 40),
+                      child: Center(
+                        child: MyText(
+                          title: 'No tickets yet',
+                          family: 'Manrope',
+                          customWeight: FontWeight.w600,
+                          fontSize: 16,
+                          clr: ColorConstant.white60,
+                        ),
+                      ),
+                    );
+                  }
+                  final valid = controller.validTickets;
+                  final others = controller.otherTickets;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (valid.isNotEmpty) ...[
+                        Container(
+                          margin: getMargin(left: 16),
+                          child: MyText(
+                            title: "My Tickets",
+                            family: 'Manrope',
+                            customWeight: FontWeight.w600,
+                            fontSize: 18,
+                          ),
+                        ),
+                        ...valid.map((t) => _ticketCard(t)),
+                      ],
+                      if (others.isNotEmpty) ...[
+                        Container(
+                          margin: getMargin(left: 16, top: 16),
+                          child: MyText(
+                            title: "Other Tickets",
+                            family: 'Manrope',
+                            customWeight: FontWeight.w600,
+                            fontSize: 18,
+                          ),
+                        ),
+                        ...others.map((t) => _ticketCard(t)),
+                      ],
+                      const SizedBox(height: 20),
+                    ],
+                  );
+                }),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  /// One wallet ticket card: event, date, location, tier, code and status.
+  Widget _ticketCard(Map<String, dynamic> ticket) {
+    final status = ticket['status']?.toString() ?? '';
+    final statusColor = status == 'VALID'
+        ? ColorConstant.successGreen
+        : ColorConstant.warningOrange;
+    return Container(
+      margin: getMargin(left: 16, right: 16, top: 10),
+      padding: getPadding(left: 16, right: 16, top: 14, bottom: 14),
+      decoration: BoxDecoration(
+        color: ColorConstant.elevated,
+        border: Border.all(color: ColorConstant.hairline),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                MyText(
+                  title: ticket['eventTitle']?.toString() ?? 'Event',
+                  family: 'Manrope',
+                  customWeight: FontWeight.w600,
+                  fontSize: 15,
+                  clr: ColorConstant.whiteA700,
+                ),
+                const SizedBox(height: 4),
+                MyText(
+                  title: formatEventDate(
+                      ticket['eventStartsAt']?.toString()),
+                  family: 'Inter',
+                  fontSize: 12,
+                  clr: ColorConstant.white60,
+                ),
+                const SizedBox(height: 2),
+                MyText(
+                  title: ticket['eventLocation']?.toString() ?? '',
+                  family: 'Inter',
+                  fontSize: 12,
+                  clr: ColorConstant.white60,
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    MyText(
+                      title: ticket['tierName']?.toString() ?? '',
+                      family: 'Inter',
+                      fontSize: 12,
+                      customWeight: FontWeight.w500,
+                    ),
+                    const SizedBox(width: 8),
+                    MyText(
+                      title: ticket['code']?.toString() ?? '',
+                      family: 'Inter',
+                      fontSize: 11,
+                      clr: ColorConstant.white60,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: getPadding(left: 10, right: 10, top: 4, bottom: 4),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: statusColor.withValues(alpha: 0.4)),
+            ),
+            child: MyText(
+              title: status.isEmpty ? '—' : status,
+              family: 'Inter',
+              fontSize: 11,
+              customWeight: FontWeight.w600,
+              clr: statusColor,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

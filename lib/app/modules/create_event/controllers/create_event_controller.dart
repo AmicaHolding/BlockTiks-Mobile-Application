@@ -2,8 +2,11 @@ import 'dart:io';
 
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/file_upload_helper.dart';
+import 'package:block_tix/app/data/utils/model/ticket_model.dart';
 import 'package:block_tix/app/data/utils/permission_manager.dart';
+import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/data/widgets/media_selection_tile.dart';
+import 'package:block_tix/app/services/api_service.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -14,6 +17,18 @@ class CreateEventController extends GetxController {
   Rx<File> image = File("").obs;
   RxString selectedTime = "".obs;
   RxString selectedEndTime = "".obs;
+
+  /// ISO-8601 start/end timestamps returned by the SET_DATE screen.
+  RxString startsAtIso = "".obs;
+  RxString endsAtIso = "".obs;
+
+  /// Ticket tiers added through the ADD_DROP screen.
+  RxList<TicketModel> tiers = <TicketModel>[].obs;
+
+  /// Place name / address / link entered on the "Place name" tile.
+  TextEditingController locationController = TextEditingController();
+
+  RxBool isSubmitting = false.obs;
 
 
   RxBool isNowSelected = true.obs;
@@ -49,7 +64,7 @@ class CreateEventController extends GetxController {
                       },
                       child: MyText(
                         title: "lbl_cancel".tr,
-                        clr: ColorConstant.blueGray400,
+                        clr: ColorConstant.white60,
                         fontSize: getFontSize(14),
                         customWeight: FontWeight.w400,
                       ),
@@ -59,7 +74,7 @@ class CreateEventController extends GetxController {
                       child: Center(
                         child: MyText(
                           title: "lbl_select_option".tr,
-                          clr: ColorConstant.blueGray900,
+                          clr: ColorConstant.whiteA700,
                           fontSize: getFontSize(16),
                           customWeight: FontWeight.w600,
                         ),
@@ -118,6 +133,78 @@ class CreateEventController extends GetxController {
 
   }
 
+  /// Validates the form and creates the event via [ApiService.createEvent].
+  /// When "Publish now" is selected the draft is published immediately via
+  /// [ApiService.publishEvent]. On success navigates to the creator event
+  /// management screen for the newly created event.
+  Future<void> submit() async {
+    if (isSubmitting.value) return;
+    if (!(formKey.currentState?.validate() ?? false)) return;
+
+    if (startsAtIso.value.isEmpty) {
+      CustomSnackBar.showCustomErrorToast(message: "Please set a date for your event");
+      return;
+    }
+
+    final validTiers = tiers
+        .where((t) =>
+            (t.name ?? '').trim().isNotEmpty &&
+            (t.price ?? 0) > 0 &&
+            (t.quantity ?? 0) > 0)
+        .toList();
+    if (validTiers.isEmpty) {
+      CustomSnackBar.showCustomErrorToast(
+          message: "Please add at least one ticket type with a price and quantity");
+      return;
+    }
+
+    isSubmitting.value = true;
+    try {
+      final body = <String, dynamic>{
+        'title': eventNameController.text.trim(),
+        'description': eventDescController.text.trim(),
+        'category': 'GENERAL',
+        'startsAt': startsAtIso.value,
+        'tiers': validTiers
+            .map((t) => <String, dynamic>{
+                  'name': t.name!.trim(),
+                  'priceCents': ((t.price ?? 0) * 100).round(),
+                  'quantity': t.quantity ?? 0,
+                })
+            .toList(),
+      };
+      if (endsAtIso.value.isNotEmpty) body['endsAt'] = endsAtIso.value;
+      final location = locationController.text.trim();
+      if (location.isNotEmpty) body['location'] = location;
+
+      final created = await ApiService.createEvent(body);
+      final id = created['id']?.toString() ?? '';
+
+      if (isNowSelected.value && id.isNotEmpty) {
+        try {
+          await ApiService.publishEvent(id);
+          CustomSnackBar.showCustomToast(message: "Event created and published");
+        } catch (e) {
+          CustomSnackBar.showCustomToast(
+              message: "Event created as draft. Publish failed: $e");
+        }
+      } else {
+        CustomSnackBar.showCustomToast(message: "Event created as draft");
+      }
+
+      if (id.isNotEmpty) {
+        Get.offNamed(Routes.CREATOR_EVENT,
+            arguments: {'id': id, 'title': eventNameController.text.trim()});
+      } else {
+        Get.back();
+      }
+    } catch (e) {
+      CustomSnackBar.showCustomErrorToast(message: e.toString());
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
   void showDetailDialog(BuildContext context){
     Get.dialog(
       Dialog(
@@ -153,7 +240,7 @@ class CreateEventController extends GetxController {
                           width:getSize(30),
                           margin: getMargin(right: 10),
                           decoration: BoxDecoration(
-                              color: ColorConstant.whiteA700.withValues(alpha: 0.1),
+                              color: ColorConstant.elevated,
                               borderRadius: BorderRadius.circular(8)
                           ),
                           alignment: Alignment.center,

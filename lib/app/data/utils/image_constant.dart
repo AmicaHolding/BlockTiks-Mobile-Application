@@ -1,6 +1,13 @@
 class ImageConstant {
   static String splashBg = 'assets/images/splash_bg.png';
-  static String logo = 'assets/images/splash_logo.png';
+  static String logo = 'assets/images/brand/sahra-logo-gold.png';
+  static String logoNight = 'assets/images/brand/sahra-logo-night.png';
+  static String logoGold = 'assets/images/brand/sahra-logo-gold.png';
+  static String lockupOnNight = 'assets/images/brand/sahra-lockup-on-night.png';
+  static String lockupOnSand = 'assets/images/brand/sahra-lockup-on-sand.png';
+  static String lockupHorizontal = 'assets/images/brand/sahra-lockup-horizontal.png';
+  static String appIcon = 'assets/images/brand/sahra-app-icon-1024.png';
+  static String appIconAlt = 'assets/images/brand/sahra-app-icon-alt-1024.png';
   static String mini = 'assets/images/mini.svg';
   static const String notificationBellIcon =
       "assets/images/notifications.svg";

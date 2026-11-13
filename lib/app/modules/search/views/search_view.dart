@@ -2,43 +2,39 @@ import 'dart:math';
 
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/dummy_content.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/base/baseview_process_screen.dart';
 import 'package:block_tix/app/modules/resell_tab/views/resell_tab_view.dart';
 import 'package:block_tix/app/modules/search/controllers/search_controller.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 
 class SearchView extends GetView<MySearchController> {
-  const SearchView({Key? key}) : super(key: key);
+  const SearchView({Key? key, this.embedded = false}) : super(key: key);
+
+  /// When true the view renders without its own scaffold/app bar so it can
+  /// live inside the fan dashboard's Search tab.
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
-    return BaseviewScreen(
-      showLogo: true,
-      showBackBtn: true,
-      sidePadding: false,
-      showBottomBar: false,
-      child: Padding(
+    final content = Padding(
         padding: getPadding(left: 16, right: 16, bottom: 20),
         child: Column(
           children: [
             Container(
               padding: getPadding(left: 16, right: 16),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+                color: ColorConstant.elevated,
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Stack(
                 children: [
                   TextField(
+                    controller: controller.searchController,
                     style: GoogleFonts.getFont("Inter",
                         fontSize: 16, color: ColorConstant.whiteA700),
                     onChanged: (String val) {
-                      if (val.isEmpty) {
-                        controller.isEmpty.value = true;
-                      } else {
-                        controller.isEmpty.value = false;
-                      }
+                      controller.onSearchChanged(val);
                     },
                     decoration: InputDecoration(
                       contentPadding: getPadding(
@@ -48,7 +44,7 @@ class SearchView extends GetView<MySearchController> {
                         svgPath: ImageConstant.search,
                       ),
                       hintText: 'Search',
-                      hintStyle: const TextStyle(color: Colors.white70),
+                      hintStyle: TextStyle(color: ColorConstant.white60),
                       border: InputBorder.none,
                     ),
                   ),
@@ -74,8 +70,9 @@ class SearchView extends GetView<MySearchController> {
                           ),
                           const MyText(
                             title: "Popular Search",
+                            family: 'Manrope',
                             fontSize: 18,
-                            customWeight: FontWeight.bold,
+                            customWeight: FontWeight.w700,
                           ),
                           Container(
                             margin: getMargin(top: 15),
@@ -84,21 +81,29 @@ class SearchView extends GetView<MySearchController> {
                                 itemCount: controller.latestSearches.length,
                                 scrollDirection: Axis.horizontal,
                                 itemBuilder: (_, index) {
-                                  return Container(
-                                      padding: getPadding(
-                                          left: 10,
-                                          right: 10,
-                                          top: 5,
-                                          bottom: 5),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(5),
-                                      ),
-                                      margin: getMargin(right: 10),
-                                      alignment: Alignment.center,
-                                      child: MyText(
-                                        title: controller.latestSearches[index],
-                                      ));
+                                  return GestureDetector(
+                                    onTap: () => controller
+                                        .applyPopularSearch(controller
+                                            .latestSearches[index]),
+                                    child: Container(
+                                        padding: getPadding(
+                                            left: 14,
+                                            right: 14,
+                                            top: 6,
+                                            bottom: 6),
+                                        decoration: BoxDecoration(
+                                          color: ColorConstant.elevated,
+                                          borderRadius:
+                                              BorderRadius.circular(999),
+                                        ),
+                                        margin: getMargin(right: 10),
+                                        alignment: Alignment.center,
+                                        child: MyText(
+                                          title: controller.latestSearches[index],
+                                          family: 'Inter',
+                                          fontSize: 13,
+                                          clr: ColorConstant.white60,
+                                        )));
                                 }),
                           ),
                           const SizedBox(
@@ -106,23 +111,45 @@ class SearchView extends GetView<MySearchController> {
                           ),
                           const MyText(
                             title: "Recent Search",
+                            family: 'Manrope',
                             fontSize: 18,
-                            customWeight: FontWeight.bold,
+                            customWeight: FontWeight.w700,
                           ),
-                          ListView.builder(
-                              itemCount: controller.events.length,
-                              scrollDirection: Axis.vertical,
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemBuilder: (_, index) {
-                                return BidWidget(
-                                  title: controller.events[index],
-                                  type: "Pak Event Organizers",
-                                  date: "Islamabad | ${DateFormat("dd MMM yyy").format(DateTime.now())}",
-                                  fromSearch: true,
-                                  onTap: () => Get.toNamed(Routes.EVENT_DETAIL),
-                                );
-                              }),
+                          Obx(() {
+                            if (controller.recentEvents.isEmpty) {
+                              return Padding(
+                                padding: getPadding(top: 16, bottom: 8),
+                                child: MyText(
+                                  title: 'No events yet',
+                                  family: 'Inter',
+                                  fontSize: 13,
+                                  clr: ColorConstant.white60,
+                                ),
+                              );
+                            }
+                            return ListView.builder(
+                                itemCount: controller.recentEvents.length,
+                                scrollDirection: Axis.vertical,
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemBuilder: (_, index) {
+                                  final e = controller.recentEvents[index];
+                                  return BidWidget(
+                                    title: e['title']?.toString() ?? 'Event',
+                                    type: e['category']?.toString().isNotEmpty == true
+                                        ? e['category'].toString()
+                                        : 'Event',
+                                    date: formatEventDate(
+                                        e['startsAt']?.toString()),
+                                    fromSearch: true,
+                                    onTap: () => Get.toNamed(Routes.EVENT_DETAIL,
+                                        arguments: {
+                                          'id': e['id']?.toString() ?? '',
+                                          'title': e['title']?.toString() ?? '',
+                                        }),
+                                  );
+                                });
+                          }),
                         ],
                       ),
                     )
@@ -130,15 +157,15 @@ class SearchView extends GetView<MySearchController> {
                       children: [
                         TabBar(
                           controller: controller.tabController,
-                          indicatorColor: ColorConstant.primaryPink,
+                          indicatorColor: ColorConstant.primaryAccent,
                           // Set indicator color
                           indicatorWeight: 3.0,
                           // Set indicator thickness
                           isScrollable: false,
                           indicatorSize: TabBarIndicatorSize.tab,
-                          labelColor: Colors.white,
+                          labelColor: ColorConstant.whiteA700,
                           // Set label color
-                          unselectedLabelColor: ColorConstant.answerColor,
+                          unselectedLabelColor: ColorConstant.white60,
                           // Set unselected label color
                           tabs: [
                             Tab(text: controller.tabs[0]),
@@ -181,92 +208,169 @@ class SearchView extends GetView<MySearchController> {
                                     SizedBox(
                                       height: getSize(10),
                                     ),
-                                    ListView.builder(
-                                      physics:
-                                          const NeverScrollableScrollPhysics(),
-                                      shrinkWrap: true,
-                                      itemCount: controller.events.length,
-                                      scrollDirection: Axis.vertical,
-                                      padding: EdgeInsets.zero,
-                                      itemBuilder: (context, index) {
-                                        return GestureDetector(
-                                          onTap: () {
-                                            Get.toNamed(Routes.PLACE_BID);
-                                          },
-                                          child: Container(
-                                            margin: getMargin(bottom: 10),
-                                            decoration: BoxDecoration(
-                                                color: ColorConstant.gray50
-                                                    .withValues(alpha: 0.05),
-                                                borderRadius:
-                                                    BorderRadius.circular(10)),
-                                            child: Row(
-                                              children: [
-                                                Container(
-                                                  margin: getPadding(
-                                                      left: 15,
-                                                      right: 15,
-                                                      top: 10,
-                                                      bottom: 10),
-                                                  width: 40,
-                                                  height: 40,
-                                                  child: CustomImageView(
-                                                    imagePath:
-                                                        ImageConstant.splashBg,
-                                                    width: 40,
-                                                    height: 40,
-                                                    radius:
-                                                        BorderRadius.circular(
-                                                            5),
-                                                  ),
-                                                ),
-                                                const SizedBox(
-                                                  width: 10,
-                                                ),
-                                                MyText(
-                                                  title:
-                                                      controller.events[index],
-                                                  fontSize: 16,
-                                                ),
-                                                const SizedBox(
-                                                  width: 10,
-                                                ),
-                                                const Spacer(),
-                                                Container(
-                                                  width: 60,
-                                                  height: 60,
-                                                  margin: getMargin(right: 15),
-                                                  alignment: Alignment.center,
-                                                  decoration: BoxDecoration(
-                                                      color: ColorConstant.whiteA700.withValues(alpha: 0.05),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              10)),
-                                                  child: MyText(
-                                                    title:
-                                                        "${Random().nextInt(1000)}",
-                                                    fontSize: 16,
-                                                  ),
-                                                ),
-                                                Container(
-                                                  width: 60,
-                                                  height: 60,
-                                                  alignment: Alignment.center,
-                                                  decoration: BoxDecoration(
-                                                      color: ColorConstant.whiteA700.withValues(alpha: 0.05),
-                                                      borderRadius: BorderRadius.circular(10)),
-                                                  child: MyText(
-                                                    title:
-                                                        "${Random().nextInt(1000)}",
-                                                    fontSize: 16,
-                                                  ),
-                                                )
-                                              ],
+                                    Obx(() {
+                                      if (controller.searchLoading.value) {
+                                        return Padding(
+                                          padding: getPadding(top: 40),
+                                          child: Center(
+                                            child: SizedBox(
+                                              height: 28,
+                                              width: 28,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.5,
+                                                color: ColorConstant
+                                                    .primaryAccent,
+                                              ),
                                             ),
                                           ),
                                         );
-                                      },
-                                    ),
+                                      }
+                                      if (controller.searchError.value !=
+                                          null) {
+                                        return Padding(
+                                          padding: getPadding(top: 40),
+                                          child: Center(
+                                            child: MyText(
+                                              title: controller
+                                                      .searchError.value ??
+                                                  "Couldn't search events",
+                                              family: 'Inter',
+                                              fontSize: 13,
+                                              clr: ColorConstant.white60,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      if (controller.searchResults.isEmpty) {
+                                        return Padding(
+                                          padding: getPadding(top: 40),
+                                          child: Center(
+                                            child: Text(
+                                              'No events found',
+                                              style: AppStyle.bodySmallInter,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      return ListView.builder(
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        shrinkWrap: true,
+                                        itemCount:
+                                            controller.searchResults.length,
+                                        scrollDirection: Axis.vertical,
+                                        padding: EdgeInsets.zero,
+                                        itemBuilder: (context, index) {
+                                          final e = controller
+                                              .searchResults[index];
+                                          final price =
+                                              lowestTierPrice(e);
+                                          final imageUrl = eventImageUrl(e);
+                                          return GestureDetector(
+                                            onTap: () {
+                                              Get.toNamed(
+                                                  Routes.EVENT_DETAIL,
+                                                  arguments: {
+                                                    'id': e['id']
+                                                            ?.toString() ??
+                                                        '',
+                                                    'title': e['title']
+                                                            ?.toString() ??
+                                                        '',
+                                                  });
+                                            },
+                                            child: Container(
+                                              margin: getMargin(bottom: 10),
+                                              decoration: BoxDecoration(
+                                                  color: ColorConstant
+                                                      .elevated,
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          16)),
+                                              child: Row(
+                                                children: [
+                                                  Container(
+                                                    margin: getPadding(
+                                                        left: 15,
+                                                        right: 15,
+                                                        top: 10,
+                                                        bottom: 10),
+                                                    width: 40,
+                                                    height: 40,
+                                                    child: CustomImageView(
+                                                      url: imageUrl,
+                                                      imagePath:
+                                                          imageUrl == null
+                                                              ? ImageConstant
+                                                                  .splashBg
+                                                              : null,
+                                                      width: 40,
+                                                      height: 40,
+                                                      radius:
+                                                          BorderRadius.circular(
+                                                              12),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(
+                                                    width: 10,
+                                                  ),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        MyText(
+                                                          title: e['title']
+                                                                  ?.toString() ??
+                                                              'Event',
+                                                          family: 'Manrope',
+                                                          customWeight:
+                                                              FontWeight.w600,
+                                                          fontSize: 15,
+                                                        ),
+                                                        MyText(
+                                                          title:
+                                                              '${e['category']?.toString().isNotEmpty == true ? e['category'] : 'Event'} · ${formatEventDate(e['startsAt']?.toString())}',
+                                                          family: 'Inter',
+                                                          fontSize: 11,
+                                                          clr: ColorConstant
+                                                              .white60,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const SizedBox(
+                                                    width: 10,
+                                                  ),
+                                                  Container(
+                                                    width: 60,
+                                                    height: 60,
+                                                    margin:
+                                                        getMargin(right: 15),
+                                                    alignment:
+                                                        Alignment.center,
+                                                    decoration: BoxDecoration(
+                                                        color: ColorConstant
+                                                            .surface,
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                                10)),
+                                                    child: MyText(
+                                                      title: price == null
+                                                          ? '—'
+                                                          : formatDollars(
+                                                              price),
+                                                      fontSize: 14,
+                                                      family: 'Inter',
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        });
+                                      }),
                                   ],
                                 ),
                                 ListView.builder(
@@ -288,10 +392,9 @@ class SearchView extends GetView<MySearchController> {
                                             bottom: 10),
                                         margin: getMargin(bottom: 15),
                                         decoration: BoxDecoration(
-                                            color: ColorConstant.gray50
-                                                .withValues(alpha: 0.05),
+                                            color: ColorConstant.elevated,
                                             borderRadius:
-                                                BorderRadius.circular(10)),
+                                                BorderRadius.circular(16)),
                                         child: Row(
                                           children: [
                                             SizedBox(
@@ -303,7 +406,7 @@ class SearchView extends GetView<MySearchController> {
                                                 width: 30,
                                                 height: 30,
                                                 radius:
-                                                    BorderRadius.circular(5),
+                                                    BorderRadius.circular(20),
                                               ),
                                             ),
                                             const SizedBox(
@@ -311,7 +414,9 @@ class SearchView extends GetView<MySearchController> {
                                             ),
                                             MyText(
                                               title: "Name $index",
-                                              fontSize: 20,
+                                              family: 'Manrope',
+                                              customWeight: FontWeight.w600,
+                                              fontSize: 15,
                                             ),
                                           ],
                                         ),
@@ -328,7 +433,15 @@ class SearchView extends GetView<MySearchController> {
             ),
           ],
         ),
-      ),
+      );
+
+    if (embedded) return content;
+    return BaseviewScreen(
+      showLogo: true,
+      showBackBtn: true,
+      sidePadding: false,
+      showBottomBar: false,
+      child: content,
     );
   }
 }

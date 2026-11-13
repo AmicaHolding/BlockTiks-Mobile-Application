@@ -5,6 +5,7 @@ import 'package:block_tix/app/data/utils/dummy_content.dart';
 import 'package:block_tix/app/data/utils/helper_functions.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/data/widgets/custom_text_form_field.dart';
+import 'package:block_tix/app/modules/payment_page/views/payment_page_view.dart';
 import 'package:block_tix/app/modules/resell_tab/views/resell_tab_view.dart';
 import '../controllers/transfer_controller.dart';
 
@@ -20,10 +21,9 @@ class TransferView extends GetView<TransferController> {
       showBackBtn: true,
       showNotification: true,
       bottomNavigationBar: SafeArea(
-        child: CustomButton(
-          text: "Confirm Transform".tr,
+        child: PrimaryPillButton(
+          text: "Confirm Transfer".tr,
           margin: getMargin(right: 20, left: 20, bottom: 30, top: 10),
-          shape: ButtonShape.RoundedBorder10,
           onTap: () {
             if(controller.selectedUser.value != -1 || controller.formKey.currentState!.validate()){
               var map = {
@@ -43,12 +43,17 @@ class TransferView extends GetView<TransferController> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(height: getSize(15),),
-            MyText(title: "Transfer"),
+            MyText(
+              title: "Transfer",
+              family: 'Manrope',
+              customWeight: FontWeight.w700,
+              fontSize: 20,
+            ),
             SizedBox(height: getSize(5),),
             BidWidget(
-              title: "Cyberpunk",
-              type: "Platinum",
-              date: "15/6/24",
+              title: controller.ticketTitle,
+              type: controller.ticketType,
+              date: controller.ticketDate,
               showTrailing: false,
               // fromSearch: true,
               onTap: () => Get.toNamed(Routes.EVENT_DETAIL),
@@ -59,6 +64,7 @@ class TransferView extends GetView<TransferController> {
             Form(
               key: controller.formKey,
               child: CustomTextFormField(
+                controller: controller.toController,
                 hintText: "User name or user address",
                 labelText: 'To',
                 variant: TextFormFieldVariant.None,
@@ -70,7 +76,12 @@ class TransferView extends GetView<TransferController> {
             SizedBox(
               height: getSize(30),
             ),
-            const MyText(title: "Recent users transferred to"),
+            MyText(
+              title: "Recent users transferred to",
+              family: 'Inter',
+              fontSize: 13,
+              clr: ColorConstant.white60,
+            ),
             SizedBox(
               height: getSize(10),
             ),
@@ -90,9 +101,9 @@ class TransferView extends GetView<TransferController> {
                     getPadding(left: 15, right: 15, top: 10, bottom: 10),
                     margin: getMargin(bottom: 15),
                     decoration: BoxDecoration(
-                        color: ColorConstant.gray50.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: controller.selectedUser.value == index ? ColorConstant.primaryPink : ColorConstant.gray50.withValues(alpha: 0.05))
+                        color: ColorConstant.elevated,
+                        borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: controller.selectedUser.value == index ? ColorConstant.primaryAccent : ColorConstant.hairline)
                     ),
                     child: Row(
                       children: [
@@ -103,7 +114,7 @@ class TransferView extends GetView<TransferController> {
                             imagePath: DummyContent.images[Random().nextInt(DummyContent.images.length)],
                             width: 30,
                             height: 30,
-                            radius: BorderRadius.circular(5),
+                            radius: BorderRadius.circular(8),
                           ),
                         ),
                         const SizedBox(
@@ -111,10 +122,12 @@ class TransferView extends GetView<TransferController> {
                         ),
                         MyText(
                           title: "Name $index",
-                          fontSize: 16,
+                          family: 'Inter',
+                          fontSize: 14,
+                          clr: ColorConstant.whiteA700,
                         ),
                         Spacer(),
-                        Icon(Icons.check_circle,color: controller.selectedUser.value == index ? ColorConstant.primaryPink : Colors.transparent,)
+                        Icon(Icons.check_circle,color: controller.selectedUser.value == index ? ColorConstant.primaryAccent : Colors.transparent,)
                       ],
                     ),
                   )),

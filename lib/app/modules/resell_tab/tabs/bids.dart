@@ -14,11 +14,11 @@ class Bids extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const MyText(
+        MyText(
           title: "Ongoing",
-          clr: Colors.white,
+          family: 'Manrope',
+          customWeight: FontWeight.w700,
           fontSize: 20,
-          customWeight: FontWeight.bold,
         ),
         SizedBox(
           height: getSize(15),
@@ -27,7 +27,8 @@ class Bids extends StatelessWidget {
           title: "Cyberpunk",
           currentBid: 500,
           biddingExpiration: "2 Days",
-          // onTap: () => Get.toNamed(Routes.PLACE_BID),
+          onTap: () => Get.toNamed(Routes.PLACE_BID,
+              arguments: {'title': "Cyberpunk"}),
           onOptionsTap: () {
             controller.showSheet(context,fromAsk: false);
           },
@@ -36,7 +37,8 @@ class Bids extends StatelessWidget {
           title: "Claypaky",
           currentBid: 820,
           biddingExpiration: "6 Days",
-          // onTap: () => Get.toNamed(Routes.PLACE_BID),
+          onTap: () => Get.toNamed(Routes.PLACE_BID,
+              arguments: {'title': "Claypaky"}),
           onOptionsTap: () {
             controller.showSheet(context,fromAsk: false);
           },

@@ -1,7 +1,9 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/custom_divider.dart';
+import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/data/widgets/custom_text_form_field.dart';
 import 'package:block_tix/app/modules/event_detail/views/event_detail_view.dart';
+import 'package:block_tix/app/modules/payment_page/views/payment_page_view.dart';
 
 import '../controllers/ask_bid_controller.dart';
 
@@ -19,20 +21,32 @@ class AskBidView extends GetView<AskBidController> {
       showNotification: true,
       extendBodyBehindAppBar: true,
       bottomNavigationBar: SafeArea(
-        child: CustomButton(
+        child: PrimaryPillButton(
           text: controller.fromSell ? "Sell now".tr : "lbl_next".tr,
           margin: getMargin(right: 20, left: 20, bottom: 30, top: 10),
-          shape: ButtonShape.RoundedBorder10,
           onTap: () {
-            if(controller.fromSell){
+            if (controller.fromSell) {
               Get.offAllNamed(
                 Routes.USER_DASHBOARD,
               );
-            }else{
+            } else {
+              // Manual price entry must be a valid amount before checkout.
+              if (!controller.validateForm()) {
+                CustomSnackBar.showCustomErrorToast(
+                    message: "Enter a valid price or pick an option");
+                return;
+              }
               Get.toNamed(
-                Routes.PAYMENT_PAGE,);
+                Routes.PAYMENT_PAGE,
+                arguments: {
+                  'title': controller.eventTitle,
+                  'type': controller.eventType,
+                  if (controller.ticketTier.isNotEmpty)
+                    'tier': controller.ticketTier,
+                  'price': controller.currentPrice,
+                },
+              );
             }
-
           },
         ),
       ),
@@ -46,14 +60,14 @@ class AskBidView extends GetView<AskBidController> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   MyText(
-                    title: 'Music Concert',
-                    family: 'Manrope',
+                    title: controller.eventType,
+                    family: 'Inter',
                     customWeight: FontWeight.w400,
                     fontSize: 14,
-                    clr: ColorConstant.whiteA700,
+                    clr: ColorConstant.white60,
                   ),
                   MyText(
-                    title: 'DJ Maksmellow Orignawa',
+                    title: controller.eventTitle,
                     family: 'Manrope',
                     customWeight: FontWeight.w700,
                     fontSize: 22,
@@ -87,13 +101,14 @@ class AskBidView extends GetView<AskBidController> {
                         child: Container(
                           decoration: BoxDecoration(
                               border: Border.all(
-                                  color: ColorConstant.whiteA700),
-                              borderRadius: BorderRadius.circular(5)),
-                          padding: getPadding(left: 3, right: 3),
-                          child: const MyText(
+                                  color: ColorConstant.hairline),
+                              borderRadius: BorderRadius.circular(8)),
+                          padding: getPadding(left: 8, right: 8, top: 4, bottom: 4),
+                          child: MyText(
                             title: 'View all transactions',
-                            clr: Colors.white,
-                            fontSize: 16,
+                            family: 'Inter',
+                            clr: ColorConstant.white60,
+                            fontSize: 12,
                           ),
                         ),
                       ),
@@ -124,21 +139,25 @@ class AskBidView extends GetView<AskBidController> {
                   SizedBox(
                     height: getSize(15),
                   ),
-                  Obx(() => CustomTextFormField(
-                    labelText: "Or name your price",
-                    hintText: '',
-                    readOnly:  controller.selectedBid.value != -1,
-                    controller: controller.bidController,
-                    variant: controller.selectedBid.value == -1 ? TextFormFieldVariant.None : TextFormFieldVariant.FillGray50,
-                    textInputType: TextInputType.number,
-                    prefix: Container(
-                      margin: getMargin(left: 15),
-                      padding: getPadding(top: 12, bottom: 12),
-                      child: const MyText(
-                        title: '\$',
-                        family: 'Roboto Condensed',
-                        customWeight: FontWeight.w600,
-                        fontSize: 14,
+                  Obx(() => Form(
+                    key: controller.formKey,
+                    child: CustomTextFormField(
+                      labelText: "Or name your price",
+                      hintText: '',
+                      controller: controller.bidController,
+                      readOnly:  controller.selectedBid.value != -1,
+                      variant: TextFormFieldVariant.OutlineNewGray,
+                      textInputType: TextInputType.number,
+                      validator: controller.validatePrice,
+                      prefix: Container(
+                        margin: getMargin(left: 15),
+                        padding: getPadding(top: 12, bottom: 12),
+                        child: const MyText(
+                          title: '\$',
+                          family: 'Manrope',
+                          customWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   )),
@@ -148,33 +167,39 @@ class AskBidView extends GetView<AskBidController> {
                   MyText(
                     title:
                         'This is a competitive price that is more likely to match with a seller',
-                    family: 'Manrope',
+                    family: 'Inter',
                     customWeight: FontWeight.w400,
                     fontSize: 14,
-                    clr: ColorConstant.whiteA700,
+                    clr: ColorConstant.white60,
                   ),
                   const CustomDivider(
                     height: 0.3,
                   ),
-                  Row(
-                    children: [
-                      MyText(
-                        title: 'Subtotal',
-                        family: 'Manrope',
-                        customWeight: FontWeight.w800,
-                        fontSize: 18,
-                        clr: ColorConstant.whiteA700,
-                      ),
-                      const Spacer(),
-                      MyText(
-                        title: '\$280.00',
-                        family: 'Manrope',
-                        customWeight: FontWeight.w800,
-                        fontSize: 18,
-                        clr: ColorConstant.green,
-                      ),
-                    ],
-                  ),
+                  Obx(() {
+                    // priceVersion bumps on each keystroke so the subtotal
+                    // recomputes while the user types.
+                    return Row(
+                      key: ValueKey(controller.priceVersion.value),
+                      children: [
+                        const MyText(
+                          title: 'Subtotal',
+                          family: 'Manrope',
+                          customWeight: FontWeight.w700,
+                          fontSize: 18,
+                        ),
+                        const Spacer(),
+                        MyText(
+                          title: controller.currentPrice > 0
+                              ? '\$${controller.currentPrice.toStringAsFixed(2)}'
+                              : '\$0.00',
+                          family: 'Manrope',
+                          customWeight: FontWeight.w700,
+                          fontSize: 18,
+                          clr: ColorConstant.successGreen,
+                        ),
+                      ],
+                    );
+                  }),
                   const SizedBox(
                     height: 30,
                   )
@@ -202,23 +227,31 @@ class AskBidView extends GetView<AskBidController> {
             height:65,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
                 color: controller.selectedBid.value == index
-                    ? ColorConstant.primaryPink
-                    : null,
-                border: Border.all(color: ColorConstant.primaryPink)),
+                    ? ColorConstant.primaryAccent
+                    : ColorConstant.elevated,
+                border: Border.all(
+                    color: controller.selectedBid.value == index
+                        ? ColorConstant.primaryAccent
+                        : ColorConstant.hairline)),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
                 MyText(
                   title: price,
+                  family: 'Manrope',
                   fontSize: 18,
-                  customWeight: FontWeight.bold,
+                  customWeight: FontWeight.w700,
                 ),
                 MyText(
                   title: name,
+                  family: 'Inter',
                   fontSize: 12,
+                  clr: controller.selectedBid.value == index
+                      ? ColorConstant.whiteA700
+                      : ColorConstant.white60,
                 ),
               ],
             ),

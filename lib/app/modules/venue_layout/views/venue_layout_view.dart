@@ -59,7 +59,7 @@ class VenueLayoutView extends GetView<VenueLayoutController> {
               height: size.height * 0.3,
               fit: BoxFit.fill,
               width: size.width,
-              radius: BorderRadius.circular(5),
+              radius: BorderRadius.circular(12),
               margin: getMargin(bottom: 20),
               onTap: (){
                 controller.mediaSelectionBottomSheetAndroid(context);

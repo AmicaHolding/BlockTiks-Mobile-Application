@@ -84,13 +84,14 @@ class SetDateView extends GetView<SetDateController> {
                 // Calendar Picker
                 Obx(() => Theme(
                   data: Theme.of(context).copyWith(
-                    colorScheme: ColorScheme.light(
-                      primary: ColorConstant.primaryPink, // Header background color
+                    colorScheme: ColorScheme.dark(
+                      primary: ColorConstant.primaryAccent, // Header/selected background color
                       onPrimary: Colors.white, // Header text color
-                      onSurface: Colors.white, // Default text color
+                      surface: ColorConstant.canvas,
+                      onSurface: ColorConstant.whiteA700, // Default text color
                     ),
                     textTheme: TextTheme(
-                      bodyMedium: TextStyle(color: Colors.red), // Dates text color
+                      bodyMedium: TextStyle(color: ColorConstant.whiteA700), // Dates text color
                     ),
                   ),
                   child: CalendarDatePicker(
@@ -115,13 +116,13 @@ class SetDateView extends GetView<SetDateController> {
                       TimeOfDay time = controller.timeSlots[index];
                       return Obx(() => Container(
                         decoration: BoxDecoration(
-                          color: time == (controller.isStartDateSelected.value ? controller.selectedTime.value : controller.selectedEndTime.value) ? Colors.white.withValues(alpha: 0.1) : Colors.transparent,
+                          color: time == (controller.isStartDateSelected.value ? controller.selectedTime.value : controller.selectedEndTime.value) ? ColorConstant.elevated : Colors.transparent,
                         ),
                         child: ListTile(
                           title: Center(
                             child: MyText(
                               title:time.format(context),
-                                clr: time == (controller.isStartDateSelected.value ? controller.selectedTime.value : controller.selectedEndTime.value) ? ColorConstant.primaryPink : Colors.white,
+                                clr: time == (controller.isStartDateSelected.value ? controller.selectedTime.value : controller.selectedEndTime.value) ? ColorConstant.primaryAccent : Colors.white,
                                 customWeight: time == (controller.isStartDateSelected.value ? controller.selectedTime.value : controller.selectedEndTime.value) ? FontWeight.bold : FontWeight.normal,
                             ),
                           ),

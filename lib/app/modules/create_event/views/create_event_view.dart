@@ -32,10 +32,7 @@ class CreateEventView extends GetView<CreateEventController> {
           margin: getMargin(right: 20, left: 20, bottom: 30, top: 10),
           shape: ButtonShape.RoundedBorder10,
           onTap: () {
-            if(controller.formKey.currentState!.validate()){
-              Get.back();
-              CustomSnackBar.showCustomToast(message: "Event Created...!!!");
-            }
+            controller.submit();
           },
         ),
       ),
@@ -48,8 +45,8 @@ class CreateEventView extends GetView<CreateEventController> {
                 padding: getPadding(left: 16, right: 16),
                 margin: getMargin(bottom: 20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  color: ColorConstant.elevated,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 alignment: Alignment.center,
                 child: TextFormField(
@@ -66,7 +63,7 @@ class CreateEventView extends GetView<CreateEventController> {
                       right: getSize(15),
                     ),
                     hintText:  "Untitled Event",
-                    hintStyle: const TextStyle(color: ColorConstant.whiteColor),
+                    hintStyle: TextStyle(color: ColorConstant.white60),
                     border: InputBorder.none,
                   ),
                   validator: (value) {
@@ -80,7 +77,7 @@ class CreateEventView extends GetView<CreateEventController> {
                 height: size.height * 0.3,
                 fit: BoxFit.fill,
                 width: size.width,
-                radius: BorderRadius.circular(5),
+                radius: BorderRadius.circular(12),
                 margin: getMargin(bottom: 20),
                 onTap: (){
                   controller.mediaSelectionBottomSheetAndroid(context);
@@ -91,8 +88,14 @@ class CreateEventView extends GetView<CreateEventController> {
                   await Get.toNamed(Routes.SET_DATE)!.then((value) {
                     if(value!= null ){
                       controller.selectedTime.value = value["selectedTime"];
+                      if(value["selectedIso"] != null ){
+                        controller.startsAtIso.value = value["selectedIso"];
+                      }
                       if(value["selectedEndTime"]!= null ){
                         controller.selectedEndTime.value = value["selectedEndTime"];
+                      }
+                      if(value["selectedEndIso"] != null ){
+                        controller.endsAtIso.value = value["selectedEndIso"];
                       }
                     }
 
@@ -103,8 +106,8 @@ class CreateEventView extends GetView<CreateEventController> {
                   padding: getPadding(left: 16, right: 16,bottom: 12,top: 12),
                   margin: getMargin(bottom: 20),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    color: ColorConstant.elevated,
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   alignment: Alignment.centerLeft,
                   child:Obx(()=>  MyText(
@@ -118,8 +121,8 @@ class CreateEventView extends GetView<CreateEventController> {
                 padding: getPadding(left: 16, right: 16,top: 5,bottom: 5),
                 margin: getMargin(bottom: 20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  color: ColorConstant.elevated,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 alignment: Alignment.center,
                 child: TextFormField(
@@ -147,8 +150,8 @@ class CreateEventView extends GetView<CreateEventController> {
                 padding: getPadding(left: 16, right: 16,top: 5,bottom: 5),
                 margin: getMargin(bottom: 20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  color: ColorConstant.elevated,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -198,7 +201,7 @@ class CreateEventView extends GetView<CreateEventController> {
                                 },
                                 child: Container(
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: ColorConstant.white60,width: .5),
+                                    border: Border.all(color: ColorConstant.hairline,width: 1),
                                     borderRadius: BorderRadius.circular(20)
                                   ),
                                   padding: getPadding(left: 10,right: 10,top: 5,bottom: 5),
@@ -217,7 +220,11 @@ class CreateEventView extends GetView<CreateEventController> {
                   ],
                 ),
               ),
-              createEventTile(image: ImageConstant.location,title: "Place name, address, or link"),
+              createEventTile(
+                  image: ImageConstant.location,
+                  title: "Place name, address, or link",
+                  textController: controller.locationController,
+              ),
               createEventTile(
                   image: ImageConstant.ticket,
                   title: "Tickets",
@@ -321,7 +328,7 @@ class CreateEventView extends GetView<CreateEventController> {
   }
 
 
-  Widget createEventTile({required String image,required String title,bool showNextArrow = false,bool readOnly = false,void Function()? onTap}){
+  Widget createEventTile({required String image,required String title,bool showNextArrow = false,bool readOnly = false,TextEditingController? textController,void Function()? onTap}){
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -330,8 +337,8 @@ class CreateEventView extends GetView<CreateEventController> {
         padding: getPadding(left: 16, right: 16,top: 5,bottom: 5),
         margin: getMargin(bottom: 20),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
+          color: ColorConstant.elevated,
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
@@ -345,7 +352,7 @@ class CreateEventView extends GetView<CreateEventController> {
             ),
             Expanded(
               child: TextFormField(
-                controller: TextEditingController(),
+                controller: textController ?? TextEditingController(),
                 onTap: onTap,
                 readOnly: readOnly,
                 style: GoogleFonts.getFont("Inter",

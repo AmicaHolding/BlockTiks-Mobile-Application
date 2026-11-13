@@ -1,9 +1,73 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
+import 'package:block_tix/app/services/api_service.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 
 class TransactionsController extends GetxController {
   RxInt selectedTab = 0.obs;
+
+  // Real orders from GET /orders.
+  final RxList<Map<String, dynamic>> orders = <Map<String, dynamic>>[].obs;
+  final RxBool isLoading = true.obs;
+  final Rxn<String> loadError = Rxn<String>();
+
+  @override
+  void onInit() {
+    super.onInit();
+    fetchOrders();
+  }
+
+  Future<void> fetchOrders() async {
+    isLoading.value = true;
+    loadError.value = null;
+    try {
+      orders.value = await ApiService.myOrders();
+    } catch (e) {
+      loadError.value = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /// e.g. "2× Platinum, 1× Gold" from order items.
+  String itemsLabel(Map<String, dynamic> order) {
+    final items = order['items'];
+    if (items is List && items.isNotEmpty) {
+      final parts = <String>[];
+      for (final item in items) {
+        if (item is! Map) continue;
+        final qty = item['quantity'] is num
+            ? (item['quantity'] as num).toInt()
+            : 1;
+        final name = item['tierName']?.toString() ?? 'Ticket';
+        parts.add('$qty× $name');
+      }
+      if (parts.isNotEmpty) return parts.join(', ');
+    }
+    final event = order['event'];
+    if (event is Map) {
+      return event['title']?.toString() ?? 'Order';
+    }
+    return 'Order';
+  }
+
+  String orderDate(Map<String, dynamic> order) {
+    return formatOrderDate(order['createdAt']?.toString() ??
+        order['paidAt']?.toString());
+  }
+
+  /// Total in dollars (totalCents preferred, falls back to subtotal).
+  double orderTotal(Map<String, dynamic> order) {
+    final total = order['totalCents'];
+    if (total is num) return total.toDouble() / 100;
+    final sub = order['subtotalCents'];
+    if (sub is num) return sub.toDouble() / 100;
+    return 0;
+  }
+
+  String orderStatus(Map<String, dynamic> order) {
+    return order['status']?.toString() ?? '';
+  }
 
   Rx<RangeValues> _currentRangeValues = const RangeValues(10, 150).obs; // Price range from 1 to 500
 
@@ -34,13 +98,13 @@ class TransactionsController extends GetxController {
         child: Container(
           decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16.0),
-              color: ColorConstant.bg),
+              color: ColorConstant.surface),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                color: ColorConstant.bg,
+                color: ColorConstant.surface,
                 padding: const EdgeInsets.only(top: 8.0),
                 margin: const EdgeInsets.only(bottom: 0),
                 child: Padding(
@@ -59,8 +123,8 @@ class TransactionsController extends GetxController {
                       //     height:getSize(30),
                       //     width:getSize(30),
                       //     decoration: BoxDecoration(
-                      //         color: ColorConstant.whiteA700.withValues(alpha: 0.1),
-                      //         borderRadius: BorderRadius.circular(8)
+                      //         color: ColorConstant.elevated,
+                      //         borderRadius: BorderRadius.circular(12)
                       //     ),
                       //     alignment: Alignment.center,
                       //     child: Padding(
@@ -98,12 +162,12 @@ class TransactionsController extends GetxController {
                       margin: getMargin(bottom: 30),
                       padding: getPadding(left: 15,right: 15,),
                       decoration: BoxDecoration(
-                          color: ColorConstant.whiteA700.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8)
+                          color: ColorConstant.elevated,
+                          borderRadius: BorderRadius.circular(12)
                       ),
                       child: Obx(() => DropdownButton<String>(
                         value: selectedCategory.value,
-                        dropdownColor: ColorConstant.black900,
+                        dropdownColor: ColorConstant.elevated,
                         hint: const MyText(title: 'Choose Ticket Type'),
                         icon: Icon(Icons.keyboard_arrow_down_sharp,color: ColorConstant.whiteA700,),
                         // The down arrow icon
@@ -125,12 +189,12 @@ class TransactionsController extends GetxController {
                       margin: getMargin(bottom: 30),
                       padding: getPadding(left: 15,right: 15,),
                       decoration: BoxDecoration(
-                          color: ColorConstant.whiteA700.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8)
+                          color: ColorConstant.elevated,
+                          borderRadius: BorderRadius.circular(12)
                       ),
                       child: Obx(() => DropdownButton<int>(
                         value: selectedQuantity.value,
-                        dropdownColor: ColorConstant.black900,
+                        dropdownColor: ColorConstant.elevated,
                         hint: const MyText(title: 'Quantity'),
                         icon: Icon(Icons.keyboard_arrow_down_sharp,color: ColorConstant.whiteA700,),
                         // The down arrow icon
@@ -152,12 +216,12 @@ class TransactionsController extends GetxController {
                       margin: getMargin(bottom: 30),
                       padding: getPadding(left: 15,right: 15,),
                       decoration: BoxDecoration(
-                          color: ColorConstant.whiteA700.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8)
+                          color: ColorConstant.elevated,
+                          borderRadius: BorderRadius.circular(12)
                       ),
                       child: Obx(() => DropdownButton<String>(
                         value: selectedSort.value,
-                        dropdownColor: ColorConstant.black900,
+                        dropdownColor: ColorConstant.elevated,
                         hint: const MyText(title: 'Sort By'),
                         icon: Icon(Icons.keyboard_arrow_down_sharp,color: ColorConstant.whiteA700,),
                         // The down arrow icon
@@ -186,8 +250,8 @@ class TransactionsController extends GetxController {
                       min: 1, // Minimum price
                       max: 500, // Maximum price
                       divisions: 100, // Number of steps in the slider
-                      activeColor: ColorConstant.primaryPink, // Customize the active color
-                      inactiveColor: ColorConstant.primaryPink.withValues(alpha: 0.2), // Customize the inactive color
+                      activeColor: ColorConstant.primaryAccent, // Customize the active color
+                      inactiveColor: ColorConstant.primaryAccent.withValues(alpha: 0.2), // Customize the inactive color
                       labels: RangeLabels(
                         '${_currentRangeValues.value.start.toInt()}',
                         '${_currentRangeValues.value.end.toInt()}',
@@ -236,9 +300,9 @@ class TransactionsController extends GetxController {
     // Define the initial range of the price picker
     _currentRangeValues.value = const RangeValues(10, 150); // Price range from 1 to 500
 
-    selectedCategory = Rxn<String>();
-    selectedQuantity = Rxn<int>();
-    selectedSort = Rxn<String>();
+    selectedCategory.value = null;
+    selectedQuantity.value = null;
+    selectedSort.value = null;
 
 
   }

@@ -1,5 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/api_utils.dart';
+import 'package:block_tix/app/modules/all_guests/controllers/all_guests_controller.dart';
 import 'package:block_tix/app/modules/notifications_page/models/notification_model.dart';
 import 'package:block_tix/app/services/base_client.dart';
 import 'package:get/get.dart';
@@ -23,6 +24,8 @@ class CreatorDashboardController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    // Door-mode tabs: Events, Guests, Account (Scan is a bar action).
+    Get.put(AllGuestsController());
     var data = Get.arguments;
     if (data != null && data['index'] != null) {
       selectedIndex.value = data['index'];

@@ -1,7 +1,9 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/model/ticket_model.dart';
 import 'package:block_tix/app/data/widgets/custom_divider.dart';
+import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/data/widgets/media_selection_tile.dart';
+import 'package:block_tix/app/modules/create_event/controllers/create_event_controller.dart';
 import 'package:get/get.dart';
 
 class AddDropController extends GetxController {
@@ -56,7 +58,7 @@ class AddDropController extends GetxController {
                           width:getSize(30),
                           margin: getMargin(right: 10),
                           decoration: BoxDecoration(
-                              color: ColorConstant.whiteA700.withValues(alpha: 0.1),
+                              color: ColorConstant.elevated,
                               borderRadius: BorderRadius.circular(8)
                           ),
                           alignment: Alignment.center,
@@ -112,6 +114,40 @@ class AddDropController extends GetxController {
     );
   }
 
+  /// Validates the ticket form, stores the new [TicketModel] locally and —
+  /// when this screen was opened from the create-event flow — also appends it
+  /// to [CreateEventController.tiers] so it is included in the
+  /// `ApiService.createEvent` payload.
+  void addTicket() {
+    if (!(formKey.currentState?.validate() ?? false)) return;
+    if (selectedTime.value.isEmpty) {
+      CustomSnackBar.showCustomErrorToast(message: "Please select date first");
+      return;
+    }
+    final ticket = TicketModel(
+      id: DateTime.now().millisecondsSinceEpoch,
+      name: nameController.text.trim(),
+      price: num.tryParse(priceController.text) ?? 0,
+      quantity: int.tryParse(quantityController.text) ?? 0,
+      reserveTickets: int.tryParse(reserveController.text) ?? 0,
+      date: selectedTime.value,
+    );
+    ticketTypes.add(ticket);
+    ticketTypes.refresh();
+
+    if (Get.isRegistered<CreateEventController>()) {
+      Get.find<CreateEventController>().tiers.add(ticket);
+    }
+
+    isTicketAddClick.value = false;
+    nameController.clear();
+    priceController.clear();
+    quantityController.clear();
+    reserveController.clear();
+    selectedTime.value = "";
+    selectedEndTime.value = "";
+  }
+
   showSheet(BuildContext ctx) {
     showModalBottomSheet(
       context: ctx,
@@ -128,7 +164,7 @@ class AddDropController extends GetxController {
             children: [
               Container(
                 decoration: BoxDecoration(
-                    color: ColorConstant.whiteA700.withValues(alpha: .9),
+                    color: ColorConstant.elevated,
                     borderRadius: BorderRadius.circular(
                       14,
                     )),
@@ -138,7 +174,7 @@ class AddDropController extends GetxController {
                   children: [
                     MyText(
                       title: "Make changes to this action".tr,
-                      clr: ColorConstant.blueGray900,
+                      clr: ColorConstant.whiteA700,
                       fontSize: getFontSize(16),
                       customWeight: FontWeight.w600,
                     ),
@@ -147,7 +183,7 @@ class AddDropController extends GetxController {
                     ),
                     MyText(
                       title: "Are you sure you want to make a change".tr,
-                      clr: ColorConstant.blueGray400,
+                      clr: ColorConstant.white60,
                       fontSize: getFontSize(14),
                       customWeight: FontWeight.w400,
                     ),
@@ -165,7 +201,7 @@ class AddDropController extends GetxController {
                         alignment: Alignment.center,
                         child: MyText(
                           title: "Edit",
-                          clr: ColorConstant.blue,
+                          clr: ColorConstant.primaryAccent,
                           fontSize: getFontSize(14),
                           customWeight: FontWeight.w400,
                         ),
@@ -180,7 +216,7 @@ class AddDropController extends GetxController {
                         alignment: Alignment.center,
                         child: MyText(
                           title: "Delete",
-                          clr: ColorConstant.red,
+                          clr: ColorConstant.errorRed,
                           fontSize: getFontSize(14),
                           customWeight: FontWeight.w400,
                         ),
@@ -194,7 +230,7 @@ class AddDropController extends GetxController {
               ),
               MediaSelectionTileAndroid(
                   title: "Cancel".tr,
-                  textColor: ColorConstant.blue,
+                  textColor: ColorConstant.bg,
                   onPressed: () {
                     Get.back();
                   }),

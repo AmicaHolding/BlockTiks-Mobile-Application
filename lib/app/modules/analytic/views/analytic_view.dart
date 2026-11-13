@@ -105,7 +105,7 @@ class AnalyticView extends StatelessWidget {
                         ),
                         MyText(
                           title: "+10%",
-                          clr: ColorConstant.green,
+                          clr: ColorConstant.successGreen,
                         ),
                       ],
                     ),
@@ -162,7 +162,7 @@ class AnalyticView extends StatelessWidget {
                     lineBarsData: [
                       LineChartBarData(
                         isCurved: true,
-                        color: ColorConstant.primaryPink.withValues(alpha: 0.8),
+                        color: ColorConstant.primaryAccent.withValues(alpha: 0.8),
                         barWidth: 3,
                         belowBarData: BarAreaData(
                           show: true,
@@ -170,8 +170,8 @@ class AnalyticView extends StatelessWidget {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              ColorConstant.primaryPink.withValues(alpha: 0.5),
-                              ColorConstant.primaryPink.withValues(alpha: 0.05),
+                              ColorConstant.primaryAccent.withValues(alpha: 0.5),
+                              ColorConstant.primaryAccent.withValues(alpha: 0.05),
                             ]
                           ),
                           // color: ColorConstant.primaryPink,
@@ -295,7 +295,7 @@ class AnalyticView extends StatelessWidget {
               ),
               MyText(
                 title: "${decline ? "-" : "+"}$progress%",
-                clr: decline ? ColorConstant.red : ColorConstant.green,
+                clr: decline ? ColorConstant.errorRed : ColorConstant.successGreen,
               ),
             ],
           ),

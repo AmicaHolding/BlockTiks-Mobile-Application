@@ -10,7 +10,7 @@ class MediaPreviewView extends GetView<MediaPreviewController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black.withAlpha(490),
+      backgroundColor: ColorConstant.canvas,
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: Colors.transparent,
@@ -20,7 +20,7 @@ class MediaPreviewView extends GetView<MediaPreviewController> {
               onPressed: () {
                 Navigator.pop(context);
               },
-              icon: const Icon(Icons.cancel))
+              icon: Icon(Icons.cancel, color: ColorConstant.whiteA700))
         ],
       ),
       body: SafeArea(

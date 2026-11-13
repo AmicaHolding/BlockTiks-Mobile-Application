@@ -24,7 +24,7 @@ class EventTicketsDropController extends GetxController {
             children: [
               Container(
                 decoration: BoxDecoration(
-                    color: ColorConstant.whiteA700.withValues(alpha: .9),
+                    color: ColorConstant.elevated,
                     borderRadius: BorderRadius.circular(
                       14,
                     )),
@@ -34,7 +34,7 @@ class EventTicketsDropController extends GetxController {
                   children: [
                     MyText(
                       title: "Make changes to this action".tr,
-                      clr: ColorConstant.blueGray900,
+                      clr: ColorConstant.whiteA700,
                       fontSize: getFontSize(16),
                       customWeight: FontWeight.w600,
                     ),
@@ -43,7 +43,7 @@ class EventTicketsDropController extends GetxController {
                     ),
                     MyText(
                       title: "Are you sure you want to make a change".tr,
-                      clr: ColorConstant.blueGray400,
+                      clr: ColorConstant.white60,
                       fontSize: getFontSize(14),
                       customWeight: FontWeight.w400,
                     ),
@@ -61,7 +61,7 @@ class EventTicketsDropController extends GetxController {
                         alignment: Alignment.center,
                         child: MyText(
                           title: "Edit",
-                          clr: ColorConstant.blue,
+                          clr: ColorConstant.primaryAccent,
                           fontSize: getFontSize(14),
                           customWeight: FontWeight.w400,
                         ),
@@ -76,7 +76,7 @@ class EventTicketsDropController extends GetxController {
                         alignment: Alignment.center,
                         child: MyText(
                           title: "Delete",
-                          clr: ColorConstant.red,
+                          clr: ColorConstant.errorRed,
                           fontSize: getFontSize(14),
                           customWeight: FontWeight.w400,
                         ),
@@ -90,7 +90,7 @@ class EventTicketsDropController extends GetxController {
               ),
               MediaSelectionTileAndroid(
                   title: "Cancel".tr,
-                  textColor: ColorConstant.blue,
+                  textColor: ColorConstant.bg,
                   onPressed: () {
                     Get.back();
                   }),

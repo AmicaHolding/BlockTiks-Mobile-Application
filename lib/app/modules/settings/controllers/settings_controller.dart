@@ -1,12 +1,9 @@
 import 'dart:convert';
 import 'package:block_tix/app/Shared_prefrences/app_prefrences.dart';
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:block_tix/app/services/base_client.dart';
-
-import '../../../data/utils/api_utils.dart';
-import '../../../data/widgets/custom_snackbar.dart';
-import '../../profile_tab/controllers/profile_tab_controller.dart';
-import '../../sign_up/models/signup_model.dart';
+import 'package:block_tix/app/services/api_service.dart';
+import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
+import 'package:block_tix/app/modules/sign_up/models/signup_model.dart';
 
 class SettingsController extends GetxController {
   final AppPreferences _appPreferences = AppPreferences();
@@ -95,6 +92,10 @@ class SettingsController extends GetxController {
     Utils.check().then((value) async {
       if (value) {
         Navigator.pop(context);
+        await ApiService.logout();
+        await _appPreferences.clearPreference();
+        ApiService.setToken(null);
+        Constants.isUserCreator = false;
         Get.offAllNamed(Routes.GET_STARTED);
 
         // _firebaseMessaging.getToken().then((fcmToken) async {
@@ -134,36 +135,12 @@ class SettingsController extends GetxController {
   }
 
   Future<dynamic> updateNotificationToggleApi(BuildContext context) async {
-    //print("======= switch converting to : ${isSelectedSwitch.value}");
-
-    Utils.check().then((value) async {
-      if (value) {
-        await BaseClient.patch(
-          ApiUtils.updateProfileApiUrl,
-          onSuccess: (response) async {
-            print("response notification toggle$response");
-            SignupModel model = SignupModel.fromJson(response.data['data']);
-            await _appPreferences.isPreferenceReady;
-            String? token = await _appPreferences.getAccessToken();
-            model.accessToken = token;
-            _appPreferences.setUserData(data: jsonEncode(model));
-            if (!Get.isRegistered<ProfileTabController>()) {
-              Get.put(ProfileTabController());
-            }
-            Get.find<ProfileTabController>().profileData.value = model;
-            Get.back();
-            return true;
-          },
-          onError: (error) {
-            BaseClient.handleApiError(error);
-            // update();
-            return false;
-          },
-          data: {"pushNotification": notificationSwitchValue.value},
-        );
-      } else {
-        Utils.showNoInternet();
-      }
-    });
+    try {
+      await ApiService.updateProfile({'pushNotification': notificationSwitchValue.value});
+    } catch (_) {
+      // Preference is cosmetic for MVP — keep the local toggle state.
+    }
+    profileData.value?.user?.pushNotification = notificationSwitchValue.value;
+    profileData.refresh();
   }
 }

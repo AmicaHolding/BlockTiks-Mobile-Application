@@ -53,9 +53,9 @@ class AllGuestsView extends GetView<AllGuestsController> {
                         decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                                color:  controller.selectedFilter.value == index? Colors.transparent : ColorConstant.grayBorder
+                                color:  controller.selectedFilter.value == index? Colors.transparent : ColorConstant.hairline
                             ),
-                            color:  controller.selectedFilter.value == index ? ColorConstant.primaryPink : Colors.transparent
+                            color:  controller.selectedFilter.value == index ? ColorConstant.primaryAccent : Colors.transparent
                         ),
                         alignment: Alignment.center,
                         child: MyText(
@@ -95,8 +95,8 @@ class AllGuestsView extends GetView<AllGuestsController> {
         padding: getPadding(left: 15, right: 15, top: 10, bottom: 10),
         margin: getMargin(bottom: 15),
         decoration: BoxDecoration(
-            color: ColorConstant.whiteA700.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(10)),
+            color: ColorConstant.surface,
+            borderRadius: BorderRadius.circular(16)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -123,7 +123,7 @@ class AllGuestsView extends GetView<AllGuestsController> {
                       title: 'Order # 2353',
                       fontSize: 12,
                       customWeight: FontWeight.w800,
-                      clr: ColorConstant.textGrey,
+                      clr: ColorConstant.white60,
                     ),
                   ],
                 ),
@@ -132,19 +132,19 @@ class AllGuestsView extends GetView<AllGuestsController> {
                   width: 80,
                   height: 25,
                   decoration: BoxDecoration(
-                    color: item.isCheckedIn? ColorConstant.greenButton : Colors.red,
+                    color: item.isCheckedIn? ColorConstant.successGreen.withValues(alpha: 0.15) : ColorConstant.errorRed.withValues(alpha: 0.15),
                     border: Border.all(
-                      color: ColorConstant.grayBorder
+                      color: ColorConstant.hairline
                     ),
                     borderRadius: BorderRadius.circular(10)
                   ),
                   alignment: Alignment.center,
-                  child: MyText(title: item.isCheckedIn ? "Checked In" : "Not Checked In",fontSize: 8,clr: item.isCheckedIn? ColorConstant.white60 : ColorConstant.whiteA700,),
+                  child: MyText(title: item.isCheckedIn ? "Checked In" : "Not Checked In",fontSize: 10,clr: item.isCheckedIn? ColorConstant.successGreen : ColorConstant.errorRed,),
                 ),
               ],
             ),
             SizedBox(height: getSize(5),),
-            MyText(title: "Purchased on Feb 21, 2023 · General Admission",fontSize: 12,clr: ColorConstant.textGrey,customWeight: FontWeight.bold,),
+            MyText(title: "Purchased on Feb 21, 2023 · General Admission",fontSize: 12,clr: ColorConstant.white60,customWeight: FontWeight.bold,),
           ],
         ),
       ),

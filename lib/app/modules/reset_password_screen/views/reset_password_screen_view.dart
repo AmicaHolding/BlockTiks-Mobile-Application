@@ -2,6 +2,7 @@ import 'package:block_tix/app/data/utils/helper_functions.dart';
 import 'package:block_tix/app/data/widgets/custom_text_form_field.dart';
 
 import '../../../data/core/app_export.dart';
+import '../../sign_in/views/widgets/auth_pill_button.dart';
 import '../controllers/reset_password_screen_controller.dart';
 
 class ResetPasswordScreenView extends GetView<ResetPasswordScreenController> {
@@ -28,16 +29,16 @@ class ResetPasswordScreenView extends GetView<ResetPasswordScreenController> {
                     SizedBox(
                       height: getSize(30),
                     ),
-                    MyText(
-                      title: 'msg_create_new_password'.tr,
-                      fontSize: 18,
+                    Text(
+                      'msg_create_new_password'.tr,
+                      style: AppStyle.heading1Manrope,
                     ),
                     SizedBox(
                       height: getSize(10),
                     ),
-                    MyText(
-                      title: "msg_your_new_password".tr,
-                      clr: ColorConstant.white60,
+                    Text(
+                      "msg_your_new_password".tr,
+                      style: AppStyle.bodySmallInter,
                     ),
                     SizedBox(
                       height: getSize(30),
@@ -124,11 +125,10 @@ class ResetPasswordScreenView extends GetView<ResetPasswordScreenController> {
                         },
                       ),
                     ),
-                    CustomButton(
+                    AuthPillButton(
                       controller: controller.btnController,
                       margin: getMargin(top: 30, bottom: 5),
                       text: "lbl_update_password".tr,
-                      fontStyle: ButtonFontStyle.AgeoSemiBold14Black900,
                       onTap: () {
                         if (_formKey.currentState!.validate()) {
                           controller.resetPasswordApi(context);

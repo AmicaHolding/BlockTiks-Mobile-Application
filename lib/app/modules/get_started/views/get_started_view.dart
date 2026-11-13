@@ -1,6 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../data/widgets/base/baseview_auth_screen.dart';
+import '../../sign_in/views/widgets/auth_pill_button.dart';
 import '../controllers/get_started_controller.dart';
 
 class GetStartedView extends GetView<GetStartedController> {
@@ -39,13 +39,9 @@ class GetStartedView extends GetView<GetStartedController> {
                   child: Text(
                     'Book premium event\'s ticket here',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.getFont(
-                      'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 18,
-                      height: 1.3,
-                      letterSpacing: -0.8,
+                    style: AppStyle.heading3Manrope.copyWith(
                       color: ColorConstant.white60,
+                      fontSize: getFontSize(17),
                     ),
                   ),
                 ),
@@ -55,17 +51,17 @@ class GetStartedView extends GetView<GetStartedController> {
                     mainAxisAlignment: MainAxisAlignment.start,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CustomButton(
+                      AuthPillButton(
                         onTap: () => Get.toNamed(Routes.SIGN_IN),
                         text: 'Log In',
                       ),
                       const SizedBox(
-                        height: 20,
+                        height: 12,
                       ),
-                      CustomButton(
+                      AuthPillButton(
                         onTap: () => Get.toNamed(Routes.SIGN_UP),
                         text: 'Create an account',
-                        variant: ButtonVariant.OutlineWhite,
+                        variant: AuthPillButtonVariant.secondary,
                       ),
                     ],
                   ),

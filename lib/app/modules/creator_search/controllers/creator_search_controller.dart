@@ -1,10 +1,21 @@
+import 'dart:async';
+
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/services/api_service.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 class CreatorSearchController extends GetxController {
   TextEditingController searchController = TextEditingController();
+
+  /// Published events shown as suggestions when the query is empty.
+  RxList<Map<String, dynamic>> suggestions = <Map<String, dynamic>>[].obs;
+
+  /// Events matching the current search query (`GET /events?q=`).
+  RxList<Map<String, dynamic>> results = <Map<String, dynamic>>[].obs;
+  RxBool isSearching = false.obs;
+  Timer? _debounce;
 
   // Define the initial range of the price picker
   Rx<RangeValues> _currentRangeValues = const RangeValues(10, 150).obs; // Price range from 1 to 500
@@ -18,7 +29,7 @@ class CreatorSearchController extends GetxController {
   RxInt index = 0.obs;
 
   final kGradientBoxDecoration = BoxDecoration(
-      borderRadius: BorderRadius.circular(5), color: ColorConstant.primaryPink);
+      borderRadius: BorderRadius.circular(12), color: ColorConstant.primaryAccent);
 
   List<String> latestSearches = [
     "Funky Music",
@@ -36,12 +47,6 @@ class CreatorSearchController extends GetxController {
     "Z-A",
   ];
 
-  List<String> events = [
-    "Cyberpunk",
-    "Klaypaki",
-    "DJ Orignowa",
-  ];
-
   RxBool isEmpty = true.obs;
 
   final tabs = ["Events".tr, "Users".tr];
@@ -49,6 +54,63 @@ class CreatorSearchController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _loadSuggestions();
+  }
+
+  @override
+  void onClose() {
+    _debounce?.cancel();
+    super.onClose();
+  }
+
+  Future<void> _loadSuggestions() async {
+    try {
+      suggestions.assignAll(await ApiService.events());
+    } catch (_) {
+      // Suggestions are best-effort; search still works without them.
+    }
+  }
+
+  /// Called from the search field's `onChanged`. Debounces the request and
+  /// queries `GET /events?q=` for published events.
+  void onSearchChanged(String value) {
+    _debounce?.cancel();
+    final q = value.trim();
+    if (q.isEmpty) {
+      isEmpty.value = true;
+      isSearching.value = false;
+      results.clear();
+      return;
+    }
+    isEmpty.value = false;
+    isSearching.value = true;
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      try {
+        results.assignAll(await ApiService.events(q: q));
+      } catch (_) {
+        results.clear();
+      } finally {
+        isSearching.value = false;
+      }
+    });
+  }
+
+  static String formatEventDate(Map<String, dynamic> event) {
+    final raw = event['startsAt']?.toString();
+    final dt = raw == null ? null : DateTime.tryParse(raw)?.toLocal();
+    if (dt == null) return '';
+    return DateFormat('dd MMM yyy').format(dt);
+  }
+
+  static String eventSubtitle(Map<String, dynamic> event) {
+    final parts = <String>[
+      if ((event['category']?.toString() ?? '').isNotEmpty)
+        event['category'].toString(),
+      if ((event['location']?.toString() ?? '').isNotEmpty)
+        event['location'].toString(),
+      formatEventDate(event),
+    ];
+    return parts.join(' | ');
   }
 
 
@@ -126,7 +188,7 @@ class CreatorSearchController extends GetxController {
                         margin: getMargin(bottom: 30),
                         padding: getPadding(left: 15,right: 15,),
                         decoration: BoxDecoration(
-                            color: ColorConstant.whiteA700.withValues(alpha: 0.1),
+                            color: ColorConstant.elevated,
                             borderRadius: BorderRadius.circular(8)
                         ),
                         child: Obx(() => DropdownButton<String>(
@@ -153,7 +215,7 @@ class CreatorSearchController extends GetxController {
                         margin: getMargin(bottom: 30),
                         padding: getPadding(left: 15, right: 15,top: 16,bottom: 16),
                         decoration: BoxDecoration(
-                          color: ColorConstant.whiteA700.withValues(alpha: 0.1),
+                          color: ColorConstant.elevated,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Obx(() => GestureDetector(
@@ -179,7 +241,7 @@ class CreatorSearchController extends GetxController {
                         margin: getMargin(bottom: 30),
                         padding: getPadding(left: 15,right: 15,),
                         decoration: BoxDecoration(
-                            color: ColorConstant.whiteA700.withValues(alpha: 0.1),
+                            color: ColorConstant.elevated,
                             borderRadius: BorderRadius.circular(8)
                         ),
                         child: Obx(() => DropdownButton<String>(
@@ -206,7 +268,7 @@ class CreatorSearchController extends GetxController {
                         margin: getMargin(bottom: 30),
                         padding: getPadding(left: 15,right: 15,),
                         decoration: BoxDecoration(
-                            color: ColorConstant.whiteA700.withValues(alpha: 0.1),
+                            color: ColorConstant.elevated,
                             borderRadius: BorderRadius.circular(8)
                         ),
                         child: TextField(
@@ -237,8 +299,8 @@ class CreatorSearchController extends GetxController {
                         min: 1, // Minimum price
                         max: 500, // Maximum price
                         divisions: 100, // Number of steps in the slider
-                        activeColor: ColorConstant.primaryPink, // Customize the active color
-                        inactiveColor: ColorConstant.primaryPink.withValues(alpha: 0.2), // Customize the inactive color
+                        activeColor: ColorConstant.primaryAccent, // Customize the active color
+                        inactiveColor: ColorConstant.primaryAccent.withValues(alpha: 0.2), // Customize the inactive color
                         labels: RangeLabels(
                           '${_currentRangeValues.value.start.toInt()}',
                           '${_currentRangeValues.value.end.toInt()}',

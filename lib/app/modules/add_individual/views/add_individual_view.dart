@@ -1,3 +1,4 @@
+import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
@@ -9,14 +10,16 @@ class AddIndividualView extends GetView<AddIndividualController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: ColorConstant.bg,
       appBar: AppBar(
-        title: const Text('AddIndividualView'),
+        backgroundColor: ColorConstant.bg,
+        title: const MyText(title: 'Add Individual'),
         centerTitle: true,
       ),
-      body: const Center(
-        child: Text(
-          'AddIndividualView is working',
-          style: TextStyle(fontSize: 20),
+      body: Center(
+        child: MyText(
+          title: 'AddIndividualView is working',
+          fontSize: 20,
         ),
       ),
     );

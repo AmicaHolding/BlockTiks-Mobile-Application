@@ -1,10 +1,12 @@
 import 'dart:math';
 
+import 'package:google_fonts/google_fonts.dart';
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/dummy_content.dart';
 import 'package:block_tix/app/data/utils/helper_functions.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/data/widgets/custom_text_form_field.dart';
+import 'package:block_tix/app/modules/payment_page/views/payment_page_view.dart';
 import '../controllers/send_tickets_controller.dart';
 
 class SendTicketsView extends GetView<SendTicketsController> {
@@ -18,10 +20,9 @@ class SendTicketsView extends GetView<SendTicketsController> {
       showBackBtn: true,
       showNotification: true,
       bottomNavigationBar: SafeArea(
-        child: CustomButton(
+        child: PrimaryPillButton(
           text: "Send Tickets".tr,
           margin: getMargin(right: 20, left: 20, bottom: 30, top: 10),
-          shape: ButtonShape.RoundedBorder10,
           onTap: () {
             if(controller.selectedUser.value != -1 || controller.formKey.currentState!.validate()){
               Get.back();
@@ -38,8 +39,22 @@ class SendTicketsView extends GetView<SendTicketsController> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(height: getSize(15),),
-            MyText(title: "Transfer"),
-            SizedBox(height: getSize(5),),
+            MyText(
+              title: "Send Tickets",
+              family: 'Manrope',
+              customWeight: FontWeight.w700,
+              fontSize: 20,
+            ),
+            if (controller.eventTitle.isNotEmpty) ...[
+              SizedBox(height: getSize(4),),
+              MyText(
+                title: controller.eventTitle,
+                family: 'Inter',
+                fontSize: 13,
+                clr: ColorConstant.white60,
+              ),
+            ],
+            SizedBox(height: getSize(10),),
             ListView.builder(
               itemCount: controller.tickets.length,
               physics: NeverScrollableScrollPhysics(),
@@ -47,7 +62,11 @@ class SendTicketsView extends GetView<SendTicketsController> {
               itemBuilder: (context, index) {
                 final ticket = controller.tickets[index];
                 return Card(
-                  color: Colors.grey[900],
+                  color: ColorConstant.elevated,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: ColorConstant.hairline),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Row(
@@ -67,25 +86,29 @@ class SendTicketsView extends GetView<SendTicketsController> {
                             padding: const EdgeInsets.symmetric(horizontal: 8.0),
                             child: Text(
                               ticket['name'],
-                              style: TextStyle(color: Colors.white, fontSize: 18),
+                              style: GoogleFonts.inter(
+                                color: ColorConstant.whiteA700,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
                         Container(
                           height: getSize(35),
                           decoration: BoxDecoration(
-                            color: ColorConstant.whiteA700.withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(5)
+                            color: ColorConstant.whiteA700.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8)
                           ),
                           padding: getPadding(left: 10,right: 10),
                           child: DropdownButton<int>(
                             value: ticket['quantity'],
                             hint: Text(
                               'Qty',
-                              style: TextStyle(color: Colors.grey),
+                              style: TextStyle(color: ColorConstant.white60),
                             ),
                             icon: Icon(Icons.keyboard_arrow_down,color: ColorConstant.whiteA700,),
-                            dropdownColor: Colors.black,
+                            dropdownColor: ColorConstant.elevated,
                             underline:Offstage(),
                             items: List.generate(10, (i) => i + 1)
                                 .map((int value) {
@@ -115,6 +138,7 @@ class SendTicketsView extends GetView<SendTicketsController> {
             Form(
               key: controller.formKey,
               child: CustomTextFormField(
+                controller: controller.toController,
                 hintText: "User name or user address",
                 labelText: 'To',
                 variant: TextFormFieldVariant.None,
@@ -126,7 +150,12 @@ class SendTicketsView extends GetView<SendTicketsController> {
             SizedBox(
               height: getSize(30),
             ),
-            const MyText(title: "Recent users transferred to"),
+            MyText(
+              title: "Recent users transferred to",
+              family: 'Inter',
+              fontSize: 13,
+              clr: ColorConstant.white60,
+            ),
             SizedBox(
               height: getSize(10),
             ),
@@ -146,9 +175,9 @@ class SendTicketsView extends GetView<SendTicketsController> {
                     getPadding(left: 15, right: 15, top: 10, bottom: 10),
                     margin: getMargin(bottom: 15),
                     decoration: BoxDecoration(
-                        color: ColorConstant.gray50.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: controller.selectedUser.value == index ? ColorConstant.primaryPink : ColorConstant.gray50.withValues(alpha: 0.05))
+                        color: ColorConstant.elevated,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: controller.selectedUser.value == index ? ColorConstant.primaryAccent : ColorConstant.hairline)
                     ),
                     child: Row(
                       children: [
@@ -159,7 +188,7 @@ class SendTicketsView extends GetView<SendTicketsController> {
                             imagePath: DummyContent.images[Random().nextInt(DummyContent.images.length)],
                             width: 30,
                             height: 30,
-                            radius: BorderRadius.circular(5),
+                            radius: BorderRadius.circular(8),
                           ),
                         ),
                         const SizedBox(
@@ -167,10 +196,12 @@ class SendTicketsView extends GetView<SendTicketsController> {
                         ),
                         MyText(
                           title: "Name $index",
-                          fontSize: 16,
+                          family: 'Inter',
+                          fontSize: 14,
+                          clr: ColorConstant.whiteA700,
                         ),
                         Spacer(),
-                        Icon(Icons.check_circle,color: controller.selectedUser.value == index ? ColorConstant.primaryPink : Colors.transparent,)
+                        Icon(Icons.check_circle,color: controller.selectedUser.value == index ? ColorConstant.primaryAccent : Colors.transparent,)
                       ],
                     ),
                   )),

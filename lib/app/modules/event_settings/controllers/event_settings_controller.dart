@@ -1,4 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
+import 'package:block_tix/app/services/api_service.dart';
 import 'package:get/get.dart';
 
 class EventSettingsController extends GetxController {
@@ -6,6 +8,41 @@ class EventSettingsController extends GetxController {
   RxBool paidFromProfit = false.obs;
   RxBool allowResale = false.obs;
   RxBool resaleLimits = false.obs;
+
+  /// Event id passed via `Get.arguments['id']` (or `Constants.paramId`).
+  /// When empty the publish action is unavailable.
+  RxString eventId = ''.obs;
+  RxBool isPublishing = false.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    final args = Get.arguments;
+    if (args is Map) {
+      final id = args['id'];
+      if (id != null) eventId.value = id.toString();
+    }
+  }
+
+  /// Publishes the draft event via `POST /events/:id/publish`.
+  Future<void> publishEvent() async {
+    if (isPublishing.value) return;
+    if (eventId.value.isEmpty) {
+      CustomSnackBar.showCustomErrorToast(
+          message: "Save the event first before publishing");
+      return;
+    }
+    isPublishing.value = true;
+    try {
+      await ApiService.publishEvent(eventId.value);
+      CustomSnackBar.showCustomToast(message: "Event published");
+      Get.back(result: {'published': true});
+    } catch (e) {
+      CustomSnackBar.showCustomErrorToast(message: e.toString());
+    } finally {
+      isPublishing.value = false;
+    }
+  }
 
 
 
@@ -50,7 +87,7 @@ class EventSettingsController extends GetxController {
                           width:getSize(30),
                           margin: getMargin(right: 10),
                           decoration: BoxDecoration(
-                              color: ColorConstant.whiteA700.withValues(alpha: 0.1),
+                              color: ColorConstant.elevated,
                               borderRadius: BorderRadius.circular(8)
                           ),
                           alignment: Alignment.center,

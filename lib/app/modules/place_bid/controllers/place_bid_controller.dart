@@ -14,6 +14,14 @@ class PlaceBidController extends GetxController {
 
   RxInt selectedBid = (-1).obs;
 
+  // Event context — populated from route arguments when provided.
+  String eventTitle = 'DJ Maksmellow Orignawa';
+  String eventType = 'Music Concert';
+  String eventDate = 'Sunday, 14 February 2021';
+  String eventVenue = 'Japan, 〒604-8122 Kyoto, Nakagyo Ward, 錦小路下る瀬戸 屋町474';
+  String eventDescription =
+      'South Korean girl group Blackpink have embarked on two headlining concert tours. In July 2017, the group held their debut showcase in Japan.';
+
   // Define the initial range of the price picker
   Rx<RangeValues> _currentRangeValues = const RangeValues(10, 150).obs; // Price range from 1 to 500
 
@@ -43,13 +51,13 @@ class PlaceBidController extends GetxController {
         child: Container(
           decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16.0),
-              color: ColorConstant.bg),
+              color: ColorConstant.surface),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                color: ColorConstant.bg,
+                color: ColorConstant.surface,
                 padding: const EdgeInsets.only(top: 8.0),
                 margin: const EdgeInsets.only(bottom: 0),
                 child: Padding(
@@ -69,7 +77,7 @@ class PlaceBidController extends GetxController {
                           width:getSize(30),
                           margin: getMargin(right: 10),
                           decoration: BoxDecoration(
-                              color: ColorConstant.whiteA700.withValues(alpha: 0.1),
+                              color: ColorConstant.elevated,
                               borderRadius: BorderRadius.circular(8)
                           ),
                           alignment: Alignment.center,
@@ -87,14 +95,14 @@ class PlaceBidController extends GetxController {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               MyText(
-                                title: 'Music Concert',
+                                title: eventType,
                                 family: 'Manrope',
                                 customWeight: FontWeight.w400,
                                 fontSize: 14,
                                 clr: ColorConstant.whiteA700,
                               ),
                               MyText(
-                                title: 'DJ Maksmellow Orignawa',
+                                title: eventTitle,
                                 family: 'Manrope',
                                 customWeight: FontWeight.w700,
                                 fontSize: 18,
@@ -134,7 +142,7 @@ class PlaceBidController extends GetxController {
                           children: [
                             Icon(
                               Icons.calendar_month,
-                              color: ColorConstant.primaryPink,
+                              color: ColorConstant.white60,
                               size: 24,
                             ),
                             const SizedBox(
@@ -144,10 +152,11 @@ class PlaceBidController extends GetxController {
                               child: Row(
                                 children: [
                                   MyText(
-                                    title:'Sunday, 14 February 2021',
+                                    title:'$eventDate',
+                                      family: 'Inter',
                                       customWeight: FontWeight.w400,
                                       fontSize: 14,
-                                      clr: const Color(0xB2FFFFFF),
+                                      clr: ColorConstant.white60,
                                   ),
                                 ],
                               ),
@@ -160,7 +169,7 @@ class PlaceBidController extends GetxController {
                           children: [
                             Icon(
                               Icons.location_on,
-                              color: ColorConstant.primaryPink,
+                              color: ColorConstant.white60,
                               size: 24,
                             ),
                             const SizedBox(
@@ -168,12 +177,11 @@ class PlaceBidController extends GetxController {
                             ),
                             Expanded(
                               child: Text(
-                                'Japan, 〒604-8122 Kyoto, Nakagyo Ward, 錦小路下る瀬戸 屋町474',
-                                style: GoogleFonts.getFont(
-                                  'Manrope',
+                                eventVenue,
+                                style: GoogleFonts.inter(
                                   fontWeight: FontWeight.w400,
                                   fontSize: 14,
-                                  color: const Color(0xB2FFFFFF),
+                                  color: ColorConstant.white60,
                                 ),
                               ),
                             ),
@@ -189,11 +197,10 @@ class PlaceBidController extends GetxController {
                         margin: const EdgeInsets.fromLTRB(0, 10, 0, 15),
                         child: Text(
                           'Direction',
-                          style: GoogleFonts.getFont(
-                            'Manrope',
-                            fontWeight: FontWeight.w400,
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
                             fontSize: 14,
-                            color: const Color(0xFFB620E0),
+                            color: ColorConstant.primaryAccentBright,
                           ),
                         ),
                       ),
@@ -214,12 +221,12 @@ class PlaceBidController extends GetxController {
                       height: getSize(10),
                     ),
                     Text(
-                      'South Korean girl group Blackpink have embarked on two headlining concert tours. In July 2017, the group held their debut showcase in Japan.',
-                      style: GoogleFonts.getFont(
-                        'Manrope',
+                      eventDescription,
+                      style: GoogleFonts.inter(
                         fontWeight: FontWeight.w400,
                         fontSize: 14,
-                        color: const Color(0xB2FFFFFF),
+                        height: 1.5,
+                        color: ColorConstant.white60,
                       ),
                     ),
 
@@ -245,13 +252,13 @@ class PlaceBidController extends GetxController {
         child: Container(
           decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16.0),
-              color: ColorConstant.bg),
+              color: ColorConstant.surface),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                color: ColorConstant.bg,
+                color: ColorConstant.surface,
                 padding: const EdgeInsets.only(top: 8.0),
                 margin: const EdgeInsets.only(bottom: 0),
                 child: Padding(
@@ -270,7 +277,7 @@ class PlaceBidController extends GetxController {
                       //     height:getSize(30),
                       //     width:getSize(30),
                       //     decoration: BoxDecoration(
-                      //         color: ColorConstant.whiteA700.withValues(alpha: 0.1),
+                      //         color: ColorConstant.elevated,
                       //         borderRadius: BorderRadius.circular(8)
                       //     ),
                       //     alignment: Alignment.center,
@@ -309,12 +316,12 @@ class PlaceBidController extends GetxController {
                       margin: getMargin(bottom: 30),
                       padding: getPadding(left: 15,right: 15,),
                       decoration: BoxDecoration(
-                          color: ColorConstant.whiteA700.withValues(alpha: 0.1),
+                          color: ColorConstant.elevated,
                           borderRadius: BorderRadius.circular(8)
                       ),
                       child: Obx(() => DropdownButton<String>(
                         value: selectedCategory.value,
-                        dropdownColor: ColorConstant.black900,
+                        dropdownColor: ColorConstant.elevated,
                         hint: const MyText(title: 'Categories'),
                         icon: Icon(Icons.keyboard_arrow_down_sharp,color: ColorConstant.whiteA700,),
                         // The down arrow icon
@@ -336,7 +343,7 @@ class PlaceBidController extends GetxController {
                       margin: getMargin(bottom: 30),
                       padding: getPadding(left: 15, right: 15,top: 16,bottom: 16),
                       decoration: BoxDecoration(
-                        color: ColorConstant.whiteA700.withValues(alpha: 0.1),
+                        color: ColorConstant.elevated,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Obx(() => GestureDetector(
@@ -362,12 +369,12 @@ class PlaceBidController extends GetxController {
                       margin: getMargin(bottom: 30),
                       padding: getPadding(left: 15,right: 15,),
                       decoration: BoxDecoration(
-                          color: ColorConstant.whiteA700.withValues(alpha: 0.1),
+                          color: ColorConstant.elevated,
                           borderRadius: BorderRadius.circular(8)
                       ),
                       child: Obx(() => DropdownButton<String>(
                         value: selectedSort.value,
-                        dropdownColor: ColorConstant.black900,
+                        dropdownColor: ColorConstant.elevated,
                         hint: const MyText(title: 'Sort By'),
                         icon: Icon(Icons.keyboard_arrow_down_sharp,color: ColorConstant.whiteA700,),
                         // The down arrow icon
@@ -396,8 +403,8 @@ class PlaceBidController extends GetxController {
                       min: 1, // Minimum price
                       max: 500, // Maximum price
                       divisions: 100, // Number of steps in the slider
-                      activeColor: ColorConstant.primaryPink, // Customize the active color
-                      inactiveColor: ColorConstant.primaryPink.withValues(alpha: 0.2), // Customize the inactive color
+                      activeColor: ColorConstant.primaryAccent, // Customize the active color
+                      inactiveColor: ColorConstant.primaryAccent.withValues(alpha: 0.2), // Customize the inactive color
                       labels: RangeLabels(
                         '${_currentRangeValues.value.start.toInt()}',
                         '${_currentRangeValues.value.end.toInt()}',
@@ -468,11 +475,26 @@ class PlaceBidController extends GetxController {
     // Define the initial range of the price picker
     _currentRangeValues.value = const RangeValues(10, 150); // Price range from 1 to 500
 
-    selectedCategory = Rxn<String>();
-    selectedSort = Rxn<String>();
+    selectedCategory.value = null;
+    selectedSort.value = null;
 
-    selectedDate = Rxn<String>(); // To hold the selected date as a string
+    selectedDate.value = null; // To hold the selected date as a string
     selectedDateTime = null;
+  }
+
+  @override
+  void onInit() {
+    super.onInit();
+    var data = Get.arguments;
+    if (data is Map) {
+      if (data['title'] != null) eventTitle = data['title'].toString();
+      if (data['type'] != null) eventType = data['type'].toString();
+      if (data['date'] != null) eventDate = data['date'].toString();
+      if (data['venue'] != null) eventVenue = data['venue'].toString();
+      if (data['description'] != null) {
+        eventDescription = data['description'].toString();
+      }
+    }
   }
 
 }

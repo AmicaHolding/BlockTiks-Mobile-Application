@@ -26,9 +26,9 @@ class LoaderView extends GetView<LoaderController> {
             ),
             controller.onDone != null
                 ? const Offstage()
-                : const MyText(
-                    title: "Finding best event for you…",
-                    fontSize: 18,
+                : Text(
+                    "Finding best event for you…",
+                    style: AppStyle.bodyInter,
                   ),
             SizedBox(
               height: getSize(20),
@@ -36,10 +36,10 @@ class LoaderView extends GetView<LoaderController> {
             Obx(
               () => LinearProgressIndicator(
                 value: controller.progress.value,
-                minHeight: 10,
-                backgroundColor: Colors.grey[300],
+                minHeight: 4,
+                backgroundColor: ColorConstant.elevated,
                 valueColor:
-                    AlwaysStoppedAnimation<Color>(ColorConstant.primaryPink),
+                    AlwaysStoppedAnimation<Color>(ColorConstant.primaryAccent),
               ),
             )
           ],

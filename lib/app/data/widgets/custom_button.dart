@@ -343,11 +343,8 @@ class CustomButton extends StatelessWidget {
       case ButtonShape.Square:
         return BorderRadius.circular(0);
       default:
-        return BorderRadius.circular(
-          getHorizontalSize(
-            8.00,
-          ),
-        );
+        // Sahra CTAs are pills (border-radius 999).
+        return BorderRadius.circular(999);
     }
   }
 
@@ -366,24 +363,32 @@ class CustomButton extends StatelessWidget {
       case ButtonShape.Square:
         return 0;
       default:
-        return getHorizontalSize(
-          8.00,
-        );
+        return 999;
     }
   }
 
   _setFontStyle() {
-    switch (fontStyle) {
+    // Sahra: filled light surfaces (gold/sand CTAs) carry Night text;
+    // everything else sits on the Night canvas and uses Sand text.
+    final Color textColor;
+    switch (variant) {
+      case ButtonVariant.FillWhiteA700:
+      case ButtonVariant.FillGray5001:
+      case ButtonVariant.FillOrangeA20033:
+      case ButtonVariant.FillOrangeA200:
+        textColor = ColorConstant.night;
+        break;
       default:
-        return GoogleFonts.getFont(
-          "Inter",
-          color: ColorConstant.whiteA700,
-          fontSize: getFontSize(
-            16,
-          ),
-          fontWeight: FontWeight.w600,
-        );
+        // Default variant is the gold primary CTA.
+        textColor = variant == null ? ColorConstant.night : ColorConstant.whiteA700;
     }
+    return GoogleFonts.bricolageGrotesque(
+      color: textColor,
+      fontSize: getFontSize(
+        16,
+      ),
+      fontWeight: FontWeight.w600,
+    );
   }
 }
 

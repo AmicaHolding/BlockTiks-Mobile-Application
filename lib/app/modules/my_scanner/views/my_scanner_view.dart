@@ -44,7 +44,7 @@ class _QRScannerPageState extends State<MyScannerView> {
                   key: controller.qrKey,
                   onQRViewCreated: _onQRViewCreated,
                   overlay: QrScannerOverlayShape(
-                    borderColor: Colors.red,
+                    borderColor: ColorConstant.primaryAccent,
                     borderRadius: 10,
                     borderLength: 30,
                     borderWidth: 10,
@@ -67,7 +67,7 @@ class _QRScannerPageState extends State<MyScannerView> {
                   height:getSize(30),
                   width:getSize(30),
                   decoration: BoxDecoration(
-                      color: ColorConstant.whiteA700.withValues(alpha: 0.1),
+                      color: ColorConstant.elevated,
                       borderRadius: BorderRadius.circular(8)
                   ),
                   alignment: Alignment.center,

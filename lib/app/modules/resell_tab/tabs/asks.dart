@@ -14,11 +14,11 @@ class Asks extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const MyText(
+        MyText(
           title: "Ongoing",
-          clr: Colors.white,
+          family: 'Manrope',
+          customWeight: FontWeight.w700,
           fontSize: 20,
-          customWeight: FontWeight.bold,
         ),
         SizedBox(
           height: getSize(15),
@@ -27,7 +27,8 @@ class Asks extends StatelessWidget {
           title: "DJ Orignawa",
           askingPrice: 500,
           askingExpiration: "2 Days",
-          // onTap: () => Get.toNamed(Routes.ASK_BID),
+          onTap: () => Get.toNamed(Routes.ASK_BID,
+              arguments: {'fromSell': true, 'title': "DJ Orignawa"}),
           onOptionsTap: () {
             controller.showSheet(context);
           },
@@ -36,7 +37,8 @@ class Asks extends StatelessWidget {
           title: "Retrowita",
           askingPrice: 820,
           askingExpiration: "6 Days",
-          // onTap: () => Get.toNamed(Routes.ASK_BID),
+          onTap: () => Get.toNamed(Routes.ASK_BID,
+              arguments: {'fromSell': true, 'title': "Retrowita"}),
           onOptionsTap: () {
             controller.showSheet(context);
           },

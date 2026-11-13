@@ -35,9 +35,9 @@ class EventTicketsDropView extends GetView<EventTicketsDropController> {
                   child: Container(
                     padding: getPadding(left: 16,right: 16,top: 10,bottom: 10),
                     decoration: BoxDecoration(
-                        color: ColorConstant.whiteA700.withValues(alpha: .15),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: ColorConstant.grayBorder)
+                        color: ColorConstant.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: ColorConstant.hairline)
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,9 +82,9 @@ class EventTicketsDropView extends GetView<EventTicketsDropController> {
                 height: getSize(50),
                 padding: getPadding(left: 20),
                 decoration: BoxDecoration(
-                  color: ColorConstant.whiteA700.withValues(alpha: .05),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: ColorConstant.grayBorder)
+                  color: ColorConstant.elevated,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: ColorConstant.hairline)
                 ),
                 alignment: Alignment.centerLeft,
                 child: MyText(title:"+ Add Drop",fontSize: 20,customWeight: FontWeight.bold,),

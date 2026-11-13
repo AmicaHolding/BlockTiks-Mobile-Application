@@ -59,9 +59,11 @@ class EditProfileView extends GetView<EditProfileController> {
                         width: size.width,
                         decoration: BoxDecoration(
                             color: ColorConstant.bg,
+                            border: Border.all(
+                                color: ColorConstant.hairline, width: 1),
                             borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(30),
-                              topRight: Radius.circular(30),
+                              topLeft: Radius.circular(24),
+                              topRight: Radius.circular(24),
                             ))))
               ],
             ),
@@ -95,7 +97,8 @@ class EditProfileView extends GetView<EditProfileController> {
                               margin: getMargin(bottom: 15),
                               child: MyText(
                                 title: "Personal Info",
-                                customWeight: FontWeight.w600,
+                                family: 'Manrope',
+                                customWeight: FontWeight.w700,
                                 fontSize: getFontSize(18),
                               ),
                             ),
@@ -114,21 +117,24 @@ class EditProfileView extends GetView<EditProfileController> {
                       ),
                     ),
                     CustomImageView(
+                      url: controller.userData?.user?.profileImage ?? "",
                       imagePath: DummyContent.images[Random().nextInt(DummyContent.images.length)],
                       height: size.height * 0.12,
                       radius: BorderRadius.circular(200),
                       margin: getMargin(bottom: 20),
                     ),
                     MyText(
-                      title: "123 Clouds Music",
-                      customWeight: FontWeight.w600,
+                      title: _displayName(),
+                      family: 'Manrope',
+                      customWeight: FontWeight.w700,
                       fontSize: getFontSize(18),
                     ),
                     SizedBox(
                       height: getSize(10),
                     ),
                     MyText(
-                      title: "User",
+                      title: _displayRole(),
+                      family: 'Inter',
                       customWeight: FontWeight.w400,
                       fontSize: getFontSize(16),
                       clr: ColorConstant.white60,
@@ -141,7 +147,8 @@ class EditProfileView extends GetView<EditProfileController> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const CustomTextFormField(
+                            CustomTextFormField(
+                              controller: controller.firstNameController,
                               labelText: "Name (Public)",
                               hintText: "Type in your name",
                               textInputType: TextInputType.name,
@@ -149,7 +156,8 @@ class EditProfileView extends GetView<EditProfileController> {
                             SizedBox(
                               height: getSize(20),
                             ),
-                            const CustomTextFormField(
+                            CustomTextFormField(
+                              controller: controller.phoneController,
                               labelText: "Phone Number",
                               hintText: "+971",
                               textInputType: TextInputType.phone,
@@ -157,7 +165,8 @@ class EditProfileView extends GetView<EditProfileController> {
                             SizedBox(
                               height: getSize(20),
                             ),
-                            const CustomTextFormField(
+                            CustomTextFormField(
+                              controller: controller.emailController,
                               labelText: "lbl_email_address",
                               hintText: "Type in your email",
                               textInputType: TextInputType.emailAddress,
@@ -177,6 +186,8 @@ class EditProfileView extends GetView<EditProfileController> {
                             ),
                             MyText(
                               title: "Connect to Social Media",
+                              family: 'Manrope',
+                              customWeight: FontWeight.w600,
                               fontSize: getFontSize(16),
                             ),
                             SizedBox(
@@ -206,6 +217,20 @@ class EditProfileView extends GetView<EditProfileController> {
         ],
       ),
     );
+  }
+
+  String _displayName() {
+    final user = controller.userData?.user;
+    final full = (user?.fullName ?? '').toString().trim();
+    if (full.isNotEmpty) return full;
+    final name = '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
+    return name.isNotEmpty ? name : 'User';
+  }
+
+  String _displayRole() {
+    final role = controller.userData?.user?.role?.name?.toString().trim();
+    if (role != null && role.isNotEmpty) return role;
+    return 'User';
   }
 
   Widget socialWidget({
@@ -249,7 +274,9 @@ class EditProfileView extends GetView<EditProfileController> {
                   title: linked ? "Unlink Now" : "Link Now",
                   customWeight: FontWeight.w400,
                   fontSize: getFontSize(16),
-                  clr: linked ? ColorConstant.red : ColorConstant.green,
+                  clr: linked
+                      ? ColorConstant.errorRed
+                      : ColorConstant.successGreen,
                 ),
               ],
             ))

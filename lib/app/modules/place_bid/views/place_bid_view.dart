@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/custom_divider.dart';
 import 'package:block_tix/app/modules/event_detail/views/event_detail_view.dart';
+import 'package:block_tix/app/modules/payment_page/views/payment_page_view.dart';
 import '../controllers/place_bid_controller.dart';
 
 class PlaceBidView extends GetView<PlaceBidController> {
@@ -35,14 +36,14 @@ class PlaceBidView extends GetView<PlaceBidController> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               MyText(
-                                title: 'Music Concert',
-                                family: 'Manrope',
+                                title: controller.eventType,
+                                family: 'Inter',
                                 customWeight: FontWeight.w400,
                                 fontSize: 14,
-                                clr: ColorConstant.whiteA700,
+                                clr: ColorConstant.white60,
                               ),
                               MyText(
-                                title: 'DJ Maksmellow Orignawa',
+                                title: controller.eventTitle,
                                 family: 'Manrope',
                                 customWeight: FontWeight.w700,
                                 fontSize: 22,
@@ -74,13 +75,13 @@ class PlaceBidView extends GetView<PlaceBidController> {
                       shrinkWrap: true,
                       children: [
                         _buildTicketCard('Platinum Ticket', '\$440', '\$210',0,
-                            '\$390', Colors.blue),
+                            '\$390'),
                         _buildTicketCard('Gold Ticket', '\$330', '\$109',1,
-                            '\$280', Colors.orange),
+                            '\$280'),
                         _buildTicketCard('Silver Ticket', '\$220', '\$210',2,
-                            '\$170', Colors.grey),
+                            '\$170'),
                         _buildTicketCard('Bronze Ticket', '\$110', '\$82',3,
-                            '\$60', Colors.brown),
+                            '\$60'),
                       ],
                     ),
                     // Place an Offer Button
@@ -88,10 +89,21 @@ class PlaceBidView extends GetView<PlaceBidController> {
                       padding: const EdgeInsets.symmetric(vertical: 20.0),
                       child: Align(
                         alignment: Alignment.center,
-                        child: CustomButton(
-                          onTap: () => Get.toNamed(Routes.PLACE_BID_DETAIL),
+                        child: SizedBox(
                           width: size.width / 1.8,
-                          text: "Place an offer",
+                          child: PrimaryPillButton(
+                            onTap: () => Get.toNamed(
+                              Routes.PLACE_BID_DETAIL,
+                              arguments: {
+                                'title': controller.eventTitle,
+                                'type': controller.eventType,
+                                if (controller.selectedBid.value != -1)
+                                  'ticketType': controller
+                                      .ticketType[controller.selectedBid.value],
+                              },
+                            ),
+                            text: "Place an offer",
+                          ),
                         ),
                       ),
                     ),
@@ -101,9 +113,9 @@ class PlaceBidView extends GetView<PlaceBidController> {
                       children: [
                         const MyText(
                           title: 'Available Tickets',
-                          clr: Colors.white,
-                          fontSize: 16,
+                          family: 'Manrope',
                           customWeight: FontWeight.w600,
+                          fontSize: 16,
                         ),
                         Spacer(),
                         GestureDetector(
@@ -111,22 +123,24 @@ class PlaceBidView extends GetView<PlaceBidController> {
                           child: Container(
                             decoration: BoxDecoration(
                                 border: Border.all(
-                                    color: ColorConstant.whiteA700),
-                                borderRadius: BorderRadius.circular(5)),
-                            padding: getPadding(left: 3, right: 3),
-                            child: const MyText(
+                                    color: ColorConstant.hairline),
+                                borderRadius: BorderRadius.circular(8)),
+                            padding: getPadding(left: 8, right: 8, top: 4, bottom: 4),
+                            child: MyText(
                               title: 'View all transactions',
-                              clr: Colors.white,
-                              fontSize: 14,
+                              family: 'Inter',
+                              clr: ColorConstant.white60,
+                              fontSize: 12,
                             ),
                           ),
                         ),
                         Spacer(),
                         Container(
                             decoration: BoxDecoration(
+                                color: ColorConstant.elevated,
                                 border: Border.all(
-                                    color: ColorConstant.whiteA700),
-                                borderRadius: BorderRadius.circular(5)),
+                                    color: ColorConstant.hairline),
+                                borderRadius: BorderRadius.circular(8)),
                             padding: getPadding(all: 5),
                             child: CustomImageView(
                               onTap: ()=> controller.showFilterDialog(context),
@@ -153,14 +167,16 @@ class PlaceBidView extends GetView<PlaceBidController> {
                           title: controller.ticketType[index],
                           askingPrice: 500,
                           qty: Random().nextInt(5),
-                          onTap: () => Get.toNamed(Routes.ASK_BID),
+                          onTap: () => Get.toNamed(Routes.ASK_BID,
+                              arguments: {'tier': controller.ticketType[index]}),
                         );
                       },
                     ):MarketPlaceListWidget(
                       title: controller.ticketType[controller.selectedBid.value],
                       askingPrice: 500,
                       qty: Random().nextInt(5),
-                      onTap: () => Get.toNamed(Routes.ASK_BID),
+                      onTap: () => Get.toNamed(Routes.ASK_BID,
+                          arguments: {'tier': controller.ticketType[controller.selectedBid.value]}),
                     )
                       ,),
                     const SizedBox(
@@ -177,7 +193,7 @@ class PlaceBidView extends GetView<PlaceBidController> {
   }
 
   Widget _buildTicketCard(String title, String highestBid, String lowestAsk, int index,
-      String recentSale, Color borderColor) {
+      String recentSale) {
     return Column(
       children: [
         GestureDetector(
@@ -191,25 +207,23 @@ class PlaceBidView extends GetView<PlaceBidController> {
           child: Obx(() => Container(
             width: size.width,
             decoration: BoxDecoration(
-              color: index == controller.selectedBid.value ? ColorConstant.primaryPink: null,
-              border: Border.all(color: borderColor, width: 2),
-              borderRadius: BorderRadius.circular(8.0),
-              boxShadow: [
-                BoxShadow(
-                  color: borderColor.withValues(alpha: 0.2), // Shadow color
-                  spreadRadius: 1, // How much the shadow spreads
-                  blurRadius: 6, // How blurred the shadow is
-                  offset: const Offset(0, 40), // Offset in X and Y directions
-                ),
-              ],
+              color: index == controller.selectedBid.value
+                  ? ColorConstant.primaryAccent
+                  : ColorConstant.elevated,
+              border: Border.all(
+                  color: index == controller.selectedBid.value
+                      ? ColorConstant.primaryAccent
+                      : ColorConstant.hairline,
+                  width: 1.5),
+              borderRadius: BorderRadius.circular(12),
             ),
             alignment: Alignment.center,
             padding: const EdgeInsets.all(10.0),
             child: MyText(
               title: title,
-              clr: Colors.white,
-              fontSize: 16,
-              customWeight: FontWeight.bold,
+              family: 'Manrope',
+              customWeight: FontWeight.w600,
+              fontSize: 14,
             ),
           )),
         ),
@@ -218,9 +232,10 @@ class PlaceBidView extends GetView<PlaceBidController> {
             const SizedBox(height: 8),
             Container(
               decoration: BoxDecoration(
+                color: ColorConstant.surface,
                 border:
-                    Border.all(color: ColorConstant.gray50.withValues(alpha: 0.5)),
-                borderRadius: BorderRadius.circular(8.0),
+                    Border.all(color: ColorConstant.hairline),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
@@ -228,13 +243,13 @@ class PlaceBidView extends GetView<PlaceBidController> {
                   Container(
                     width: 0.5,
                     height: 30,
-                    color: ColorConstant.gray50.withValues(alpha: 0.5),
+                    color: ColorConstant.hairline,
                   ),
                   _buildPriceColumn('Lowest Ask', lowestAsk),
                   Container(
                     width: 0.5,
                     height: 30,
-                    color: ColorConstant.gray50.withValues(alpha: 0.5),
+                    color: ColorConstant.hairline,
                   ),
                   _buildPriceColumn('Recent Sale', recentSale),
                 ],
@@ -255,15 +270,18 @@ class PlaceBidView extends GetView<PlaceBidController> {
           children: [
             MyText(
               title: label,
-              clr: Colors.grey,
-              fontSize: 8,
+              family: 'Inter',
+              clr: ColorConstant.white60,
+              fontSize: 10,
             ),
             SizedBox(
               height: getSize(5),
             ),
             MyText(
               title: price,
-              clr: Colors.white,
+              family: 'Manrope',
+              customWeight: FontWeight.w600,
+              clr: ColorConstant.whiteA700,
               fontSize: 12,
             ),
           ],
@@ -293,8 +311,9 @@ class MarketPlaceListWidget extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-            color: ColorConstant.gray50.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(10)),
+            color: ColorConstant.elevated,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: ColorConstant.hairline)),
         margin: getMargin(bottom: 10),
         padding: getPadding(left: 16, right: 16, top: 10, bottom: 10),
         child: Row(
@@ -305,7 +324,7 @@ class MarketPlaceListWidget extends StatelessWidget {
                 width: 65,
                 height: 65,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   image: DecorationImage(
                     image: AssetImage(ImageConstant.splashBg),
                     fit: BoxFit.cover,
@@ -319,7 +338,8 @@ class MarketPlaceListWidget extends StatelessWidget {
                 children: [
                   MyText(
                     title: title,
-                    customWeight: FontWeight.bold,
+                    family: 'Manrope',
+                    customWeight: FontWeight.w600,
                     clr: ColorConstant.whiteA700,
                     fontSize: 16,
                   ),
@@ -328,11 +348,14 @@ class MarketPlaceListWidget extends StatelessWidget {
                     children: [
                       MyText(
                         title: "Current Ask:\$$askingPrice",
+                        family: 'Inter',
                         clr: ColorConstant.whiteA700,
                         fontSize: 12,
                       ),
                         MyText(
                           title: "  Qty : $qty",
+                          family: 'Inter',
+                          clr: ColorConstant.white60,
                           fontSize: 12,
                         ),
                     ],
@@ -363,9 +386,9 @@ class MarketPlaceListWidget extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: ColorConstant.bg,
+          color: ColorConstant.elevated,
           shape: BoxShape.circle,
-          border: Border.all(color: ColorConstant.primaryPink, width: 0.8),
+          border: Border.all(color: ColorConstant.hairline, width: 1),
         ),
         padding: getPadding(all: 10),
         child: Center(

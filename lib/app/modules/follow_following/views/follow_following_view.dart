@@ -23,33 +23,32 @@ class FollowFollowingView extends GetView<FollowFollowingController> {
             margin: getMargin(bottom: 16),
             padding: getPadding(left: 16, right: 16),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
+              color: ColorConstant.elevated,
+              borderRadius: BorderRadius.circular(12),
             ),
             child: TextField(
-              style: TextStyle(color: Colors.white),
+              onChanged: (val) => controller.searchQuery.value = val,
+              style: AppStyle.bodyInter,
               decoration: InputDecoration(
                 icon: CustomImageView(
                   svgPath: ImageConstant.search,
                 ),
                 hintText: 'Search',
-                hintStyle: TextStyle(color: Colors.white70),
+                hintStyle: AppStyle.bodySmallInter,
                 border: InputBorder.none,
               ),
             ),
           ),
           TabBar(
             controller: controller.tabController,
-            indicatorColor: ColorConstant.primaryPink,
-            // Set indicator color
+            indicatorColor: ColorConstant.primaryAccent,
             indicatorWeight: 3.0,
-            // Set indicator thickness
             isScrollable: false,
             indicatorSize: TabBarIndicatorSize.tab,
-            labelColor: Colors.white,
-            // Set label color
-            unselectedLabelColor: ColorConstant.answerColor,
-            // Set unselected label color
+            labelColor: ColorConstant.whiteA700,
+            unselectedLabelColor: ColorConstant.white60,
+            labelStyle: AppStyle.heading3Manrope,
+            unselectedLabelStyle: AppStyle.bodySmallInter,
             tabs: const [
               Tab(text: '5 Followers'),
               Tab(text: '8 Following'),
@@ -59,38 +58,39 @@ class FollowFollowingView extends GetView<FollowFollowingController> {
             child: TabBarView(
               controller: controller.tabController,
               children: [
-                Container(
-                  margin: getMargin(top: 20, bottom: 20),
-                  child: ListView.builder(
-                    scrollDirection: Axis.vertical,
-                    itemCount: 5,
-                    itemBuilder: (_, index) {
-                      return UserTile(
-                        name: "Name $index",
-                        isFollowing: index % 3 == 0,
-                      );
-                    },
-                  ),
-                ),
-                Container(
-                  margin: getMargin(top: 20, bottom: 20),
-                  child: ListView.builder(
-                    scrollDirection: Axis.vertical,
-                    itemCount: 8,
-                    itemBuilder: (_, index) {
-                      return UserTile(
-                        name: "Name $index",
-                        isFollowing: index % 3 == 0,
-                      );
-                    },
-                  ),
-                ),
+                _userList(total: 5),
+                _userList(total: 8),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _userList({required int total}) {
+    return Obx(() {
+      final indices = controller.filteredIndices(total);
+      if (indices.isEmpty) {
+        return Center(
+          child: Text('No users found', style: AppStyle.bodySmallInter),
+        );
+      }
+      return Container(
+        margin: getMargin(top: 20, bottom: 20),
+        child: ListView.builder(
+          scrollDirection: Axis.vertical,
+          itemCount: indices.length,
+          itemBuilder: (_, index) {
+            final i = indices[index];
+            return UserTile(
+              name: "Name $i",
+              isFollowing: i % 3 == 0,
+            );
+          },
+        ),
+      );
+    });
   }
 }
 
@@ -109,21 +109,21 @@ class UserTile extends StatelessWidget {
         Get.toNamed(Routes.OTHER_USER_PROFILE);
       },
       child: Container(
-        padding: getPadding(left: 15, right: 15, top: 10, bottom: 10),
-        margin: getMargin(bottom: 15),
+        padding: getPadding(left: 16, right: 16, top: 12, bottom: 12),
+        margin: getMargin(bottom: 12),
         decoration: BoxDecoration(
-            color: ColorConstant.whiteA700.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(10)),
+            color: ColorConstant.elevated,
+            borderRadius: BorderRadius.circular(16)),
         child: Row(
           children: [
             SizedBox(
-              width: 30,
-              height: 30,
+              width: 40,
+              height: 40,
               child: CustomImageView(
                 imagePath: DummyContent.images[Random().nextInt(DummyContent.images.length)],
-                width: 30,
-                height: 30,
-                radius: BorderRadius.circular(5),
+                width: 40,
+                height: 40,
+                radius: BorderRadius.circular(20),
               ),
             ),
             const SizedBox(
@@ -131,13 +131,15 @@ class UserTile extends StatelessWidget {
             ),
             MyText(
               title: name,
-              fontSize: 16,
+              family: 'Manrope',
+              customWeight: FontWeight.w600,
+              fontSize: 15,
             ),
             const Spacer(),
             CustomButton(
               onTap: onTap,
               width: 100,
-              height: 25,
+              height: 28,
               text: isFollowing ? "Following" : "Follow",
               variant: isFollowing ? ButtonVariant.FillGray300 : null,
             )

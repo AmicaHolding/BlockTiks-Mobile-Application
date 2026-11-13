@@ -2,9 +2,68 @@ import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/custom_divider.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/data/widgets/media_selection_tile.dart';
+import 'package:block_tix/app/services/api_service.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 
 class CreatorHomeTabController extends GetxController {
+  /// The signed-in creator's events (any status) from `GET /events/mine`.
+  RxList<Map<String, dynamic>> events = <Map<String, dynamic>>[].obs;
+  RxBool isLoading = true.obs;
+  Rxn<String> loadError = Rxn<String>();
+
+  @override
+  void onInit() {
+    super.onInit();
+    loadEvents();
+  }
+
+  Future<void> loadEvents() async {
+    isLoading.value = true;
+    loadError.value = null;
+    try {
+      final list = await ApiService.myEvents();
+      events.assignAll(list);
+    } catch (e) {
+      loadError.value = e.toString();
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /// Events that are published and haven't started yet.
+  List<Map<String, dynamic>> get upcomingEvents {
+    final now = DateTime.now();
+    return events.where((e) {
+      if ((e['status']?.toString() ?? '') != 'PUBLISHED') return false;
+      final start = _startsAt(e);
+      return start == null || start.isAfter(now);
+    }).toList();
+  }
+
+  /// Drafts, cancelled/completed events and published events in the past.
+  List<Map<String, dynamic>> get pastEvents {
+    final upcomingIds = upcomingEvents.map((e) => e['id'].toString()).toSet();
+    return events.where((e) => !upcomingIds.contains(e['id'].toString())).toList();
+  }
+
+  static DateTime? eventStartsAt(Map<String, dynamic> e) => _startsAt(e);
+
+  static DateTime? _startsAt(Map<String, dynamic> e) {
+    final raw = e['startsAt']?.toString();
+    if (raw == null || raw.isEmpty) return null;
+    return DateTime.tryParse(raw)?.toLocal();
+  }
+
+  static String formatEventDate(Map<String, dynamic> e) {
+    final dt = _startsAt(e);
+    if (dt == null) return '';
+    return DateFormat('EEEE, d MMMM yyyy').format(dt);
+  }
+
+  static String statusLabel(Map<String, dynamic> e) =>
+      (e['status']?.toString() ?? 'DRAFT').toUpperCase();
+
   showSheet(BuildContext ctx, {bool fromAsk = true}) {
     showModalBottomSheet(
       context: ctx,
@@ -21,7 +80,7 @@ class CreatorHomeTabController extends GetxController {
             children: [
               Container(
                 decoration: BoxDecoration(
-                    color: ColorConstant.whiteA700.withValues(alpha: .9),
+                    color: ColorConstant.elevated,
                     borderRadius: BorderRadius.circular(
                       14,
                     )),
@@ -31,7 +90,7 @@ class CreatorHomeTabController extends GetxController {
                   children: [
                     MyText(
                       title: "Make changes to this action".tr,
-                      clr: ColorConstant.blueGray900,
+                      clr: ColorConstant.whiteA700,
                       fontSize: getFontSize(16),
                       customWeight: FontWeight.w600,
                     ),
@@ -40,7 +99,7 @@ class CreatorHomeTabController extends GetxController {
                     ),
                     MyText(
                       title: "Are you sure you want to make a change".tr,
-                      clr: ColorConstant.blueGray400,
+                      clr: ColorConstant.white60,
                       fontSize: getFontSize(14),
                       customWeight: FontWeight.w400,
                     ),
@@ -59,7 +118,7 @@ class CreatorHomeTabController extends GetxController {
                         alignment: Alignment.center,
                         child: MyText(
                           title: "Duplicate",
-                          clr: ColorConstant.blue,
+                          clr: ColorConstant.primaryAccent,
                           fontSize: getFontSize(14),
                           customWeight: FontWeight.w400,
                         ),
@@ -73,7 +132,7 @@ class CreatorHomeTabController extends GetxController {
               ),
               MediaSelectionTileAndroid(
                   title: "Cancel".tr,
-                  textColor: ColorConstant.blue,
+                  textColor: ColorConstant.bg,
                   onPressed: () {
                     Get.back();
                   }),
@@ -103,7 +162,7 @@ class CreatorHomeTabController extends GetxController {
             children: [
               Container(
                 decoration: BoxDecoration(
-                    color: ColorConstant.whiteA700.withValues(alpha: .9),
+                    color: ColorConstant.elevated,
                     borderRadius: BorderRadius.circular(
                       14,
                     )),
@@ -113,7 +172,7 @@ class CreatorHomeTabController extends GetxController {
                   children: [
                     MyText(
                       title: "Make changes to this action".tr,
-                      clr: ColorConstant.blueGray900,
+                      clr: ColorConstant.whiteA700,
                       fontSize: getFontSize(16),
                       customWeight: FontWeight.w600,
                     ),
@@ -122,7 +181,7 @@ class CreatorHomeTabController extends GetxController {
                     ),
                     MyText(
                       title: "Are you sure you want to make a change".tr,
-                      clr: ColorConstant.blueGray400,
+                      clr: ColorConstant.white60,
                       fontSize: getFontSize(14),
                       customWeight: FontWeight.w400,
                     ),
@@ -141,7 +200,7 @@ class CreatorHomeTabController extends GetxController {
                         alignment: Alignment.center,
                         child: MyText(
                           title: "Edit",
-                          clr: ColorConstant.blue,
+                          clr: ColorConstant.primaryAccent,
                           fontSize: getFontSize(14),
                           customWeight: FontWeight.w400,
                         ),
@@ -159,7 +218,7 @@ class CreatorHomeTabController extends GetxController {
                         alignment: Alignment.center,
                         child: MyText(
                           title: "Delete",
-                          clr: ColorConstant.blue,
+                          clr: ColorConstant.errorRed,
                           fontSize: getFontSize(14),
                           customWeight: FontWeight.w400,
                         ),
@@ -173,7 +232,7 @@ class CreatorHomeTabController extends GetxController {
               ),
               MediaSelectionTileAndroid(
                   title: "Cancel".tr,
-                  textColor: ColorConstant.blue,
+                  textColor: ColorConstant.bg,
                   onPressed: () {
                     Get.back();
                   }),

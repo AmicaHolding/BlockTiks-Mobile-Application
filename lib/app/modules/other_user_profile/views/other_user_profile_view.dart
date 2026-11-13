@@ -51,9 +51,9 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                       child: Container(
                           width: size.width,
                           decoration: BoxDecoration(
-                              color: Colors.black,
-                              border:
-                                  Border.all(color: Colors.black, width: 3))))
+                              color: ColorConstant.bg,
+                              border: Border.all(
+                                  color: ColorConstant.hairline, width: 1))))
                 ],
               ),
             ),
@@ -71,8 +71,8 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                           decoration: BoxDecoration(
                               color: ColorConstant.bg,
                               borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(30),
-                                topRight: Radius.circular(30),
+                                topLeft: Radius.circular(24),
+                                topRight: Radius.circular(24),
                               ))))
                 ],
               ),
@@ -112,14 +112,16 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                       ),
                       MyText(
                         title: "123 Clouds Music",
-                        customWeight: FontWeight.w600,
-                        fontSize:(18),
+                        family: 'Manrope',
+                        customWeight: FontWeight.w700,
+                        fontSize:(20),
                       ),
                       SizedBox(
                         height: getSize(10),
                       ),
                       MyText(
                         title: "User",
+                        family: 'Inter',
                         customWeight: FontWeight.w400,
                         fontSize: (16),
                         clr: ColorConstant.white60,
@@ -192,6 +194,7 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                             children: [
                               MyText(
                                 title: "Bio",
+                                family: 'Manrope',
                                 customWeight: FontWeight.w600,
                                 fontSize: (16),
                               ),
@@ -202,6 +205,8 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                                 title:
                                     "Dubai event creator who hosts the best DJ sets and parties in the Middle East.",
                                 fontSize: (14),
+                                family: 'Inter',
+                                clr: ColorConstant.white60,
                               ),
                               SizedBox(
                                 height: getSize(5),
@@ -210,14 +215,15 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                                 children: [
                                   MyText(
                                     title: "cloudmusic.com",
-                                    clr: ColorConstant.primaryPink.withValues(alpha: 0.8),
+                                    family: 'Inter',
+                                    clr: ColorConstant.primaryAccent,
                                     fontSize: (15),
                                   ),
                                   Container(
                                     width: 1,
                                     height: 15,
                                     margin: getPadding(left: 15,right: 15),
-                                    color: ColorConstant.dividerColor,
+                                    color: ColorConstant.hairline,
                                   ),
                                   CustomImageView(
                                     imagePath: ImageConstant.twitterClr,
@@ -243,15 +249,15 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                       ),
                       TabBar(
                         controller: controller.tabController,
-                        indicatorColor: ColorConstant.primaryPink,
+                        indicatorColor: ColorConstant.primaryAccent,
                         // Set indicator color
                         indicatorWeight: 3.0,
                         // Set indicator thickness
                         isScrollable: false,
                         indicatorSize: TabBarIndicatorSize.tab,
-                        labelColor: Colors.white,
+                        labelColor: ColorConstant.whiteA700,
                         // Set label color
-                        unselectedLabelColor: ColorConstant.answerColor,
+                        unselectedLabelColor: ColorConstant.white60,
                         // Set unselected label color
                         tabs: const [
                           Tab(text: 'Hosted'),

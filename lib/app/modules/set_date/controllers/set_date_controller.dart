@@ -37,7 +37,7 @@ class SetDateController extends GetxController {
           child: Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: isStartDateSelected.value == fromStart ? Colors.grey[850] : Colors.transparent,
+              color: isStartDateSelected.value == fromStart ? ColorConstant.elevated : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Center(
@@ -64,8 +64,8 @@ class SetDateController extends GetxController {
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
-          children: const [
-            Text('Optional', style: TextStyle(color: Colors.grey)),
+          children: [
+            Text('Optional', style: TextStyle(color: ColorConstant.white60)),
             SizedBox(height: 5),
             Text('End Date', style: TextStyle(color: Colors.white)),
           ],
@@ -97,17 +97,32 @@ class SetDateController extends GetxController {
                 result: {
                   "selectedTime":"${DateFormat('EEE MMM d').format(selectedDate.value)} ${selectedTime.value.format(context)}",
                   "selectedEndTime":"${DateFormat('EEE MMM d').format(selectedEndDate.value)} ${selectedEndTime.value.format(context)}",
+                  // ISO-8601 strings so callers can submit real timestamps to the API.
+                  "selectedIso": DateTime(
+                    selectedDate.value.year,
+                    selectedDate.value.month,
+                    selectedDate.value.day,
+                    selectedTime.value.hour,
+                    selectedTime.value.minute,
+                  ).toIso8601String(),
+                  "selectedEndIso": DateTime(
+                    selectedEndDate.value.year,
+                    selectedEndDate.value.month,
+                    selectedEndDate.value.day,
+                    selectedEndTime.value.hour,
+                    selectedEndTime.value.minute,
+                  ).toIso8601String(),
                 },
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.purple,
+              backgroundColor: ColorConstant.whiteA700,
               padding: EdgeInsets.symmetric(horizontal: 40, vertical: 12),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(999),
               ),
             ),
-            child: Text('Done', style: TextStyle(color: Colors.white)),
+            child: Text('Done', style: TextStyle(color: ColorConstant.bg, fontWeight: FontWeight.w600)),
           ),
         ],
       ),

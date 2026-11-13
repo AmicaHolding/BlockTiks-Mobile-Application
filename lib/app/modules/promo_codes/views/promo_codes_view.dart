@@ -59,8 +59,8 @@ class PromoCodesView extends GetView<PromoCodesController> {
   Widget promoCodeWidget({bool isUsed = false}) {
     return Container(
       decoration: BoxDecoration(
-          color: ColorConstant.gray50.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10)),
+          color: ColorConstant.surface,
+          borderRadius: BorderRadius.circular(16)),
       padding: const EdgeInsets.fromLTRB(12, 12, 13.8, 9),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -90,11 +90,12 @@ class PromoCodesView extends GetView<PromoCodesController> {
                         fontSize: 16,
                       ),
                     ),
-                    const MyText(
+                    MyText(
                       title:
                           '50 % discount on ticket, this will be used on the next purchase once used',
-                      family: 'Manrope',
+                      family: 'Inter',
                       fontSize: 12,
+                      clr: ColorConstant.white60,
                     ),
                   ],
                 ),
@@ -107,10 +108,11 @@ class PromoCodesView extends GetView<PromoCodesController> {
             children: [
               Container(
                 margin: const EdgeInsets.fromLTRB(0, 11, 34.8, 15),
-                child: const MyText(
+                child: MyText(
                   title: 'Valid until 19-09-2024',
-                  family: 'Manrope',
-                  fontSize: 16,
+                  family: 'Inter',
+                  fontSize: 12,
+                  clr: ColorConstant.white60,
                 ),
               ),
               const SizedBox(

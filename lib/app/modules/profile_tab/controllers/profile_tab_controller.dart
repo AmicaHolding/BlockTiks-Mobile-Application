@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:block_tix/app/Shared_prefrences/app_prefrences.dart';
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/modules/sign_up/models/signup_model.dart';
+import 'package:block_tix/app/services/api_service.dart';
 
 class ProfileTabController extends GetxController
     with GetSingleTickerProviderStateMixin {
@@ -16,7 +17,7 @@ class ProfileTabController extends GetxController
     super.onInit();
     tabController = TabController(length: Constants.isUserCreator ? 2 : 1, vsync: this);
     getUserData();
-    // getMyProfile();
+    getMyProfile();
   }
 
   getUserData() async {
@@ -35,31 +36,32 @@ class ProfileTabController extends GetxController
   }
 
   Future<dynamic> getMyProfile() async {
-    // Utils.check().then((value) async {
-    //   if (value) {
-    //     await BaseClient.get(
-    //         ApiUtils.getProfileApiUrl,
-    //         onSuccess: (response) async {
-    //           print(response);
-    //
-    //           SignupModel model = SignupModel.fromJson(response.data['data']);
-    //           await _appPreferences.isPreferenceReady;
-    //           String? token = await _appPreferences.getAccessToken();
-    //           model.accessToken = token;
-    //           _appPreferences.setUserData(data: jsonEncode(model));
-    //           profileData.value = model;
-    //           profileData.refresh();
-    //           return true;
-    //         },
-    //         onError: (error) {
-    //           BaseClient.handleApiError(error);
-    //           // update();
-    //           return false;
-    //         },
-    //     );
-    //   } else {
-    //     Utils.showNoInternet();
-    //   }
-    // });
+    try {
+      final res = await ApiService.me();
+      final user = Map<String, dynamic>.from(res['user'] as Map? ?? {});
+      final role = user['role']?.toString() ?? 'fan';
+      final isCreator = role == 'creator';
+      final legacyUser = {
+        '_id': user['id'],
+        'firstName': user['firstName'],
+        'lastName': user['lastName'],
+        'email': user['email'],
+        'phone': user['phone'],
+        'profileImage': user['avatarUrl'],
+        'fullName': '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim(),
+        'pushNotification': true,
+        'isVerified': true,
+        'role': {'name': isCreator ? 'Creator' : 'User', 'roleId': isCreator ? 2 : 1},
+      };
+      String? token = await _appPreferences.getAccessToken();
+      final model = SignupModel.fromJson({'user': legacyUser, 'access_token': token});
+      model.accessToken = token;
+      _appPreferences.setUserData(data: jsonEncode(model));
+      profileData.value = model;
+      profileData.refresh();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 }

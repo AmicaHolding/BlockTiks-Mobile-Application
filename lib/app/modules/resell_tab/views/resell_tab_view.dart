@@ -33,7 +33,7 @@ class ResellTabView extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: ColorConstant.answerColor)
+                bottom: BorderSide(color: ColorConstant.hairline)
               )
             ),
             child: ListView.separated(
@@ -54,9 +54,10 @@ class ResellTabView extends StatelessWidget {
                             padding: getPadding(top: 10, bottom: 10),
                             child: MyText(
                               title: item,
+                              family: 'Manrope',
                               clr: controller.index.value == index
-                                  ? ColorConstant.primaryPink
-                                  : ColorConstant.answerColor,
+                                  ? ColorConstant.primaryAccent
+                                  : ColorConstant.white60,
                               fontSize: getFontSize(14),
                               customWeight: controller.index.value == index
                                   ? FontWeight.w600
@@ -145,8 +146,9 @@ class BidWidget extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-            color: ColorConstant.gray50.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(10)),
+            color: ColorConstant.elevated,
+            border: Border.all(color: ColorConstant.hairline),
+            borderRadius: BorderRadius.circular(16)),
         margin: getMargin(bottom: 10),
         padding: getPadding(left: 16, right: 16, top: 10, bottom: 10),
         child: Row(
@@ -157,7 +159,7 @@ class BidWidget extends StatelessWidget {
                 width: 70,
                 height: 70,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   image: DecorationImage(
                     image: AssetImage(ImageConstant.splashBg),
                     fit: BoxFit.cover,
@@ -171,7 +173,8 @@ class BidWidget extends StatelessWidget {
                 children: [
                   MyText(
                     title: title,
-                    customWeight: FontWeight.bold,
+                    family: 'Manrope',
+                    customWeight: FontWeight.w600,
                     clr: ColorConstant.whiteA700,
                     fontSize: 16,
                   ),
@@ -179,7 +182,8 @@ class BidWidget extends StatelessWidget {
                   fromCreator ? Offstage() : fromSearch
                       ?  MyText(
                           title: "$type",
-                          clr: ColorConstant.whiteA700,
+                          family: 'Inter',
+                          clr: ColorConstant.white60,
                           fontSize: 13,
                         )
                       : Row(
@@ -188,13 +192,15 @@ class BidWidget extends StatelessWidget {
                               title: askingPrice != null
                                   ? "Asking Price: \$$askingPrice"
                                   : "Current Bid \$$currentBid",
+                              family: 'Inter',
                               clr: ColorConstant.whiteA700,
                               fontSize: 13,
                             ),
                             if (isFulfilled)
                               MyText(
                                 title: "(Fulfilled)",
-                                clr: ColorConstant.green,
+                                family: 'Inter',
+                                clr: ColorConstant.successGreen,
                                 fontSize: 13,
                               ),
                           ],
@@ -203,20 +209,23 @@ class BidWidget extends StatelessWidget {
                   fromSearch || fromCreator
                       ? MyText(
                           title: "$date",
-                          clr: ColorConstant.whiteA700,
+                          family: 'Inter',
+                          clr: ColorConstant.white60,
                           fontSize: 13,
                         )
                       : isExpired
                           ? MyText(
                               title: "Expired",
-                              clr: ColorConstant.red,
+                              family: 'Inter',
+                              clr: ColorConstant.errorRed,
                               fontSize: 13,
                             )
                           : MyText(
                               title: askingExpiration != null
                                   ? "Asking Expiration: $askingExpiration"
                                   : "Bidding Expiration $biddingExpiration",
-                              clr: Colors.white,
+                              family: 'Inter',
+                              clr: ColorConstant.white60,
                               fontSize: 13,
                             ),
                 ],

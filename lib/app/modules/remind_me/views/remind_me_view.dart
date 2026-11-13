@@ -1,4 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/modules/payment_page/views/payment_page_view.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
@@ -17,10 +18,9 @@ class RemindMeView extends GetView<RemindMeController> {
       bodyPadding: false,
       showNotification: false,
       bottomNavigationBar: SafeArea(
-        child: CustomButton(
+        child: PrimaryPillButton(
           text: "Back to home".tr,
           margin: getMargin(right: 20, left: 20, bottom: 30, top: 10),
-          shape: ButtonShape.RoundedBorder10,
           onTap: () {
             Get.offAllNamed(Routes.USER_DASHBOARD);
           },
@@ -39,11 +39,11 @@ class RemindMeView extends GetView<RemindMeController> {
             margin: getPadding(top: 50),
             child: MyText(
               title: 'We will remind you\nonce the event is live',
+                family: 'Inter',
                 customWeight: FontWeight.w400,
                 fontSize: 16,
                 center: true,
-                // height: 1.3,
-                // letterSpacing: -0.8,
+                height: 1.5,
                 clr: ColorConstant.white60,
             ),
           ),

@@ -5,74 +5,125 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../core/app_export.dart';
 
+/// Creator "door mode" tab bar: Events · Scan · Guests · Account.
+/// Scan is a centre action that pushes the camera screen — it is not a tab.
+/// Tab indexes: 0 = Events, 1 = Guests, 2 = Account.
 class CustomBottomBarCreator extends StatelessWidget {
-  CustomBottomBarCreator({super.key, this.onChanged});
+  CustomBottomBarCreator({super.key});
 
-  final Color _selectedColor = ColorConstant.primaryPink;
-  final Color _unselectedColor = ColorConstant.white60;
-
-  final CreatorDashboardController controller = Get.put(CreatorDashboardController());
-
-  final Function()? onChanged;
-
-  final Responsive responsive = Responsive();
+  final CreatorDashboardController controller =
+      Get.put(CreatorDashboardController());
 
   @override
   Widget build(BuildContext context) {
-    responsive.setContext(context);
     return Obx(
-          () => Container(
-        constraints: BoxConstraints(
-          maxHeight: Platform.isIOS ? getSize(85) : getSize(75),
+      () => Container(
+        height: Platform.isIOS ? getSize(84) : getSize(74),
+        padding: EdgeInsets.only(
+          bottom: Platform.isIOS ? getSize(20) : getSize(8),
+          top: getSize(8),
         ),
         decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              spreadRadius: getHorizontalSize(0.01),
-              blurRadius: getHorizontalSize(0),
-              offset: const Offset(0, -0.5),
+          color: ColorConstant.nightTabBar,
+          border: Border(
+            top: BorderSide(color: ColorConstant.hairline, width: 0.5),
+          ),
+        ),
+        child: Row(
+          children: [
+            _item(
+              icon: ImageConstant.forYou,
+              activeIcon: ImageConstant.forYouActive,
+              label: 'Events',
+              tabIndex: 0,
+            ),
+            _item(
+              materialIcon: Icons.qr_code_scanner_rounded,
+              label: 'Scan',
+              isScan: true,
+            ),
+            _item(
+              materialIcon: Icons.groups_rounded,
+              label: 'Guests',
+              tabIndex: 1,
+            ),
+            _item(
+              icon: ImageConstant.profileTab,
+              activeIcon: ImageConstant.profileTabActive,
+              label: 'Account',
+              tabIndex: 2,
             ),
           ],
-        ),
-        alignment: Alignment.bottomCenter,
-        child: Theme(
-          data: Theme.of(context).copyWith(
-            splashFactory: NoSplash.splashFactory, // Remove the ripple effect
-            highlightColor: Colors.transparent, // Remove the highlight color
-          ),
-          child: BottomNavigationBar(
-            backgroundColor: Colors.black,
-            elevation: 0,
-            showUnselectedLabels: true,  // Ensures unselected labels are shown
-            showSelectedLabels: true,    // Ensures selected labels are shown
-            selectedItemColor: _unselectedColor,  // Use selected color for selected items
-            unselectedItemColor: _unselectedColor, // Use unselected color for unselected items
-            selectedLabelStyle: AppStyle.white60InterNormal14.copyWith(color: _selectedColor), // Customize selected label style
-            unselectedLabelStyle: AppStyle.white60InterNormal14.copyWith(color: _unselectedColor), // Customize unselected label style
-            currentIndex: controller.selectedIndex.value,
-            onTap: (index) {
-              controller.selectedIndex.value = index;
-              controller.changePage(index);
-            },
-            items: [
-              _buildNavItem(ImageConstant.forYouActive, ImageConstant.forYou, "Home", 0),
-              _buildNavItem(ImageConstant.analyticsTabActive, ImageConstant.analyticsTab, "Analytics", 1),
-              _buildNavItem(ImageConstant.profileTabActive, ImageConstant.profileTab, "Profile", 2),
-            ],
-            type: BottomNavigationBarType.fixed, // Ensure all items (selected and unselected) are shown
-          ),
         ),
       ),
     );
   }
 
-  BottomNavigationBarItem _buildNavItem(
-      String selectedIcon, String icon, String label, int index) {
-    return BottomNavigationBarItem(
-      icon: controller.selectedIndex.value == index
-          ? CustomImageView(svgPath: selectedIcon, color: _selectedColor, height: getSize(20), margin: getMargin(bottom: 5))
-          : CustomImageView(svgPath: icon, color: index == 0 ? _unselectedColor : null, height: getSize(20), margin: getMargin(bottom: 5)),
-      label: label,
+  Widget _item({
+    String? icon,
+    String? activeIcon,
+    IconData? materialIcon,
+    required String label,
+    int? tabIndex,
+    bool isScan = false,
+  }) {
+    final selected = tabIndex != null &&
+        controller.selectedIndex.value == tabIndex;
+    final color =
+        selected ? ColorConstant.gold : ColorConstant.white60;
+
+    Widget iconWidget;
+    if (isScan) {
+      iconWidget = Container(
+        height: getSize(46),
+        width: getSize(46),
+        decoration: BoxDecoration(
+          color: ColorConstant.gold,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          materialIcon,
+          color: ColorConstant.night,
+          size: getSize(24),
+        ),
+      );
+    } else if (materialIcon != null) {
+      iconWidget = Icon(materialIcon, color: color, size: getSize(24));
+    } else {
+      iconWidget = CustomImageView(
+        svgPath: selected ? (activeIcon ?? icon!) : (icon ?? activeIcon!),
+        color: selected ? null : color,
+        height: getSize(22),
+      );
+    }
+
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          if (isScan) {
+            Get.toNamed(Routes.MY_SCANNER);
+          } else if (tabIndex != null) {
+            controller.selectedIndex.value = tabIndex;
+            controller.changePage(tabIndex);
+          }
+        },
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            iconWidget,
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: GoogleFonts.ibmPlexSansArabic(
+                fontSize: 11,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

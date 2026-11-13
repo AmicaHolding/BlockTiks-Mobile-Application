@@ -1,14 +1,17 @@
 import 'dart:io';
 
 import 'package:block_tix/app/modules/user_dashboard/controllers/user_dashboard_controller.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../core/app_export.dart';
 
+/// Sahra fan tab bar: For You · Search · Tickets · Profile on the deep-night
+/// bar, gold for the active tab, muted blue-grey for the rest.
 class CustomBottomBar extends StatelessWidget {
   CustomBottomBar({super.key, this.onChanged});
 
-  final Color _selectedColor = ColorConstant.primaryPink;
-  final Color _unselectedColor = ColorConstant.white60;
+  final Color _selectedColor = ColorConstant.gold;
+  final Color _unselectedColor = ColorConstant.nightMuted;
 
   final UserDashboardController controller = Get.put(UserDashboardController());
 
@@ -24,24 +27,7 @@ class CustomBottomBar extends StatelessWidget {
         constraints: BoxConstraints(
           maxHeight: Platform.isIOS ? getSize(85) : getSize(75)
         ),
-        decoration: BoxDecoration(
-          // color: ColorConstant.whiteColor.withValues(alpha: 0.1),
-          boxShadow: [
-            BoxShadow(
-              // color: ColorConstant.black9004c,
-              spreadRadius: getHorizontalSize(
-                0.01,
-              ),
-              blurRadius: getHorizontalSize(
-                0,
-              ),
-              offset: const Offset(
-                0,
-                -0.5,
-              ),
-            ),
-          ],
-        ),
+        color: ColorConstant.nightTabBar,
         alignment: Alignment.bottomCenter,
         child: Theme(
           data: Theme.of(context).copyWith(
@@ -49,18 +35,32 @@ class CustomBottomBar extends StatelessWidget {
             highlightColor: Colors.transparent, // Remove the highlight color
           ),
           child: BottomNavigationBar(
-            backgroundColor: Colors.black,
+            backgroundColor: ColorConstant.nightTabBar,
             elevation: 0,
+            selectedItemColor: _selectedColor,
+            unselectedItemColor: _unselectedColor,
+            selectedLabelStyle: GoogleFonts.bricolageGrotesque(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: _selectedColor,
+            ),
+            unselectedLabelStyle: GoogleFonts.bricolageGrotesque(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: _unselectedColor,
+            ),
+            showUnselectedLabels: true,
+            showSelectedLabels: true,
             currentIndex: controller.selectedIndex.value,
             onTap: (index) {
               controller.selectedIndex.value = index;
               controller.changePage(index);
             },
             items: [
-              _buildNavItem(ImageConstant.forYouActive, ImageConstant.forYou, "For You", 0),
-              _buildNavItem(ImageConstant.resellActive,ImageConstant.resell, "Resell", 1),
-              _buildNavItem(ImageConstant.walletActive,ImageConstant.wallet, "Wallet", 2),
-              _buildNavItem(ImageConstant.profileTabActive,ImageConstant.profileTab, "Profile", 3),
+              _buildNavItem(ImageConstant.forYou, "For You", 0),
+              _buildNavItem(ImageConstant.search, "Search", 1),
+              _buildNavItem(ImageConstant.ticket, "Tickets", 2),
+              _buildNavItem(ImageConstant.profileTab, "Profile", 3),
             ],
             type: BottomNavigationBarType.fixed, // Keeps all icons visible
           ),
@@ -69,32 +69,18 @@ class CustomBottomBar extends StatelessWidget {
     );
   }
 
-  BottomNavigationBarItem _buildNavItem(
-      String selectedIcon,String icon, String label, int index) {
+  BottomNavigationBarItem _buildNavItem(String icon, String label, int index) {
+    final selected = controller.selectedIndex.value == index;
     return BottomNavigationBarItem(
-      icon: controller.selectedIndex.value == index
-          ? Container(
-              padding: getPadding(left: 10,right: 10, top: 8,bottom: 8),
-              decoration: BoxDecoration(
-                color: ColorConstant.whiteA700.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(getSize(20)),
-              ),
-              child: Row(
-                children: [
-                  CustomImageView(svgPath: selectedIcon, color: _selectedColor,height: getSize(20),),
-                  if (label.isNotEmpty)
-                    SizedBox(width: getSize(6)), // Space between icon and text
-                  if (label.isNotEmpty)
-                    MyText(title: label, clr: Colors.white),
-                ],
-              ),
-            )
-          : Container(
-        padding: getPadding(left: 10,right: 10, top: 8,bottom: 8),
-            child: CustomImageView(svgPath: icon,color: index ==0 ? ColorConstant.white60 : null, height: getSize(18),
-                  ),
-          ),
-      label: '',
+      icon: Padding(
+        padding: getPadding(top: 6),
+        child: CustomImageView(
+          svgPath: icon,
+          color: selected ? _selectedColor : _unselectedColor,
+          height: getSize(22),
+        ),
+      ),
+      label: label,
     );
   }
 }

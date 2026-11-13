@@ -1,3 +1,4 @@
+import 'package:block_tix/app/data/theme/app_style.dart';
 import 'package:block_tix/app/data/utils/color_constant.dart';
 import 'package:block_tix/app/data/utils/size_utils.dart';
 import 'package:block_tix/app/data/widgets/base/baseview_process_screen.dart';
@@ -33,19 +34,22 @@ class FaqsView extends GetView<FaqsController> {
               Container(
                 padding: getPadding(left: 16, right: 16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  color: ColorConstant.elevated,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: TextField(
+                  onChanged: (val) => controller.searchQuery.value = val,
                   style: GoogleFonts.getFont("Inter",
                       fontSize: 16, color: ColorConstant.whiteA700),
                   decoration: InputDecoration(
                     contentPadding: getPadding(
                       right: 30,
                     ),
-                    icon: Icon(Icons.search, color: Colors.white),
+                    icon: Icon(Icons.search,
+                        color: ColorConstant.white60),
                     hintText: 'Search',
-                    hintStyle: TextStyle(color: Colors.white70),
+                    hintStyle:
+                        TextStyle(color: ColorConstant.white60),
                     border: InputBorder.none,
                   ),
                 ),
@@ -53,11 +57,29 @@ class FaqsView extends GetView<FaqsController> {
               SizedBox(
                 height: getSize(20),
               ),
-              FAQTile(
-                type: "Transfer Tickets",
-                question: "How to transfer tickets to another user?",
-                answer: "How to transfer tickets to another user?",
-              ),
+              Obx(() {
+                final items = controller.filteredFaqs;
+                if (items.isEmpty) {
+                  return Padding(
+                    padding: getPadding(top: 24, bottom: 24),
+                    child: Center(
+                      child: Text(
+                        'No FAQs found',
+                        style: AppStyle.bodySmallInter,
+                      ),
+                    ),
+                  );
+                }
+                return Column(
+                  children: items
+                      .map((f) => FAQTile(
+                            type: f['type']!,
+                            question: f['question']!,
+                            answer: f['answer']!,
+                          ))
+                      .toList(),
+                );
+              }),
             ],
           ),
         ),

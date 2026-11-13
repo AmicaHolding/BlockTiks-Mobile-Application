@@ -36,6 +36,11 @@ class Constants {
   static const int PHONE_VALIDATION = 15;
   static const int MAX_INPUT_LIMIT = 30;
   static const int refreshDelay = 800;
+
+  /// Stripe TEST-mode publishable key (safe to ship — publishable keys are
+  /// public by design). Swap for the live key at go-live.
+  static const String stripePublishableKey =
+      'pk_test_51OQcYMKDQ9FNyAvcuMnJVFcHo5JBiPVpnVjlPFldhCQaR5hIP5kp7iKQf1GoXAbAbiF0KaQnIHduLKa5eOGRYJgA00z1BysV1J';
   static const int MAX_IMAGE_SIZE = 3; // in Mbs
 
   static bool showToast = true;

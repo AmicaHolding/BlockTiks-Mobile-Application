@@ -53,8 +53,8 @@ class AddTeamView extends GetView<AddTeamController> {
               padding: getPadding(left: 16, right: 16),
               margin: getMargin(bottom: 20),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+                color: ColorConstant.elevated,
+                borderRadius: BorderRadius.circular(12),
               ),
               alignment: Alignment.center,
               child: Form(
@@ -109,6 +109,7 @@ class AddTeamView extends GetView<AddTeamController> {
                       title: "+ Add Teammate",
                       fontSize: 16,
                       customWeight: FontWeight.w600,
+                      clr: ColorConstant.primaryAccent,
                     ),
                   ),
                 ],

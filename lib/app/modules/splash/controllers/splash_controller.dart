@@ -1,5 +1,7 @@
 import 'package:block_tix/app/Shared_prefrences/app_prefrences.dart';
+import 'package:block_tix/app/data/utils/constants.dart';
 import 'package:block_tix/app/routes/app_pages.dart';
+import 'package:block_tix/app/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -92,6 +94,18 @@ class SplashController extends GetxController with GetTickerProviderStateMixin {
     //   }
     // }).catchError((err) async {
     await Future.delayed(splashDuration.seconds);
+
+    final loggedIn = await appPreferences.getIsLoggedIn() ?? false;
+    if (loggedIn) {
+      final token = await appPreferences.getAccessToken();
+      if (token != null && token.isNotEmpty) {
+        ApiService.setToken(token);
+        final role = await appPreferences.getRole();
+        Constants.isUserCreator = role == 'creator';
+        ApiService.goToDashboard();
+        return;
+      }
+    }
     Get.offAndToNamed(Routes.GET_STARTED);
     // Get.offAndToNamed(Routes.USER_DASHBOARD);
     // });

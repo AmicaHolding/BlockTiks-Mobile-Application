@@ -1,5 +1,7 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/custom_round_button.dart';
+import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
+import 'package:block_tix/app/services/api_service.dart';
 
 class SignInController extends GetxController {
   TextEditingController emailController = TextEditingController();
@@ -36,12 +38,23 @@ class SignInController extends GetxController {
   }
 
   Future<dynamic> loginAPI() async {
-    var map = {
-      Constants.paramEmail: emailController.text,
-      Constants.paramComingFrom: Constants.paramLogin,
-      Constants.paramCreator: emailController.text.contains("creator")
-    };
-    Get.toNamed(Routes.OTP_VERIFICATION_SCREEN, arguments: map);
+    final email = emailController.text.trim();
+    final password = passwordController.text;
+    if (email.isEmpty || password.isEmpty) {
+      CustomSnackBar.showCustomErrorToast(message: "Please enter email and password".tr);
+      return;
+    }
+    btnController.start();
+    try {
+      final res = await ApiService.login(email: email, password: password);
+      btnController.stop();
+      await ApiService.saveSession(res);
+      ApiService.goToDashboard();
+    } catch (e) {
+      btnController.error();
+      btnController.stop();
+      CustomSnackBar.showCustomErrorToast(message: e.toString().replaceFirst('Exception: ', ''));
+    }
   }
 
   loginGoogle(context) async {

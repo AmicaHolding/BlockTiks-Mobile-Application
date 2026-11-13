@@ -19,107 +19,160 @@ class ReferralsView extends GetView<ReferralsController> {
           text: "Share Link".tr,
           margin: getMargin(right: 20, left: 20, bottom: 30, top: 10),
           shape: ButtonShape.RoundedBorder10,
-          onTap: () {},
+          onTap: () => controller.copyReferralLink(),
         ),
       ),
       child: SingleChildScrollView(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             MyText(
               title: 'Referrals',
+              family: 'Manrope',
               clr: ColorConstant.whiteA700,
-              fontSize: 18,
-              customWeight: FontWeight.w600,
+              fontSize: 20,
+              customWeight: FontWeight.w700,
             ),
             const SizedBox(height: 20),
-            const Align(
-              alignment: Alignment.topLeft,
-              child: MyText(
-                title: 'Get \$10 when your friends join BlockTix',
-                family: 'Manrope',
-                fontSize: 16,
-              ),
+            MyText(
+              title: 'Get \$10 when your friends join BlockTix',
+              family: 'Manrope',
+              customWeight: FontWeight.w600,
+              fontSize: 16,
             ),
             const SizedBox(height: 7),
-            const MyText(
+            MyText(
               title:
                   'Share your unique link or code to invite friends. They will get \$10 when they join, and you will get \$10 after they send \$5.',
-              family: 'Manrope',
-              customWeight: FontWeight.w500,
-              fontSize: 12,
+              family: 'Inter',
+              fontSize: 13,
+              clr: ColorConstant.white60,
             ),
             SizedBox(
-              height: getSize(40),
+              height: getSize(24),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  margin: const EdgeInsets.fromLTRB(0, 1, 0, 7),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.fromLTRB(1, 0, 17.7, 2),
-                        child: const MyText(
+            Container(
+              padding: getPadding(all: 16),
+              decoration: BoxDecoration(
+                color: ColorConstant.elevated,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        MyText(
                           title: 'Your code',
                           family: 'Manrope',
-                          fontSize: 16,
+                          customWeight: FontWeight.w600,
+                          fontSize: 15,
                         ),
-                      ),
-                      const MyText(
-                        title: 'Copy to cliboard',
-                        family: 'Manrope',
-                        customWeight: FontWeight.w500,
-                        fontSize: 12,
-                      ),
-                    ],
+                        SizedBox(height: getSize(4)),
+                        MyText(
+                          title: ReferralsController.referralCode,
+                          family: 'Inter',
+                          customWeight: FontWeight.w600,
+                          fontSize: 15,
+                          clr: ColorConstant.primaryAccent,
+                        ),
+                        const SizedBox(height: 2),
+                        MyText(
+                          title: 'Tap copy to clipboard',
+                          family: 'Inter',
+                          fontSize: 12,
+                          clr: ColorConstant.white60,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                CustomButton(
-                  text: 'Copy',
-                  width: 150,
-                ),
-              ],
+                  CustomButton(
+                    text: 'Copy',
+                    width: 110,
+                    height: 36,
+                    onTap: () => controller.copyReferralCode(),
+                  ),
+                ],
+              ),
             ),
             SizedBox(
-              height: getSize(30),
+              height: getSize(16),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  margin: const EdgeInsets.fromLTRB(0, 1, 0, 7),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.fromLTRB(1, 0, 17.7, 2),
-                        child: const MyText(
+            Container(
+              padding: getPadding(all: 16),
+              decoration: BoxDecoration(
+                color: ColorConstant.elevated,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        MyText(
+                          title: 'Referral link',
+                          family: 'Manrope',
+                          customWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                        SizedBox(height: getSize(4)),
+                        MyText(
+                          title: ReferralsController.referralLink,
+                          family: 'Inter',
+                          fontSize: 13,
+                          clr: ColorConstant.white60,
+                          toverflow: TextOverflow.ellipsis,
+                          line: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  CustomButton(
+                    text: 'Copy',
+                    width: 110,
+                    height: 36,
+                    variant: ButtonVariant.FillGray300,
+                    onTap: () => controller.copyReferralLink(),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: getSize(24),
+            ),
+            Container(
+              padding: getPadding(all: 16),
+              decoration: BoxDecoration(
+                color: ColorConstant.elevated,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        MyText(
                           title: 'Referral Rewards',
                           family: 'Manrope',
-                          fontSize: 16,
+                          customWeight: FontWeight.w600,
+                          fontSize: 15,
                         ),
-                      ),
-                      const MyText(
-                        title: 'You\'ve earned \$0',
-                        family: 'Manrope',
-                        customWeight: FontWeight.w500,
-                        fontSize: 12,
-                      ),
-                    ],
+                        const SizedBox(height: 2),
+                        MyText(
+                          title: 'You\'ve earned \$0',
+                          family: 'Inter',
+                          fontSize: 13,
+                          clr: ColorConstant.white60,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                CustomButton(
-                  text: 'See Details',
-                  width: 150,
-                  variant: ButtonVariant.FillGray300,
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),

@@ -25,7 +25,7 @@ class CreatorEventView extends GetView<CreatorEventController> {
       actions: [
         GestureDetector(
           onTap: (){
-            Get.toNamed(Routes.CREATE_EVENT,arguments: {Constants.paramEdit : true});
+            Get.toNamed(Routes.CREATE_EVENT,arguments: {Constants.paramEdit : true, 'title': controller.eventTitle.value, 'id': controller.eventId.value});
           },
           child: MyText(title: 'Edit',
             fontSize: 18,
@@ -40,30 +40,30 @@ class CreatorEventView extends GetView<CreatorEventController> {
             SizedBox(height: getSize(20),),
             Row(
               children: [
-                MyText(title: 'Cyberpunk',
+                Obx(() => MyText(title: controller.eventTitle.value,
                   fontSize: 29,
                   customWeight: FontWeight.bold,
-                ),
+                )),
                 SizedBox(width: getSize(15),),
                 Container(
                   width: getSize(16),
                   height: getSize(16),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: ColorConstant.greenActive
+                    color: ColorConstant.successGreen
                   ),
                 ),
                 Spacer(),
                 GestureDetector(
                   onTap: (){
-                    Get.toNamed(Routes.EVENT_DETAIL,arguments: {Constants.paramCreator:true});
+                    Get.toNamed(Routes.EVENT_DETAIL,arguments: {Constants.paramCreator:true,'title': controller.eventTitle.value});
                   },
                   child: Container(
-                    padding: getPadding(left: 8,right: 8,top: 5,bottom: 5),
+                    padding: getPadding(left: 12,right: 12,top: 6,bottom: 6),
                     decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: ColorConstant.grayBorder
+                        color: ColorConstant.hairline
                       )
                     ),
                     child: MyText(
@@ -90,16 +90,49 @@ class CreatorEventView extends GetView<CreatorEventController> {
             SizedBox(height: getSize(30),),
             MyText(title: 'Analytics',fontSize: 18,customWeight: FontWeight.w600,),
             SizedBox(height: getSize(15),),
-            Row(
-              children: [
-                Expanded(
-                  child: _userWidget("Tickets Sold","231","32",),
-                ),
-                Expanded(
-                  child: _userWidget("Total Sales","1400","32",showUSD: true),
-                ),
-              ],
-            ),
+            Obx(() {
+              if (controller.eventId.value.isNotEmpty && controller.isLoading.value) {
+                return const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (controller.loadError.value != null) {
+                return Padding(
+                  padding: getPadding(bottom: 10),
+                  child: MyText(
+                    title: "Couldn't load event stats: ${controller.loadError.value}",
+                    clr: ColorConstant.white60,
+                    fontSize: 12,
+                    line: 3,
+                  ),
+                );
+              }
+              return Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _userWidget("Tickets Sold","${controller.ticketsSold.value}",null,),
+                      ),
+                      Expanded(
+                        child: _userWidget("Total Sales",controller.revenueLabel,null,),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _userWidget("Going","${controller.goingCount.value}",null,),
+                      ),
+                      Expanded(
+                        child: _userWidget("Capacity","—",null,),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            }),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -149,7 +182,7 @@ class CreatorEventView extends GetView<CreatorEventController> {
                     decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                            color: ColorConstant.grayBorder
+                            color: ColorConstant.hairline
                         )
                     ),
                     child: MyText(
@@ -169,7 +202,7 @@ class CreatorEventView extends GetView<CreatorEventController> {
                     decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                            color: ColorConstant.grayBorder
+                            color: ColorConstant.hairline
                         )
                     ),
                     child: MyText(
@@ -182,7 +215,7 @@ class CreatorEventView extends GetView<CreatorEventController> {
               ],
             ),
             SizedBox(height: getSize(10),),
-            MyText(title: '80 Guests',fontSize: 16,customWeight: FontWeight.w400,),
+            Obx(() => MyText(title: '${controller.goingCount.value} Going',fontSize: 16,customWeight: FontWeight.w400,)),
             SizedBox(height: getSize(15),),
             SizedBox(
               height: 50, // Set a fixed height for the ListView
@@ -212,7 +245,7 @@ class CreatorEventView extends GetView<CreatorEventController> {
                         width: 50,
                         height: 50,
                         decoration: BoxDecoration(
-                          color: ColorConstant.grayBorder,
+                          color: ColorConstant.elevated,
                           borderRadius: BorderRadius.circular(50),
                         ),
                         child: Center(
@@ -242,7 +275,7 @@ class CreatorEventView extends GetView<CreatorEventController> {
                     decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                            color: ColorConstant.grayBorder
+                            color: ColorConstant.hairline
                         )
                     ),
                     child: MyText(
@@ -285,7 +318,7 @@ class CreatorEventView extends GetView<CreatorEventController> {
     );
   }
 
-  Widget _userWidget(String title,String amount,String progress,
+  Widget _userWidget(String title,String amount,String? progress,
       {bool showUSD = false, bool decline = false}){
     return Padding(
       padding: getPadding( bottom: 20),
@@ -300,28 +333,30 @@ class CreatorEventView extends GetView<CreatorEventController> {
             height: 3,
           ),
           MyText(
-            title: "${showUSD ? "\$" : ""}$amount",
+            title: showUSD ? "\$$amount" : amount,
             fontSize: 28,
             customWeight: FontWeight.w800,
           ),
-          const SizedBox(
-            height: 5,
-          ),
-          Row(
-            children: [
-              MyText(
-                title: "This week",
-                clr: ColorConstant.white60,
-              ),
-              const SizedBox(
-                width: 5,
-              ),
-              MyText(
-                title: "${decline ? "-" : "+"}$progress%",
-                clr: decline ? ColorConstant.red : ColorConstant.green,
-              ),
-            ],
-          ),
+          if (progress != null) ...[
+            const SizedBox(
+              height: 5,
+            ),
+            Row(
+              children: [
+                MyText(
+                  title: "This week",
+                  clr: ColorConstant.white60,
+                ),
+                const SizedBox(
+                  width: 5,
+                ),
+                MyText(
+                  title: "${decline ? "-" : "+"}$progress%",
+                  clr: decline ? ColorConstant.errorRed : ColorConstant.successGreen,
+                ),
+              ],
+            ),
+          ],
           const SizedBox(
             height: 10,
           ),
@@ -353,8 +388,8 @@ class GuestTile extends StatelessWidget {
         padding: getPadding(left: 15, right: 15, top: 10, bottom: 10),
         margin: getMargin(bottom: 15),
         decoration: BoxDecoration(
-            color: ColorConstant.whiteA700.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(10)),
+            color: ColorConstant.surface,
+            borderRadius: BorderRadius.circular(16)),
         child: Row(
           children: [
             CustomImageView(
@@ -419,7 +454,7 @@ class GuestTile extends StatelessWidget {
                       },
                       child: MyText(
                         title: "lbl_cancel".tr,
-                        clr: ColorConstant.blueGray400,
+                        clr: ColorConstant.white60,
                         fontSize: getFontSize(14),
                         customWeight: FontWeight.w400,
                       ),
@@ -429,7 +464,7 @@ class GuestTile extends StatelessWidget {
                       child: Center(
                         child: MyText(
                           title: "lbl_select_option".tr,
-                          clr: ColorConstant.blueGray900,
+                          clr: ColorConstant.whiteA700,
                           fontSize: getFontSize(16),
                           customWeight: FontWeight.w600,
                         ),

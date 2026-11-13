@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/base/baseview_process_screen.dart';
 import 'package:block_tix/app/modules/resell_tab/views/resell_tab_view.dart';
@@ -7,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 
 import '../controllers/creator_search_controller.dart';
 
@@ -27,21 +24,16 @@ class CreatorSearchView extends GetView<CreatorSearchController> {
             Container(
               padding: getPadding(left: 16, right: 16),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+                color: ColorConstant.elevated,
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Stack(
                 children: [
                   TextField(
+                    controller: controller.searchController,
                     style: GoogleFonts.getFont("Inter",
                         fontSize: 16, color: ColorConstant.whiteA700),
-                    onChanged: (String val) {
-                      if (val.isEmpty) {
-                        controller.isEmpty.value = true;
-                      } else {
-                        controller.isEmpty.value = false;
-                      }
-                    },
+                    onChanged: controller.onSearchChanged,
                     decoration: InputDecoration(
                       contentPadding: getPadding(
                         right: 30,
@@ -75,24 +67,41 @@ class CreatorSearchView extends GetView<CreatorSearchController> {
                       height: 20,
                     ),
                     const MyText(
-                      title: "Recent Search",
+                      title: "Upcoming Events",
                       fontSize: 18,
                       customWeight: FontWeight.bold,
                     ),
-                    ListView.builder(
-                        itemCount: controller.events.length,
+                    Obx(() {
+                      if (controller.suggestions.isEmpty) {
+                        return Padding(
+                          padding: getPadding(top: 16),
+                          child: MyText(
+                            title: "No events found",
+                            clr: ColorConstant.white60,
+                            fontSize: 14,
+                          ),
+                        );
+                      }
+                      return ListView.builder(
+                        itemCount: controller.suggestions.length,
                         scrollDirection: Axis.vertical,
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemBuilder: (_, index) {
+                          final event = controller.suggestions[index];
                           return BidWidget(
-                            title: controller.events[index],
-                            type: "Pak Event Organizers",
-                            date: "Islamabad | ${DateFormat("dd MMM yyy").format(DateTime.now())}",
+                            title: (event['title'] ?? 'Untitled Event').toString(),
+                            type: CreatorSearchController.eventSubtitle(event),
+                            date: CreatorSearchController.eventSubtitle(event),
                             fromSearch: true,
-                            onTap: () => Get.toNamed(Routes.EVENT_DETAIL),
+                            onTap: () => Get.toNamed(Routes.EVENT_DETAIL,
+                                arguments: {
+                                  'id': event['id']?.toString(),
+                                  'title': event['title']?.toString(),
+                                }),
                           );
-                        }),
+                        });
+                    }),
                   ],
                 ),
               )
@@ -133,92 +142,100 @@ class CreatorSearchView extends GetView<CreatorSearchController> {
                   SizedBox(
                     height: getSize(10),
                   ),
-                  ListView.builder(
-                    physics:
-                    const NeverScrollableScrollPhysics(),
-                    shrinkWrap: true,
-                    itemCount: controller.events.length,
-                    scrollDirection: Axis.vertical,
-                    padding: EdgeInsets.zero,
-                    itemBuilder: (context, index) {
-                      return GestureDetector(
-                        onTap: () {
-                          // Get.toNamed(Routes.PLACE_BID);
-                        },
-                        child: Container(
-                          margin: getMargin(bottom: 10),
-                          decoration: BoxDecoration(
-                              color: ColorConstant.gray50
-                                  .withValues(alpha: 0.05),
-                              borderRadius:
-                              BorderRadius.circular(10)),
-                          child: Row(
-                            children: [
-                              Container(
-                                margin: getPadding(
-                                    left: 15,
-                                    right: 15,
-                                    top: 10,
-                                    bottom: 10),
-                                width: 40,
-                                height: 40,
-                                child: CustomImageView(
-                                  imagePath:
-                                  ImageConstant.splashBg,
-                                  width: 40,
-                                  height: 40,
-                                  radius:
-                                  BorderRadius.circular(
-                                      5),
-                                ),
-                              ),
-                              const SizedBox(
-                                width: 10,
-                              ),
-                              MyText(
-                                title:
-                                controller.events[index],
-                                fontSize: 16,
-                              ),
-                              const SizedBox(
-                                width: 10,
-                              ),
-                              const Spacer(),
-                              Container(
-                                width: 60,
-                                height: 60,
-                                margin: getMargin(right: 15),
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                    color: ColorConstant.whiteA700.withValues(alpha: 0.05),
-                                    borderRadius:
-                                    BorderRadius.circular(
-                                        10)),
-                                child: MyText(
-                                  title:
-                                  "${Random().nextInt(1000)}",
-                                  fontSize: 16,
-                                ),
-                              ),
-                              Container(
-                                width: 60,
-                                height: 60,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                    color: ColorConstant.whiteA700.withValues(alpha: 0.05),
-                                    borderRadius: BorderRadius.circular(10)),
-                                child: MyText(
-                                  title:
-                                  "${Random().nextInt(1000)}",
-                                  fontSize: 16,
-                                ),
-                              )
-                            ],
-                          ),
+                  Obx(() {
+                    if (controller.isSearching.value) {
+                      return const Padding(
+                        padding: EdgeInsets.all(30),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    if (controller.results.isEmpty) {
+                      return Padding(
+                        padding: getPadding(top: 20, bottom: 20),
+                        child: MyText(
+                          title: "No events found",
+                          clr: ColorConstant.white60,
+                          fontSize: 14,
                         ),
                       );
-                    },
-                  ),
+                    }
+                    return ListView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      shrinkWrap: true,
+                      itemCount: controller.results.length,
+                      scrollDirection: Axis.vertical,
+                      padding: EdgeInsets.zero,
+                      itemBuilder: (context, index) {
+                        final event = controller.results[index];
+                        return GestureDetector(
+                          onTap: () {
+                            Get.toNamed(Routes.EVENT_DETAIL,
+                                arguments: {
+                                  'id': event['id']?.toString(),
+                                  'title': event['title']?.toString(),
+                                });
+                          },
+                          child: Container(
+                            margin: getMargin(bottom: 10),
+                            decoration: BoxDecoration(
+                                color: ColorConstant.surface,
+                                borderRadius:
+                                BorderRadius.circular(16)),
+                            child: Row(
+                              children: [
+                                Container(
+                                  margin: getPadding(
+                                      left: 15,
+                                      right: 15,
+                                      top: 10,
+                                      bottom: 10),
+                                  width: 40,
+                                  height: 40,
+                                  child: CustomImageView(
+                                    url: event['imageUrl']?.toString() ?? '',
+                                    imagePath: event['imageUrl'] == null ||
+                                            (event['imageUrl']?.toString() ?? '')
+                                                .isEmpty
+                                        ? ImageConstant.splashBg
+                                        : null,
+                                    width: 40,
+                                    height: 40,
+                                    radius:
+                                    BorderRadius.circular(
+                                        5),
+                                  ),
+                                ),
+                                const SizedBox(
+                                  width: 10,
+                                ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      MyText(
+                                        title: (event['title'] ??
+                                                'Untitled Event')
+                                            .toString(),
+                                        fontSize: 16,
+                                      ),
+                                      MyText(
+                                        title:
+                                            CreatorSearchController.eventSubtitle(
+                                                event),
+                                        fontSize: 12,
+                                        clr: ColorConstant.white60,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  }),
                 ],
               ),
                 // ListView.builder(

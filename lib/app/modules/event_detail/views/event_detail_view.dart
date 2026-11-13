@@ -1,5 +1,8 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
+import 'package:block_tix/app/modules/payment_page/views/payment_page_view.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../controllers/event_detail_controller.dart';
 
@@ -16,60 +19,64 @@ class EventDetailView extends GetView<EventDetailController> {
       bodyPadding: false,
       showNotification: true,
       bottomNavigationBar: Constants.isUserCreator ? const Offstage() : SafeArea(
-        child: Row(
+        child: Container(
+          color: ColorConstant.nightTabBar,
+          padding: getPadding(left: 20, right: 20, top: 14, bottom: 16),
+          child: Row(
           children: [
-            SizedBox(width: getSize(20)),
             Expanded(
               flex: 2,
-              child: Column(
+              child: Obx(() {
+                final fromPrice = controller.hasEvent
+                    ? controller.tiers
+                        .map((t) => t['priceCents'] ??
+                            (((t['price'] as num?) ?? 0) * 100).round())
+                        .whereType<num>()
+                        .fold<num?>(null, (min, p) =>
+                            min == null || p < min ? p : min)
+                    : null;
+                return Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const MyText(
-                        title: 'Subtotal',
-                        family: 'Manrope',
-                        customWeight: FontWeight.w700,
-                        fontSize: 14,
-                        clr: Color(0xFFFFFFFF),
-                      ),
-                      SizedBox(width: getSize(30),),
-                      Obx(() => MyText(
-                        title: '\$${controller.platinumCount.value *405 +controller.goldCount.value *405 + controller.silverCount.value *405+ controller.bronzeCount.value *405}',
-                        family: 'Manrope',
-                        customWeight: FontWeight.w700,
-                        fontSize: 14,
-                        clr: ColorConstant.green,
-                      ),)
-                    ],
+                  MyText(
+                    title: controller.selectedCount > 0
+                        ? '${controller.selectedCount} ticket${controller.selectedCount == 1 ? '' : 's'}'
+                        : 'From',
+                    family: 'Inter',
+                    fontSize: 13,
+                    clr: ColorConstant.white60,
                   ),
-                  SizedBox(height: getSize(5),),
-                  const MyText(
-                    title:"All-inclusive price",
-                    customWeight: FontWeight.w400,
-                    fontSize: 14,
-                    clr: Color(0xB2FFFFFF),
+                  SizedBox(height: getSize(2),),
+                  MyText(
+                    title: controller.selectedCount > 0
+                        ? formatDollars(controller.subtotalDollars)
+                        : (fromPrice != null
+                            ? formatCents(fromPrice.toInt())
+                            : '—'),
+                    family: 'Manrope',
+                    customWeight: FontWeight.w800,
+                    fontSize: 20,
+                    height: 1.1,
                   ),
                 ],
-              ),
+              );}),
             ),
             Expanded(
               flex: 1,
-              child: CustomButton(
-                text: "lbl_next".tr,
-                height: 40,
-                margin: getMargin(right: 20, left: 20, bottom: 30, top: 10),
-                shape: ButtonShape.RoundedBorder10,
+              child: PrimaryPillButton(
+                text: "Get tickets",
                 onTap: () {
-                 if((controller.platinumCount.value+controller.goldCount.value+controller.silverCount.value+controller.bronzeCount.value) > 0){
-                   final map = {
-                     'platinum': controller.platinumCount.value,
-                     'gold': controller.goldCount.value,
-                     'silver': controller.silverCount.value,
-                     'bronze': controller.bronzeCount.value,
-                   };
-                   Get.toNamed(Routes.PAYMENT_PAGE,arguments:map);
+                 final hasSelection = controller.hasEvent
+                     ? controller.selectedCount > 0
+                     : (controller.platinumCount.value +
+                             controller.goldCount.value +
+                             controller.silverCount.value +
+                             controller.bronzeCount.value) >
+                         0;
+                 if (hasSelection) {
+                   Get.toNamed(Routes.PAYMENT_PAGE,
+                       arguments: controller.paymentArguments());
                  }else{
                    CustomSnackBar.showCustomErrorToast(message: "Please select at least one ticket");
                  }
@@ -77,155 +84,179 @@ class EventDetailView extends GetView<EventDetailController> {
               ),
             ),
           ],
+          ),
         ),
       ),
-      child: SingleChildScrollView(
+      child: Obx(() {
+        if (controller.isLoading.value && !controller.hasEvent) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        }
+        if (controller.loadError.value != null && !controller.hasEvent) {
+          return Center(
+            child: Padding(
+              padding: getPadding(all: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  MyText(
+                    title: "Couldn't load event",
+                    family: 'Manrope',
+                    customWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                  const SizedBox(height: 8),
+                  MyText(
+                    title: controller.loadError.value ?? '',
+                    family: 'Inter',
+                    fontSize: 13,
+                    clr: ColorConstant.white60,
+                    center: true,
+                  ),
+                  const SizedBox(height: 16),
+                  PrimaryPillButton(
+                    text: 'Retry',
+                    onTap: () => controller.fetchEvent(),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return SingleChildScrollView(
         child: Column(
           children: [
-            const StageViewScreen(height: 380,showCircles: false,),
+            _EventHero(event: controller.hasEvent ? controller.event : null),
             Padding(
               padding: getPadding(all: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   MyText(
-                    title: 'Music Concert',
+                    title: controller.hasEvent
+                        ? (controller.categoryText.isNotEmpty
+                            ? controller.categoryText.toUpperCase()
+                            : 'EVENT')
+                        : 'MUSIC CONCERT',
+                    family: 'Inter',
+                    customWeight: FontWeight.w600,
+                    fontSize: 13,
+                    letterSpacing: 1.2,
+                    clr: ColorConstant.gold,
+                  ),
+                  const SizedBox(height: 6),
+                  MyText(
+                    title: controller.hasEvent
+                        ? controller.titleText
+                        : 'DJ Maksmellow Orignawa',
                     family: 'Manrope',
-                    customWeight: FontWeight.w400,
-                    fontSize: 14,
+                    customWeight: FontWeight.w800,
+                    fontSize: 30,
+                    height: 1.1,
                     clr: ColorConstant.whiteA700,
+                  ),
+                  SizedBox(
+                    height: getSize(20),
+                  ),
+                  controller.hasEvent
+                      ? const Offstage()
+                      : const MyText(
+                          title: 'Japan Night Festival 2021',
+                          family: 'Manrope',
+                          customWeight: FontWeight.w700,
+                          fontSize: 14,
+                          clr: Color(0xFFFFFFFF),
+                        ),
+                  SizedBox(
+                    height: getSize(20),
+                  ),
+                  _InfoRow(
+                    icon: Icons.calendar_month,
+                    title: controller.hasEvent
+                        ? controller.formattedDate
+                        : 'Sunday, 14 February 2021',
+                    subtitle: 'Add to calendar',
+                    onTap: () {},
+                  ),
+                  const SizedBox(height: 12),
+                  _InfoRow(
+                    icon: Icons.location_on_outlined,
+                    title: controller.hasEvent
+                        ? (controller.locationText.isNotEmpty
+                            ? controller.locationText
+                            : '—')
+                        : 'Japan, 〒604-8122 Kyoto, Nakagyo Ward',
+                    subtitle: 'Directions',
+                    onTap: () {
+                      Utils.openGoogleMapDirections(25.197525, 55.274288);
+                    },
+                  ),
+                  SizedBox(
+                    height: getSize(20),
                   ),
                   MyText(
-                    title: 'DJ Maksmellow Orignawa',
+                    title: 'Event Details',
                     family: 'Manrope',
-                    customWeight: FontWeight.w700,
-                    fontSize: 22,
-                    clr: ColorConstant.whiteA700,
-                  ),
-                  SizedBox(
-                    height: getSize(20),
-                  ),
-                  const MyText(
-                    title: 'Japan Night Festival 2021',
-                    family: 'Manrope',
-                    customWeight: FontWeight.w700,
-                    fontSize: 14,
-                    clr: Color(0xFFFFFFFF),
-                  ),
-                  SizedBox(
-                    height: getSize(20),
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.calendar_month,
-                                  color: ColorConstant.primaryPink,
-                                  size: 24,
-                                ),
-                                const SizedBox(
-                                  width: 20,
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    'Sunday, 14 February 2021',
-                                    style: GoogleFonts.getFont(
-                                      'Manrope',
-                                      fontWeight: FontWeight.w400,
-                                      fontSize: 14,
-                                      color: const Color(0xB2FFFFFF),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(
-                              height: getSize(15),
-                            ),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.location_on,
-                                  color: ColorConstant.primaryPink,
-                                  size: 24,
-                                ),
-                                const SizedBox(
-                                  width: 20,
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    'Japan, 〒604-8122 Kyoto, Nakagyo Ward, 錦小路下る瀬戸 屋町474',
-                                    style: GoogleFonts.getFont(
-                                      'Manrope',
-                                      fontWeight: FontWeight.w400,
-                                      fontSize: 14,
-                                      color: const Color(0xB2FFFFFF),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: (){
-                          Utils.openGoogleMapDirections(25.197525, 55.274288);
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.fromLTRB(20, 50, 0, 36),
-                          child: Text(
-                            'Direction',
-                            style: GoogleFonts.getFont(
-                              'Manrope',
-                              fontWeight: FontWeight.w400,
-                              fontSize: 14,
-                              color: const Color(0xFFB620E0),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(
-                    height: getSize(20),
-                  ),
-                  Text(
-                    'Event Details',
-                    style: GoogleFonts.getFont(
-                      'Manrope',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      color: const Color(0xFFFFFFFF),
-                    ),
+                    customWeight: FontWeight.w600,
+                    fontSize: 17,
                   ),
                   SizedBox(
                     height: getSize(10),
                   ),
                   Text(
-                    'South Korean girl group Blackpink have embarked on two headlining concert tours. In July 2017, the group held their debut showcase in Japan.',
-                    style: GoogleFonts.getFont(
-                      'Manrope',
+                    controller.hasEvent
+                        ? controller.descriptionText
+                        : 'South Korean girl group Blackpink have embarked on two headlining concert tours. In July 2017, the group held their debut showcase in Japan.',
+                    style: GoogleFonts.inter(
                       fontWeight: FontWeight.w400,
                       fontSize: 14,
-                      color: const Color(0xB2FFFFFF),
+                      height: 1.5,
+                      color: ColorConstant.white60,
                     ),
                   ),
 
                   SizedBox(
                     height: getSize(20),
                   ),
+                  // Real ticket tiers from the backend when an event is
+                  // loaded; legacy fixed counters otherwise.
+                  const SizedBox(height: 8),
+                  MyText(
+                    title: 'Tickets',
+                    family: 'Manrope',
+                    customWeight: FontWeight.w700,
+                    fontSize: 18,
+                    clr: ColorConstant.whiteA700,
+                  ),
+                  const SizedBox(height: 12),
+                  if (controller.hasEvent)
+                    ...(controller.tiers.map((tier) {
+                      final tierId = tier['id']?.toString() ?? '';
+                      final price = tier['price'];
+                      final cents = tier['priceCents'];
+                      final priceLabel = price is num
+                          ? formatDollars(price)
+                          : (cents is num ? formatCents(cents) : '\$—');
+                      final remaining = controller.tierRemaining(tier);
+                      final maxCount = remaining < 10 ? remaining : 10;
+                      return controller.isFromCreator
+                          ? const Offstage()
+                          : Obx(() => TicketCounter(
+                                count: controller.tierCounts[tierId] ?? 0,
+                                title: tier['name']?.toString() ?? 'Ticket',
+                                priceLabel: priceLabel,
+                                remaining: remaining,
+                                onMinusTap: () => controller.adjustTier(
+                                    tierId, -1, maxCount),
+                                onPlusTap: () => controller.adjustTier(
+                                    tierId, 1, maxCount),
+                              ));
+                    }))
+                  else ...[
                   controller.isFromCreator ? const Offstage() : Obx(() => TicketCounter(
                     count: controller.platinumCount.value,
                     title: "Platinum Ticket",
-                    color: Colors.blue,
                     onMinusTap: () {
                       if (controller.platinumCount.value > 0) {
                         controller.platinumCount.value =
@@ -242,7 +273,6 @@ class EventDetailView extends GetView<EventDetailController> {
                   controller.isFromCreator ? const Offstage() : Obx(() => TicketCounter(
                     count: controller.goldCount.value,
                     title: "Gold Ticket",
-                    color: Colors.orange,
                     onMinusTap: () {
                       if (controller.goldCount.value > 0) {
                         controller.goldCount.value =
@@ -259,7 +289,6 @@ class EventDetailView extends GetView<EventDetailController> {
                   controller.isFromCreator ? const Offstage() : Obx(() => TicketCounter(
                     count: controller.silverCount.value,
                     title: "Silver Ticket",
-                    color: Colors.grey,
                     onMinusTap: () {
                       if (controller.silverCount.value > 0) {
                         controller.silverCount.value =
@@ -276,7 +305,6 @@ class EventDetailView extends GetView<EventDetailController> {
                   controller.isFromCreator ? const Offstage() : Obx(() => TicketCounter(
                     count: controller.bronzeCount.value,
                     title: "Bronze Ticket",
-                    color: Colors.brown,
                     onMinusTap: () {
                       if (controller.bronzeCount.value > 0) {
                         controller.bronzeCount.value =
@@ -290,11 +318,135 @@ class EventDetailView extends GetView<EventDetailController> {
                       }
                     },
                   )),
+                  ],
                 ],
               ),
             ),
           ],
         ),
+        );
+      }),
+    );
+  }
+}
+
+/// Sahra event hero: cover photo (or brand-tinted placeholder) fading into
+/// the Night canvas.
+class _EventHero extends StatelessWidget {
+  const _EventHero({this.event});
+
+  final Map<String, dynamic>? event;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = event == null ? null : eventImageUrl(event!);
+    return SizedBox(
+      height: 320,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (url != null)
+            CachedNetworkImage(
+              imageUrl: url,
+              fit: BoxFit.cover,
+              placeholder: (_, __) => Container(color: ColorConstant.nightElevated),
+              errorWidget: (_, __, ___) => _placeholder(),
+            )
+          else
+            _placeholder(),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  ColorConstant.night.withValues(alpha: 0.55),
+                  ColorConstant.night,
+                ],
+                stops: const [0.45, 0.8, 1.0],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _placeholder() {
+    return Container(
+      color: ColorConstant.nightElevated,
+      child: Center(
+        child: CustomImageView(
+          imagePath: ImageConstant.stageCinema,
+          width: 200,
+          height: 120,
+          fit: BoxFit.contain,
+          color: ColorConstant.nightBorder,
+        ),
+      ),
+    );
+  }
+}
+
+/// Sahra info row: 40px night-surface icon tile, bold title, muted subtitle,
+/// gold chevron — used for date and venue on event details.
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: ColorConstant.nightSurface,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: ColorConstant.gold, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.bricolageGrotesque(
+                    color: ColorConstant.whiteA700,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.bricolageGrotesque(
+                    color: ColorConstant.white60,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right, color: ColorConstant.gold, size: 22),
+        ],
       ),
     );
   }
@@ -304,114 +456,142 @@ class TicketCounter extends StatelessWidget {
   const TicketCounter({super.key,
     required this.title,
     required this.count,
-    required this.color,
+    this.priceLabel,
+    this.remaining,
     this.onMinusTap,
     this.onPlusTap});
 
   final String title;
   final int count;
-  final Color color;
+  final String? priceLabel;
+  final int? remaining;
   final void Function()? onMinusTap;
   final void Function()? onPlusTap;
 
+  int get _maxCount {
+    final rem = remaining;
+    if (rem != null && rem < 10) return rem < 0 ? 0 : rem;
+    return 10;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: getMargin(bottom: 10,left: 20,right: 20),
-      child: Row(
-        children: [
-          Container(
-            margin: getMargin(right: 8),
-            decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(10)
-            ),
-            height: 40,
-            padding: getPadding(left: 8,right: 8),
-            alignment: Alignment.center,
-            child: const MyText(
-              title: '\$405',
-              clr: Colors.white,
-              fontSize: 15,
-              customWeight: FontWeight.bold,
-            ),
-          ),
-          Expanded(
-            child: Container(
-                margin: getMargin(right: 8,left: 8,top: 4,bottom: 4),
-                padding: getPadding(top: 5, bottom: 5,left: 5,right: 5),
-                decoration: BoxDecoration(
-                    color: ColorConstant.containerBg.withValues(alpha: .3),
-                    borderRadius: BorderRadius.circular(10)
-            ),
-            child: Row(
+    final soldOut = remaining != null && remaining! <= 0;
+    final note = soldOut
+        ? 'Sold out'
+        : (remaining != null && remaining! <= 10
+            ? '${remaining} left'
+            : 'Official');
+    return Opacity(
+      opacity: soldOut ? 0.5 : 1,
+      child: Container(
+        margin: getMargin(bottom: 10, left: 4, right: 4),
+        padding: getPadding(all: 12),
+        decoration: BoxDecoration(
+          color: ColorConstant.nightSurface,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Row(
               children: [
                 Expanded(
                   child: MyText(
                     title: title,
-                    clr: Colors.white,
-                    fontSize: 14,
-                    customWeight: FontWeight.bold,
+                    family: 'Manrope',
+                    customWeight: FontWeight.w700,
+                    fontSize: 16,
                   ),
                 ),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onMinusTap,
-                  child: Container(
-                    decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(5),
-                        color: count > 0
-                            ? ColorConstant.primaryPink
-                            : ColorConstant.gray50.withValues(alpha: 0.5),
-                        // border: Border.all(
-                        //     color: count > 0
-                        //         ? ColorConstant.primaryPink
-                        //         : ColorConstant.gray50.withValues(alpha: 0.5)
-                        // )
-                    ),
-                    padding: getPadding(left: 8, right: 8,),
-                    child: const MyText(title: "-", fontSize: 22,),
-
-                  ),
+                MyText(
+                  title: note,
+                  family: 'Inter',
+                  fontSize: 12,
+                  clr: soldOut ? ColorConstant.rumman : ColorConstant.white60,
                 ),
-                Padding(
-                  padding: getPadding(left: 10,right: 10),
-                  child: MyText(
-                    title: count.toString(),
-                    clr: Colors.white,
-                    fontSize: 18,
-                    customWeight: FontWeight.bold,
-                  ),
-                ),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onPlusTap,
-                  child: Container(
-                    decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(5),
-                        color: count < 10
-                            ? ColorConstant.primaryPink
-                            : ColorConstant.gray50.withValues(alpha: 0.5),
-                        // border: Border.all(
-                        //     color: count < 10
-                        //         ? ColorConstant.primaryPink
-                        //         : ColorConstant.gray50.withValues(alpha: 0.5)
-                        // )
-                    ),
-                    padding: getPadding(left: 8, right: 8,),
-                    child: const MyText(
-                      title: "+",
-                      fontSize: 22,
-                    ),
-                    // padding: getPadding(left: 12,right: 12,top: 6,bottom: 6),
-                    // child: const MyText(title: "+",fontSize: 22,),
-                  ),
-                )
               ],
             ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MyText(
+                      title: priceLabel ?? '\$405',
+                      family: 'Manrope',
+                      customWeight: FontWeight.w800,
+                      fontSize: 16,
+                      clr: ColorConstant.gold,
+                    ),
+                    MyText(
+                      title: 'Official',
+                      family: 'Inter',
+                      fontSize: 12,
+                      clr: ColorConstant.white60,
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                _stepperButton(
+                  icon: Icons.remove,
+                  enabled: count > 0 && !soldOut,
+                  filled: false,
+                  onTap: onMinusTap,
+                ),
+                Padding(
+                  padding: getPadding(left: 10, right: 10),
+                  child: MyText(
+                    title: count.toString(),
+                    family: 'Manrope',
+                    customWeight: FontWeight.w700,
+                    fontSize: 16,
+                    clr: ColorConstant.whiteA700,
+                  ),
+                ),
+                _stepperButton(
+                  icon: Icons.add,
+                  enabled: count < _maxCount && !soldOut,
+                  filled: true,
+                  onTap: onPlusTap,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _stepperButton({
+    required IconData icon,
+    required bool enabled,
+    required bool filled,
+    void Function()? onTap,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: filled && enabled ? ColorConstant.gold : Colors.transparent,
+          border: Border.all(
+            color: filled && enabled
+                ? ColorConstant.gold
+                : ColorConstant.nightBorder,
+            width: 1.5,
           ),
-          ),
-        ],
+        ),
+        child: Icon(
+          icon,
+          size: 14,
+          color: filled && enabled
+              ? ColorConstant.night
+              : (enabled ? ColorConstant.whiteA700 : ColorConstant.white60),
+        ),
       ),
     );
   }
@@ -433,8 +613,8 @@ class StageViewScreen extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                ColorConstant.primaryPink.withValues(alpha: 0.01),
-                ColorConstant.primaryPink.withValues(alpha: 0.5),
+                ColorConstant.canvas.withValues(alpha: 0.0),
+                ColorConstant.canvas.withValues(alpha: 0.6),
               ])),
       height: height,
       child: Stack(
@@ -549,9 +729,9 @@ class StageViewScreen extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: ColorConstant.bg,
+          color: ColorConstant.elevated,
           shape: BoxShape.circle,
-          border: Border.all(color: ColorConstant.primaryPink, width: 0.8),
+          border: Border.all(color: ColorConstant.hairline, width: 1),
         ),
         padding: getPadding(all: 10),
         child: Center(

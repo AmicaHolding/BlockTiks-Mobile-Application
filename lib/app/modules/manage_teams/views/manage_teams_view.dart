@@ -42,7 +42,7 @@ class ManageTeamsView extends GetView<ManageTeamsController> {
             ),
             TabBar(
               controller: controller.tabController,
-              indicatorColor: ColorConstant.primaryPink,
+              indicatorColor: ColorConstant.primaryAccent,
               // Set indicator color
               indicatorWeight: 3.0,
               // Set indicator thickness
@@ -50,7 +50,7 @@ class ManageTeamsView extends GetView<ManageTeamsController> {
               indicatorSize: TabBarIndicatorSize.tab,
               labelColor: Colors.white,
               // Set label color
-              unselectedLabelColor: ColorConstant.answerColor,
+              unselectedLabelColor: ColorConstant.white60,
               // Set unselected label color
               tabs: const [
                 Tab(text: 'Teams'),
@@ -103,6 +103,7 @@ class ManageTeamsView extends GetView<ManageTeamsController> {
                               title: "+ Add Team",
                               fontSize: 16,
                               customWeight: FontWeight.w600,
+                              clr: ColorConstant.primaryAccent,
                             ),
                           ),
                         ],
@@ -146,6 +147,7 @@ class ManageTeamsView extends GetView<ManageTeamsController> {
                               title: "+ Add Individual",
                               fontSize: 16,
                               customWeight: FontWeight.w600,
+                              clr: ColorConstant.primaryAccent,
                             ),
                           ),
                         ],
@@ -180,8 +182,8 @@ class TeamTile extends StatelessWidget {
         padding: getPadding(left: 15, right: 15, top: 10, bottom: 10),
         margin: getMargin(bottom: 15),
         decoration: BoxDecoration(
-            color: ColorConstant.whiteA700.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(10)),
+            color: ColorConstant.surface,
+            borderRadius: BorderRadius.circular(16)),
         child: Row(
           children: [
             isTeam? Offstage() :CustomImageView(

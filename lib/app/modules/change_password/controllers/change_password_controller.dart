@@ -1,9 +1,8 @@
 import 'package:block_tix/app/Shared_prefrences/app_prefrences.dart';
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:block_tix/app/data/utils/api_utils.dart';
 import 'package:block_tix/app/data/widgets/custom_round_button.dart';
-import 'package:block_tix/app/data/widgets/custom_toast.dart';
-import 'package:block_tix/app/services/base_client.dart';
+import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
+import 'package:block_tix/app/services/api_service.dart';
 
 class ChangePasswordController extends GetxController {
   GlobalKey<FormState> formKey = GlobalKey();
@@ -30,4 +29,25 @@ class ChangePasswordController extends GetxController {
     super.onInit();
   }
 
+  Future<void> changePasswordApi(BuildContext context) async {
+    if (passwordController.text != confController.text) {
+      CustomSnackBar.showCustomErrorToast(message: "Passwords do not match".tr);
+      return;
+    }
+    btnController.start();
+    try {
+      await ApiService.changePassword(
+        currentPassword: currentPasswordController.text,
+        newPassword: passwordController.text,
+      );
+      btnController.stop();
+      CustomSnackBar.showCustomErrorToast(message: "Password updated successfully".tr);
+      Get.back();
+    } catch (e) {
+      btnController.error();
+      btnController.stop();
+      CustomSnackBar.showCustomErrorToast(
+          message: e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
 }

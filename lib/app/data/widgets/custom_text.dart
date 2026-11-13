@@ -43,6 +43,21 @@ class MyText extends StatefulWidget {
 }
 
 class MyTextState extends State<MyText> {
+  /// Sahra fonts: Latin UI uses Bricolage Grotesque, Arabic uses
+  /// IBM Plex Sans Arabic. Legacy family names are mapped across.
+  static String _resolveFamily(String? family) {
+    switch (family) {
+      case null:
+      case 'Manrope':
+      case 'Inter':
+        return 'Bricolage Grotesque';
+      case 'Ageo':
+        return 'IBM Plex Sans Arabic';
+      default:
+        return family;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Text(
@@ -50,7 +65,7 @@ class MyTextState extends State<MyText> {
       overflow: widget.toverflow ?? TextOverflow.visible,
       maxLines: widget.line,
       textScaleFactor: 1.0,
-      style: GoogleFonts.getFont(widget.family ?? "Manrope",
+      style: GoogleFonts.getFont(_resolveFamily(widget.family),
           wordSpacing: widget.letterSpacing,
           height: widget.height,
           decoration: widget.under == true

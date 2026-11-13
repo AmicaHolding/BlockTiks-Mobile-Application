@@ -1,8 +1,4 @@
-import 'dart:math';
-
 import 'package:block_tix/app/data/utils/helper_functions.dart';
-import 'package:block_tix/app/data/utils/model/ticket_model.dart';
-import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/data/widgets/custom_text_form_field.dart';
 import 'package:flutter/material.dart';
 
@@ -67,9 +63,9 @@ class AddDropView extends GetView<AddDropController> {
                     padding: getPadding(left: 16,right: 16,top: 10,bottom: 10),
                     margin: getMargin(bottom: 15),
                     decoration: BoxDecoration(
-                        color: ColorConstant.whiteA700.withValues(alpha: .15),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: ColorConstant.grayBorder)
+                        color: ColorConstant.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: ColorConstant.hairline)
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,8 +99,8 @@ class AddDropView extends GetView<AddDropController> {
             Obx(() => controller.isTicketAddClick.value?
             Container(
               decoration: BoxDecoration(
-                border: Border.all(color: ColorConstant.grayBorder.withValues(alpha: .5)),
-                borderRadius: BorderRadius.circular(getSize(10)),
+                border: Border.all(color: ColorConstant.hairline),
+                borderRadius: BorderRadius.circular(getSize(16)),
               ),
               padding: getPadding(all: 15),
               child: Column(
@@ -129,7 +125,17 @@ class AddDropView extends GetView<AddDropController> {
                           hintText: 'Price \$',
                           textInputType: TextInputType.number,
                           validator: (value) {
-                            return HelperFunction.stringValidate(value);
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Please enter a price';
+                            }
+                            final price = num.tryParse(value);
+                            if (price == null) {
+                              return 'Please enter a valid number';
+                            }
+                            if (price < 0) {
+                              return 'Price cannot be negative';
+                            }
+                            return null;
                           },
                         ),
                       ),
@@ -141,7 +147,14 @@ class AddDropView extends GetView<AddDropController> {
                           hintText: 'Quantity #',
                           textInputType: TextInputType.number,
                           validator: (value) {
-                            return HelperFunction.stringValidate(value);
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Please enter a quantity';
+                            }
+                            final qty = int.tryParse(value);
+                            if (qty == null || qty <= 0) {
+                              return 'Please enter a valid quantity';
+                            }
+                            return null;
                           },
                         ),
                       ),
@@ -153,6 +166,16 @@ class AddDropView extends GetView<AddDropController> {
                     variant: TextFormFieldVariant.OutlineNewGray,
                     hintText: 'Reserve # of tickets',
                     textInputType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please enter reserve count';
+                      }
+                      final reserve = int.tryParse(value);
+                      if (reserve == null || reserve < 0) {
+                        return 'Please enter a valid number';
+                      }
+                      return null;
+                    },
                     suffix: GestureDetector(
                       onTap: (){
                         controller.showDetailDialog(context);
@@ -178,8 +201,8 @@ class AddDropView extends GetView<AddDropController> {
                       padding: getPadding(left: 16, right: 16,bottom: 12,top: 12),
                       margin: getMargin(bottom: 20),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
+                        color: ColorConstant.elevated,
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       alignment: Alignment.centerLeft,
                       child:Obx(()=>  MyText(
@@ -191,36 +214,7 @@ class AddDropView extends GetView<AddDropController> {
                   ),
                   SizedBox(height: getSize(15),),
                   CustomButton(
-                    onTap: (){
-                      if(controller.formKey.currentState!.validate()){
-                        if(controller.selectedTime.value.isNotEmpty){
-                          controller.isTicketAddClick.value = false;
-                          controller.ticketTypes.add(TicketModel(
-                            id: Random().nextInt(100),
-                            name: controller.nameController.text,
-                            price: num.parse(controller.priceController.text),
-                            quantity: int.parse(controller.quantityController.text),
-                            reserveTickets: int.parse(controller.reserveController.text),
-                            date: controller.selectedTime.value,
-                          ));
-                          controller.ticketTypes.refresh();
-                          // Get.back(result: {
-                          //   "name": controller.dropName.text,
-                          //   "model": TicketModel(
-                          //     id: Random().nextInt(100),
-                          //     name: controller.nameController.text,
-                          //     price: num.parse(controller.priceController.text),
-                          //     quantity: int.parse(controller.quantityController.text),
-                          //     reserveTickets: int.parse(controller.reserveController.text),
-                          //     date: controller.selectedTime.value,
-                          //   ).toJson(),
-                          // });
-                        }else{
-                          CustomSnackBar.showCustomErrorToast(message: "Please select date first");
-                        }
-                      }
-
-                    },
+                    onTap: controller.addTicket,
                     text: "Add Ticket Type",
                     width: getSize(150),
                   )
@@ -240,9 +234,9 @@ class AddDropView extends GetView<AddDropController> {
                   height: getSize(50),
                   padding: getPadding(left: 20),
                   decoration: BoxDecoration(
-                      color: ColorConstant.whiteA700.withValues(alpha: .05),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: ColorConstant.grayBorder)
+                      color: ColorConstant.elevated,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: ColorConstant.hairline)
                   ),
                   alignment: Alignment.centerLeft,
                   child: MyText(title:"+ Add Ticket Type",fontSize: 20,),

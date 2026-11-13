@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/services/api_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -19,7 +22,7 @@ class MySearchController extends GetxController
   RxInt index = 0.obs;
 
   final kGradientBoxDecoration = BoxDecoration(
-      borderRadius: BorderRadius.circular(5), color: ColorConstant.primaryPink);
+      borderRadius: BorderRadius.circular(12), color: ColorConstant.elevated);
 
   List<String> latestSearches = [
     "Funky Music",
@@ -37,13 +40,56 @@ class MySearchController extends GetxController
     "Z-A",
   ];
 
-  List<String> events = [
-    "Cyberpunk",
-    "Klaypaki",
-    "DJ Orignowa",
-  ];
+  // Real events from the backend (recent list + search results).
+  final RxList<Map<String, dynamic>> recentEvents =
+      <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> searchResults =
+      <Map<String, dynamic>>[].obs;
+  final RxBool searchLoading = false.obs;
+  final Rxn<String> searchError = Rxn<String>();
+  Timer? _debounce;
 
   RxBool isEmpty = true.obs;
+
+  void onSearchChanged(String query) {
+    _debounce?.cancel();
+    final q = query.trim();
+    isEmpty.value = q.isEmpty;
+    if (q.isEmpty) {
+      searchResults.clear();
+      searchError.value = null;
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      _search(q);
+    });
+  }
+
+  Future<void> _search(String q) async {
+    searchLoading.value = true;
+    searchError.value = null;
+    try {
+      searchResults.value = await ApiService.events(q: q);
+    } catch (e) {
+      searchError.value = e.toString().replaceFirst('Exception: ', '');
+      searchResults.clear();
+    } finally {
+      searchLoading.value = false;
+    }
+  }
+
+  Future<void> fetchRecentEvents() async {
+    try {
+      recentEvents.value = await ApiService.events();
+    } catch (_) {
+      // Recent events are best-effort — leave the list empty on failure.
+    }
+  }
+
+  void applyPopularSearch(String term) {
+    searchController.text = term;
+    onSearchChanged(term);
+  }
 
   final tabs = ["Events".tr, "Users".tr];
 
@@ -53,6 +99,13 @@ class MySearchController extends GetxController
     tabController = Get.put(
       TabController(vsync: this, length: 2),
     );
+    fetchRecentEvents();
+  }
+
+  @override
+  void onClose() {
+    _debounce?.cancel();
+    super.onClose();
   }
 
   void onTapSelectIndex(int ind) {
@@ -77,14 +130,14 @@ class MySearchController extends GetxController
         child: Container(
           decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16.0),
-              color: ColorConstant.bg),
+              color: ColorConstant.surface),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  color: ColorConstant.bg,
+                  color: ColorConstant.surface,
                   padding: const EdgeInsets.only(top: 8.0),
                   margin: const EdgeInsets.only(bottom: 0),
                   child: Padding(
@@ -103,8 +156,8 @@ class MySearchController extends GetxController
                         //     height:getSize(30),
                         //     width:getSize(30),
                         //     decoration: BoxDecoration(
-                        //         color: ColorConstant.whiteA700.withValues(alpha: 0.1),
-                        //         borderRadius: BorderRadius.circular(8)
+                        //         color: ColorConstant.elevated,
+                        //         borderRadius: BorderRadius.circular(12)
                         //     ),
                         //     alignment: Alignment.center,
                         //     child: Padding(
@@ -142,12 +195,12 @@ class MySearchController extends GetxController
                         margin: getMargin(bottom: 30),
                         padding: getPadding(left: 15,right: 15,),
                         decoration: BoxDecoration(
-                            color: ColorConstant.whiteA700.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8)
+                            color: ColorConstant.elevated,
+                            borderRadius: BorderRadius.circular(12)
                         ),
                         child: Obx(() => DropdownButton<String>(
                           value: selectedCategory.value,
-                          dropdownColor: ColorConstant.black900,
+                          dropdownColor: ColorConstant.elevated,
                           hint: const MyText(title: 'Categories'),
                           icon: Icon(Icons.keyboard_arrow_down_sharp,color: ColorConstant.whiteA700,),
                           // The down arrow icon
@@ -169,8 +222,8 @@ class MySearchController extends GetxController
                         margin: getMargin(bottom: 30),
                         padding: getPadding(left: 15, right: 15,top: 16,bottom: 16),
                         decoration: BoxDecoration(
-                          color: ColorConstant.whiteA700.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          color: ColorConstant.elevated,
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Obx(() => GestureDetector(
                           onTap: () {
@@ -195,12 +248,12 @@ class MySearchController extends GetxController
                         margin: getMargin(bottom: 30),
                         padding: getPadding(left: 15,right: 15,),
                         decoration: BoxDecoration(
-                            color: ColorConstant.whiteA700.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8)
+                            color: ColorConstant.elevated,
+                            borderRadius: BorderRadius.circular(12)
                         ),
                         child: Obx(() => DropdownButton<String>(
                           value: selectedSort.value,
-                          dropdownColor: ColorConstant.black900,
+                          dropdownColor: ColorConstant.elevated,
                           hint: const MyText(title: 'Sort By'),
                           icon: Icon(Icons.keyboard_arrow_down_sharp,color: ColorConstant.whiteA700,),
                           // The down arrow icon
@@ -222,8 +275,8 @@ class MySearchController extends GetxController
                         margin: getMargin(bottom: 30),
                         padding: getPadding(left: 15,right: 15,),
                         decoration: BoxDecoration(
-                            color: ColorConstant.whiteA700.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8)
+                            color: ColorConstant.elevated,
+                            borderRadius: BorderRadius.circular(12)
                         ),
                         child: TextField(
                           style: GoogleFonts.getFont("Inter",
@@ -237,7 +290,7 @@ class MySearchController extends GetxController
                           },
                           decoration: InputDecoration(
                             hintText: 'Location',
-                            hintStyle: const TextStyle(color: Colors.white70),
+                            hintStyle: TextStyle(color: ColorConstant.white60),
                             border: InputBorder.none,
                           ),
                         ),
@@ -253,8 +306,8 @@ class MySearchController extends GetxController
                         min: 1, // Minimum price
                         max: 500, // Maximum price
                         divisions: 100, // Number of steps in the slider
-                        activeColor: ColorConstant.primaryPink, // Customize the active color
-                        inactiveColor: ColorConstant.primaryPink.withValues(alpha: 0.2), // Customize the inactive color
+                        activeColor: ColorConstant.primaryAccent, // Customize the active color
+                        inactiveColor: ColorConstant.primaryAccent.withValues(alpha: 0.2), // Customize the inactive color
                         labels: RangeLabels(
                           '${_currentRangeValues.value.start.toInt()}',
                           '${_currentRangeValues.value.end.toInt()}',
@@ -326,10 +379,10 @@ class MySearchController extends GetxController
     // Define the initial range of the price picker
     _currentRangeValues.value = const RangeValues(10, 150); // Price range from 1 to 500
 
-    selectedCategory = Rxn<String>();
-    selectedSort = Rxn<String>();
+    selectedCategory.value = null;
+    selectedSort.value = null;
 
-    selectedDate = Rxn<String>(); // To hold the selected date as a string
+    selectedDate.value = null; // To hold the selected date as a string
     selectedDateTime = null;
   }
 }

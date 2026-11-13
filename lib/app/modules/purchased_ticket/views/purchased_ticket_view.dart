@@ -1,6 +1,5 @@
-import 'package:block_tix/app/data/widgets/custom_divider.dart';
-import 'package:block_tix/app/modules/user_dashboard/controllers/user_dashboard_controller.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:block_tix/app/data/widgets/sahra_ticket_card.dart';
+import 'package:block_tix/app/modules/payment_page/views/payment_page_view.dart';
 import '../../../data/core/app_export.dart';
 import '../controllers/purchased_ticket_controller.dart';
 
@@ -15,10 +14,9 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
         sidePadding: false,
         bodyPadding: false,
         bottomNavigationBar: controller.showBack ? Offstage() : SafeArea(
-          child: CustomButton(
+          child: PrimaryPillButton(
             text: "lbl_back_to_home".tr,
             margin: getMargin(right: 20, left: 20, bottom: 30, top: 10),
-            shape: ButtonShape.RoundedBorder10,
             onTap: () {
               Get.offAllNamed(Routes.USER_DASHBOARD);
             },
@@ -85,19 +83,20 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
                   title: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const MyText(
+                      MyText(
                         title: 'Your E-Ticket',
-                        family: 'Roboto Condensed',
-                        customWeight: FontWeight.w400,
+                        family: 'Manrope',
+                        customWeight: FontWeight.w600,
                         fontSize: 18,
                       ),
                       SizedBox(
                         height: getSize(5),
                       ),
-                      const MyText(
+                      MyText(
                         title: 'Refreshing in 30 seconds',
+                        family: 'Inter',
                         fontSize: 14.0,
-                        customWeight: FontWeight.w400,
+                        clr: ColorConstant.white60,
                       ),
                     ],
                   ),
@@ -120,15 +119,108 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
                 SizedBox(
                   height: getSize(20),
                 ),
+                // Honest status banners: order preview vs simulated ticket.
+                if (controller.isPreview)
+                  Container(
+                    margin: getMargin(left: 25, right: 25, bottom: 10),
+                    padding: getPadding(left: 12, right: 12, top: 10, bottom: 10),
+                    decoration: BoxDecoration(
+                      color: ColorConstant.warningOrange.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: ColorConstant.warningOrange.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.science_outlined,
+                            size: 16, color: ColorConstant.warningOrange),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: MyText(
+                            title: 'Order preview — payment not completed',
+                            family: 'Inter',
+                            fontSize: 12,
+                            clr: ColorConstant.warningOrange,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (controller.isSimulated)
+                  Container(
+                    margin: getMargin(left: 25, right: 25, bottom: 10),
+                    padding: getPadding(left: 12, right: 12, top: 10, bottom: 10),
+                    decoration: BoxDecoration(
+                      color: ColorConstant.warningOrange.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: ColorConstant.warningOrange.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.science_outlined,
+                            size: 16, color: ColorConstant.warningOrange),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: MyText(
+                            title: 'Simulated ticket — no real purchase',
+                            family: 'Inter',
+                            fontSize: 12,
+                            clr: ColorConstant.warningOrange,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 Expanded(
-                  child: Padding(
+                  child: Obx(() {
+                    if (controller.isLoadingOrder.value) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (controller.orderError.value != null) {
+                      return Center(
+                        child: Padding(
+                          padding: getPadding(all: 24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              MyText(
+                                title: "Couldn't load order",
+                                family: 'Manrope',
+                                customWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                              const SizedBox(height: 8),
+                              MyText(
+                                title: controller.orderError.value ?? '',
+                                family: 'Inter',
+                                fontSize: 13,
+                                clr: ColorConstant.white60,
+                                center: true,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    final rowCount = controller.ticketRows.isNotEmpty
+                        ? controller.ticketRows.length
+                        : controller.tickets;
+                    return Padding(
                     padding: getPadding(left: 25, right: 25,bottom: 25),
                     child: ListView.separated(
-                      itemCount: controller.tickets,
+                      itemCount: rowCount,
                         separatorBuilder: (_,__){
                         return SizedBox(height: getSize(10),);
                         },
                         itemBuilder: (_,index){
+                      final row = index < controller.ticketRows.length
+                          ? controller.ticketRows[index]
+                          : null;
+                      String rowStr(String key, String fallback) {
+                        final v = row?[key]?.toString() ?? '';
+                        return v.isNotEmpty ? v : fallback;
+                      }
                       return GestureDetector(
                         onTap: (){
                           if(controller.rxBoolList[index].value){
@@ -139,244 +231,30 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
                         },
                         child: Stack(
                           children: [
-                            CustomImageView(
-                              svgPath: ImageConstant.ticketBg,
-                              width: size.width,
-                              fit: BoxFit.fill,
-                              height: getSize(580),
-                            ),
-                            Container(
-                              width: size.width,
-                              // height: getSize(550),
-                              padding: getPadding(all: 20),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    margin: const EdgeInsets.fromLTRB(0, 0, 0, 20),
-                                    child: Align(
-                                      alignment: Alignment.topCenter,
-                                      child: CustomImageView(
-                                        svgPath: ImageConstant.qr,
-                                        width: 170,
-                                        height: 170,
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: getMargin(top: getSize(10), bottom: getSize(10)),
-                                    child: DottedLine(),
-                                  ),
-                                  Container(
-                                    margin: const EdgeInsets.fromLTRB(0, 20, 0, 35),
-                                    child: MyText(
-                                      title: 'DJ Maksmellow Orignawa',
-                                      family: 'Manrope',
-                                      customWeight: FontWeight.w700,
-                                      fontSize: 20,
-                                      clr: ColorConstant.black900,
-                                    ),
-                                  ),
-                                  Container(
-                                    margin: const EdgeInsets.fromLTRB(0, 0, 0, 30),
-                                    child: Align(
-                                      alignment: Alignment.topLeft,
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.start,
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Container(
-                                            margin: const EdgeInsets.fromLTRB(
-                                                0, 0, 37.9, 0),
-                                            child: Column(
-                                              mainAxisAlignment:
-                                              MainAxisAlignment.start,
-                                              crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                              children: [
-                                                Container(
-                                                  margin: const EdgeInsets.fromLTRB(
-                                                      0, 0, 0, 5),
-                                                  child: const Align(
-                                                    alignment: Alignment.topLeft,
-                                                    child: MyText(
-                                                      title: 'Date',
-                                                      family: 'Manrope',
-                                                      customWeight: FontWeight.w700,
-                                                      fontSize: 14,
-                                                      clr: Color(0xFF000000),
-                                                    ),
-                                                  ),
-                                                ),
-                                                const MyText(
-                                                  title: '14 February 2021',
-                                                  family: 'Manrope',
-                                                  customWeight: FontWeight.w400,
-                                                  fontSize: 14,
-                                                  clr: Color(0xB2000000),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          Column(
-                                            mainAxisAlignment:
-                                            MainAxisAlignment.start,
-                                            crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                            children: [
-                                              Container(
-                                                margin: const EdgeInsets.fromLTRB(
-                                                    0, 0, 0, 5),
-                                                child: const Align(
-                                                  alignment: Alignment.topLeft,
-                                                  child: MyText(
-                                                    title: 'Time',
-                                                    family: 'Manrope',
-                                                    customWeight: FontWeight.w700,
-                                                    fontSize: 14,
-                                                    clr: Color(0xFF000000),
-                                                  ),
-                                                ),
-                                              ),
-                                              const MyText(
-                                                title: '12.30 PM',
-                                                family: 'Manrope',
-                                                customWeight: FontWeight.w400,
-                                                fontSize: 14,
-                                                clr: Color(0xB2000000),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    margin: const EdgeInsets.fromLTRB(0, 0, 0, 35),
-                                    child: Align(
-                                      alignment: Alignment.topLeft,
-                                      child: SizedBox(
-                                        width: 234.7,
-                                        child: Row(
-                                          mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                          crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                          children: [
-                                            Column(
-                                              mainAxisAlignment:
-                                              MainAxisAlignment.start,
-                                              crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                              children: [
-                                                Container(
-                                                  margin: const EdgeInsets.fromLTRB(
-                                                      0, 0, 0, 5),
-                                                  child: const MyText(
-                                                    title: 'Check In Type',
-                                                    family: 'Manrope',
-                                                    customWeight: FontWeight.w700,
-                                                    fontSize: 14,
-                                                    clr: Color(0xFF000000),
-                                                  ),
-                                                ),
-                                                const Align(
-                                                  alignment: Alignment.topLeft,
-                                                  child: MyText(
-                                                    title: 'VIP A',
-                                                    family: 'Manrope',
-                                                    customWeight: FontWeight.w400,
-                                                    fontSize: 14,
-                                                    clr: Color(0xB2000000),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            Column(
-                                              mainAxisAlignment:
-                                              MainAxisAlignment.start,
-                                              crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                              children: [
-                                                Container(
-                                                  margin: const EdgeInsets.fromLTRB(
-                                                      0, 0, 0, 5),
-                                                  child: const Align(
-                                                    alignment: Alignment.topLeft,
-                                                    child: MyText(
-                                                      title: 'Order ID',
-                                                      family: 'Manrope',
-                                                      customWeight: FontWeight.w700,
-                                                      fontSize: 14,
-                                                      clr: Color(0xFF000000),
-                                                    ),
-                                                  ),
-                                                ),
-                                                const MyText(
-                                                  title: 'EBP139920AC',
-                                                  family: 'Manrope',
-                                                  customWeight: FontWeight.w400,
-                                                  fontSize: 14,
-                                                  clr: Color(0xB2000000),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    margin: const EdgeInsets.fromLTRB(0, 0, 11, 0),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.start,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          margin:
-                                          const EdgeInsets.fromLTRB(0, 0, 0, 5),
-                                          child: const Align(
-                                            alignment: Alignment.topLeft,
-                                            child: MyText(
-                                              title: 'Place',
-                                              family: 'Manrope',
-                                              customWeight: FontWeight.w700,
-                                              fontSize: 14,
-                                              clr: Color(0xFF000000),
-                                            ),
-                                          ),
-                                        ),
-                                        Container(
-                                          margin:
-                                          const EdgeInsets.fromLTRB(0, 0, 0, 1),
-                                          child: Text(
-                                            'Japan, 〒604-8122 Kyoto, Nakagyo Ward, 錦小路下る瀬戸屋町474',
-                                            style: GoogleFonts.getFont(
-                                              'Manrope',
-                                              fontWeight: FontWeight.w400,
-                                              fontSize: 14,
-                                              color: const Color(0xB2000000),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            SahraTicketCard(
+                              title: rowStr('title', controller.eventTitle),
+                              subtitle:
+                                  '${rowStr('venue', controller.venue)} · ${rowStr('date', controller.ticketDate)} · ${rowStr('time', controller.ticketTime)}',
+                              fields: {
+                                'Zone': rowStr('tier', controller.ticketTier),
+                                'Order': rowStr('orderId', controller.orderId),
+                              },
+                              code: row?['code']?.toString(),
+                              status: row?['status']?.toString(),
                             ),
                             Obx(() => controller.rxBoolList[index].value ?
-                            const Positioned(
+                            Positioned(
                               right: 0,
-                              child: Icon(Icons.check_circle,size: 55,),
+                              top: 0,
+                              child: Icon(Icons.check_circle,size: 55,color: ColorConstant.primaryAccent,),
                             ) : Offstage())
 
                           ],
                         ),
                       );
                     }),
-                  ),
+                    );
+                  }),
                 )
               ],
             ),
@@ -393,7 +271,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
         child: Container(
           decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16.0),
-              color: ColorConstant.bg),
+              color: ColorConstant.surface),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -421,15 +299,15 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
                       children: [
                         const SizedBox(height: 50), // For the cancel icon spacing
                         MyText(
-                          title: 'Music Concert',
-                            family: 'Manrope',
+                          title: controller.eventType,
+                            family: 'Inter',
                             customWeight: FontWeight.w400,
                             fontSize: 14,
-                            clr: ColorConstant.whiteA700,
+                            clr: ColorConstant.white60,
                         ),
                         const SizedBox(height: 5),
                         MyText(
-                          title: 'DJ Maksmellow Orignawa',
+                          title: controller.eventTitle,
                           family: 'Manrope',
                           customWeight: FontWeight.w800,
                           fontSize: 18,
@@ -461,11 +339,15 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     Expanded(
-                        child: CustomButton(
+                        child: PrimaryPillButton(
                           text: "Transfer",
                           onTap: () {
                             Get.back();
-                            Get.toNamed(Routes.TRANSFER);
+                            Get.toNamed(Routes.TRANSFER, arguments: {
+                              'title': controller.eventTitle,
+                              'type': controller.ticketTier,
+                              'date': controller.ticketDate,
+                            });
                           },
                         )),
                     const SizedBox(
@@ -474,10 +356,15 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
                     Expanded(
                         child: CustomButton(
                             text: "Sell",
-                            variant: ButtonVariant.OutlinePink,
+                            variant: ButtonVariant.OutlineWhite,
                             onTap: () {
                               Get.back();
-                              Get.toNamed(Routes.ASK_BID,arguments: true);
+                              Get.toNamed(Routes.ASK_BID,arguments: {
+                                'fromSell': true,
+                                'title': controller.eventTitle,
+                                'type': controller.eventType,
+                                'tier': controller.ticketTier,
+                              });
                             })),
                   ],
                 ),

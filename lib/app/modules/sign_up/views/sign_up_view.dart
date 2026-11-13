@@ -3,6 +3,7 @@ import 'package:block_tix/app/data/utils/helper_functions.dart';
 
 import '../../../data/core/app_export.dart';
 import '../../../data/widgets/custom_text_form_field.dart';
+import '../../sign_in/views/widgets/auth_pill_button.dart';
 import '../controllers/sign_up_controller.dart';
 import 'dart:io' show Platform;
 
@@ -32,16 +33,16 @@ class SignUpView extends GetView<SignUpController> {
                       SizedBox(
                         height: getSize(30),
                       ),
-                      MyText(
-                        title: "Welcome Back!".tr,
-                        fontSize: 18,
+                      Text(
+                        "Welcome Back!".tr,
+                        style: AppStyle.heading1Manrope,
                       ),
                       SizedBox(
                         height: getSize(10),
                       ),
-                      MyText(
-                        title: "All your needs for event experience.".tr,
-                        clr: ColorConstant.white60,
+                      Text(
+                        "All your needs for event experience.".tr,
+                        style: AppStyle.bodySmallInter,
                       ),
                       SizedBox(
                         height: getSize(30),
@@ -180,11 +181,12 @@ class SignUpView extends GetView<SignUpController> {
                       ),
                       Row(
                         children: [
-                          MyText(
-                            title: "Event Promoter".tr,
-                            fontSize: 16,
-                            customWeight: FontWeight.w500,
-                            toverflow: TextOverflow.ellipsis,
+                          Text(
+                            "Event Promoter".tr,
+                            style: AppStyle.bodyInter.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const Spacer(),
                           Obx(() => CustomSwitch(
@@ -198,39 +200,35 @@ class SignUpView extends GetView<SignUpController> {
                       SizedBox(
                         height: getVerticalSize(30),
                       ),
-                      CustomButton(
+                      AuthPillButton(
                         controller: controller.btnController,
                         text: "lbl_sign_up".tr,
-                        fontStyle: ButtonFontStyle.AgeoSemiBold14Black900,
                         onTap: () {
                           if (_formKey.currentState!.validate()) {
                             controller.signUp(context);
                           }
                         },
                       ),
-                      CustomButton(
+                      AuthPillButton(
                           text: "msg_continue_with_google".tr,
                           margin: getMargin(left: 0, top: 15, right: 0),
-                          variant: ButtonVariant.OutlineWhite,
-                          prefixWidget: Container(
-                              margin: getMargin(right: 14),
-                              child: CustomImageView(
-                                  imagePath: ImageConstant.imgGoogle)),
+                          variant: AuthPillButtonVariant.secondary,
+                          prefix: CustomImageView(
+                              imagePath: ImageConstant.imgGoogle,
+                              height: getSize(20),
+                              width: getSize(20)),
                           onTap: () {
                             controller.loginGoogle(context);
                           }),
                       Platform.isIOS
-                          ? CustomButton(
+                          ? AuthPillButton(
                               text: "msg_continue_with_apple".tr,
                               margin: getMargin(left: 0, top: 15, right: 0),
-                              variant: ButtonVariant.OutlineBlack900,
-                              shape: ButtonShape.RoundedBorder14,
-                              padding: ButtonPadding.PaddingT14,
-                              fontStyle: ButtonFontStyle.AgeoRegular14,
-                              prefixWidget: Container(
-                                  margin: getMargin(right: 14),
-                                  child: CustomImageView(
-                                      svgPath: ImageConstant.imgAppleLogo)),
+                              variant: AuthPillButtonVariant.secondary,
+                              prefix: CustomImageView(
+                                  svgPath: ImageConstant.imgAppleLogo,
+                                  height: getSize(18),
+                                  width: getSize(18)),
                               onTap: () {
                                 controller.loginApple(context);
                               })
@@ -247,14 +245,10 @@ class SignUpView extends GetView<SignUpController> {
                                     text: TextSpan(children: [
                                       TextSpan(
                                           text: "msg_already_have_an".tr,
-                                          style: AppStyle.white60InterNormal14),
+                                          style: AppStyle.bodySmallInter),
                                       TextSpan(
                                           text: " ",
-                                          style: TextStyle(
-                                              color: ColorConstant.black900,
-                                              fontSize: getFontSize(14),
-                                              fontFamily: 'Ageo',
-                                              fontWeight: FontWeight.w400)),
+                                          style: AppStyle.bodySmallInter),
                                       TextSpan(
                                           text: "lbl_sign_in".tr,
                                           style: AppStyle.pinkInterNormal16)

@@ -32,16 +32,18 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
             Container(
               padding: getPadding(left: 16, right: 16),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+                color: ColorConstant.elevated,
+                borderRadius: BorderRadius.circular(12),
               ),
               child: TextField(
+                onChanged: (val) => controller.searchQuery.value = val,
+                style: AppStyle.bodyInter,
                 decoration: InputDecoration(
                   icon: CustomImageView(
                     svgPath: ImageConstant.search,
                   ),
                   hintText: 'Search',
-                  hintStyle: TextStyle(color: Colors.white70),
+                  hintStyle: AppStyle.bodySmallInter,
                   border: InputBorder.none,
                 ),
               ),
@@ -49,55 +51,95 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
             SizedBox(
               height: getSize(20),
             ),
-            profileTile(
-                title: "Personal Info",
-                desc: "Change your Name, email, Phone number",
-                onTap: () => Get.toNamed(Routes.EDIT_PROFILE)),
-            profileTile(
-                title: "Payment Methods",
-                desc: "Add, modify or delete your payment method",
-                onTap: () => Get.toNamed(Routes.PAYMENT_OPTIONS)),
-            profileTile(
-                title: "Promo codes",
-                desc: "Redeem or share your codes",
-                onTap: () {
-                  if(Constants.isUserCreator){
-                    Get.toNamed(Routes.CREATOR_PROMO_CODE);
-                  }else{
-                    Get.toNamed(Routes.PROMO_CODES);
-                  }
-                }
-            ),
-            profileTile(
-                title: "Referrals",
-                desc: "Share the app with your friends and start earning",
-                onTap: () => Get.toNamed(Routes.REFERRALS)),
-            profileTile(
-                title: "Settings",
-                desc: "Change language, theme, etc...",
-                onTap: () => Get.toNamed(Routes.SETTINGS)),
-            profileTile(
-                title: "Help",
-                desc: "Questions and answers page",
-                onTap: () => Get.toNamed(Routes.FAQS)),
-            Constants.isUserCreator ?  profileTile(
-                title: "Teams",
-                desc: "Create and manage your teams",
-                onTap: () => Get.toNamed(Routes.MANAGE_TEAMS)) : Offstage(),
-            profileTile(
-              title: "Switch to ${!Constants.isUserCreator? "Creator": "User"}",
-              desc: Constants.isUserCreator? "Host events and send invites" : "Find and get tickets to events near you",
-              onTap: (){
-                if(Constants.isUserCreator != true){
-                  Constants.isUserCreator = true;
-                  Get.offAllNamed(Routes.CREATOR_DASHBOARD);
-                }else{
-                  Constants.isUserCreator = false;
-                  Get.offAllNamed(Routes.USER_DASHBOARD);
-                }
-
-              }
-            ),
+            Obx(() {
+              final q = controller.searchQuery.value.trim().toLowerCase();
+              bool match(String title, String desc) =>
+                  q.isEmpty ||
+                  title.toLowerCase().contains(q) ||
+                  desc.toLowerCase().contains(q);
+              final tiles = <Widget>[
+                if (match("Personal Info",
+                    "Change your Name, email, Phone number"))
+                  profileTile(
+                      title: "Personal Info",
+                      desc: "Change your Name, email, Phone number",
+                      onTap: () => Get.toNamed(Routes.EDIT_PROFILE)),
+                if (match("Payment Methods",
+                    "Add, modify or delete your payment method"))
+                  profileTile(
+                      title: "Payment Methods",
+                      desc: "Add, modify or delete your payment method",
+                      onTap: () => Get.toNamed(Routes.PAYMENT_OPTIONS)),
+                if (match("Promo codes", "Redeem or share your codes"))
+                  profileTile(
+                      title: "Promo codes",
+                      desc: "Redeem or share your codes",
+                      onTap: () {
+                        if (Constants.isUserCreator) {
+                          Get.toNamed(Routes.CREATOR_PROMO_CODE);
+                        } else {
+                          Get.toNamed(Routes.PROMO_CODES);
+                        }
+                      }),
+                if (match("Referrals",
+                    "Share the app with your friends and start earning"))
+                  profileTile(
+                      title: "Referrals",
+                      desc:
+                          "Share the app with your friends and start earning",
+                      onTap: () => Get.toNamed(Routes.REFERRALS)),
+                if (match("Settings", "Change language, theme, etc..."))
+                  profileTile(
+                      title: "Settings",
+                      desc: "Change language, theme, etc...",
+                      onTap: () => Get.toNamed(Routes.SETTINGS)),
+                if (match("Help", "Questions and answers page"))
+                  profileTile(
+                      title: "Help",
+                      desc: "Questions and answers page",
+                      onTap: () => Get.toNamed(Routes.FAQS)),
+                if (Constants.isUserCreator &&
+                    match("Teams", "Create and manage your teams"))
+                  profileTile(
+                      title: "Teams",
+                      desc: "Create and manage your teams",
+                      onTap: () => Get.toNamed(Routes.MANAGE_TEAMS)),
+                if (match(
+                    "Switch to ${!Constants.isUserCreator ? "Creator" : "User"}",
+                    Constants.isUserCreator
+                        ? "Host events and send invites"
+                        : "Find and get tickets to events near you"))
+                  profileTile(
+                    title:
+                        "Switch to ${!Constants.isUserCreator ? "Creator" : "User"}",
+                    desc: Constants.isUserCreator
+                        ? "Host events and send invites"
+                        : "Find and get tickets to events near you",
+                    onTap: () {
+                      if (Constants.isUserCreator != true) {
+                        Constants.isUserCreator = true;
+                        Get.offAllNamed(Routes.CREATOR_DASHBOARD);
+                      } else {
+                        Constants.isUserCreator = false;
+                        Get.offAllNamed(Routes.USER_DASHBOARD);
+                      }
+                    },
+                  ),
+              ];
+              return Column(
+                children: [
+                  ...tiles,
+                  if (q.isNotEmpty && tiles.isEmpty)
+                    Padding(
+                      padding: getPadding(top: 24, bottom: 24),
+                      child: Text(
+                        'No settings match your search',
+                        style: AppStyle.bodySmallInter,
+                      ),
+                    ),
+                ],
+              );
+            }),
             SizedBox(
               height: getSize(30),
             )
@@ -114,10 +156,10 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
       onTap: onTap,
       child: Container(
         margin: getMargin(bottom: 10),
-        padding: getPadding(left: 12, right: 12, top: 7, bottom: 10),
+        padding: getPadding(left: 16, right: 16, top: 14, bottom: 14),
         decoration: BoxDecoration(
-            color: ColorConstant.containerBg.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(10)),
+            color: ColorConstant.elevated,
+            borderRadius: BorderRadius.circular(16)),
         child: Row(
           children: [
             Expanded(
@@ -127,16 +169,18 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
                 children: [
                   MyText(
                     title: title,
-                    customWeight: FontWeight.w500,
+                    customWeight: FontWeight.w600,
                     fontSize: getFontSize(16),
+                    family: 'Manrope',
                   ),
                   SizedBox(
                     height: getSize(3),
                   ),
                   MyText(
                     title: desc,
-                    fontSize: getFontSize(14),
-                    clr: ColorConstant.whiteA700.withValues(alpha: 0.7),
+                    fontSize: getFontSize(13),
+                    family: 'Inter',
+                    clr: ColorConstant.white60,
                     toverflow: TextOverflow.ellipsis,
                     line: 1,
                   ),
@@ -147,8 +191,8 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
               width: getSize(10),
             ),
             Icon(
-              Icons.arrow_forward_ios,
-              color: ColorConstant.whiteA700,
+              Icons.chevron_right,
+              color: ColorConstant.white60,
             )
           ],
         ),
@@ -165,7 +209,7 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
         child: Container(
           decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16.0),
-              color: ColorConstant.bg),
+              color: ColorConstant.surface),
           child: Stack(
             children: [
               Padding(
@@ -179,11 +223,14 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
                       title: 'lbl_signout'.tr,
                       customWeight: FontWeight.w700,
                       fontSize: 20,
+                      family: 'Manrope',
                     ),
                     const SizedBox(height: 5),
                     MyText(
                       title: 'logout_msg'.tr,
                       fontSize: 14,
+                      family: 'Inter',
+                      clr: ColorConstant.white60,
                     ),
                     const SizedBox(height: 35),
                     Row(

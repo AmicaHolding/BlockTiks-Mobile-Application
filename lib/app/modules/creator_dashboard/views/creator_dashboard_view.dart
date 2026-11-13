@@ -1,7 +1,7 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/base/baseview_process_screen.dart';
 import 'package:block_tix/app/data/widgets/custom_dialogue.dart';
-import 'package:block_tix/app/modules/analytic/views/analytic_view.dart';
+import 'package:block_tix/app/modules/all_guests/views/all_guests_view.dart';
 import 'package:block_tix/app/modules/creator_home_tab/views/creator_home_tab_view.dart';
 import 'package:block_tix/app/modules/profile_tab/views/profile_tab_view.dart';
 import 'package:flutter/material.dart';
@@ -59,7 +59,7 @@ class CreatorDashboardView extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             children: [
               CreatorHomeTabView(),
-              AnalyticView(fromCreator: true,),
+              AllGuestsView(),
               ProfileTabView(),
             ],
           ),

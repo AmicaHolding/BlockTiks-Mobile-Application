@@ -113,12 +113,12 @@ class ManageTeamsController extends GetxController with GetSingleTickerProviderS
                         margin: getMargin(bottom: 30),
                         padding: getPadding(left: 15,right: 15,),
                         decoration: BoxDecoration(
-                            color: ColorConstant.whiteA700.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8)
+                            color: ColorConstant.elevated,
+                            borderRadius: BorderRadius.circular(12)
                         ),
                         child: Obx(() => DropdownButton<String>(
                           value: selectedRole.value,
-                          dropdownColor: ColorConstant.black900,
+                          dropdownColor: ColorConstant.elevated,
                           hint: const MyText(title: 'Select Role'),
                           icon: Icon(Icons.keyboard_arrow_down_sharp,color: ColorConstant.whiteA700,),
                           // The down arrow icon
@@ -203,7 +203,7 @@ class ManageTeamsController extends GetxController with GetSingleTickerProviderS
                       },
                       child: MyText(
                         title: "lbl_cancel".tr,
-                        clr: ColorConstant.blueGray400,
+                        clr: ColorConstant.white60,
                         fontSize: getFontSize(14),
                         customWeight: FontWeight.w400,
                       ),
@@ -213,7 +213,7 @@ class ManageTeamsController extends GetxController with GetSingleTickerProviderS
                       child: Center(
                         child: MyText(
                           title: "lbl_select_option".tr,
-                          clr: ColorConstant.blueGray900,
+                          clr: ColorConstant.whiteA700,
                           fontSize: getFontSize(16),
                           customWeight: FontWeight.w600,
                         ),

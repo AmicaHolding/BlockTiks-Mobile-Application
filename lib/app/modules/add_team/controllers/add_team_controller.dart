@@ -78,12 +78,12 @@ class AddTeamController extends GetxController {
                       Container(
                         padding: getPadding(left: 15,right: 15,),
                         decoration: BoxDecoration(
-                            color: ColorConstant.whiteA700.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8)
+                            color: ColorConstant.elevated,
+                            borderRadius: BorderRadius.circular(12)
                         ),
                         child: Obx(() => DropdownButton<String>(
                           value: selectedRole.value,
-                          dropdownColor: ColorConstant.black900,
+                          dropdownColor: ColorConstant.elevated,
                           hint: const MyText(title: 'Select Role'),
                           icon: Icon(Icons.keyboard_arrow_down_sharp,color: ColorConstant.whiteA700,),
                           // The down arrow icon

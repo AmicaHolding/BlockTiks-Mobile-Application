@@ -11,6 +11,22 @@ class ProfileTabView extends GetView<ProfileTabController> {
 
   final controller = Get.put(ProfileTabController());
 
+  String _displayName() {
+    final user = controller.profileData.value?.user;
+    final full = (user?.fullName ?? '').toString().trim();
+    if (full.isNotEmpty) return full;
+    final name =
+        '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
+    return name.isNotEmpty ? name : 'User';
+  }
+
+  String _displayRole() {
+    final role =
+        controller.profileData.value?.user?.role?.name?.toString().trim();
+    if (role != null && role.isNotEmpty) return role;
+    return 'User';
+  }
+
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
@@ -47,8 +63,9 @@ class ProfileTabView extends GetView<ProfileTabController> {
                     child: Container(
                         width: size.width,
                         decoration: BoxDecoration(
-                            color: Colors.black,
-                            border: Border.all(color: Colors.black, width: 3))))
+                            color: ColorConstant.bg,
+                            border: Border.all(
+                                color: ColorConstant.hairline, width: 1))))
               ],
             ),
           ),
@@ -66,8 +83,8 @@ class ProfileTabView extends GetView<ProfileTabController> {
                         decoration: BoxDecoration(
                             color: ColorConstant.bg,
                             borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(30),
-                              topRight: Radius.circular(30),
+                              topLeft: Radius.circular(24),
+                              topRight: Radius.circular(24),
                             ))))
               ],
             ),
@@ -104,26 +121,31 @@ class ProfileTabView extends GetView<ProfileTabController> {
                         ],
                       ),
                     ),
-                    CustomImageView(
-                      imagePath: DummyContent.images[Random().nextInt(DummyContent.images.length)],
-                      height: size.height * 0.12,
-                      radius: BorderRadius.circular(200),
-                      margin: getMargin(bottom: 20),
-                    ),
-                    MyText(
-                      title: "123 Clouds Music",
-                      customWeight: FontWeight.w600,
-                      fontSize: (18),
-                    ),
+                    Obx(() => CustomImageView(
+                          url: controller.profileData.value?.user?.profileImage ??
+                              "",
+                          imagePath: DummyContent
+                              .images[Random().nextInt(DummyContent.images.length)],
+                          height: size.height * 0.12,
+                          radius: BorderRadius.circular(200),
+                          margin: getMargin(bottom: 20),
+                        )),
+                    Obx(() => MyText(
+                          title: _displayName(),
+                          customWeight: FontWeight.w700,
+                          fontSize: (18),
+                          family: 'Manrope',
+                        )),
                     SizedBox(
                       height: getSize(10),
                     ),
-                    MyText(
-                      title: "User",
-                      customWeight: FontWeight.w400,
-                      fontSize: (16),
-                      clr: ColorConstant.white60,
-                    ),
+                    Obx(() => MyText(
+                          title: _displayRole(),
+                          customWeight: FontWeight.w400,
+                          fontSize: (16),
+                          family: 'Inter',
+                          clr: ColorConstant.white60,
+                        )),
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () => Get.toNamed(Routes.FOLLOW_FOLLOWING),
@@ -189,6 +211,8 @@ class ProfileTabView extends GetView<ProfileTabController> {
                               title:
                                   "Dubai event creator who hosts the best DJ sets and parties in the Middle East.",
                               fontSize: (14),
+                              family: 'Inter',
+                              clr: ColorConstant.white60,
                             ),
                             SizedBox(
                               height: getSize(5),
@@ -197,14 +221,15 @@ class ProfileTabView extends GetView<ProfileTabController> {
                               children: [
                                 MyText(
                                   title: "cloudmusic.com",
-                                  clr: ColorConstant.primaryPink.withValues(alpha: 0.8),
+                                  family: 'Inter',
+                                  clr: ColorConstant.primaryAccent,
                                   fontSize: (15),
                                 ),
                                 Container(
                                   width: 1,
                                   height: 15,
                                   margin: getPadding(left: 15,right: 15),
-                                  color: ColorConstant.dividerColor,
+                                  color: ColorConstant.hairline,
                                 ),
                                 CustomImageView(
                                   imagePath: ImageConstant.twitterClr,
@@ -228,15 +253,15 @@ class ProfileTabView extends GetView<ProfileTabController> {
                             ),
                             TabBar(
                               controller: controller.tabController,
-                              indicatorColor: ColorConstant.primaryPink,
+                              indicatorColor: ColorConstant.primaryAccent,
                               // Set indicator color
                               indicatorWeight: 3.0,
                               // Set indicator thickness
                               isScrollable: false,
                               indicatorSize: TabBarIndicatorSize.tab,
-                              labelColor: Colors.white,
+                              labelColor: ColorConstant.whiteA700,
                               // Set label color
-                              unselectedLabelColor: ColorConstant.answerColor,
+                              unselectedLabelColor: ColorConstant.white60,
                               // Set unselected label color
                               tabs: Constants.isUserCreator ? const [
                                 Tab(text: 'Hosted'),

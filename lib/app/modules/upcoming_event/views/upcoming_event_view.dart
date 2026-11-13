@@ -1,5 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/modules/event_detail/views/event_detail_view.dart';
+import 'package:block_tix/app/modules/payment_page/views/payment_page_view.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
@@ -19,22 +20,55 @@ class UpcomingEventView extends GetView<UpcomingEventController> {
       bodyPadding: false,
       showNotification: true,
       bottomNavigationBar: SafeArea(
-        child: CustomButton(
+        child: PrimaryPillButton(
           text: "Remind me".tr,
-          prefixWidget: Container(
-              margin: getMargin(right: 10),
-              child: Icon(
-                Icons.calendar_month,
-                color: ColorConstant.whiteA700,
-              )),
+          prefixWidget: Icon(
+            Icons.calendar_month,
+            color: ColorConstant.canvas,
+            size: 20,
+          ),
           margin: getMargin(right: 20, left: 20, bottom: 30, top: 10),
-          shape: ButtonShape.RoundedBorder10,
           onTap: () {
             Get.toNamed(Routes.REMIND_ME);
           },
         ),
       ),
-      child: SingleChildScrollView(
+      child: Obx(() {
+        if (controller.isLoading.value && !controller.hasEvent) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (controller.loadError.value != null && !controller.hasEvent) {
+          return Center(
+            child: Padding(
+              padding: getPadding(all: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  MyText(
+                    title: "Couldn't load event",
+                    family: 'Manrope',
+                    customWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                  const SizedBox(height: 8),
+                  MyText(
+                    title: controller.loadError.value ?? '',
+                    family: 'Inter',
+                    fontSize: 13,
+                    clr: ColorConstant.white60,
+                    center: true,
+                  ),
+                  const SizedBox(height: 16),
+                  PrimaryPillButton(
+                    text: 'Retry',
+                    onTap: () => controller.fetchEvent(),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return SingleChildScrollView(
         child: Column(
           children: [
             const StageViewScreen(height: 380,showCircles: false,),
@@ -46,40 +80,49 @@ class UpcomingEventView extends GetView<UpcomingEventController> {
                   Row(
                     children: [
                       MyText(
-                        title: 'Music Concert',
-                        family: 'Manrope',
+                        title: controller.hasEvent
+                            ? (controller.categoryText.isNotEmpty
+                                ? controller.categoryText
+                                : 'Event')
+                            : 'Music Concert',
+                        family: 'Inter',
                         customWeight: FontWeight.w400,
-                        fontSize: 14,
-                        clr: ColorConstant.whiteA700,
+                        fontSize: 13,
+                        clr: ColorConstant.white60,
                       ),
                       Container(
-                        padding: getPadding(left: 8,right: 8,top: 4,bottom: 4),
+                        padding: getPadding(left: 10,right: 10,top: 4,bottom: 4),
                         margin: getMargin(left: 10),
                         decoration: BoxDecoration(
-                            border: Border.all(color: ColorConstant.white60),
-                            borderRadius: BorderRadius.circular(20)
+                            border: Border.all(color: ColorConstant.hairline),
+                            borderRadius: BorderRadius.circular(999)
                         ),
-                        child: MyText(title: "Not live yet",fontSize: 13,clr: ColorConstant.white60),
+                        child: MyText(title: "Not live yet",family: 'Inter',fontSize: 12,clr: ColorConstant.white60),
                       )
                     ],
                   ),
                   MyText(
-                    title: 'DJ Maksmellow Orignawa',
+                    title: controller.hasEvent
+                        ? controller.titleText
+                        : 'DJ Maksmellow Orignawa',
                     family: 'Manrope',
                     customWeight: FontWeight.w700,
-                    fontSize: 22,
+                    fontSize: 26,
+                    height: 1.15,
                     clr: ColorConstant.whiteA700,
                   ),
                   SizedBox(
                     height: getSize(20),
                   ),
-                  const MyText(
-                    title: 'Japan Night Festival 2021',
-                    family: 'Manrope',
-                    customWeight: FontWeight.w700,
-                    fontSize: 14,
-                    clr: Color(0xFFFFFFFF),
-                  ),
+                  controller.hasEvent
+                      ? const Offstage()
+                      : const MyText(
+                          title: 'Japan Night Festival 2021',
+                          family: 'Manrope',
+                          customWeight: FontWeight.w700,
+                          fontSize: 14,
+                          clr: Color(0xFFFFFFFF),
+                        ),
                   SizedBox(
                     height: getSize(20),
                   ),
@@ -94,20 +137,21 @@ class UpcomingEventView extends GetView<UpcomingEventController> {
                               children: [
                                 Icon(
                                   Icons.calendar_month,
-                                  color: ColorConstant.primaryPink,
-                                  size: 24,
+                                  color: ColorConstant.white60,
+                                  size: 22,
                                 ),
                                 const SizedBox(
-                                  width: 20,
+                                  width: 16,
                                 ),
                                 Expanded(
                                   child: Text(
-                                    'Sunday, 14 February 2021',
-                                    style: GoogleFonts.getFont(
-                                      'Manrope',
+                                    controller.hasEvent
+                                        ? controller.formattedDate
+                                        : 'Sunday, 14 February 2021',
+                                    style: GoogleFonts.inter(
                                       fontWeight: FontWeight.w400,
                                       fontSize: 14,
-                                      color: const Color(0xB2FFFFFF),
+                                      color: ColorConstant.white60,
                                     ),
                                   ),
                                 ),
@@ -121,20 +165,23 @@ class UpcomingEventView extends GetView<UpcomingEventController> {
                               children: [
                                 Icon(
                                   Icons.location_on,
-                                  color: ColorConstant.primaryPink,
-                                  size: 24,
+                                  color: ColorConstant.white60,
+                                  size: 22,
                                 ),
                                 const SizedBox(
-                                  width: 20,
+                                  width: 16,
                                 ),
                                 Expanded(
                                   child: Text(
-                                    'Japan, 〒604-8122 Kyoto, Nakagyo Ward, 錦小路下る瀬戸 屋町474',
-                                    style: GoogleFonts.getFont(
-                                      'Manrope',
+                                    controller.hasEvent
+                                        ? (controller.locationText.isNotEmpty
+                                            ? controller.locationText
+                                            : '—')
+                                        : 'Japan, 〒604-8122 Kyoto, Nakagyo Ward, 錦小路下る瀬戸 屋町474',
+                                    style: GoogleFonts.inter(
                                       fontWeight: FontWeight.w400,
                                       fontSize: 14,
-                                      color: const Color(0xB2FFFFFF),
+                                      color: ColorConstant.white60,
                                     ),
                                   ),
                                 ),
@@ -151,11 +198,10 @@ class UpcomingEventView extends GetView<UpcomingEventController> {
                           margin: const EdgeInsets.fromLTRB(20, 50, 0, 36),
                           child: Text(
                             'Direction',
-                            style: GoogleFonts.getFont(
-                              'Manrope',
-                              fontWeight: FontWeight.w400,
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
                               fontSize: 14,
-                              color: const Color(0xFFB620E0),
+                              color: ColorConstant.primaryAccentBright,
                             ),
                           ),
                         ),
@@ -165,32 +211,33 @@ class UpcomingEventView extends GetView<UpcomingEventController> {
                   SizedBox(
                     height: getSize(20),
                   ),
-                  Text(
-                    'Event Details',
-                    style: GoogleFonts.getFont(
-                      'Manrope',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      color: const Color(0xFFFFFFFF),
-                    ),
+                  MyText(
+                    title: 'Event Details',
+                    family: 'Manrope',
+                    customWeight: FontWeight.w600,
+                    fontSize: 17,
                   ),
                   SizedBox(
                     height: getSize(10),
                   ),
                   Text(
-                    'South Korean girl group Blackpink have embarked on two headlining concert tours. In July 2017, the group held their debut showcase in Japan.',
-                    style: GoogleFonts.getFont(
-                      'Manrope',
+                    controller.hasEvent
+                        ? controller.descriptionText
+                        : 'South Korean girl group Blackpink have embarked on two headlining concert tours. In July 2017, the group held their debut showcase in Japan.',
+                    style: GoogleFonts.inter(
                       fontWeight: FontWeight.w400,
                       fontSize: 14,
-                      color: const Color(0xB2FFFFFF),
+                      height: 1.5,
+                      color: ColorConstant.white60,
                     ),
                   ),
                   Container(
                     padding: getPadding(left: 18,right: 18,top: 15,bottom: 15),
                     margin: getMargin(top: 20,bottom: 20,left: 10,right: 10),
                     decoration: BoxDecoration(
-                      border: Border.all(color: ColorConstant.whiteA700)
+                      color: ColorConstant.elevated,
+                      border: Border.all(color: ColorConstant.hairline),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
                       children: [
@@ -204,13 +251,15 @@ class UpcomingEventView extends GetView<UpcomingEventController> {
                             children: [
                               MyText(
                                 title: 'This event will be live in: ',
+                                  family: 'Inter',
                                   customWeight: FontWeight.w400,
                                   fontSize: 14,
                                   clr: ColorConstant.white60,
                               ),
                               Obx(() => MyText(
                                 title: controller.formatDuration(controller.totalDuration - controller.elapsedTime.value),
-                                customWeight: FontWeight.w600,
+                                family: 'Manrope',
+                                customWeight: FontWeight.w700,
                                 fontSize: 14,
                                 clr: ColorConstant.whiteA700,
                               ),)
@@ -225,7 +274,8 @@ class UpcomingEventView extends GetView<UpcomingEventController> {
             ),
           ],
         ),
-      ),
+        );
+      }),
     );
   }
 }

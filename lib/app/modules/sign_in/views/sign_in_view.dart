@@ -4,6 +4,7 @@ import 'package:block_tix/app/data/widgets/custom_text_form_field.dart';
 
 import '../../../data/core/app_export.dart';
 import '../../../data/utils/helper_functions.dart';
+import 'widgets/auth_pill_button.dart';
 import '../controllers/sign_in_controller.dart';
 
 class
@@ -33,16 +34,16 @@ SignInView extends GetView<SignInController> {
                       SizedBox(
                         height: getSize(30),
                       ),
-                      MyText(
-                        title: "Welcome Back!".tr,
-                        fontSize: 18,
+                      Text(
+                        "Welcome Back!".tr,
+                        style: AppStyle.heading1Manrope,
                       ),
                       SizedBox(
                         height: getSize(10),
                       ),
-                      MyText(
-                        title: "All your needs for event experience.".tr,
-                        clr: ColorConstant.white60,
+                      Text(
+                        "All your needs for event experience.".tr,
+                        style: AppStyle.bodySmallInter,
                       ),
                       SizedBox(
                         height: getSize(30),
@@ -110,28 +111,28 @@ SignInView extends GetView<SignInController> {
                               },
                               child: Padding(
                                   padding: getPadding(left: 0, top: 19),
-                                  child: MyText(
-                                    title: "msg_forgot_password".tr,
-                                    clr: ColorConstant.primaryPink,
+                                  child: Text(
+                                    "msg_forgot_password".tr,
+                                    style: AppStyle.bodySmallInter.copyWith(
+                                      color: ColorConstant.primaryAccent,
+                                    ),
                                   )))),
                       Padding(
                         padding: getMargin(left: 0, top: 32, right: 0),
-                        child: CustomButton(
+                        child: AuthPillButton(
                           controller: controller.btnController,
-                          height: getVerticalSize(46),
                           text: "lbl_sign_in".tr,
-                          fontStyle: ButtonFontStyle.AgeoSemiBold14Black900,
                           onTap: _onTapSignIn,
                         ),
                       ),
-                      CustomButton(
+                      AuthPillButton(
                           text: "msg_continue_with_google".tr,
                           margin: getMargin(left: 0, top: 15, right: 0),
-                          variant: ButtonVariant.OutlineWhite,
-                          prefixWidget: Container(
-                              margin: getMargin(right: 14),
-                              child: CustomImageView(
-                                  imagePath: ImageConstant.imgGoogle)),
+                          variant: AuthPillButtonVariant.secondary,
+                          prefix: CustomImageView(
+                              imagePath: ImageConstant.imgGoogle,
+                              height: getSize(20),
+                              width: getSize(20)),
                           onTap: () async {
 
                                 controller.loginGoogle(context);
@@ -139,24 +140,16 @@ SignInView extends GetView<SignInController> {
                       Platform.isIOS
                           ?
                           // iOS-specific code
-                          CustomButton(
+                          AuthPillButton(
                               text: "msg_continue_with_apple".tr,
                               margin: getMargin(left: 0, top: 15, right: 0),
-                              variant: ButtonVariant.OutlineBlack900,
-                              shape: ButtonShape.RoundedBorder14,
-                              padding: ButtonPadding.PaddingT14,
-                              fontStyle: ButtonFontStyle.AgeoRegular14,
-                              prefixWidget: Container(
-                                  margin: getMargin(right: 14),
-                                  child: CustomImageView(
-                                      svgPath: ImageConstant.imgAppleLogo)),
+                              variant: AuthPillButtonVariant.secondary,
+                              prefix: CustomImageView(
+                                  svgPath: ImageConstant.imgAppleLogo,
+                                  height: getSize(18),
+                                  width: getSize(18)),
                               onTap: () async {
-                                // Get.toNamed(Routes.ROLE_SELECTION,arguments: {Constants.paramComingFrom : "login"})!.then((value) {
-                                //   if(value!= null && value){
-                                //     controller.loginApple(context);
-                                //   }
-                                // });
-                                Get.toNamed(Routes.USER_DASHBOARD);
+                                controller.loginApple(context);
                               })
                           : Container(),
                       Align(
@@ -173,13 +166,13 @@ SignInView extends GetView<SignInController> {
                                     text: TextSpan(children: [
                                       TextSpan(
                                           text: "lbl_don_t".tr,
-                                          style: AppStyle.white60InterNormal14),
+                                          style: AppStyle.bodySmallInter),
                                       TextSpan(
                                           text: "lbl_have_an_acc".tr,
-                                          style: AppStyle.white60InterNormal14),
+                                          style: AppStyle.bodySmallInter),
                                       TextSpan(
                                           text: "lbl_ount".tr + " ",
-                                          style: AppStyle.white60InterNormal14),
+                                          style: AppStyle.bodySmallInter),
                                       TextSpan(
                                           text: "lbl_register".tr,
                                           style: AppStyle.pinkInterNormal16)

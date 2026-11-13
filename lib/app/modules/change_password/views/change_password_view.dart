@@ -163,10 +163,10 @@ class ChangePasswordView extends GetView<ChangePasswordController> {
                 controller: controller.btnController,
                 text: "lbl_update".tr,
                 fontStyle: ButtonFontStyle.AgeoSemiBold14Black900,
-                variant: ButtonVariant.FillOrangeA20033,
+                variant: ButtonVariant.FillWhiteA700,
                 onTap: () {
                   if (controller.formKey.currentState!.validate()) {
-                    // controller.changePasswordApi(context);
+                    controller.changePasswordApi(context);
                   }
                 },
               ),

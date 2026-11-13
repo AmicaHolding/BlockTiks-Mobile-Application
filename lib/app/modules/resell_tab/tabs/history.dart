@@ -14,11 +14,11 @@ class History extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const MyText(
+        MyText(
           title: "Recent",
-          clr: Colors.white,
+          family: 'Manrope',
+          customWeight: FontWeight.w700,
           fontSize: 20,
-          customWeight: FontWeight.bold,
         ),
         SizedBox(
           height: getSize(15),

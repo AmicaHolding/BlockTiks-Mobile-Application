@@ -1,5 +1,7 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/custom_round_button.dart';
+import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
+import 'package:block_tix/app/services/api_service.dart';
 
 class SignUpController extends GetxController {
   TextEditingController firstNameController = TextEditingController();
@@ -53,12 +55,37 @@ class SignUpController extends GetxController {
   }
 
   Future<dynamic> signUp(BuildContext context) async {
-    var map = {
-      Constants.paramEmail: emailController.text,
-      Constants.paramComingFrom: Constants.paramSignup,
-      Constants.paramCreator: isSelectedSwitch.value
-    };
-    Get.toNamed(Routes.OTP_VERIFICATION_SCREEN, arguments: map);
+    final firstName = firstNameController.text.trim();
+    final email = emailController.text.trim();
+    final password = passwordController.text;
+    if (firstName.isEmpty || email.isEmpty || password.isEmpty) {
+      CustomSnackBar.showCustomErrorToast(message: "Please fill in all fields".tr);
+      return;
+    }
+    if (password != confirmPasswordController.text) {
+      CustomSnackBar.showCustomErrorToast(message: "Passwords do not match".tr);
+      return;
+    }
+    if (password.length < 8) {
+      CustomSnackBar.showCustomErrorToast(message: "Password must be at least 8 characters".tr);
+      return;
+    }
+    btnController.start();
+    try {
+      final res = await ApiService.signup(
+        firstName: firstName,
+        email: email,
+        password: password,
+        role: isSelectedSwitch.value ? 'creator' : 'user',
+      );
+      btnController.stop();
+      await ApiService.saveSession(res);
+      ApiService.goToDashboard();
+    } catch (e) {
+      btnController.error();
+      btnController.stop();
+      CustomSnackBar.showCustomErrorToast(message: e.toString().replaceFirst('Exception: ', ''));
+    }
   }
 
   loginGoogle(context) async {

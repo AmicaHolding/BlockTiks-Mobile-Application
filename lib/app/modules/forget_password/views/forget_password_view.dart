@@ -2,6 +2,7 @@ import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/custom_text_form_field.dart';
 
 import '../../../data/utils/helper_functions.dart';
+import '../../sign_in/views/widgets/auth_pill_button.dart';
 import '../controllers/forget_password_controller.dart';
 
 class ForgetPasswordView extends GetView<ForgetPasswordController> {
@@ -31,16 +32,16 @@ class ForgetPasswordView extends GetView<ForgetPasswordController> {
                     SizedBox(
                       height: getSize(30),
                     ),
-                    MyText(
-                      title: "${'lbl_forgot_password'.tr} ?",
-                      fontSize: 18,
+                    Text(
+                      "${'lbl_forgot_password'.tr} ?",
+                      style: AppStyle.heading1Manrope,
                     ),
                     SizedBox(
                       height: getSize(10),
                     ),
-                    MyText(
-                      title: "enter_email".tr,
-                      clr: ColorConstant.white60,
+                    Text(
+                      "enter_email".tr,
+                      style: AppStyle.bodySmallInter,
                     ),
                     SizedBox(
                       height: getSize(30),
@@ -57,11 +58,10 @@ class ForgetPasswordView extends GetView<ForgetPasswordController> {
                         validator: (value) {
                           return HelperFunction.validateEmailOrPhone(value!);
                         }),
-                    CustomButton(
+                    AuthPillButton(
                         controller: controller.btnController,
                         text: "lbl_continue".tr,
                         margin: getMargin(top: 40, bottom: 5),
-                        fontStyle: ButtonFontStyle.AgeoSemiBold14Black900,
                         onTap: () {
                           if (_formKey.currentState!.validate()) {
                             controller.forgetPasswordAPI();

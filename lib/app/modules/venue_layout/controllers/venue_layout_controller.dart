@@ -37,7 +37,7 @@ class VenueLayoutController extends GetxController {
                       },
                       child: MyText(
                         title: "lbl_cancel".tr,
-                        clr: ColorConstant.blueGray400,
+                        clr: ColorConstant.white60,
                         fontSize: getFontSize(14),
                         customWeight: FontWeight.w400,
                       ),
@@ -47,7 +47,7 @@ class VenueLayoutController extends GetxController {
                       child: Center(
                         child: MyText(
                           title: "lbl_select_option".tr,
-                          clr: ColorConstant.blueGray900,
+                          clr: ColorConstant.whiteA700,
                           fontSize: getFontSize(16),
                           customWeight: FontWeight.w600,
                         ),

@@ -104,9 +104,9 @@ class EventSettingsView extends GetView<EventSettingsController> {
                     margin: getMargin(top: 15,bottom: 16),
                     padding: getPadding(all: 10),
                     decoration: BoxDecoration(
-                      border: Border.all(color: ColorConstant.grayBorder),
-                      borderRadius: BorderRadius.circular(getSize(10)),
-                      color: ColorConstant.whiteA700.withValues(alpha: 0.15)
+                      border: Border.all(color: ColorConstant.hairline),
+                      borderRadius: BorderRadius.circular(getSize(16)),
+                      color: ColorConstant.surface
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,14 +147,14 @@ class EventSettingsView extends GetView<EventSettingsController> {
                               child: Container(
                                 padding: getPadding(left: 16, ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.3),
-                                  borderRadius: BorderRadius.circular(10),
+                                  color: ColorConstant.elevated,
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: TextField(
                                   style: GoogleFonts.getFont("Inter",
                                       fontSize: 16, color: ColorConstant.whiteA700),
                                   onChanged: (val){
-                                    controller.resalePriceLimit = num.parse(val);
+                                    controller.resalePriceLimit = num.tryParse(val) ?? controller.resalePriceLimit;
                                   },
                                   keyboardType: TextInputType.number,
                                   textInputAction: TextInputAction.done,
@@ -197,14 +197,14 @@ class EventSettingsView extends GetView<EventSettingsController> {
                               padding: getPadding(left: 12,right: 10 ),
                               width: 35,
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.3),
-                                borderRadius: BorderRadius.circular(10),
+                                color: ColorConstant.elevated,
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               child: TextField(
                                 style: GoogleFonts.getFont("Inter",
                                     fontSize: 16, color: ColorConstant.whiteA700),
                                 onChanged: (val){
-                                  controller.ticketsX = num.parse(val);
+                                  controller.ticketsX = num.tryParse(val) ?? controller.ticketsX;
                                 },
                                 keyboardType: TextInputType.number,
                                 decoration: InputDecoration(
@@ -226,14 +226,14 @@ class EventSettingsView extends GetView<EventSettingsController> {
                               width: 35,
                               padding: getPadding(left: 12,right: 10 ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.3),
-                                borderRadius: BorderRadius.circular(10),
+                                color: ColorConstant.elevated,
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               child: TextField(
                                 style: GoogleFonts.getFont("Inter",
                                     fontSize: 16, color: ColorConstant.whiteA700),
                                 onChanged: (val){
-                                  controller.ticketsY = num.parse(val);
+                                  controller.ticketsY = num.tryParse(val) ?? controller.ticketsY;
                                 },
                                 textInputAction: TextInputAction.done,
                                 keyboardType: TextInputType.number,
@@ -273,15 +273,15 @@ class EventSettingsView extends GetView<EventSettingsController> {
                   child: Container(
                     padding: getPadding(left: 16, ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(10),
+                      color: ColorConstant.elevated,
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: TextField(
                       controller: TextEditingController(text: "0"),
                       style: GoogleFonts.getFont("Inter",
                           fontSize: 16, color: ColorConstant.whiteA700),
                       onChanged: (val){
-                        controller.royalties = num.parse(val);
+                        controller.royalties = num.tryParse(val) ?? controller.royalties;
                       },
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
@@ -299,6 +299,29 @@ class EventSettingsView extends GetView<EventSettingsController> {
               ],
             ),
 
+            SizedBox(height: 20),
+            MyText(
+              title: "Publish",
+              fontSize: 18,
+              clr: ColorConstant.whiteA700,
+              customWeight: FontWeight.bold,
+            ),
+            MyText(
+              title: "Publish this draft event so tickets go on sale",
+              fontSize: 16,
+              clr: ColorConstant.white60,
+            ),
+            SizedBox(height: getSize(15),),
+            Obx(() => CustomButton(
+              text: controller.isPublishing.value ? "Publishing..." : "Publish Event",
+              onTap: controller.publishEvent,
+            )),
+            SizedBox(height: getSize(15),),
+            MyText(
+              title: "Note: fee, resale and royalty options above are not synced to the server yet.",
+              fontSize: 12,
+              clr: ColorConstant.white60,
+            ),
             SizedBox(height: 20),
           ],
         ),

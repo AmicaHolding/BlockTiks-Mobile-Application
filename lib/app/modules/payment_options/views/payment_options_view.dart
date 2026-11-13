@@ -1,8 +1,8 @@
 import 'package:block_tix/app/modules/payment_page/views/payment_page_view.dart';
 // import 'package:flutter_stripe/flutter_stripe.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:flutter_credit_card/flutter_credit_card.dart';
+import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
+import 'package:block_tix/app/data/widgets/custom_text_form_field.dart';
 import '../controllers/payment_options_controller.dart';
 
 class PaymentOptionsView extends GetView<PaymentOptionsController> {
@@ -19,13 +19,52 @@ class PaymentOptionsView extends GetView<PaymentOptionsController> {
       resizeToAvoidBottomInset: true,
       showNotification: true,
       bottomNavigationBar: SafeArea(
-        child: CustomButton(
-          text: "lbl_save".tr,
-          margin: getMargin(right: 20, left: 20, bottom: 30, top: 10),
-          shape: ButtonShape.RoundedBorder10,
-          onTap: () {
-            Get.back();
-          },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Honest labeling: card entry is validated but no real payment
+            // is processed in this build.
+            Container(
+              margin: getMargin(left: 20, right: 20, bottom: 8),
+              padding: getPadding(left: 12, right: 12, top: 10, bottom: 10),
+              decoration: BoxDecoration(
+                color: ColorConstant.warningOrange.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: ColorConstant.warningOrange.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.science_outlined,
+                      size: 16, color: ColorConstant.warningOrange),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: MyText(
+                      title: 'Test checkout — no real payment yet',
+                      family: 'Inter',
+                      fontSize: 12,
+                      clr: ColorConstant.warningOrange,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            PrimaryPillButton(
+              text: "lbl_save".tr,
+              margin: getMargin(right: 20, left: 20, bottom: 30, top: 4),
+              onTap: () {
+                // When a new card is being added, its details must validate
+                // before we accept them.
+                if (controller.selectedPayment.value == 4 &&
+                    !controller.validateCard()) {
+                  CustomSnackBar.showCustomErrorToast(
+                      message: "Please complete your card details");
+                  return;
+                }
+                Get.back();
+              },
+            ),
+          ],
         ),
       ),
       child: SingleChildScrollView(
@@ -41,12 +80,7 @@ class PaymentOptionsView extends GetView<PaymentOptionsController> {
                   ),
                   Text(
                     'Choose payment method',
-                    style: GoogleFonts.getFont(
-                      'Manrope',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 22,
-                      color: const Color(0xFFFFFFFF),
-                    ),
+                    style: AppStyle.heading2Manrope,
                   ),
                   SizedBox(
                     height: getSize(15),
@@ -93,180 +127,87 @@ class PaymentOptionsView extends GetView<PaymentOptionsController> {
                               title: 'Card Information',
                               family: 'Manrope',
                               fontSize: 14,
+                              customWeight: FontWeight.w600,
                               clr: ColorConstant.whiteA700,
                             ),
                             const SizedBox(
                               height: 5,
                             ),
-                            CreditCardForm(
-                              cardNumber: '', // Add initial card number here if needed
-                              expiryDate: '', // Add initial expiry date here if needed
-                              cardHolderName: '', // Add initial card holder name here if needed
-                              cvvCode: '', // Add initial CVV code here if needed
-                              themeColor: Colors.white,
-                              textColor: ColorConstant.whiteA700,
-                              formKey: GlobalKey<FormState>(), // Use GlobalKey<FormState> for validation
-                              cardNumberDecoration: InputDecoration(
-                                labelText: 'Card Number',
-                                labelStyle: GoogleFonts.getFont(
-                                  "Inter",
-                                  color: ColorConstant.whiteA700,
-                                  fontSize: getFontSize(14),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                                hintText: 'XXXX XXXX XXXX XXXX',
-                                hintStyle: GoogleFonts.getFont(
-                                  "Inter",
-                                  color: ColorConstant.white60,
-                                  fontSize: getFontSize(14),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                    color: ColorConstant.gray300,
-                                    width: 1,
+                            Form(
+                              key: controller.cardFormKey,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  CustomTextFormField(
+                                    controller: controller.cardNumberController,
+                                    labelText: 'Card Number',
+                                    hintText: 'XXXX XXXX XXXX XXXX',
+                                    textInputType: TextInputType.number,
+                                    variant: TextFormFieldVariant.OutlineNewGray,
+                                    validator: (val) {
+                                      final digits =
+                                          (val ?? '').replaceAll(RegExp(r'\D'), '');
+                                      if (digits.length < 13) {
+                                        return 'Enter a valid card number';
+                                      }
+                                      return null;
+                                    },
                                   ),
-                                ),
-                                contentPadding: getPadding(all: 15),
-                              ),
-                              expiryDateDecoration: InputDecoration(
-                                labelText: 'Expiry Date',
-                                hintText: 'MM/YY',
-                                labelStyle: GoogleFonts.getFont(
-                                  "Inter",
-                                  color: ColorConstant.whiteA700,
-                                  fontSize: getFontSize(14),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                                hintStyle: GoogleFonts.getFont(
-                                  "Inter",
-                                  color: ColorConstant.white60,
-                                  fontSize: getFontSize(14),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                    color: ColorConstant.gray300,
-                                    width: 1,
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: CustomTextFormField(
+                                          controller: controller.expiryController,
+                                          labelText: 'Expiry (MM/YY)',
+                                          hintText: 'MM/YY',
+                                          textInputType: TextInputType.number,
+                                          variant: TextFormFieldVariant.OutlineNewGray,
+                                          validator: (val) {
+                                            final text = (val ?? '').trim();
+                                            if (!RegExp(r'^(0[1-9]|1[0-2])/\d{2}$')
+                                                .hasMatch(text)) {
+                                              return 'Use MM/YY';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: CustomTextFormField(
+                                          controller: controller.cvvController,
+                                          labelText: 'CVV',
+                                          hintText: 'XXX',
+                                          textInputType: TextInputType.number,
+                                          variant: TextFormFieldVariant.OutlineNewGray,
+                                          validator: (val) {
+                                            final cvv = (val ?? '').trim();
+                                            if (cvv.length < 3) {
+                                              return 'Enter CVV';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                contentPadding: getPadding(all: 15),
-                              ),
-                              cvvCodeDecoration: InputDecoration(
-                                labelText: 'CVV',
-                                hintText: 'XXX',
-                                labelStyle: GoogleFonts.getFont(
-                                  "Inter",
-                                  color: ColorConstant.whiteA700,
-                                  fontSize: getFontSize(14),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                                hintStyle: GoogleFonts.getFont(
-                                  "Inter",
-                                  color: ColorConstant.white60,
-                                  fontSize: getFontSize(14),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                    color: ColorConstant.gray300,
-                                    width: 1,
+                                  const SizedBox(height: 12),
+                                  CustomTextFormField(
+                                    controller: controller.nameController,
+                                    labelText: 'Card Holder',
+                                    hintText: 'Name on card',
+                                    variant: TextFormFieldVariant.OutlineNewGray,
+                                    validator: (val) {
+                                      if ((val ?? '').trim().length < 2) {
+                                        return 'Enter the name on the card';
+                                      }
+                                      return null;
+                                    },
                                   ),
-                                ),
-                                contentPadding: getPadding(all: 15),
+                                ],
                               ),
-                              cardHolderDecoration: InputDecoration(
-                                labelText: 'Card Holder',
-                                hintText: 'Your Name',
-                                labelStyle: GoogleFonts.getFont(
-                                  "Inter",
-                                  color: ColorConstant.whiteA700,
-                                  fontSize: getFontSize(14),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                                hintStyle: GoogleFonts.getFont(
-                                  "Inter",
-                                  color: ColorConstant.white60,
-                                  fontSize: getFontSize(14),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                    color: ColorConstant.gray300,
-                                    width: 1,
-                                  ),
-                                ),
-                                contentPadding: getPadding(all: 15),
-                              ),
-                              onCreditCardModelChange: (creditCardModel) {
-                                // You can handle card model changes here, for example:
-                                // _cardNumber = creditCardModel.cardNumber;
-                                // _expiryDate = creditCardModel.expiryDate;
-                                // _cvvCode = creditCardModel.cvvCode;
-                                // _cardHolderName = creditCardModel.cardHolderName;
-                              },
                             ),
-                            // CardField(
-                            //   style: GoogleFonts.getFont(
-                            //     "Inter",
-                            //     color: ColorConstant.whiteA700,
-                            //     fontSize: getFontSize(
-                            //       14,
-                            //     ),
-                            //     fontWeight: FontWeight.w400,
-                            //   ),
-                            //   decoration: InputDecoration(
-                            //     hintText: 'Add Debit/Credit Card',
-                            //     hintStyle: GoogleFonts.getFont(
-                            //       "Inter",
-                            //       color: ColorConstant.white60,
-                            //       fontSize: getFontSize(
-                            //         14,
-                            //       ),
-                            //       fontWeight: FontWeight.w400,
-                            //     ),
-                            //     border: OutlineInputBorder(
-                            //       borderRadius: BorderRadius.circular(10),
-                            //       borderSide: BorderSide(
-                            //         color: ColorConstant.gray300,
-                            //         width: 1,
-                            //       ),
-                            //     ),
-                            //     enabledBorder: OutlineInputBorder(
-                            //       borderRadius: BorderRadius.circular(10),
-                            //       borderSide: BorderSide(
-                            //         color: ColorConstant.gray300,
-                            //         width: 1,
-                            //       ),
-                            //     ),
-                            //     focusedBorder: OutlineInputBorder(
-                            //       borderRadius: BorderRadius.circular(10),
-                            //       borderSide: BorderSide(
-                            //         color: ColorConstant.gray300,
-                            //         width: 1,
-                            //       ),
-                            //     ),
-                            //     disabledBorder: OutlineInputBorder(
-                            //       borderRadius: BorderRadius.circular(10),
-                            //       borderSide: BorderSide(
-                            //         color: ColorConstant.gray300,
-                            //         width: 1,
-                            //       ),
-                            //     ),
-                            //     contentPadding: getPadding(
-                            //       all: 15,
-                            //     ),
-                            //   ),
-                            //   onCardChanged: (card) {
-                            //     // setState(() {
-                            //     //   _cardFieldInputDetails = card;
-                            //     // });
-                            //   },
-                            // ),
                             SizedBox(
                               height: getSize(30),
                             ),

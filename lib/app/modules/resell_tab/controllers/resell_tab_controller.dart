@@ -71,17 +71,18 @@ class ResellTabController extends GetxController
             children: [
               Container(
                 decoration: BoxDecoration(
-                    color: ColorConstant.whiteA700.withValues(alpha: .9),
+                    color: ColorConstant.surface,
                     borderRadius: BorderRadius.circular(
-                      14,
-                    )),
+                      16,
+                    ),
+                    border: Border.all(color: ColorConstant.hairline)),
                 padding: getPadding(left: 16, right: 16, top: 15),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     MyText(
                       title: "Make changes to this action".tr,
-                      clr: ColorConstant.blueGray900,
+                      clr: ColorConstant.whiteA700,
                       fontSize: getFontSize(16),
                       customWeight: FontWeight.w600,
                     ),
@@ -90,7 +91,7 @@ class ResellTabController extends GetxController
                     ),
                     MyText(
                       title: "Are you sure you want to make a change".tr,
-                      clr: ColorConstant.blueGray400,
+                      clr: ColorConstant.white60,
                       fontSize: getFontSize(14),
                       customWeight: FontWeight.w400,
                     ),
@@ -101,7 +102,7 @@ class ResellTabController extends GetxController
                     GestureDetector(
                       onTap: (){
                         if(fromAsk){
-                          Get.toNamed(Routes.ASK_BID);
+                          Get.toNamed(Routes.ASK_BID, arguments: {'fromSell': true});
                         }else{
                           Get.toNamed(Routes.PLACE_BID);
                         }
@@ -112,9 +113,9 @@ class ResellTabController extends GetxController
                         alignment: Alignment.center,
                         child: MyText(
                           title: "Edit",
-                          clr: ColorConstant.blue,
+                          clr: ColorConstant.primaryAccentBright,
                           fontSize: getFontSize(14),
-                          customWeight: FontWeight.w400,
+                          customWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -127,9 +128,9 @@ class ResellTabController extends GetxController
                         alignment: Alignment.center,
                         child: MyText(
                           title: "Delete",
-                          clr: ColorConstant.red,
+                          clr: ColorConstant.errorRed,
                           fontSize: getFontSize(14),
-                          customWeight: FontWeight.w400,
+                          customWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -141,7 +142,7 @@ class ResellTabController extends GetxController
               ),
               MediaSelectionTileAndroid(
                   title: "Cancel".tr,
-                  textColor: ColorConstant.blue,
+                  textColor: ColorConstant.primaryAccentBright,
                   onPressed: () {
                     Get.back();
                   }),

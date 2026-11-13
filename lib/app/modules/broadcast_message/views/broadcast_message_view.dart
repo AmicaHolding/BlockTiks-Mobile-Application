@@ -69,9 +69,9 @@ class BroadcastMessageView extends GetView<BroadcastMessageController> {
                       decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                              color: controller.ticketChecks[index].value? Colors.transparent : ColorConstant.grayBorder
+                              color: controller.ticketChecks[index].value? Colors.transparent : ColorConstant.hairline
                           ),
-                          color: controller.ticketChecks[index].value ? ColorConstant.primaryPink : Colors.transparent
+                          color: controller.ticketChecks[index].value ? ColorConstant.primaryAccent : Colors.transparent
                       ),
                       child: MyText(
                         title: controller.ticketHolders[index],
@@ -93,8 +93,8 @@ class BroadcastMessageView extends GetView<BroadcastMessageController> {
               padding: getPadding(left: 16, right: 16,top: 5,bottom: 5),
               margin: getMargin(bottom: 20),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+                color: ColorConstant.elevated,
+                borderRadius: BorderRadius.circular(12),
               ),
               alignment: Alignment.center,
               child: TextField(
@@ -120,7 +120,7 @@ class BroadcastMessageView extends GetView<BroadcastMessageController> {
               svgPath:  controller.image.value.path.isNotEmpty ? null : ImageConstant.insertImage,
               height: getSize(115),
               width: getSize(115),
-              radius: BorderRadius.circular(5),
+              radius: BorderRadius.circular(12),
               margin: getMargin(bottom: 20,top: 30),
             ),)
           ],

@@ -36,7 +36,7 @@ class AddCoHostView extends GetView<AddCoHostController> {
           SearchField(),
           TabBar(
             controller: controller.tabController,
-            indicatorColor: ColorConstant.primaryPink,
+            indicatorColor: ColorConstant.primaryAccent,
             // Set indicator color
             indicatorWeight: 3.0,
             // Set indicator thickness
@@ -44,7 +44,7 @@ class AddCoHostView extends GetView<AddCoHostController> {
             indicatorSize: TabBarIndicatorSize.tab,
             labelColor: Colors.white,
             // Set label color
-            unselectedLabelColor: ColorConstant.answerColor,
+            unselectedLabelColor: ColorConstant.white60,
             // Set unselected label color
             tabs: const [
               Tab(text: 'Teams'),
@@ -86,6 +86,7 @@ class AddCoHostView extends GetView<AddCoHostController> {
                               title: "+ Add Team",
                               fontSize: 16,
                               customWeight: FontWeight.w600,
+                              clr: ColorConstant.primaryAccent,
                             ),
                           ),
                         ],
@@ -117,6 +118,7 @@ class AddCoHostView extends GetView<AddCoHostController> {
                             title: "+ Add Teammate",
                             fontSize: 16,
                             customWeight: FontWeight.w600,
+                            clr: ColorConstant.primaryAccent,
                           ),
                         ),
                       ],
@@ -146,8 +148,8 @@ class AddCoHostTile extends StatelessWidget{
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: ColorConstant.whiteA700.withValues(alpha: .05),
-        borderRadius: BorderRadius.circular(getSize(5))
+        color: ColorConstant.surface,
+        borderRadius: BorderRadius.circular(getSize(16))
       ),
       padding: getPadding(left: 12,right: 12,top: 10,bottom: 10),
       margin: getMargin(bottom: isLast? 10 : 15),
@@ -161,7 +163,7 @@ class AddCoHostTile extends StatelessWidget{
               svgPath: model.isSelected.value ? ImageConstant.check : ImageConstant.uncheck,
               height: getSize(24),
               width: getSize(24),
-              color: ColorConstant.whiteA700.withValues(alpha: .35),
+              color: ColorConstant.white60,
             )),
           ),
           SizedBox(width: getSize(20),),
@@ -180,12 +182,12 @@ class AddCoHostTile extends StatelessWidget{
             height: getSize(30),
             padding: getPadding(left: 5,right: 5,),
             decoration: BoxDecoration(
-                color: ColorConstant.whiteA700.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8)
+                color: ColorConstant.elevated,
+                borderRadius: BorderRadius.circular(12)
             ),
             child: Obx(() => DropdownButton<String>(
               value: controller.selectedRole.value,
-              dropdownColor: ColorConstant.black900,
+              dropdownColor: ColorConstant.elevated,
               hint: const MyText(title: 'Role'),
               icon: Icon(Icons.keyboard_arrow_down_sharp,color: ColorConstant.whiteA700,),
               // The down arrow icon

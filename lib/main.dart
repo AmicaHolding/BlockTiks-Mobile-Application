@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-// import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:keyboard_actions/external/platform_check/platform_check.dart';
 import 'package:block_tix/app/data/utils/check_internet_connection.dart';
 
@@ -33,10 +33,8 @@ Future<void> main() async {
   ]);
 
   /// Stripe ............................
-  // Stripe.publishableKey = Constants.stripePublicAPIKey;
-  // Stripe.merchantIdentifier = 'merchant.flutter.stripe.test';
-  // Stripe.urlScheme = 'flutterstripe';
-  // await Stripe.instance.applySettings();
+  Stripe.publishableKey = Constants.stripePublishableKey;
+  await Stripe.instance.applySettings();
 
   Logger.init(kReleaseMode ? LogMode.live : LogMode.debug);
   // await Firebase.initializeApp();

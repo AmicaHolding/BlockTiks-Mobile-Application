@@ -21,7 +21,7 @@ class WithdrawView extends GetView<WithdrawController> {
       showNotification: true,
       bottomNavigationBar: SafeArea(
         child: CustomButton(
-          text: controller.fromDeposit ? "Confirm Deposit":"Confirm Transform".tr,
+          text: controller.fromDeposit ? "Confirm Deposit":"Confirm Transfer".tr,
           margin: getMargin(right: 20, left: 20, bottom: 30, top: 10),
           shape: ButtonShape.RoundedBorder10,
           onTap: () {
@@ -50,12 +50,12 @@ class WithdrawView extends GetView<WithdrawController> {
                 textInputType: TextInputType.number,
                 suffix: Container(
                   padding: getPadding(top: 12, bottom: 12),
-                  child: const MyText(
+                  child: MyText(
                     title: 'Max',
-                    family: 'Roboto Condensed',
-                    customWeight: FontWeight.w400,
+                    family: 'Inter',
+                    customWeight: FontWeight.w500,
                     fontSize: 14,
-                    clr: Color(0xFFFFFFFF),
+                    clr: ColorConstant.primaryAccent,
                   ),
                 ),
                 validator: (value) {
@@ -116,7 +116,12 @@ class WithdrawView extends GetView<WithdrawController> {
               SizedBox(
                 height: getSize(30),
               ),
-               MyText(title: controller.fromDeposit ? "Recent Accounts":"Recent users transferred to"),
+               MyText(
+                 title: controller.fromDeposit ? "Recent Accounts":"Recent users transferred to",
+                 family: 'Manrope',
+                 customWeight: FontWeight.w600,
+                 fontSize: getFontSize(16),
+               ),
               SizedBox(
                 height: getSize(10),
               ),
@@ -138,10 +143,10 @@ class WithdrawView extends GetView<WithdrawController> {
                     child: Container(
                       padding:
                           getPadding(left: 15, right: 15, top: 10, bottom: 10),
-                      margin: getMargin(bottom: 15),
+                      margin: getMargin(bottom: 10),
                       decoration: BoxDecoration(
-                          color: ColorConstant.gray50.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(10)),
+                          color: ColorConstant.elevated,
+                          borderRadius: BorderRadius.circular(16)),
                       child: Row(
                         children: [
                           SizedBox(
@@ -151,7 +156,7 @@ class WithdrawView extends GetView<WithdrawController> {
                               imagePath: DummyContent.images[Random().nextInt(DummyContent.images.length)],
                               width: 30,
                               height: 30,
-                              radius: BorderRadius.circular(5),
+                              radius: BorderRadius.circular(20),
                             ),
                           ),
                           const SizedBox(
@@ -159,7 +164,9 @@ class WithdrawView extends GetView<WithdrawController> {
                           ),
                           MyText(
                             title: "Name $index",
-                            fontSize: 20,
+                            family: 'Manrope',
+                            customWeight: FontWeight.w600,
+                            fontSize: 15,
                           ),
                         ],
                       ),

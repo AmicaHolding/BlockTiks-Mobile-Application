@@ -1,3 +1,4 @@
+import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
@@ -9,14 +10,16 @@ class TeamDetailView extends GetView<TeamDetailController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: ColorConstant.bg,
       appBar: AppBar(
-        title: const Text('TeamDetailView'),
+        backgroundColor: ColorConstant.bg,
+        title: const MyText(title: 'Team Detail'),
         centerTitle: true,
       ),
-      body: const Center(
-        child: Text(
-          'TeamDetailView is working',
-          style: TextStyle(fontSize: 20),
+      body: Center(
+        child: MyText(
+          title: 'TeamDetailView is working',
+          fontSize: 20,
         ),
       ),
     );

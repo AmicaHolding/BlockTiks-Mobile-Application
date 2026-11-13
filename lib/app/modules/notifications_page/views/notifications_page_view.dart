@@ -32,7 +32,7 @@ class NotificationsPageView extends GetView<NotificationsPageController> {
                           width: 52,
                           child: MyText(
                             title: 'Today',
-                            family: 'Roboto Condensed',
+                            family: 'Manrope',
                             customWeight: FontWeight.w700,
                             fontSize: 18,
                           ),
@@ -47,11 +47,11 @@ class NotificationsPageView extends GetView<NotificationsPageController> {
                             child: Container(
                               margin: const EdgeInsets.fromLTRB(0, 6, 0, 0),
                               child: MyText(
-                                title: 'Clear All Notifications',
-                                family: 'Manrope',
-                                customWeight: FontWeight.w400,
-                                fontSize: 12,
-                                clr: ColorConstant.primaryPink,
+                                title: 'Mark all as read',
+                                family: 'Inter',
+                                customWeight: FontWeight.w500,
+                                fontSize: 13,
+                                clr: ColorConstant.primaryAccent,
                               ),
                             ),
                           )
@@ -60,44 +60,65 @@ class NotificationsPageView extends GetView<NotificationsPageController> {
                 ),
               ),
               Expanded(
-                child: Obx(()=> ListView.separated(
-                  physics: const ScrollPhysics(),
-                  itemCount: controller.dummyNotifications.length,
-                  padding: EdgeInsets.zero,
-                  itemBuilder: (context, index) {
-                    final item = controller.dummyNotifications[index];
-                    return Dismissible(
-                      key: Key(item.id.toString()),  // Unique key for each notification item
-                      direction: DismissDirection.endToStart, // Swipe from right to left
-                      onDismissed: (direction) {
-                        // Remove the notification from the list
-                        controller.dummyNotifications.removeAt(index);
-                        // Optionally, you can handle other things here, like showing a Snackbar
-                      },
-                      background: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10),
-                          color: Colors.red,// Background color when swiping
-                        ),
-                        padding: EdgeInsets.symmetric(horizontal: 20),
-                        alignment: Alignment.centerRight,
-                        child: Icon(Icons.delete, color: Colors.white),
+                child: Obx(() {
+                  if (controller.dummyNotifications.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.notifications_none,
+                            size: 48,
+                            color: ColorConstant.white60,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No notifications yet',
+                            style: AppStyle.bodySmallInter,
+                          ),
+                        ],
                       ),
-                      child: NotificationsItem(
-                        item: item,
-                        onTap: () {
-                          controller.dummyNotifications[index].isRead.value = true;
+                    );
+                  }
+                  return ListView.separated(
+                    physics: const ScrollPhysics(),
+                    itemCount: controller.dummyNotifications.length,
+                    padding: EdgeInsets.zero,
+                    itemBuilder: (context, index) {
+                      final item = controller.dummyNotifications[index];
+                      return Dismissible(
+                        key: Key(item.id.toString()),  // Unique key for each notification item
+                        direction: DismissDirection.endToStart, // Swipe from right to left
+                        onDismissed: (direction) {
+                          // Remove the notification from the list
+                          controller.dummyNotifications.removeAt(index);
                           controller.getMarkAllAsReadVisibility();
                         },
-                      ),
-                    );
-                  },
-                  separatorBuilder: (context, index) {
-                    return SizedBox(
-                      height: getSize(16),
-                    );
-                  },
-                )),
+                        background: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: ColorConstant.errorRed,
+                          ),
+                          padding: EdgeInsets.symmetric(horizontal: 20),
+                          alignment: Alignment.centerRight,
+                          child: Icon(Icons.delete, color: Colors.white),
+                        ),
+                        child: NotificationsItem(
+                          item: item,
+                          onTap: () {
+                            controller.dummyNotifications[index].isRead.value = true;
+                            controller.getMarkAllAsReadVisibility();
+                          },
+                        ),
+                      );
+                    },
+                    separatorBuilder: (context, index) {
+                      return SizedBox(
+                        height: getSize(16),
+                      );
+                    },
+                  );
+                }),
               ),
             ],
           ),
