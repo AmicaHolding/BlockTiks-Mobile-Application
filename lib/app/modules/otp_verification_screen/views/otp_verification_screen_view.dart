@@ -62,8 +62,8 @@ class OtpVerificationScreenView
                       '${"msg_request_new_code".tr}0${controller.min}:${controller.sec.toString().length == 1 ? '0${controller.sec}' : controller.sec}',
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.left,
-                      style: AppStyle.bodySmallInter.copyWith(
-                          color: ColorConstant.whiteA700))),
+                      style: AppStyle.bodySmallInter
+                          .copyWith(color: ColorConstant.whiteA700))),
             ),
             SizedBox(
               height: getVerticalSize(60),
@@ -92,7 +92,8 @@ class OtpVerificationScreenView
                           TextSpan(
                               text: "lbl_resend".tr,
                               style: AppStyle.bodySmallInter.copyWith(
-                                color: ColorConstant.primaryAccent.withValues(alpha: controller.sec.value != 0 ? 0.5 : 1),
+                                color: ColorConstant.primaryAccent.withValues(
+                                    alpha: controller.sec.value != 0 ? 0.5 : 1),
                                 fontWeight: FontWeight.w600,
                               ))
                         ]),
@@ -119,18 +120,9 @@ class OtpVerificationScreenView
     if (controller.sec.value == 00) {
       controller.btnController.start();
       if (controller.navigationFrom == Constants.paramForget) {
-        // await controller.resendOtp();
-      } else {
-        // await controller.resendVerificationOtp();
+        await controller.resendForgotPassword();
       }
-      CustomToast().showToast(
-          "OTP has been sent successfully on ${controller.email}".tr,
-          false,
-          context);
       controller.btnController.stop();
-      controller.min.value = 00;
-      controller.sec.value = 60;
-      controller.countDown();
     }
   }
 }

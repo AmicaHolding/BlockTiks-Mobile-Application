@@ -1,4 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
+import 'package:get/get.dart';
 
 import '../controllers/referrals_controller.dart';
 
@@ -7,176 +9,121 @@ class ReferralsView extends GetView<ReferralsController> {
 
   @override
   Widget build(BuildContext context) {
-    return BaseViewPageScreen(
-      sidePadding: false,
-      showLogo: true,
-      showBackBtn: true,
-      basicAppBar: true,
-      resizeToAvoidBottomInset: true,
-      showNotification: true,
-      bottomNavigationBar: SafeArea(
-        child: CustomButton(
-          text: "Share Link".tr,
-          margin: getMargin(right: 20, left: 20, bottom: 30, top: 10),
-          shape: ButtonShape.RoundedBorder10,
-          onTap: () => controller.copyReferralLink(),
-        ),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            MyText(
-              title: 'Referrals',
-              family: 'Manrope',
-              clr: ColorConstant.whiteA700,
-              fontSize: 20,
-              customWeight: FontWeight.w700,
-            ),
-            const SizedBox(height: 20),
-            MyText(
-              title: 'Get \$10 when your friends join BlockTix',
-              family: 'Manrope',
-              customWeight: FontWeight.w600,
-              fontSize: 16,
-            ),
-            const SizedBox(height: 7),
-            MyText(
-              title:
-                  'Share your unique link or code to invite friends. They will get \$10 when they join, and you will get \$10 after they send \$5.',
-              family: 'Inter',
-              fontSize: 13,
-              clr: ColorConstant.white60,
-            ),
-            SizedBox(
-              height: getSize(24),
-            ),
-            Container(
-              padding: getPadding(all: 16),
-              decoration: BoxDecoration(
-                color: ColorConstant.elevated,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      backgroundColor: ColorConstant.night,
+      appBar: AppBar(
+          backgroundColor: ColorConstant.night,
+          elevation: 0,
+          title: Text('Referrals',
+              style: sahraText(size: 22, weight: FontWeight.w800))),
+      body: Obx(() {
+        if (controller.isLoading.value) {
+          return Center(
+              child: CircularProgressIndicator(color: ColorConstant.gold));
+        }
+        if (controller.loadError.value != null) {
+          return Center(
+              child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(controller.loadError.value!,
+                      textAlign: TextAlign.center,
+                      style: sahraText(color: ColorConstant.nightMuted))));
+        }
+        return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+            children: [
+              Text('Bring a friend.\nYou both get AED 25.',
+                  style: sahraText(
+                      size: 28, weight: FontWeight.w800, height: 1.1)),
+              const SizedBox(height: 6),
+              Text(
+                  'They get it on sign-up. You get yours when they buy their first ticket.',
+                  style: sahraText(color: ColorConstant.nightMuted, size: 15)),
+              const SizedBox(height: 20),
+              SahraCard(
+                child: Column(children: [
+                  Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        MyText(
-                          title: 'Your code',
-                          family: 'Manrope',
-                          customWeight: FontWeight.w600,
-                          fontSize: 15,
-                        ),
-                        SizedBox(height: getSize(4)),
-                        MyText(
-                          title: ReferralsController.referralCode,
-                          family: 'Inter',
-                          customWeight: FontWeight.w600,
-                          fontSize: 15,
-                          clr: ColorConstant.primaryAccent,
-                        ),
-                        const SizedBox(height: 2),
-                        MyText(
-                          title: 'Tap copy to clipboard',
-                          family: 'Inter',
-                          fontSize: 12,
-                          clr: ColorConstant.white60,
-                        ),
-                      ],
-                    ),
-                  ),
-                  CustomButton(
-                    text: 'Copy',
-                    width: 110,
-                    height: 36,
-                    onTap: () => controller.copyReferralCode(),
-                  ),
-                ],
+                        Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Your code',
+                                  style: sahraText(
+                                      color: ColorConstant.nightMuted,
+                                      size: 12)),
+                              Text(controller.code.value,
+                                  style: sahraText(
+                                      size: 24,
+                                      weight: FontWeight.w800,
+                                      letterSpacing: 2)),
+                            ]),
+                        TextButton(
+                            onPressed: controller.copyCode,
+                            child: Text('Copy',
+                                style: sahraText(
+                                    color: ColorConstant.gold,
+                                    size: 14,
+                                    weight: FontWeight.w600))),
+                      ]),
+                  const SizedBox(height: 12),
+                  SahraPillButton(
+                      label: 'Share invite', onTap: controller.shareInvite),
+                ]),
               ),
-            ),
-            SizedBox(
-              height: getSize(16),
-            ),
-            Container(
-              padding: getPadding(all: 16),
-              decoration: BoxDecoration(
-                color: ColorConstant.elevated,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        MyText(
-                          title: 'Referral link',
-                          family: 'Manrope',
-                          customWeight: FontWeight.w600,
-                          fontSize: 15,
-                        ),
-                        SizedBox(height: getSize(4)),
-                        MyText(
-                          title: ReferralsController.referralLink,
-                          family: 'Inter',
-                          fontSize: 13,
-                          clr: ColorConstant.white60,
-                          toverflow: TextOverflow.ellipsis,
-                          line: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  CustomButton(
-                    text: 'Copy',
-                    width: 110,
-                    height: 36,
-                    variant: ButtonVariant.FillGray300,
-                    onTap: () => controller.copyReferralLink(),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(
-              height: getSize(24),
-            ),
-            Container(
-              padding: getPadding(all: 16),
-              decoration: BoxDecoration(
-                color: ColorConstant.elevated,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        MyText(
-                          title: 'Referral Rewards',
-                          family: 'Manrope',
-                          customWeight: FontWeight.w600,
-                          fontSize: 15,
-                        ),
-                        const SizedBox(height: 2),
-                        MyText(
-                          title: 'You\'ve earned \$0',
-                          family: 'Inter',
-                          fontSize: 13,
-                          clr: ColorConstant.white60,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+              const SizedBox(height: 18),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Text('Your friends',
+                    style: sahraText(size: 17, weight: FontWeight.w600)),
+                Text(controller.aed(controller.earnedCents.value) + ' earned',
+                    style: sahraText(
+                        color: ColorConstant.gold,
+                        size: 14,
+                        weight: FontWeight.w600)),
+              ]),
+              const SizedBox(height: 8),
+              if (controller.note.value.isNotEmpty)
+                SahraCard(
+                    child: Text(controller.note.value,
+                        style: sahraText(
+                            color: ColorConstant.nightMuted, size: 13))),
+              if (controller.friends.isEmpty)
+                SahraCard(
+                    child: Text('No friends joined yet',
+                        style: sahraText(
+                            color: ColorConstant.nightMuted, size: 14)))
+              else
+                ...controller.friends.map((f) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: SahraCard(
+                        child: Row(children: [
+                          CircleAvatar(
+                              radius: 19,
+                              backgroundColor: ColorConstant.nightElevated,
+                              child: Text(f['initials']?.toString() ?? '•',
+                                  style: sahraText(
+                                      size: 13, weight: FontWeight.w600))),
+                          const SizedBox(width: 12),
+                          Expanded(
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                Text(f['name']?.toString() ?? 'Friend',
+                                    style: sahraText(
+                                        size: 15, weight: FontWeight.w600)),
+                                Text(f['status']?.toString() ?? '',
+                                    style: sahraText(
+                                        color: ColorConstant.nightMuted,
+                                        size: 13)),
+                              ])),
+                          Text(f['amount']?.toString() ?? '',
+                              style:
+                                  sahraText(size: 14, weight: FontWeight.w700)),
+                        ]),
+                      ),
+                    )),
+            ]);
+      }),
     );
   }
 }

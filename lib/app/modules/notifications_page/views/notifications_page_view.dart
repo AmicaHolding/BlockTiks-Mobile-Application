@@ -1,5 +1,7 @@
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:block_tix/app/data/widgets/notification_item.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
+import 'package:get/get.dart';
+
 import '../controllers/notifications_page_controller.dart';
 
 class NotificationsPageView extends GetView<NotificationsPageController> {
@@ -7,121 +9,116 @@ class NotificationsPageView extends GetView<NotificationsPageController> {
 
   @override
   Widget build(BuildContext context) {
-    return BaseViewPageScreen(
-        // bodyPadding: false,
-        showLogo: false,
-        centerTitle: true,
-        screenName: "Notifications",
-        showBackBtn: true,
-        sidePadding: false,
-        child: Container(
-          margin: getMargin(top: getVerticalSize(16)),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.fromLTRB(0, 0, 0, 25),
+    return Scaffold(
+      backgroundColor: ColorConstant.night,
+      appBar: AppBar(
+        backgroundColor: ColorConstant.night,
+        elevation: 0,
+        title: Text('Notifications',
+            style: sahraText(size: 22, weight: FontWeight.w800)),
+        actions: [
+          Obx(() => controller.unreadCount.value > 0
+              ? TextButton(
+                  onPressed: controller.markAllRead,
+                  child: Text('Mark all read',
+                      style: sahraText(
+                          color: ColorConstant.gold,
+                          size: 14,
+                          weight: FontWeight.w600)),
+                )
+              : const SizedBox.shrink()),
+        ],
+      ),
+      body: Obx(() {
+        if (controller.isLoading.value) {
+          return Center(
+              child: CircularProgressIndicator(color: ColorConstant.gold));
+        }
+        if (controller.loadError.value != null) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(controller.loadError.value!,
+                  textAlign: TextAlign.center,
+                  style: sahraText(color: ColorConstant.nightMuted)),
+            ),
+          );
+        }
+        if (controller.items.isEmpty) {
+          return Center(
+              child: Text('No notifications yet',
+                  style: sahraText(color: ColorConstant.nightMuted)));
+        }
+        return RefreshIndicator(
+          color: ColorConstant.gold,
+          onRefresh: controller.fetch,
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            itemCount: controller.items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final item = controller.items[index];
+              final read = controller.isRead(item);
+              return SahraCard(
+                color: read
+                    ? ColorConstant.nightSurface
+                    : ColorConstant.nightElevated,
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Obx(() => Visibility(
-                      visible: controller.dummyNotifications.isNotEmpty,
-                      child: Container(
-                        margin: const EdgeInsets.fromLTRB(0, 0, 10.5, 1),
-                        child: const SizedBox(
-                          width: 52,
-                          child: MyText(
-                            title: 'Today',
-                            family: 'Manrope',
-                            customWeight: FontWeight.w700,
-                            fontSize: 18,
-                          ),
-                        ),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                            color: ColorConstant.nightSurface,
+                            borderRadius: BorderRadius.circular(12)),
+                        child: Icon(
+                            controller.iconFor(item['type']?.toString()),
+                            color: ColorConstant.gold,
+                            size: 20),
                       ),
-                    )),
-                    Obx(() => controller.isMarkAllReadVisible.value
-                        ? GestureDetector(
-                            onTap: () {
-                              controller.readAllNotifications();
-                            },
-                            child: Container(
-                              margin: const EdgeInsets.fromLTRB(0, 6, 0, 0),
-                              child: MyText(
-                                title: 'Mark all as read',
-                                family: 'Inter',
-                                customWeight: FontWeight.w500,
-                                fontSize: 13,
-                                clr: ColorConstant.primaryAccent,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item['title']?.toString() ?? 'Notification',
+                                  style: sahraText(
+                                      size: 15, weight: FontWeight.w600)),
+                              const SizedBox(height: 3),
+                              Text(item['body']?.toString() ?? '',
+                                  style: sahraText(
+                                      color: ColorConstant.nightMuted,
+                                      size: 13)),
+                            ]),
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                                controller
+                                    .timeLabel(item['createdAt']?.toString()),
+                                style: sahraText(
+                                    color: ColorConstant.nightMuted, size: 12)),
+                            const SizedBox(height: 6),
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: read
+                                    ? Colors.transparent
+                                    : ColorConstant.gold,
                               ),
                             ),
-                          )
-                        : const SizedBox.shrink()),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Obx(() {
-                  if (controller.dummyNotifications.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.notifications_none,
-                            size: 48,
-                            color: ColorConstant.white60,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'No notifications yet',
-                            style: AppStyle.bodySmallInter,
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                  return ListView.separated(
-                    physics: const ScrollPhysics(),
-                    itemCount: controller.dummyNotifications.length,
-                    padding: EdgeInsets.zero,
-                    itemBuilder: (context, index) {
-                      final item = controller.dummyNotifications[index];
-                      return Dismissible(
-                        key: Key(item.id.toString()),  // Unique key for each notification item
-                        direction: DismissDirection.endToStart, // Swipe from right to left
-                        onDismissed: (direction) {
-                          // Remove the notification from the list
-                          controller.dummyNotifications.removeAt(index);
-                          controller.getMarkAllAsReadVisibility();
-                        },
-                        background: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            color: ColorConstant.errorRed,
-                          ),
-                          padding: EdgeInsets.symmetric(horizontal: 20),
-                          alignment: Alignment.centerRight,
-                          child: Icon(Icons.delete, color: Colors.white),
-                        ),
-                        child: NotificationsItem(
-                          item: item,
-                          onTap: () {
-                            controller.dummyNotifications[index].isRead.value = true;
-                            controller.getMarkAllAsReadVisibility();
-                          },
-                        ),
-                      );
-                    },
-                    separatorBuilder: (context, index) {
-                      return SizedBox(
-                        height: getSize(16),
-                      );
-                    },
-                  );
-                }),
-              ),
-            ],
+                          ]),
+                    ]),
+              );
+            },
           ),
-        ));
+        );
+      }),
+    );
   }
 }

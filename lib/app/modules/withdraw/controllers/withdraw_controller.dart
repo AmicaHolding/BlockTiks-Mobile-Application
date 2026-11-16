@@ -6,21 +6,18 @@ import 'package:get/get.dart';
 class WithdrawController extends GetxController {
   final RxBool isLoading = true.obs;
   final Rxn<String> loadError = Rxn<String>();
-  final RxInt availableCents = 0.obs;
-  final RxList<Map<String, dynamic>> soldListings =
-      <Map<String, dynamic>>[].obs;
+  final RxInt readyCents = 0.obs;
+  final RxInt pendingCents = 0.obs;
+  final RxInt lifetimeCents = 0.obs;
+  final RxList<Map<String, dynamic>> sales = <Map<String, dynamic>>[].obs;
+  final RxBool isWithdrawing = false.obs;
 
-  bool fromDeposit = false;
-
-  bool get canWithdraw => availableCents.value > 0 && !isLoading.value;
+  bool get canWithdraw =>
+      readyCents.value > 0 && !isLoading.value && !isWithdrawing.value;
 
   @override
   void onInit() {
     super.onInit();
-    final data = Get.arguments;
-    if (data is Map && data[Constants.paramDeposit] != null) {
-      fromDeposit = data[Constants.paramDeposit] == true;
-    }
     load();
   }
 
@@ -28,13 +25,15 @@ class WithdrawController extends GetxController {
     isLoading.value = true;
     loadError.value = null;
     try {
-      final listings = await ApiService.myListings();
-      soldListings.value =
-          listings.where((l) => l['status']?.toString() == 'SOLD').toList();
-      availableCents.value = soldListings.fold<int>(
-        0,
-        (sum, l) => sum + ((l['priceCents'] as num?)?.toInt() ?? 0),
-      );
+      final res = await ApiService.earnings();
+      readyCents.value = (res['readyCents'] as num?)?.toInt() ?? 0;
+      pendingCents.value = (res['pendingCents'] as num?)?.toInt() ?? 0;
+      lifetimeCents.value = (res['lifetimeCents'] as num?)?.toInt() ?? 0;
+      final list = (res['sales'] as List?) ?? [];
+      sales.value = list
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
     } catch (e) {
       loadError.value = e.toString().replaceFirst('Exception: ', '');
     } finally {
@@ -42,13 +41,29 @@ class WithdrawController extends GetxController {
     }
   }
 
-  void withdraw() {
-    if (!canWithdraw) {
-      CustomSnackBar.showCustomErrorToast(message: 'No available earnings');
-      return;
+  String aed(int cents) => 'AED ${(cents / 100).toStringAsFixed(2)}';
+
+  Future<void> withdraw() async {
+    if (!canWithdraw) return;
+    isWithdrawing.value = true;
+    try {
+      await ApiService.withdraw(readyCents.value);
+      CustomSnackBar.showCustomSnackBar(
+          title: 'Withdrawal requested',
+          message: 'Payout will be sent once payout accounts are connected.');
+      await load();
+    } catch (e) {
+      CustomSnackBar.showCustomErrorToast(
+          message: e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      isWithdrawing.value = false;
     }
-    CustomSnackBar.showCustomErrorToast(
-        message:
-            'Payouts are not connected yet. Resale earnings are tracked from sold listings.');
+  }
+
+  String dateLabel(String? iso) {
+    final dt = DateTime.tryParse(iso ?? '');
+    if (dt == null) return '';
+    final local = dt.toLocal();
+    return '${local.day}/${local.month}/${local.year}';
   }
 }

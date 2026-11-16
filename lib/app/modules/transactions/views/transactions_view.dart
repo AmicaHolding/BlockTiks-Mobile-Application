@@ -1,4 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
+import 'package:get/get.dart';
 
 import '../controllers/transactions_controller.dart';
 
@@ -7,186 +9,104 @@ class TransactionsView extends GetView<TransactionsController> {
 
   @override
   Widget build(BuildContext context) {
-    return BaseViewPageScreen(
-      screenName: "All Transactions",
-      centerTitle: true,
-      basicAppBar: false,
-      showBackBtn: true,
-      sidePadding: false,
-      actions: [
-        Container(
-          decoration: BoxDecoration(
-              border: Border.all(
-                  color: ColorConstant.hairline),
-              borderRadius: BorderRadius.circular(12)),
-          padding: getPadding(all: 8),
-          child: CustomImageView(
-            onTap: ()=> controller.showFilterDialog(context),
-            svgPath: ImageConstant.filter,
-            height: 20,
-          )
-        )
-      ],
-      child: Column(
-        children: [
-          Container(
-            width: size.width,
-            height: getSize(48),
-            padding: getPadding(all: 4),
-            decoration: BoxDecoration(
-                color: ColorConstant.elevated,
-                borderRadius: BorderRadius.circular(14)),
-            child: Row(
-              children: [
-                Expanded(child: _tabWidget(name: "Asks", index: 0)),
-                Expanded(child: _tabWidget(name: "Bids", index: 1)),
-                Expanded(child: _tabWidget(name: "Sales", index: 2)),
-              ],
-            ),
+    return Scaffold(
+      backgroundColor: ColorConstant.night,
+      appBar: AppBar(
+        backgroundColor: ColorConstant.night,
+        elevation: 0,
+        title: Text('Transactions',
+            style: sahraText(size: 22, weight: FontWeight.w800)),
+      ),
+      body: Column(children: [
+        SizedBox(
+          height: 52,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: controller.tabs.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) => Obx(() => SahraChip(
+                  label: controller.tabs[index],
+                  selected: controller.selectedTab.value == index,
+                  onTap: () => controller.selectedTab.value = index,
+                )),
           ),
-          SizedBox(
-            height: getSize(20),
-          ),
-          Expanded(
-            child: Obx(() {
-              if (controller.isLoading.value) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (controller.loadError.value != null) {
-                return Center(
-                  child: Padding(
-                    padding: getPadding(all: 24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        MyText(
-                          title: "Couldn't load transactions",
-                          family: 'Manrope',
-                          customWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
-                        const SizedBox(height: 8),
-                        MyText(
-                          title: controller.loadError.value ?? '',
-                          family: 'Inter',
-                          fontSize: 13,
-                          clr: ColorConstant.white60,
-                          center: true,
-                        ),
-                        const SizedBox(height: 16),
-                        CustomButton(
-                          text: "Retry",
-                          onTap: () => controller.fetchOrders(),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-              if (controller.orders.isEmpty) {
-                return Center(
-                  child: MyText(
-                    title: 'No transactions yet',
-                    family: 'Manrope',
-                    customWeight: FontWeight.w600,
-                    fontSize: 16,
-                    clr: ColorConstant.white60,
-                  ),
-                );
-              }
-              return ListView.builder(
-                padding: EdgeInsets.zero,
-                physics: const BouncingScrollPhysics(),
-                itemCount: controller.orders.length,
+        ),
+        Expanded(
+          child: Obx(() {
+            if (controller.isLoading.value) {
+              return Center(
+                  child: CircularProgressIndicator(color: ColorConstant.gold));
+            }
+            if (controller.loadError.value != null) {
+              return Center(
+                  child: Text(controller.loadError.value!,
+                      style: sahraText(color: ColorConstant.nightMuted)));
+            }
+            final rows = controller.filtered;
+            if (rows.isEmpty) {
+              return Center(
+                  child: Text('No transactions',
+                      style: sahraText(color: ColorConstant.nightMuted)));
+            }
+            return RefreshIndicator(
+              color: ColorConstant.gold,
+              onRefresh: controller.fetch,
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                itemCount: rows.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
-                  final order = controller.orders[index];
-                  final status = controller.orderStatus(order);
-                  return listItem(
-                      date: controller.orderDate(order),
-                      price: controller.orderTotal(order),
-                      tickets:
-                          '${controller.itemsLabel(order)}${status.isNotEmpty ? ' · $status' : ''}');
+                  final t = rows[index];
+                  return SahraCard(
+                    child: Row(children: [
+                      Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(t['title']?.toString() ?? 'Transaction',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: sahraText(
+                                      size: 15, weight: FontWeight.w600)),
+                              const SizedBox(height: 3),
+                              Text(t['subtitle']?.toString() ?? '',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: sahraText(
+                                      color: ColorConstant.nightMuted,
+                                      size: 12)),
+                              const SizedBox(height: 4),
+                              Text(
+                                  '${t['status'] ?? ''} · ${controller.dateLabel(t['createdAt']?.toString())}',
+                                  style: sahraText(
+                                      color: ColorConstant.nightMuted,
+                                      size: 11)),
+                            ]),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(controller.amountLabel(t),
+                                style: sahraText(
+                                    color: controller.amountColor(t),
+                                    size: 15,
+                                    weight: FontWeight.w700)),
+                            const SizedBox(height: 4),
+                            SahraStatusPill(t['status']?.toString() ?? '',
+                                color: t['status'] == 'Ready'
+                                    ? ColorConstant.gold
+                                    : ColorConstant.nightMuted),
+                          ]),
+                    ]),
+                  );
                 },
-              );
-            }),
-          ),
-          SizedBox(
-            height: getSize(20),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _tabWidget({required String name, required int index}) {
-    return GestureDetector(
-      onTap: () {
-        controller.selectedTab.value = index;
-      },
-      child: Obx(() {
-        final selected = controller.selectedTab.value == index;
-        return Container(
-          height: getSize(40),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              color: selected ? ColorConstant.whiteA700 : Colors.transparent),
-          child: MyText(
-            title: name,
-            family: 'Manrope',
-            fontSize: 14,
-            customWeight: FontWeight.w600,
-            clr: selected
-                ? ColorConstant.bg
-                : ColorConstant.white60,
-          ),
-        );
-      }),
-    );
-  }
-
-  Widget listItem(
-      {required String date, required String tickets, required double price}) {
-    return Container(
-      height: 80,
-      margin: getMargin(bottom: 10),
-      padding: getPadding(left: 16, right: 16, top: 12, bottom: 12),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-          color: ColorConstant.elevated,
-          borderRadius: BorderRadius.circular(16)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              MyText(
-                title: date,
-                family: 'Inter',
-                fontSize: 14,
-                customWeight: FontWeight.w500,
-                clr: ColorConstant.white60,
               ),
-              MyText(
-                title: tickets,
-                family: 'Inter',
-                fontSize: 14,
-                customWeight: FontWeight.w400,
-                clr: ColorConstant.white60,
-              ),
-            ],
-          ),
-          MyText(
-            title: "\$${price == price.roundToDouble() ? price.toStringAsFixed(0) : price.toStringAsFixed(2)}",
-            family: 'Manrope',
-            fontSize: 16,
-            customWeight: FontWeight.w700,
-          ),
-        ],
-      ),
+            );
+          }),
+        ),
+      ]),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:block_tix/app/data/widgets/custom_text_form_field.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
+import 'package:get/get.dart';
 
 import '../controllers/promo_codes_controller.dart';
 
@@ -8,127 +9,156 @@ class PromoCodesView extends GetView<PromoCodesController> {
 
   @override
   Widget build(BuildContext context) {
-    return BaseViewPageScreen(
-      sidePadding: false,
-      showLogo: true,
-      showBackBtn: true,
-      basicAppBar: true,
-      resizeToAvoidBottomInset: true,
-      showNotification: true,
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            MyText(
-              title: 'Promo Codes',
-              clr: ColorConstant.whiteA700,
-              fontSize: 18,
-              customWeight: FontWeight.w600,
-            ),
-            const SizedBox(height: 20),
-            const CustomTextFormField(
-              labelText: "Enter promo code",
-              hintText: "Type in your promo code",
-              textInputAction: TextInputAction.done,
-            ),
-            const SizedBox(height: 30),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: MyText(
-                title: 'Valid Promo Codes',
-                clr: ColorConstant.whiteA700,
-              ),
-            ),
-            const SizedBox(height: 10),
-            promoCodeWidget(),
-            const SizedBox(height: 30),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: MyText(
-                title: 'Used/Expired Promo Codes',
-                clr: ColorConstant.whiteA700,
-              ),
-            ),
-            const SizedBox(height: 10),
-            promoCodeWidget(isUsed: true),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget promoCodeWidget({bool isUsed = false}) {
-    return Container(
-      decoration: BoxDecoration(
-          color: ColorConstant.surface,
-          borderRadius: BorderRadius.circular(16)),
-      padding: const EdgeInsets.fromLTRB(12, 12, 13.8, 9),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Container(
-                margin: const EdgeInsets.fromLTRB(0, 1, 10.8, 0),
-                child: CustomImageView(
-                  width: 51,
-                  height: 51,
-                  svgPath: ImageConstant.mini,
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      margin: const EdgeInsets.fromLTRB(0, 0, 0, 5),
-                      child: const MyText(
-                        title: 'Tix 50%',
-                        family: 'Manrope',
-                        fontSize: 16,
+    return Scaffold(
+      backgroundColor: ColorConstant.night,
+      appBar: AppBar(
+          backgroundColor: ColorConstant.night,
+          elevation: 0,
+          title: Text('Promo codes',
+              style: sahraText(size: 22, weight: FontWeight.w800))),
+      body: Obx(() {
+        if (controller.isLoading.value) {
+          return Center(
+              child: CircularProgressIndicator(color: ColorConstant.gold));
+        }
+        if (controller.loadError.value != null) {
+          return Center(
+              child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(controller.loadError.value!,
+                      textAlign: TextAlign.center,
+                      style: sahraText(color: ColorConstant.nightMuted))));
+        }
+        return RefreshIndicator(
+          color: ColorConstant.gold,
+          onRefresh: controller.fetch,
+          child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+              children: [
+                Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: controller.codeController,
+                      style: sahraText(size: 15),
+                      decoration: InputDecoration(
+                        hintText: 'ENTER A CODE',
+                        hintStyle: sahraText(
+                            color: ColorConstant.nightMuted,
+                            size: 15,
+                            letterSpacing: 1.2),
+                        filled: true,
+                        fillColor: ColorConstant.nightSurface,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
                       ),
                     ),
-                    MyText(
-                      title:
-                          '50 % discount on ticket, this will be used on the next purchase once used',
-                      family: 'Inter',
-                      fontSize: 12,
-                      clr: ColorConstant.white60,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+                  ),
+                  const SizedBox(width: 10),
+                  TextButton(
+                      onPressed: controller.fetch,
+                      child: Text('Add',
+                          style: sahraText(
+                              color: ColorConstant.night,
+                              size: 15,
+                              weight: FontWeight.w600))),
+                ]),
+                const SizedBox(height: 18),
+                Text('Ready to use · ${controller.ready.length}',
+                    style: sahraText(size: 14, weight: FontWeight.w600)),
+                const SizedBox(height: 10),
+                if (controller.ready.isEmpty)
+                  SahraCard(
+                      child: Text('No active promo codes',
+                          style: sahraText(
+                              color: ColorConstant.nightMuted, size: 14)))
+                else
+                  ...controller.ready.map((p) => _PromoTicket(
+                      promo: p, controller: controller, enabled: true)),
+                const SizedBox(height: 20),
+                Text('Used or expired',
+                    style: sahraText(
+                        color: ColorConstant.nightMuted,
+                        size: 14,
+                        weight: FontWeight.w600)),
+                const SizedBox(height: 10),
+                if (controller.used.isEmpty)
+                  SahraCard(
+                      child: Text('Nothing used yet',
+                          style: sahraText(
+                              color: ColorConstant.nightMuted, size: 14)))
+                else
+                  ...controller.used.map((p) => _PromoTicket(
+                      promo: p, controller: controller, enabled: false)),
+              ]),
+        );
+      }),
+    );
+  }
+}
+
+class _PromoTicket extends StatelessWidget {
+  const _PromoTicket(
+      {required this.promo, required this.controller, required this.enabled});
+  final Map<String, dynamic> promo;
+  final PromoCodesController controller;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = enabled ? ColorConstant.gold : ColorConstant.nightSurface;
+    final fg = enabled ? ColorConstant.night : ColorConstant.nightMuted;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+      child: Row(children: [
+        Container(
+          width: 92,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            border: Border(
+                right: BorderSide(
+                    color: enabled
+                        ? ColorConstant.night.withValues(alpha: 0.35)
+                        : ColorConstant.nightBorder,
+                    width: 2)),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                margin: const EdgeInsets.fromLTRB(0, 11, 34.8, 15),
-                child: MyText(
-                  title: 'Valid until 19-09-2024',
-                  family: 'Inter',
-                  fontSize: 12,
-                  clr: ColorConstant.white60,
-                ),
-              ),
-              const SizedBox(
-                width: 30,
-              ),
-              Expanded(
-                child: CustomButton(
-                  height: getSize(30),
-                  text: isUsed ? "Used" : "Use Code",
-                  variant: isUsed ? ButtonVariant.FillGray300 : null,
-                ),
-              ),
-            ],
+          child: Column(children: [
+            Text(controller.discountLabel(promo),
+                style: sahraText(
+                    color: fg,
+                    size: 22,
+                    weight: FontWeight.w800,
+                    letterSpacing: -0.6)),
+            Text('OFF',
+                style: sahraText(color: fg, size: 11, weight: FontWeight.w600)),
+          ]),
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(promo['code']?.toString() ?? '',
+                  style: sahraText(
+                      color: fg,
+                      size: 15,
+                      weight: FontWeight.w700,
+                      letterSpacing: 1.2)),
+              const SizedBox(height: 3),
+              Text(controller.detailLabel(promo),
+                  style: sahraText(color: fg, size: 13)),
+              const SizedBox(height: 2),
+              Text(controller.expiryLabel(promo),
+                  style:
+                      sahraText(color: fg.withValues(alpha: 0.75), size: 12)),
+            ]),
           ),
-        ],
-      ),
+        ),
+      ]),
     );
   }
 }
