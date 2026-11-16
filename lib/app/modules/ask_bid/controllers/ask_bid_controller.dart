@@ -1,65 +1,122 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
+import 'package:block_tix/app/services/api_service.dart';
 import 'package:get/get.dart';
 
 class AskBidController extends GetxController {
-  RxInt selectedBid = (-1).obs;
+  final RxList<Map<String, dynamic>> sellableTickets =
+      <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> listings = <Map<String, dynamic>>[].obs;
+  final RxList<String> selectedCodes = <String>[].obs;
+  final RxBool isLoading = true.obs;
+  final RxBool isListing = false.obs;
+  final Rxn<String> loadError = Rxn<String>();
+  final RxString eventTitle = ''.obs;
 
-  TextEditingController bidController = TextEditingController();
-  final GlobalKey<FormState> formKey = GlobalKey<FormState>();
-  // Bumped on every keystroke so Obx widgets recompute the subtotal.
+  final TextEditingController priceController = TextEditingController();
   final RxInt priceVersion = 0.obs;
 
-  bool fromSell = false;
+  int get selectedCount => selectedCodes.length;
 
-  // Event context — populated from route arguments when provided.
-  String eventTitle = 'DJ Maksmellow Orignawa';
-  String eventType = 'Music Concert';
-  String ticketTier = '';
+  int get priceCents {
+    final dollars = double.tryParse(priceController.text.trim());
+    if (dollars == null || dollars <= 0) return 0;
+    return (dollars * 100).round();
+  }
 
-  // Prices shown on the three quick-select offer cards.
-  static const List<double> offerPrices = [222, 232, 280];
+  bool get canList => selectedCount > 0 && priceCents > 0 && !isListing.value;
 
-  /// Price backing the current selection: the quick-pick card when one is
-  /// selected, otherwise the manually entered amount (0 when invalid/empty).
-  double get currentPrice {
-    if (selectedBid.value >= 0 && selectedBid.value < offerPrices.length) {
-      return offerPrices[selectedBid.value];
+  bool isSelected(String code) => selectedCodes.contains(code);
+
+  void toggleTicket(String code) {
+    if (selectedCodes.contains(code)) {
+      selectedCodes.remove(code);
+    } else {
+      selectedCodes.add(code);
     }
-    return double.tryParse(bidController.text.trim()) ?? 0;
-  }
-
-  /// Validates manual price entry. Quick-pick selections always pass.
-  String? validatePrice(String? value) {
-    if (selectedBid.value != -1) return null;
-    final text = (value ?? '').trim();
-    if (text.isEmpty) return 'Enter a price or pick an option';
-    final parsed = double.tryParse(text);
-    if (parsed == null || parsed <= 0) return 'Enter a valid amount';
-    return null;
-  }
-
-  bool validateForm() {
-    return formKey.currentState?.validate() ?? false;
   }
 
   @override
   void onInit() {
     super.onInit();
-    bidController.addListener(() => priceVersion.value++);
-    var data = Get.arguments;
+    priceController.addListener(() => priceVersion.value++);
+    final data = Get.arguments;
     if (data is Map) {
-      fromSell = data['fromSell'] == true || data['sell'] == true;
-      if (data['title'] != null) eventTitle = data['title'].toString();
-      if (data['type'] != null) eventType = data['type'].toString();
-      if (data['tier'] != null) ticketTier = data['tier'].toString();
-    } else if (data != null) {
-      fromSell = data == true;
+      final title = data['title']?.toString();
+      if (title != null && title.isNotEmpty) eventTitle.value = title;
+      final code = (data['ticketCode'] ?? data['code'])?.toString();
+      if (code != null && code.isNotEmpty) {
+        Future.microtask(() async {
+          await load();
+          if (sellableTickets.any((t) => t['code']?.toString() == code)) {
+            if (!selectedCodes.contains(code)) selectedCodes.add(code);
+          }
+        });
+        return;
+      }
+    }
+    load();
+  }
+
+  Future<void> load() async {
+    isLoading.value = true;
+    loadError.value = null;
+    try {
+      final results = await Future.wait([
+        ApiService.sellableTickets(),
+        ApiService.myListings(),
+      ]);
+      sellableTickets.value = results[0];
+      listings.value = results[1];
+    } catch (e) {
+      loadError.value = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> listSelected() async {
+    if (!canList) return;
+    isListing.value = true;
+    var listed = 0;
+    try {
+      for (final code in List<String>.from(selectedCodes)) {
+        await ApiService.createListing(code, priceCents);
+        listed++;
+      }
+      selectedCodes.clear();
+      priceController.clear();
+      await load();
+      CustomSnackBar.showCustomToast(
+          message: listed == 1
+              ? 'Ticket listed for sale'
+              : '$listed tickets listed');
+    } catch (e) {
+      await load();
+      CustomSnackBar.showCustomErrorToast(
+          message: e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      isListing.value = false;
+    }
+  }
+
+  Future<void> cancelListing(Map<String, dynamic> listing) async {
+    final code =
+        listing['ticketCode']?.toString() ?? listing['code']?.toString() ?? '';
+    if (code.isEmpty) return;
+    try {
+      await ApiService.cancelListing(code);
+      await load();
+      CustomSnackBar.showCustomToast(message: 'Listing cancelled');
+    } catch (e) {
+      CustomSnackBar.showCustomErrorToast(
+          message: e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
   @override
   void onClose() {
-    bidController.dispose();
+    priceController.dispose();
     super.onClose();
   }
 }

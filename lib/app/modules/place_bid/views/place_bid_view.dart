@@ -1,9 +1,7 @@
-import 'dart:math';
-
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:block_tix/app/data/widgets/custom_divider.dart';
-import 'package:block_tix/app/modules/event_detail/views/event_detail_view.dart';
-import 'package:block_tix/app/modules/payment_page/views/payment_page_view.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
+
 import '../controllers/place_bid_controller.dart';
 
 class PlaceBidView extends GetView<PlaceBidController> {
@@ -12,179 +10,61 @@ class PlaceBidView extends GetView<PlaceBidController> {
   @override
   Widget build(BuildContext context) {
     return BaseViewPageScreen(
-      showLogo: true,
-      basicAppBar: false,
-      showBackBtn: true,
+      hideAppBar: true,
+      safeTopArea: true,
       sidePadding: false,
       bodyPadding: false,
-      showNotification: true,
-      child: Column(
-        children: [
-          const StageViewScreen(height: 350,),
-          Expanded(
-            child: Padding(
-              padding: getPadding(all: 16),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              MyText(
-                                title: controller.eventType,
-                                family: 'Inter',
-                                customWeight: FontWeight.w400,
-                                fontSize: 14,
-                                clr: ColorConstant.white60,
-                              ),
-                              MyText(
-                                title: controller.eventTitle,
-                                family: 'Manrope',
-                                customWeight: FontWeight.w700,
-                                fontSize: 22,
-                                clr: ColorConstant.whiteA700,
-                              ),
-                            ],
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: (){
-                            controller.showDetailDialog(context);
-                          },
-                          child: Icon(Icons.info_outline_rounded,color: ColorConstant.whiteA700,),
-                        )
-                      ],
-                    ),
-                    const CustomDivider(
-                      height: 0.3,
-                    ),
-                    SizedBox(
-                      height: getSize(10),
-                    ),
-                    GridView.count(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 10.0,
-                      crossAxisSpacing: 10.0,
-                      childAspectRatio: 1.7,
-                      physics: const NeverScrollableScrollPhysics(),
-                      shrinkWrap: true,
-                      children: [
-                        _buildTicketCard('Platinum Ticket', '\$440', '\$210',0,
-                            '\$390'),
-                        _buildTicketCard('Gold Ticket', '\$330', '\$109',1,
-                            '\$280'),
-                        _buildTicketCard('Silver Ticket', '\$220', '\$210',2,
-                            '\$170'),
-                        _buildTicketCard('Bronze Ticket', '\$110', '\$82',3,
-                            '\$60'),
-                      ],
-                    ),
-                    // Place an Offer Button
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 20.0),
-                      child: Align(
-                        alignment: Alignment.center,
-                        child: SizedBox(
-                          width: size.width / 1.8,
-                          child: PrimaryPillButton(
-                            onTap: () => Get.toNamed(
-                              Routes.PLACE_BID_DETAIL,
-                              arguments: {
-                                'title': controller.eventTitle,
-                                'type': controller.eventType,
-                                if (controller.selectedBid.value != -1)
-                                  'ticketType': controller
-                                      .ticketType[controller.selectedBid.value],
-                              },
-                            ),
-                            text: "Place an offer",
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Bottom Actions
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        const MyText(
-                          title: 'Available Tickets',
-                          family: 'Manrope',
-                          customWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
-                        Spacer(),
-                        GestureDetector(
-                          onTap: () => Get.toNamed(Routes.TRANSACTIONS),
-                          child: Container(
-                            decoration: BoxDecoration(
-                                border: Border.all(
-                                    color: ColorConstant.hairline),
-                                borderRadius: BorderRadius.circular(8)),
-                            padding: getPadding(left: 8, right: 8, top: 4, bottom: 4),
-                            child: MyText(
-                              title: 'View all transactions',
-                              family: 'Inter',
-                              clr: ColorConstant.white60,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        Spacer(),
-                        Container(
-                            decoration: BoxDecoration(
-                                color: ColorConstant.elevated,
-                                border: Border.all(
-                                    color: ColorConstant.hairline),
-                                borderRadius: BorderRadius.circular(8)),
-                            padding: getPadding(all: 5),
-                            child: CustomImageView(
-                              onTap: ()=> controller.showFilterDialog(context),
-                              svgPath: ImageConstant.filter,
-                              height: 16,
-                            )
-                        )
-                      ],
-                    ),
-                    const SizedBox(
-                      height: 30,
-                    ),
-                    Obx(() => controller.selectedBid.value == -1 ?
-                        ListView.separated(
-                      padding: EdgeInsets.zero,
-                      physics: const NeverScrollableScrollPhysics(),
-                      shrinkWrap: true,
-                      separatorBuilder: (context, index,) {
-                        return SizedBox(height: getSize(10),);
-                      },
-                      itemCount: controller.ticketType.length,
-                      itemBuilder: (context, index) {
-                        return MarketPlaceListWidget(
-                          title: controller.ticketType[index],
-                          askingPrice: 500,
-                          qty: Random().nextInt(5),
-                          onTap: () => Get.toNamed(Routes.ASK_BID,
-                              arguments: {'tier': controller.ticketType[index]}),
-                        );
-                      },
-                    ):MarketPlaceListWidget(
-                      title: controller.ticketType[controller.selectedBid.value],
-                      askingPrice: 500,
-                      qty: Random().nextInt(5),
-                      onTap: () => Get.toNamed(Routes.ASK_BID,
-                          arguments: {'tier': controller.ticketType[controller.selectedBid.value]}),
-                    )
-                      ,),
-                    const SizedBox(
-                      height: 30,
-                    )
-                  ],
+      backgroundColor: ColorConstant.night,
+      bottomNavigationBar: Obx(() {
+        final total = formatCents(controller.totalCents);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SahraPillButton(
+                  label: 'Set price · up to $total',
+                  onTap: controller.setPrice,
                 ),
-              ),
+                const SizedBox(height: 8),
+                Text(
+                  'Auto-buy is not connected yet. Active resale listings can be bought from the event page.',
+                  textAlign: TextAlign.center,
+                  style: sahraText(color: ColorConstant.nightMuted, size: 12),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 140),
+        children: [
+          _header(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Tell us what you\'d pay. When a ticket is listed at or below your price, we buy it for you automatically.',
+                  style: sahraText(
+                      color: ColorConstant.nightMuted, size: 14, height: 1.5),
+                ),
+                const SizedBox(height: 18),
+                _stepperRow(),
+                const SizedBox(height: 18),
+                _priceStepper(),
+                const SizedBox(height: 18),
+                _rangeBar(),
+                const SizedBox(height: 18),
+                _marketCard(),
+                const SizedBox(height: 18),
+                _infoCard(),
+                const SizedBox(height: 18),
+                _keepTryingRow(),
+              ],
             ),
           ),
         ],
@@ -192,215 +72,226 @@ class PlaceBidView extends GetView<PlaceBidController> {
     );
   }
 
-  Widget _buildTicketCard(String title, String highestBid, String lowestAsk, int index,
-      String recentSale) {
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: (){
-            if(controller.selectedBid.value != index){
-              controller.selectedBid.value = index;
-            }else{
-              controller.selectedBid.value = -1;
-            }
-          },
-          child: Obx(() => Container(
-            width: size.width,
-            decoration: BoxDecoration(
-              color: index == controller.selectedBid.value
-                  ? ColorConstant.primaryAccent
-                  : ColorConstant.elevated,
-              border: Border.all(
-                  color: index == controller.selectedBid.value
-                      ? ColorConstant.primaryAccent
-                      : ColorConstant.hairline,
-                  width: 1.5),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            alignment: Alignment.center,
-            padding: const EdgeInsets.all(10.0),
-            child: MyText(
-              title: title,
-              family: 'Manrope',
-              customWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
-          )),
-        ),
-        Column(
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: ColorConstant.surface,
-                border:
-                    Border.all(color: ColorConstant.hairline),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  _buildPriceColumn('Highest Bid', highestBid),
-                  Container(
-                    width: 0.5,
-                    height: 30,
-                    color: ColorConstant.hairline,
-                  ),
-                  _buildPriceColumn('Lowest Ask', lowestAsk),
-                  Container(
-                    width: 0.5,
-                    height: 30,
-                    color: ColorConstant.hairline,
-                  ),
-                  _buildPriceColumn('Recent Sale', recentSale),
-                ],
-              ),
-            )
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPriceColumn(String label, String price) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            MyText(
-              title: label,
-              family: 'Inter',
-              clr: ColorConstant.white60,
-              fontSize: 10,
-            ),
-            SizedBox(
-              height: getSize(5),
-            ),
-            MyText(
-              title: price,
-              family: 'Manrope',
-              customWeight: FontWeight.w600,
-              clr: ColorConstant.whiteA700,
-              fontSize: 12,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-
-class MarketPlaceListWidget extends StatelessWidget {
-  final String title;
-  final num? askingPrice;
-  final num? qty;
-  final void Function()? onTap;
-
-  const MarketPlaceListWidget(
-      {super.key,
-        required this.title,
-        this.askingPrice,
-        this.qty,
-        this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-            color: ColorConstant.elevated,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: ColorConstant.hairline)),
-        margin: getMargin(bottom: 10),
-        padding: getPadding(left: 16, right: 16, top: 10, bottom: 10),
-        child: Row(
-          children: [
-            Padding(
-              padding: getPadding(right: 10),
-              child: Container(
-                width: 65,
-                height: 65,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  image: DecorationImage(
-                    image: AssetImage(ImageConstant.splashBg),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  MyText(
-                    title: title,
-                    family: 'Manrope',
-                    customWeight: FontWeight.w600,
-                    clr: ColorConstant.whiteA700,
-                    fontSize: 16,
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      MyText(
-                        title: "Current Ask:\$$askingPrice",
-                        family: 'Inter',
-                        clr: ColorConstant.whiteA700,
-                        fontSize: 12,
-                      ),
-                        MyText(
-                          title: "  Qty : $qty",
-                          family: 'Inter',
-                          clr: ColorConstant.white60,
-                          fontSize: 12,
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            _buildTappableCircle(context,Random().nextInt(10).toString(),),
-             GestureDetector(
-              onTap: onTap,
-              child: Container(
-                margin: getMargin(left: 15, right: 5),
-                child: Icon(
-                  Icons.arrow_forward_ios,
-                  color: ColorConstant.whiteA700,
-                ),
-              ),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTappableCircle(
-      BuildContext context, String number, {void Function()? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: ColorConstant.elevated,
-          shape: BoxShape.circle,
-          border: Border.all(color: ColorConstant.hairline, width: 1),
-        ),
-        padding: getPadding(all: 10),
-        child: Center(
-          child: Text(
-            number,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+  Widget _header() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 20, 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          IconButton(
+            onPressed: Get.back,
+            icon: Icon(Icons.arrow_back_ios_new_rounded,
+                color: ColorConstant.whiteA700, size: 20),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${controller.eventTier} · ${controller.eventTitle}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        sahraText(color: ColorConstant.nightMuted, size: 13)),
+                const SizedBox(height: 2),
+                Text('Set your price',
+                    style: sahraText(size: 26, weight: FontWeight.w800)),
+              ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stepperRow() {
+    return Obx(() => Row(
+          children: [
+            Expanded(
+              child: Text('Tickets',
+                  style: sahraText(size: 15, weight: FontWeight.w600)),
+            ),
+            _circleButton(
+              icon: Icons.remove_rounded,
+              onTap: () => controller.changeQuantity(-1),
+            ),
+            SizedBox(
+              width: 28,
+              child: Text('${controller.quantity.value}',
+                  textAlign: TextAlign.center,
+                  style: sahraText(size: 15, weight: FontWeight.w700)),
+            ),
+            _circleButton(
+              icon: Icons.add_rounded,
+              filled: true,
+              onTap: () => controller.changeQuantity(1),
+            ),
+          ],
+        ));
+  }
+
+  Widget _priceStepper() {
+    return Obx(() => Column(
+          children: [
+            Text('Max price, each',
+                style: sahraText(color: ColorConstant.nightMuted, size: 13)),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _circleButton(
+                  icon: Icons.remove_rounded,
+                  onTap: () => controller.changePrice(-500),
+                ),
+                const SizedBox(width: 18),
+                Text(formatCents(controller.maxPriceCents.value),
+                    style: sahraText(size: 34, weight: FontWeight.w800)),
+                const SizedBox(width: 18),
+                _circleButton(
+                  icon: Icons.add_rounded,
+                  filled: true,
+                  onTap: () => controller.changePrice(500),
+                ),
+              ],
+            ),
+          ],
+        ));
+  }
+
+  Widget _rangeBar() {
+    return Obx(() {
+      controller.maxPriceCents.value;
+      final face = controller.faceCents;
+      final cap = controller.capCents;
+      var fraction = 0.0;
+      if (face > 0 && cap > face) {
+        final value = controller.maxPriceCents.value;
+        fraction = ((value - face) / (cap - face)).clamp(0.0, 1.0);
+      } else if (cap > 0) {
+        fraction = 0.6;
+      }
+      return Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: fraction,
+              minHeight: 8,
+              color: ColorConstant.gold,
+              backgroundColor: ColorConstant.nightSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(face > 0 ? 'Face ${formatCents(face)}' : 'Face value',
+                  style: sahraText(color: ColorConstant.nightMuted, size: 12)),
+              Text(cap > 0 ? 'Cap ${formatCents(cap)}' : 'Cap',
+                  style: sahraText(color: ColorConstant.nightMuted, size: 12)),
+            ],
+          ),
+        ],
+      );
+    });
+  }
+
+  Widget _marketCard() {
+    return Obx(() {
+      if (controller.isLoading.value) {
+        return SahraCard(
+          child: Row(children: [
+            const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2)),
+            const SizedBox(width: 12),
+            Text('Checking resale market…',
+                style: sahraText(color: ColorConstant.nightMuted, size: 13)),
+          ]),
+        );
+      }
+      final listings = controller.marketListings;
+      final lowest = controller.lowestAskCents;
+      if (listings.isEmpty) {
+        return const SizedBox.shrink();
+      }
+      return SahraCard(
+        child: Row(
+          children: [
+            Icon(Icons.groups_rounded, color: ColorConstant.gold, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                lowest == null
+                    ? '${listings.length} active resale listings.'
+                    : '${listings.length} active resale listings · from ${formatCents(lowest)}',
+                style: sahraText(color: ColorConstant.whiteA700, size: 13),
+              ),
+            ),
+          ],
         ),
+      );
+    });
+  }
+
+  Widget _infoCard() {
+    return SahraCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, color: ColorConstant.gold, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Below face value. Fewer sellers usually take this, but it can happen close to the date.',
+              style: sahraText(
+                  color: ColorConstant.nightMuted, size: 13, height: 1.45),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _keepTryingRow() {
+    return SahraCard(
+      child: Row(
+        children: [
+          Expanded(
+            child: Text('Keep trying until',
+                style: sahraText(size: 15, weight: FontWeight.w600)),
+          ),
+          Text('Doors open',
+              style: sahraText(color: ColorConstant.gold, size: 15)),
+          const SizedBox(width: 6),
+          Icon(Icons.keyboard_arrow_down_rounded,
+              color: ColorConstant.nightMuted, size: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _circleButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    bool filled = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: filled ? ColorConstant.gold : Colors.transparent,
+          border: Border.all(
+            color: filled ? ColorConstant.gold : ColorConstant.nightBorder,
+            width: 1.5,
+          ),
+        ),
+        child: Icon(icon,
+            color: filled ? ColorConstant.night : ColorConstant.whiteA700,
+            size: 22),
       ),
     );
   }

@@ -128,6 +128,39 @@ class EventDetailView extends GetView<EventDetailController> {
     Get.toNamed(Routes.PAYMENT_PAGE, arguments: controller.paymentArguments());
   }
 
+  void _setPrice(Map<String, dynamic> tier) {
+    final event = controller.event;
+    Get.toNamed(Routes.PLACE_BID, arguments: {
+      'eventId': controller.eventId ?? '',
+      'title': event['title']?.toString() ?? 'Event',
+      'type': controller.categoryText.isNotEmpty
+          ? controller.categoryText
+          : 'Event',
+      'tier': tier['name']?.toString() ?? 'Ticket',
+      'faceCents': _tierPriceCents(tier),
+    });
+  }
+
+  Widget _setPriceButton(Map<String, dynamic> tier) {
+    return GestureDetector(
+      onTap: () => _setPrice(tier),
+      child: Row(
+        children: [
+          Icon(Icons.bolt_rounded, color: ColorConstant.gold, size: 18),
+          const SizedBox(width: 6),
+          Text('Set your price',
+              style: sahraText(
+                  color: ColorConstant.gold,
+                  size: 14,
+                  weight: FontWeight.w700)),
+          const Spacer(),
+          Icon(Icons.chevron_right_rounded,
+              color: ColorConstant.nightMuted, size: 18),
+        ],
+      ),
+    );
+  }
+
   Widget _content() {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -372,6 +405,10 @@ class EventDetailView extends GetView<EventDetailController> {
                   ),
                 ],
               ),
+              if (soldOut) ...[
+                const SizedBox(height: 10),
+                _setPriceButton(tier),
+              ],
             ],
           ),
         ),
@@ -385,6 +422,14 @@ class EventDetailView extends GetView<EventDetailController> {
     if (price is num) return formatDollars(price);
     if (cents is num) return formatCents(cents);
     return '—';
+  }
+
+  int _tierPriceCents(Map<String, dynamic> tier) {
+    final cents = tier['priceCents'];
+    if (cents is num) return cents.toInt();
+    final price = tier['price'];
+    if (price is num) return (price * 100).round();
+    return 0;
   }
 
   Widget _resaleHeader() {

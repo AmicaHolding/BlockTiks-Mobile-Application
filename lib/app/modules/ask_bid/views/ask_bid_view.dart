@@ -1,9 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:block_tix/app/data/widgets/custom_divider.dart';
-import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
-import 'package:block_tix/app/data/widgets/custom_text_form_field.dart';
-import 'package:block_tix/app/modules/event_detail/views/event_detail_view.dart';
-import 'package:block_tix/app/modules/payment_page/views/payment_page_view.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 
 import '../controllers/ask_bid_controller.dart';
 
@@ -13,198 +10,132 @@ class AskBidView extends GetView<AskBidController> {
   @override
   Widget build(BuildContext context) {
     return BaseViewPageScreen(
-      showLogo: true,
-      basicAppBar: false,
-      showBackBtn: true,
+      hideAppBar: true,
+      safeTopArea: true,
       sidePadding: false,
       bodyPadding: false,
-      showNotification: true,
-      extendBodyBehindAppBar: true,
-      bottomNavigationBar: SafeArea(
-        child: PrimaryPillButton(
-          text: controller.fromSell ? "Sell now".tr : "lbl_next".tr,
-          margin: getMargin(right: 20, left: 20, bottom: 30, top: 10),
-          onTap: () {
-            if (controller.fromSell) {
-              Get.offAllNamed(
-                Routes.USER_DASHBOARD,
-              );
-            } else {
-              // Manual price entry must be a valid amount before checkout.
-              if (!controller.validateForm()) {
-                CustomSnackBar.showCustomErrorToast(
-                    message: "Enter a valid price or pick an option");
-                return;
-              }
-              Get.toNamed(
-                Routes.PAYMENT_PAGE,
-                arguments: {
-                  'title': controller.eventTitle,
-                  'type': controller.eventType,
-                  if (controller.ticketTier.isNotEmpty)
-                    'tier': controller.ticketTier,
-                  'price': controller.currentPrice,
-                },
-              );
-            }
-          },
-        ),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            const StageViewScreen(height: 350,),
-            Padding(
-              padding: getPadding(all: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  MyText(
-                    title: controller.eventType,
-                    family: 'Inter',
-                    customWeight: FontWeight.w400,
-                    fontSize: 14,
-                    clr: ColorConstant.white60,
-                  ),
-                  MyText(
-                    title: controller.eventTitle,
-                    family: 'Manrope',
-                    customWeight: FontWeight.w700,
-                    fontSize: 22,
-                    clr: ColorConstant.whiteA700,
-                  ),
-                  const CustomDivider(
-                    height: 0.3,
-                  ),
-                  SizedBox(
-                    height: getSize(10),
-                  ),
+      backgroundColor: ColorConstant.night,
+      bottomNavigationBar: Obx(() {
+        controller.priceVersion.value;
+        final count = controller.selectedCount;
+        final price = formatCents(controller.priceCents);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  count == 0
+                      ? 'Choose tickets to sell'
+                      : '$count ticket${count == 1 ? '' : 's'} · $price each',
+                  style: sahraText(color: ColorConstant.nightMuted, size: 13),
+                ),
+                const SizedBox(height: 8),
+                SahraPillButton(
+                  label: controller.isListing.value
+                      ? 'Listing…'
+                      : 'List $count ticket${count == 1 ? '' : 's'}',
+                  enabled: controller.canList,
+                  onTap: controller.listSelected,
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+      child: Obx(() {
+        if (controller.isLoading.value) {
+          return Center(
+              child: CircularProgressIndicator(color: ColorConstant.gold));
+        }
+        if (controller.loadError.value != null) {
+          return SahraEmptyState(
+            title: "Couldn't load tickets",
+            message: controller.loadError.value,
+            actionLabel: 'Retry',
+            onAction: controller.load,
+          );
+        }
+        return RefreshIndicator(
+          color: ColorConstant.gold,
+          backgroundColor: ColorConstant.nightSurface,
+          onRefresh: controller.load,
+          child: ListView(
+            padding: const EdgeInsets.only(bottom: 120),
+            children: [
+              _header(),
+              SahraSectionLabel('Which tickets?',
+                  trailing: Obx(() => Text(
+                      '${controller.selectedCount} selected',
+                      style: sahraText(
+                          color: ColorConstant.nightMuted, size: 12)))),
+              if (controller.sellableTickets.isEmpty)
+                _emptySellable()
+              else
+                ...controller.sellableTickets.map(_ticketTile),
+              SahraSectionLabel('Price & rules'),
+              _priceCard(),
+              SahraSectionLabel('Selling'),
+              if (controller.listings.isEmpty)
+                _emptyListings()
+              else
+                ...controller.listings.map(_listingTile),
+            ],
+          ),
+        );
+      }),
+    );
+  }
 
-              !controller.fromSell ? MyText(
-                title: 'Pricing Options',
-                family: 'Manrope',
-                customWeight: FontWeight.w600,
-                fontSize: 18,
-                clr: ColorConstant.whiteA700,):
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      MyText(
-                        title: 'Pricing Options',
-                        family: 'Manrope',
-                        customWeight: FontWeight.w600,
-                        fontSize: 18,
-                        clr: ColorConstant.whiteA700,
-                      ),
-                      GestureDetector(
-                        onTap: () => Get.toNamed(Routes.TRANSACTIONS),
-                        child: Container(
-                          decoration: BoxDecoration(
-                              border: Border.all(
-                                  color: ColorConstant.hairline),
-                              borderRadius: BorderRadius.circular(8)),
-                          padding: getPadding(left: 8, right: 8, top: 4, bottom: 4),
-                          child: MyText(
-                            title: 'View all transactions',
-                            family: 'Inter',
-                            clr: ColorConstant.white60,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(
-                    height: getSize(20),
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                          child: offerWidget(
-                              name: !controller.fromSell ? "Good Bid" : "Good Ask", price: "\$222", index: 0)),
-                      SizedBox(
-                        width: getSize(10),
-                      ),
-                      Expanded(
-                          child: offerWidget(
-                              name: controller.fromSell ? "Better Ask" : "Better Bid",  price: "\$232", index: 1)),
-                      SizedBox(
-                        width: getSize(10),
-                      ),
-                      Expanded(
-                          child: offerWidget(
-                              name: controller.fromSell? "Sell Now" : "Buy Now", price: "\$280", index: 2)),
-                    ],
-                  ),
-                  SizedBox(
-                    height: getSize(15),
-                  ),
-                  Obx(() => Form(
-                    key: controller.formKey,
-                    child: CustomTextFormField(
-                      labelText: "Or name your price",
-                      hintText: '',
-                      controller: controller.bidController,
-                      readOnly:  controller.selectedBid.value != -1,
-                      variant: TextFormFieldVariant.OutlineNewGray,
-                      textInputType: TextInputType.number,
-                      validator: controller.validatePrice,
-                      prefix: Container(
-                        margin: getMargin(left: 15),
-                        padding: getPadding(top: 12, bottom: 12),
-                        child: const MyText(
-                          title: '\$',
-                          family: 'Manrope',
-                          customWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  )),
-                  SizedBox(
-                    height: getSize(15),
-                  ),
-                  MyText(
-                    title:
-                        'This is a competitive price that is more likely to match with a seller',
-                    family: 'Inter',
-                    customWeight: FontWeight.w400,
-                    fontSize: 14,
-                    clr: ColorConstant.white60,
-                  ),
-                  const CustomDivider(
-                    height: 0.3,
-                  ),
-                  Obx(() {
-                    // priceVersion bumps on each keystroke so the subtotal
-                    // recomputes while the user types.
-                    return Row(
-                      key: ValueKey(controller.priceVersion.value),
-                      children: [
-                        const MyText(
-                          title: 'Subtotal',
-                          family: 'Manrope',
-                          customWeight: FontWeight.w700,
-                          fontSize: 18,
-                        ),
-                        const Spacer(),
-                        MyText(
-                          title: controller.currentPrice > 0
-                              ? '\$${controller.currentPrice.toStringAsFixed(2)}'
-                              : '\$0.00',
-                          family: 'Manrope',
-                          customWeight: FontWeight.w700,
-                          fontSize: 18,
-                          clr: ColorConstant.successGreen,
-                        ),
-                      ],
-                    );
-                  }),
-                  const SizedBox(
-                    height: 30,
-                  )
-                ],
-              ),
+  Widget _header() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 20, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          IconButton(
+            onPressed: Get.back,
+            icon: Icon(Icons.arrow_back_ios_new_rounded,
+                color: ColorConstant.whiteA700, size: 20),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('I can\'t go',
+                    style: sahraText(color: ColorConstant.gold, size: 13)),
+                Text('Sell tickets',
+                    style: sahraText(size: 26, weight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Obx(() => Text(
+                      controller.eventTitle.value.isEmpty
+                          ? 'Choose what to sell, set a price, then manage the sale.'
+                          : controller.eventTitle.value,
+                      style:
+                          sahraText(color: ColorConstant.nightMuted, size: 13),
+                    )),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptySellable() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: SahraCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('No tickets to sell',
+                style: sahraText(size: 16, weight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            Text(
+              'Tickets you hold that are not listed yet will show up here.',
+              style: sahraText(color: ColorConstant.nightMuted, size: 13),
             ),
           ],
         ),
@@ -212,50 +143,176 @@ class AskBidView extends GetView<AskBidController> {
     );
   }
 
-  Widget offerWidget(
-      {required String name, required String price, required int index}) {
-    return GestureDetector(
-      onTap: () {
-        if(controller.selectedBid.value != index){
-          controller.selectedBid.value = index;
-        }else{
-          controller.selectedBid.value = -1;
-        }
-
-      },
-      child: Obx(() => Container(
-            height:65,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: controller.selectedBid.value == index
-                    ? ColorConstant.primaryAccent
-                    : ColorConstant.elevated,
-                border: Border.all(
-                    color: controller.selectedBid.value == index
-                        ? ColorConstant.primaryAccent
-                        : ColorConstant.hairline)),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
+  Widget _ticketTile(Map<String, dynamic> ticket) {
+    final code = ticket['code']?.toString() ?? '';
+    final tier = ticket['tierName']?.toString() ?? '';
+    final section = ticket['sectionName']?.toString() ?? '';
+    return Obx(() {
+      final isSelected = controller.isSelected(code);
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: SahraCard(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          color: isSelected ? ColorConstant.nightElevated : null,
+          border: isSelected ? ColorConstant.gold : null,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () => controller.toggleTicket(code),
+            child: Row(
               children: [
-                MyText(
-                  title: price,
-                  family: 'Manrope',
-                  fontSize: 18,
-                  customWeight: FontWeight.w700,
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isSelected ? ColorConstant.gold : Colors.transparent,
+                    border: Border.all(
+                      color: isSelected
+                          ? ColorConstant.gold
+                          : ColorConstant.nightBorder,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: isSelected
+                      ? Icon(Icons.check_rounded,
+                          color: ColorConstant.night, size: 16)
+                      : null,
                 ),
-                MyText(
-                  title: name,
-                  family: 'Inter',
-                  fontSize: 12,
-                  clr: controller.selectedBid.value == index
-                      ? ColorConstant.whiteA700
-                      : ColorConstant.white60,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(ticket['eventTitle']?.toString() ?? 'Event',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: sahraText(size: 15, weight: FontWeight.w600)),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${formatEventDate(ticket['eventStartsAt']?.toString())} · ${ticket['eventLocation']?.toString().isNotEmpty == true ? ticket['eventLocation'] : 'Venue TBD'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: sahraText(
+                            color: ColorConstant.nightMuted, size: 12),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(spacing: 8, runSpacing: 4, children: [
+                        SahraStatusPill(section.isNotEmpty
+                            ? section
+                            : (tier.isEmpty ? 'Ticket' : tier)),
+                        Text(code,
+                            style: sahraText(
+                                color: ColorConstant.nightMuted, size: 11)),
+                      ]),
+                    ],
+                  ),
                 ),
               ],
             ),
-          )),
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _priceCard() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: SahraCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Set your price',
+                style: sahraText(size: 16, weight: FontWeight.w700)),
+            const SizedBox(height: 10),
+            Obx(() {
+              controller.priceVersion.value;
+              return TextField(
+                controller: controller.priceController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                style: sahraText(size: 22, weight: FontWeight.w800),
+                decoration: InputDecoration(
+                  prefixText: '\$ ',
+                  prefixStyle: sahraText(size: 22, weight: FontWeight.w800),
+                  hintText: '0',
+                  hintStyle:
+                      sahraText(color: ColorConstant.nightMuted, size: 22),
+                  border: InputBorder.none,
+                ),
+              );
+            }),
+            const SizedBox(height: 10),
+            Text(
+              'Each selected ticket is listed at this price. Paid out after the event. Cancel any time before it sells.',
+              style: sahraText(color: ColorConstant.nightMuted, size: 13),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyListings() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Text('No listings yet.',
+          style: sahraText(color: ColorConstant.nightMuted, size: 13)),
+    );
+  }
+
+  Widget _listingTile(Map<String, dynamic> listing) {
+    final status = listing['status']?.toString() ?? '';
+    final cents = listing['priceCents'];
+    final price = cents is num ? formatCents(cents) : '';
+    final active = status == 'ACTIVE';
+    final code =
+        listing['ticketCode']?.toString() ?? listing['code']?.toString() ?? '';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: SahraCard(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Icon(Icons.sell_outlined, color: ColorConstant.gold, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(listing['eventTitle']?.toString() ?? 'Event',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: sahraText(size: 15, weight: FontWeight.w600)),
+                  Text(
+                    '${listing['tierName']?.toString() ?? 'Ticket'} · $price',
+                    style: sahraText(color: ColorConstant.nightMuted, size: 12),
+                  ),
+                  if (code.isNotEmpty)
+                    Text(code,
+                        style: sahraText(
+                            color: ColorConstant.nightMuted, size: 11)),
+                ],
+              ),
+            ),
+            SahraStatusPill(status,
+                color: active ? ColorConstant.gold : ColorConstant.nightMuted),
+            if (active) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => controller.cancelListing(listing),
+                child: Text('Cancel',
+                    style: sahraText(
+                        color: ColorConstant.rumman,
+                        size: 13,
+                        weight: FontWeight.w600)),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
