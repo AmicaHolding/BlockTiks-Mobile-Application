@@ -1,0 +1,13 @@
+version: 1.0
+
+# First deploy is guided — secrets are passed as parameter overrides, never
+# committed here:
+#   sam deploy --guided \
+#     --parameter-overrides \
+#       JwtSecret="$(openssl rand -hex 32)" \
+#       StripeSecretKey="sk_test_..." \
+#       StripeWebhookSecret="whsec_..." \
+#       AllowedOrigins="*"
+#
+# Later deploys:
+#   sam deploy

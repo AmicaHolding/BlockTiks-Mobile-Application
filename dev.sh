@@ -8,12 +8,12 @@
 #   ./dev.sh -d <device>    # extra args are passed to `flutter run`
 #
 # Env overrides:
-#   BACKEND_DIR   path to the backend repo (default: ../BlockTiks-Expo-Go/backend)
+#   BACKEND_DIR   path to the backend (default: ./backend)
 #   API_PORT      backend port (default: 4000)
 
 set -euo pipefail
 
-BACKEND_DIR="${BACKEND_DIR:-$(cd "$(dirname "$0")" && pwd)/../BlockTiks-Expo-Go/backend}"
+BACKEND_DIR="${BACKEND_DIR:-$(cd "$(dirname "$0")" && pwd)/backend}"
 API_PORT="${API_PORT:-4000}"
 API_URL="http://localhost:${API_PORT}"
 SEED=false
