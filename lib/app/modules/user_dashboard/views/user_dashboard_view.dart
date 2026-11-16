@@ -2,6 +2,7 @@ import 'package:block_tix/app/data/widgets/base/baseview_process_screen.dart';
 import 'package:block_tix/app/data/widgets/custom_dialogue.dart';
 import 'package:block_tix/app/modules/for_you/views/for_you_view.dart';
 import 'package:block_tix/app/modules/profile_tab/views/profile_tab_view.dart';
+import 'package:block_tix/app/modules/search/controllers/search_controller.dart';
 import 'package:block_tix/app/modules/search/views/search_view.dart';
 import 'package:block_tix/app/modules/wallet/views/wallet_view.dart';
 
@@ -12,6 +13,7 @@ class UserDashboardView extends StatelessWidget {
   UserDashboardView({Key? key}) : super(key: key);
 
   final UserDashboardController controller = Get.put(UserDashboardController());
+  final MySearchController searchController = Get.put(MySearchController());
 
   final Responsive responsive = Responsive();
 

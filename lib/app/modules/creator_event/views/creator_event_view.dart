@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/dummy_content.dart';
 import 'package:block_tix/app/data/widgets/media_selection_tile.dart';
-import 'package:block_tix/app/modules/create_event/controllers/create_event_controller.dart';
+import 'package:block_tix/app/data/widgets/web_handoff_sheet.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
@@ -78,7 +78,10 @@ class CreatorEventView extends GetView<CreatorEventController> {
             SizedBox(height: getSize(30),),
             CustomButton(
               onTap: (){
-                Get.toNamed(Routes.MY_SCANNER);
+                Get.toNamed(Routes.MY_SCANNER, arguments: {
+                  'eventId': controller.eventId.value,
+                  'title': controller.eventTitle.value,
+                });
               },
               text: "Check in People",
               prefixWidget: CustomImageView(
@@ -195,7 +198,9 @@ class CreatorEventView extends GetView<CreatorEventController> {
                 SizedBox(width: getSize(20),),
                 GestureDetector(
                   onTap: (){
-                    Get.toNamed(Routes.ALL_GUESTS);
+                    Get.toNamed(Routes.ALL_GUESTS, arguments: {
+                      'eventId': controller.eventId.value,
+                    });
                   },
                   child: Container(
                     padding: getPadding(left: 8,right: 8,top: 5,bottom: 5),
@@ -268,7 +273,7 @@ class CreatorEventView extends GetView<CreatorEventController> {
                 MyText(title: 'Team',fontSize: 18,customWeight: FontWeight.w600,),
                 GestureDetector(
                   onTap: (){
-                    Get.toNamed(Routes.MANAGE_TEAMS);
+                    WebHandoffSheet.show(feature: 'Teams & co-hosts');
                   },
                   child: Container(
                     padding: getPadding(left: 8,right: 8,top: 5,bottom: 5),

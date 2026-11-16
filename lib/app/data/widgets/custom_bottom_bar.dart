@@ -73,7 +73,7 @@ class CustomBottomBar extends StatelessWidget {
     final selected = controller.selectedIndex.value == index;
     return BottomNavigationBarItem(
       icon: Padding(
-        padding: getPadding(top: 6),
+        padding: getPadding(top: 2),
         child: CustomImageView(
           svgPath: icon,
           color: selected ? _selectedColor : _unselectedColor,

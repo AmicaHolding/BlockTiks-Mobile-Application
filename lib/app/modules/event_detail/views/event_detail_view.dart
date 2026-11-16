@@ -27,14 +27,20 @@ class EventDetailView extends GetView<EventDetailController> {
             Expanded(
               flex: 2,
               child: Obx(() {
-                final fromPrice = controller.hasEvent
-                    ? controller.tiers
-                        .map((t) => t['priceCents'] ??
-                            (((t['price'] as num?) ?? 0) * 100).round())
+                final fromPrice = controller.isSeated
+                    ? controller.venueSections
+                        .map((s) => s['priceCents'])
                         .whereType<num>()
                         .fold<num?>(null, (min, p) =>
                             min == null || p < min ? p : min)
-                    : null;
+                    : controller.hasEvent
+                        ? controller.tiers
+                            .map((t) => t['priceCents'] ??
+                                (((t['price'] as num?) ?? 0) * 100).round())
+                            .whereType<num>()
+                            .fold<num?>(null, (min, p) =>
+                                min == null || p < min ? p : min)
+                        : null;
                 return Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,8 +70,8 @@ class EventDetailView extends GetView<EventDetailController> {
             ),
             Expanded(
               flex: 1,
-              child: PrimaryPillButton(
-                text: "Get tickets",
+              child: Obx(() => PrimaryPillButton(
+                text: controller.isSeated ? "Choose seats" : "Get tickets",
                 onTap: () {
                  final hasSelection = controller.hasEvent
                      ? controller.selectedCount > 0
@@ -81,7 +87,7 @@ class EventDetailView extends GetView<EventDetailController> {
                    CustomSnackBar.showCustomErrorToast(message: "Please select at least one ticket");
                  }
                 },
-              ),
+              )),
             ),
           ],
           ),
@@ -230,7 +236,9 @@ class EventDetailView extends GetView<EventDetailController> {
                     clr: ColorConstant.whiteA700,
                   ),
                   const SizedBox(height: 12),
-                  if (controller.hasEvent)
+                  if (controller.isSeated)
+                    _VenueSections()
+                  else if (controller.hasEvent)
                     ...(controller.tiers.map((tier) {
                       final tierId = tier['id']?.toString() ?? '';
                       final price = tier['price'];
@@ -744,6 +752,198 @@ class StageViewScreen extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Seated-event section picker (Sahra screens 11/12 essence): venue preview
+/// header + one row per section with price, remaining seats and a quantity
+/// stepper for the selected section.
+class _VenueSections extends GetWidget<EventDetailController> {
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final sections = controller.venueSections;
+      if (sections.isEmpty) return const SizedBox.shrink();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Venue preview strip — stands in for the full venue map until the
+          // layout editor ships seat-level geometry.
+          Container(
+            width: double.infinity,
+            padding: getPadding(all: 18),
+            decoration: BoxDecoration(
+              color: ColorConstant.nightSurface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: ColorConstant.nightBorder),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  height: 44,
+                  width: 44,
+                  decoration: BoxDecoration(
+                    color: ColorConstant.nightElevated,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.map_outlined,
+                      color: ColorConstant.gold, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      MyText(
+                        title: 'Reserved seating',
+                        family: 'Manrope',
+                        customWeight: FontWeight.w700,
+                        fontSize: 15,
+                        clr: ColorConstant.whiteA700,
+                      ),
+                      const SizedBox(height: 2),
+                      MyText(
+                        title: 'Pick a section — seats are held at checkout',
+                        family: 'Inter',
+                        fontSize: 12,
+                        clr: ColorConstant.nightMuted,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          ...sections.map((s) {
+            final id = s['id']?.toString() ?? '';
+            final selected = controller.selectedSectionId.value == id;
+            final remaining = controller.sectionRemaining(s);
+            final cents = s['priceCents'];
+            final priceLabel = cents is num
+                ? formatCents(cents)
+                : formatDollars((s['price'] as num?)?.toDouble());
+            return GestureDetector(
+              onTap: remaining > 0 ? () => controller.selectSection(id) : null,
+              child: Container(
+                margin: getMargin(bottom: 10),
+                padding: getPadding(left: 16, right: 16, top: 14, bottom: 14),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? ColorConstant.nightElevated
+                      : ColorConstant.nightSurface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: selected
+                        ? ColorConstant.gold
+                        : ColorConstant.nightBorder,
+                    width: selected ? 1.5 : 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              MyText(
+                                title: s['name']?.toString() ?? 'Section',
+                                family: 'Manrope',
+                                customWeight: FontWeight.w700,
+                                fontSize: 16,
+                                clr: remaining <= 0
+                                    ? ColorConstant.white60
+                                    : ColorConstant.whiteA700,
+                              ),
+                              const SizedBox(height: 3),
+                              MyText(
+                                title: remaining <= 0
+                                    ? 'Sold out'
+                                    : '$remaining seats left',
+                                family: 'Inter',
+                                fontSize: 12,
+                                clr: remaining <= 0
+                                    ? ColorConstant.errorRed
+                                    : ColorConstant.nightMuted,
+                              ),
+                            ],
+                          ),
+                        ),
+                        MyText(
+                          title: priceLabel,
+                          family: 'Manrope',
+                          customWeight: FontWeight.w800,
+                          fontSize: 17,
+                          clr: ColorConstant.gold,
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          height: 22,
+                          width: 22,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: selected
+                                  ? ColorConstant.gold
+                                  : ColorConstant.nightBorder,
+                              width: 2,
+                            ),
+                            color: selected ? ColorConstant.gold : null,
+                          ),
+                          child: selected
+                              ? Icon(Icons.check,
+                                  size: 14, color: ColorConstant.night)
+                              : null,
+                        ),
+                      ],
+                    ),
+                    if (selected) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const Spacer(),
+                          _stepBtn(Icons.remove, () => controller.adjustSectionCount(-1)),
+                          Padding(
+                            padding: getPadding(left: 16, right: 16),
+                            child: MyText(
+                              title: '${controller.sectionCount.value}',
+                              family: 'Manrope',
+                              customWeight: FontWeight.w700,
+                              fontSize: 16,
+                              clr: ColorConstant.whiteA700,
+                            ),
+                          ),
+                          _stepBtn(Icons.add, () => controller.adjustSectionCount(1)),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      );
+    });
+  }
+
+  Widget _stepBtn(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 30,
+        width: 30,
+        decoration: BoxDecoration(
+          color: ColorConstant.nightDeep,
+          shape: BoxShape.circle,
+          border: Border.all(color: ColorConstant.nightBorder),
+        ),
+        child: Icon(icon, size: 16, color: ColorConstant.whiteA700),
       ),
     );
   }

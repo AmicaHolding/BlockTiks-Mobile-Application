@@ -213,14 +213,11 @@ class ColorConstant {
     buffer.write(hexString.replaceFirst('#', ''));
     return Color(int.parse(buffer.toString(), radix: 16));
   }
-}
-
-// Light-mode (Sand) surfaces for checkout, account and receipts.
-extension SahraLight on ColorConstant {
-  static Color get lightBackground => ColorConstant.sand;
-  static Color get lightSurface => ColorConstant.dune;
-  static Color get lightCardColor => ColorConstant.lightCard;
-  static Color get lightBorder => ColorConstant.fromHex('#D8CDB9');
-  static Color get lightText => ColorConstant.ink;
-  static Color get lightMuted => ColorConstant.fromHex('#6F84A0');
+  // Light-mode (Sand) surfaces for checkout, account and receipts.
+  static Color get lightBackground => sand;
+  static Color get lightSurface => dune;
+  static Color get lightCardColor => lightCard;
+  static Color get lightBorder => fromHex('#D8CDB9');
+  static Color get lightText => ink;
+  static Color get lightMuted => fromHex('#6F84A0');
 }

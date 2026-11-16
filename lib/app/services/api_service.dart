@@ -197,16 +197,22 @@ class ApiService {
   // --------------------------------------------------------------- orders
 
   /// POST /orders/intent -> { orderId, clientSecret, amountCents, ... }
+  /// Three purchase kinds: GA tier (tierId), seated section (sectionId),
+  /// or a resale listing (listingCode).
   static Future<Map<String, dynamic>> createOrderIntent({
-    required String eventId,
-    required String tierId,
-    required int quantity,
+    String? eventId,
+    String? tierId,
+    String? sectionId,
+    String? listingCode,
+    int quantity = 1,
     String? promoCode,
   }) async {
     try {
       final res = await _dio.post('/orders/intent', data: {
-        'eventId': eventId,
-        'tierId': tierId,
+        if (eventId != null) 'eventId': eventId,
+        if (tierId != null) 'tierId': tierId,
+        if (sectionId != null) 'sectionId': sectionId,
+        if (listingCode != null) 'listingCode': listingCode,
         'quantity': quantity,
         if (promoCode != null && promoCode.isNotEmpty) 'promoCode': promoCode,
       }, options: _authOptions);
@@ -243,6 +249,106 @@ class ApiService {
       final res = await _dio.get('/tickets', options: _authOptions);
       final list = (res.data['tickets'] as List?) ?? [];
       return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /tickets/sellable -> my VALID tickets not currently listed.
+  static Future<List<Map<String, dynamic>>> sellableTickets() async {
+    try {
+      final res = await _dio.get('/tickets/sellable', options: _authOptions);
+      final list = (res.data['tickets'] as List?) ?? [];
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  // ------------------------------------------------------- door ops (creator)
+
+  /// POST /events/:id/checkin { code } -> { result, ticket? }
+  /// result: OK | ALREADY_USED | WRONG_EVENT | NOT_FOUND | FORBIDDEN
+  static Future<Map<String, dynamic>> checkInTicket(String eventId, String code) async {
+    try {
+      final res = await _dio.post('/events/$eventId/checkin',
+          data: {'code': code}, options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      // ALREADY_USED comes back as 409 — surface the body, not just the message.
+      final data = e.response?.data;
+      if (data is Map && data['result'] != null) {
+        return Map<String, dynamic>.from(data);
+      }
+      _throw(e);
+    }
+  }
+
+  /// GET /events/:id/guests -> { guests, checkedIn, total }
+  static Future<Map<String, dynamic>> eventGuests(String eventId) async {
+    try {
+      final res = await _dio.get('/events/$eventId/guests', options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  // ------------------------------------------------------------- resale
+
+  /// GET /listings?eventId= -> { listings: [...] } (active, public)
+  static Future<List<Map<String, dynamic>>> activeListings({String? eventId}) async {
+    try {
+      final res = await _dio.get('/listings', queryParameters: {
+        if (eventId != null) 'eventId': eventId,
+      });
+      final list = (res.data['listings'] as List?) ?? [];
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /listings/mine -> { listings: [...] } (my listings, any status)
+  static Future<List<Map<String, dynamic>>> myListings() async {
+    try {
+      final res = await _dio.get('/listings/mine', options: _authOptions);
+      final list = (res.data['listings'] as List?) ?? [];
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /tickets/:code/list { priceCents }
+  static Future<Map<String, dynamic>> createListing(String ticketCode, int priceCents) async {
+    try {
+      final res = await _dio.post('/tickets/$ticketCode/list',
+          data: {'priceCents': priceCents}, options: _authOptions);
+      return Map<String, dynamic>.from(res.data['listing'] as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// DELETE /listings/:code — cancel my ACTIVE listing.
+  static Future<void> cancelListing(String ticketCode) async {
+    try {
+      await _dio.delete('/listings/$ticketCode', options: _authOptions);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  // ------------------------------------------------------ venue (creator)
+
+  /// PATCH /events/:id { venueLayout } — set seated-event sections.
+  static Future<Map<String, dynamic>> setVenueLayout(
+      String eventId, Map<String, dynamic> venueLayout) async {
+    try {
+      final res = await _dio.patch('/events/$eventId',
+          data: {'venueLayout': venueLayout}, options: _authOptions);
+      return Map<String, dynamic>.from(res.data['event'] as Map);
     } on DioException catch (e) {
       _throw(e);
     }

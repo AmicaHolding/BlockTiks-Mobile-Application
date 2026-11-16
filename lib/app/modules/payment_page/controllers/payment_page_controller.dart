@@ -22,6 +22,9 @@ class PaymentPageController extends GetxController {
   // Backend checkout context parsed from route arguments.
   String? eventId;
   String? tierId;
+  String? sectionId; // seated events
+  String? sectionName;
+  String? listingCode; // resale purchases
   int quantity = 1;
   String? promoCode;
   List<Map<String, dynamic>> selections = [];
@@ -64,6 +67,15 @@ class PaymentPageController extends GetxController {
       if (id != null && id.toString().isNotEmpty) eventId = id.toString();
       final tid = data['tierId'] ?? data['tier'];
       if (tid != null && tid.toString().isNotEmpty) tierId = tid.toString();
+      final sid = data['sectionId'];
+      if (sid != null && sid.toString().isNotEmpty) {
+        sectionId = sid.toString();
+        sectionName = data['sectionName']?.toString() ?? sectionId;
+      }
+      final lc = data['listingCode'];
+      if (lc != null && lc.toString().isNotEmpty) {
+        listingCode = lc.toString();
+      }
       final qty = data['quantity'] ?? data['qty'];
       if (qty != null) quantity = _readInt(qty, 1);
       if (data['promoCode'] != null) {
@@ -98,8 +110,10 @@ class PaymentPageController extends GetxController {
   }
 
   bool get hasBackendContext =>
-      eventId != null &&
-      (selections.isNotEmpty || (tierId != null && quantity > 0));
+      listingCode != null ||
+      (eventId != null &&
+          (selections.isNotEmpty ||
+              ((tierId != null || sectionId != null) && quantity > 0)));
 
   /// Checkout entry point invoked from the Buy button (via the loader).
   /// Creates real order intents on the backend when we have event context;
@@ -123,18 +137,31 @@ class PaymentPageController extends GetxController {
     isProcessing.value = true;
     try {
       final results = <Map<String, dynamic>>[];
-      if (selections.isNotEmpty) {
+      if (listingCode != null) {
+        // Resale purchase — one listing per order.
+        results.add(await ApiService.createOrderIntent(
+          listingCode: listingCode,
+        ));
+      } else if (selections.isNotEmpty) {
         for (final sel in selections) {
-          final sid = sel['tierId']?.toString() ?? '';
           final qty = _readInt(sel['quantity'], 1);
-          if (sid.isEmpty || qty <= 0) continue;
+          final selSection = sel['sectionId']?.toString();
+          final selTier = sel['tierId']?.toString() ?? '';
+          if (qty <= 0 || (selSection == null && selTier.isEmpty)) continue;
           results.add(await ApiService.createOrderIntent(
             eventId: eventId!,
-            tierId: sid,
+            tierId: selSection == null ? selTier : null,
+            sectionId: selSection,
             quantity: qty,
             promoCode: promoCode,
           ));
         }
+      } else if (sectionId != null) {
+        results.add(await ApiService.createOrderIntent(
+          eventId: eventId!,
+          sectionId: sectionId,
+          quantity: quantity,
+        ));
       } else {
         results.add(await ApiService.createOrderIntent(
           eventId: eventId!,

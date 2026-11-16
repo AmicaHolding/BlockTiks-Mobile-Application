@@ -16,6 +16,8 @@ class PaymentPageView extends GetView<PaymentPageController> {
       sidePadding: false,
       safeTopArea: false,
       resizeToAvoidBottomInset: true,
+      // Sahra checkout is a light Sand surface (design 04).
+      backgroundColor: ColorConstant.lightBackground,
       bottomNavigationBar: SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -163,7 +165,11 @@ class PaymentPageView extends GetView<PaymentPageController> {
                   ),
                   Text(
                     'Choose payment method',
-                    style: AppStyle.heading2Manrope,
+                    style: GoogleFonts.bricolageGrotesque(
+                      color: ColorConstant.lightText,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   SizedBox(
                     height: getSize(15),
@@ -211,7 +217,7 @@ class PaymentPageView extends GetView<PaymentPageController> {
                               family: 'Manrope',
                               fontSize: 14,
                               customWeight: FontWeight.w600,
-                              clr: ColorConstant.whiteA700,
+                              clr: ColorConstant.lightText,
                             ),
                             const SizedBox(
                               height: 5,
@@ -314,7 +320,7 @@ class PaymentPageView extends GetView<PaymentPageController> {
           MyText(
             title: '$count $type${count > 1 ? 's':''}',
             family: 'Inter',
-            clr: ColorConstant.white60,
+            clr: ColorConstant.lightMuted,
             fontSize: 14,
           ),
           Container(
@@ -322,13 +328,13 @@ class PaymentPageView extends GetView<PaymentPageController> {
             height: 14,
             width: 1,
             decoration: BoxDecoration(
-              color: ColorConstant.white60
+              color: ColorConstant.lightMuted
             ),
           ),
           MyText(
             title: 'Total:  ',
             family: 'Inter',
-            clr: ColorConstant.white60,
+            clr: ColorConstant.lightMuted,
             fontSize: 14,
           ),
           MyText(
@@ -370,12 +376,12 @@ class CardWidget extends StatelessWidget {
       },
       child: Obx(() => Container(
             decoration: BoxDecoration(
-                color: ColorConstant.elevated,
+                color: ColorConstant.lightSurface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                     color: controller.selectedPayment.value == index
-                        ? ColorConstant.primaryAccent
-                        : ColorConstant.hairline)),
+                        ? ColorConstant.night
+                        : ColorConstant.lightBorder)),
             margin: getMargin(bottom: 10),
             padding: getPadding(left: 15, right: 15, top: 8, bottom: 8),
             child: Row(
@@ -404,7 +410,7 @@ class CardWidget extends StatelessWidget {
                         family: 'Manrope',
                         fontSize: 16,
                         customWeight: FontWeight.w600,
-                        clr: ColorConstant.whiteA700,
+                        clr: ColorConstant.lightText,
                       ),
                       const SizedBox(
                         width: 5,
@@ -413,7 +419,7 @@ class CardWidget extends StatelessWidget {
                         title: desc,
                         family: 'Inter',
                         fontSize: 12,
-                        clr: ColorConstant.white60,
+                        clr: ColorConstant.lightMuted,
                       ),
                     ],
                   ),
@@ -430,8 +436,8 @@ class CardWidget extends StatelessWidget {
 
                     border: Border.all(
                         color: controller.selectedPayment.value == index
-                            ? ColorConstant.primaryAccent
-                            : ColorConstant.hairline),
+                            ? ColorConstant.night
+                            : ColorConstant.lightBorder),
                   ),
                   child: Padding(
                     padding: getPadding(all: 3),
@@ -439,7 +445,7 @@ class CardWidget extends StatelessWidget {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                       color: controller.selectedPayment.value == index
-                          ? ColorConstant.primaryAccent
+                          ? ColorConstant.night
                           : Colors.transparent,
                       )
                     ),

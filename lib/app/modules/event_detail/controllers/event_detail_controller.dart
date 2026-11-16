@@ -49,11 +49,77 @@ class EventDetailController extends GetxController {
     return out;
   }
 
+  // ---------- seated venue ----------
+
+  final RxString selectedSectionId = ''.obs;
+  final RxInt sectionCount = 0.obs;
+
+  List<Map<String, dynamic>> get venueSections {
+    final v = event['venueSections'];
+    if (v is! List) return const [];
+    return v
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  bool get isSeated => hasEvent && venueSections.isNotEmpty;
+
+  Map<String, dynamic>? get selectedSection {
+    for (final s in venueSections) {
+      if (s['id']?.toString() == selectedSectionId.value) return s;
+    }
+    return null;
+  }
+
+  int sectionRemaining(Map<String, dynamic> section) {
+    final rem = section['remaining'];
+    if (rem is num) return rem.toInt();
+    final cap = section['capacity'];
+    final avail = section['available'];
+    if (avail is num) return avail.toInt();
+    if (cap is num) return cap.toInt();
+    return 999;
+  }
+
+  void selectSection(String id) {
+    if (selectedSectionId.value == id) {
+      selectedSectionId.value = '';
+      sectionCount.value = 0;
+      return;
+    }
+    selectedSectionId.value = id;
+    final section = venueSections.firstWhere(
+      (s) => s['id']?.toString() == id,
+      orElse: () => const {},
+    );
+    final max = sectionRemaining(section);
+    sectionCount.value = sectionCount.value == 0 && max > 0 ? 1 : sectionCount.value;
+    if (sectionCount.value > max) sectionCount.value = max.clamp(0, 8);
+  }
+
+  void adjustSectionCount(int delta) {
+    final section = selectedSection;
+    if (section == null) return;
+    final max = sectionRemaining(section).clamp(0, 8);
+    final next = (sectionCount.value + delta).clamp(0, max);
+    sectionCount.value = next;
+  }
+
   int get selectedCount =>
-      selectedTiers.fold(0, (sum, t) => sum + (t['quantity'] as int));
+      isSeated ? sectionCount.value : selectedTiers.fold(0, (sum, t) => sum + (t['quantity'] as int));
 
   /// Subtotal in dollars across all selected tiers (real or legacy counters).
   double get subtotalDollars {
+    if (isSeated) {
+      final s = selectedSection;
+      if (s == null) return 0;
+      final cents = s['priceCents'];
+      final price = cents is num
+          ? cents.toDouble()
+          : ((s['price'] as num?)?.toDouble() ?? 0) * 100;
+      return price * sectionCount.value / 100;
+    }
     if (hasEvent) {
       var cents = 0;
       for (final t in selectedTiers) {
@@ -67,6 +133,10 @@ class EventDetailController extends GetxController {
             bronzeCount.value) *
         405;
   }
+
+  // Resale listings for this event (official + resale in one flow).
+  final RxList<Map<String, dynamic>> resaleListings =
+      <Map<String, dynamic>>[].obs;
 
   @override
   void onInit() {
@@ -109,6 +179,18 @@ class EventDetailController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+    _fetchResaleListings();
+  }
+
+  Future<void> _fetchResaleListings() async {
+    final id = eventId;
+    if (id == null) return;
+    try {
+      resaleListings.value = await ApiService.activeListings(eventId: id);
+    } catch (_) {
+      // Resale is additive — never block the official ticket flow.
+      resaleListings.value = const [];
+    }
   }
 
   int tierRemaining(Map<String, dynamic> tier) {
@@ -146,6 +228,21 @@ class EventDetailController extends GetxController {
 
   /// Arguments forwarded to the payment/checkout screen.
   Map<String, dynamic> paymentArguments() {
+    if (hasEvent && isSeated) {
+      final s = selectedSection ?? {};
+      return {
+        'eventId': eventId ?? event['id']?.toString() ?? '',
+        'title': titleText,
+        'type': 'Seated',
+        'sectionId': s['id']?.toString() ?? '',
+        'sectionName': s['name']?.toString() ?? '',
+        'quantity': sectionCount.value,
+        'subtotalCents': (subtotalDollars * 100).round(),
+        'date': formattedDate,
+        'venue': locationText,
+        'imageUrl': event['imageUrl']?.toString() ?? '',
+      };
+    }
     if (hasEvent) {
       return {
         'eventId': eventId ?? event['id']?.toString() ?? '',

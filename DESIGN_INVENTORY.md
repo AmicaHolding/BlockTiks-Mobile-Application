@@ -6,13 +6,18 @@
 > **Design language:** Migrating to **Sahra** — Night `#16263B`/`#0F1C2D` canvas, Sand `#F7F1E6` light surfaces, Dune `#ECE4D6`, Gold `#F2D9A0` accent + CTAs, Rumman `#B8323A` for alerts, Ink `#241C14` text on light. Bricolage Grotesque display, IBM Plex Sans Arabic body, Aref Ruqaa for Arabic display. 12px card radius, pill buttons, RTL-first. The old Luma violet system has been replaced in the shared token layer (`color_constant.dart`, `app_style.dart`).
 
 **Sahra reskin progress (latest pass)**
-- ✅ Design tokens + fonts swapped app-wide (Night/Sand/Gold, Bricolage/IBM Plex Arabic)
+- ✅ Design tokens + fonts swapped app-wide (Night/Sand/Gold, Bricolage/IBM Plex Arabic); `ColorConstant.light*` Sand tokens for light surfaces
 - ✅ Shared widgets: pill buttons, night tab bars, Sahra logo assets under `assets/images/brand/`
 - ✅ Fan tabs: For You · Search · Tickets · Profile (Wallet route now = Tickets)
 - ✅ Event details: hero image, gold eyebrow, expanded date/location rows, clickable venue row, Sahra tier cards, "From $X / Get tickets" bottom bar
-- ✅ Purchased ticket: gold `SahraTicketCard` pass w/ notches + QR panel (`sahra_ticket_card.dart`)
-- ✅ Creator door mode: bottom bar = Events · Scan (centre gold action) · Guests · Account; Analytics tab removed from mobile (web-only)
-- 🟡 Event details seated-venue variant (map preview → "Choose seats"), venue/directions screen, ticket selection w/ official+resale, light-mode checkout, resale flows 21–25, scanner valid/used result states — **need backend endpoints** (check-in, listings, venue layouts, guest list)
+- ✅ **Seated events**: `venueSections` on event detail → section picker w/ price + remaining + qty stepper → `sectionId` order intent (backend `SECTION#` inventory, atomic holds)
+- ✅ **Resale**: `LISTING#` backend + buy flow — resale listings show under event tickets marked "RESALE"; sell/manage from Tickets tab ("Sell" on VALID tickets, "Your Listings" w/ cancel); checkout via `listingCode` intent, ticket transfers on fulfillment
+- ✅ **Door mode**: scanner does real `POST /events/:id/checkin` → gold valid / red already-used / wrong-event result cards + event picker; guest list is real (`GET /events/:id/guests`) w/ per-event chips, checked-in stats, manual check-in; creator bar = Events · Scan · Guests · Account
+- ✅ **Web handoff**: `WebHandoffSheet` — create event & teams route to Sahra Studio sheet (Open/Copy link)
+- ✅ Checkout is now light Sand (payment methods, card form, CTA)
+- ✅ Purchased ticket: gold `SahraTicketCard` pass w/ notches + QR panel
+- 🟡 Seat-level picker (exact seat numbers), "Set your price" auto-buy offers, broadcast-message delivery, promo codes, payouts — backend/product gaps remain
+- 🟡 Guests/check-in only index tickets issued after the `EVENTTIX#` GSI shipped — older demo tickets won't appear in guest lists
 
 **Status legend**
 - ✅ **Live** — wired to the new MVP backend (`localhost:4000`, Fastify + DynamoDB + Stripe test mode)

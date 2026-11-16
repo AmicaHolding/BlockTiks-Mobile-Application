@@ -1,7 +1,9 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/event_format.dart';
+import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/data/widgets/search/search_field.dart';
 import 'package:block_tix/app/modules/payment_page/views/payment_page_view.dart';
+import 'package:block_tix/app/services/api_service.dart';
 
 import '../controllers/wallet_controller.dart';
 
@@ -283,6 +285,7 @@ class WalletView extends StatelessWidget {
                         ),
                         ...others.map((t) => _ticketCard(t)),
                       ],
+                      _listingsSection(),
                       const SizedBox(height: 20),
                     ],
                   );
@@ -372,6 +375,207 @@ class WalletView extends StatelessWidget {
               customWeight: FontWeight.w600,
               clr: statusColor,
             ),
+          ),
+          if (status == 'VALID') ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _sellTicketDialog(ticket),
+              child: Container(
+                padding: getPadding(left: 12, right: 12, top: 6, bottom: 6),
+                decoration: BoxDecoration(
+                  color: ColorConstant.gold,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: MyText(
+                  title: 'Sell',
+                  family: 'Inter',
+                  fontSize: 11,
+                  customWeight: FontWeight.w700,
+                  clr: ColorConstant.night,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// "Your listings" — resale management (Sahra screens 22/23 essence):
+  /// active listings with a cancel action, sold ones shown as history.
+  Widget _listingsSection() {
+    return Obx(() {
+      if (controller.listings.isEmpty) return const SizedBox.shrink();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: getMargin(left: 16, top: 16),
+            child: MyText(
+              title: "Your Listings",
+              family: 'Manrope',
+              customWeight: FontWeight.w600,
+              fontSize: 18,
+            ),
+          ),
+          ...controller.listings.map((l) => _listingCard(l)),
+        ],
+      );
+    });
+  }
+
+  Widget _listingCard(Map<String, dynamic> listing) {
+    final status = listing['status']?.toString() ?? '';
+    final isActive = status == 'ACTIVE';
+    final priceCents = listing['priceCents'];
+    final priceLabel = priceCents is num
+        ? '\$${(priceCents / 100).toStringAsFixed(2)}'
+        : '—';
+    return Container(
+      margin: getMargin(left: 16, right: 16, top: 10),
+      padding: getPadding(left: 16, right: 16, top: 12, bottom: 12),
+      decoration: BoxDecoration(
+        color: ColorConstant.elevated,
+        border: Border.all(color: ColorConstant.hairline),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                MyText(
+                  title: listing['eventTitle']?.toString() ?? 'Event',
+                  family: 'Manrope',
+                  customWeight: FontWeight.w600,
+                  fontSize: 14,
+                  clr: ColorConstant.whiteA700,
+                ),
+                const SizedBox(height: 3),
+                MyText(
+                  title:
+                      '${listing['tierName']?.toString() ?? ''} · $priceLabel',
+                  family: 'Inter',
+                  fontSize: 12,
+                  clr: ColorConstant.white60,
+                ),
+              ],
+            ),
+          ),
+          if (isActive)
+            GestureDetector(
+              onTap: () => _cancelListing(listing),
+              child: Container(
+                padding: getPadding(left: 12, right: 12, top: 6, bottom: 6),
+                decoration: BoxDecoration(
+                  border: Border.all(color: ColorConstant.hairline),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: MyText(
+                  title: 'Cancel',
+                  family: 'Inter',
+                  fontSize: 11,
+                  customWeight: FontWeight.w600,
+                  clr: ColorConstant.white60,
+                ),
+              ),
+            )
+          else
+            MyText(
+              title: status,
+              family: 'Inter',
+              fontSize: 11,
+              customWeight: FontWeight.w600,
+              clr: status == 'SOLD'
+                  ? ColorConstant.successGreen
+                  : ColorConstant.white60,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _cancelListing(Map<String, dynamic> listing) async {
+    final code = listing['ticketCode']?.toString() ?? '';
+    if (code.isEmpty) return;
+    try {
+      await ApiService.cancelListing(code);
+      await controller.fetchTickets();
+      CustomSnackBar.showCustomToast(message: 'Listing cancelled');
+    } catch (e) {
+      CustomSnackBar.showCustomErrorToast(
+          message: e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  void _sellTicketDialog(Map<String, dynamic> ticket) {
+    final code = ticket['code']?.toString() ?? '';
+    if (code.isEmpty) return;
+    final priceController = TextEditingController();
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: ColorConstant.elevated,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: MyText(
+          title: 'Sell ticket',
+          family: 'Manrope',
+          customWeight: FontWeight.w700,
+          fontSize: 18,
+          clr: ColorConstant.whiteA700,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MyText(
+              title: ticket['eventTitle']?.toString() ?? '',
+              family: 'Inter',
+              fontSize: 13,
+              clr: ColorConstant.white60,
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: priceController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Your price (USD)',
+                labelStyle: const TextStyle(color: Colors.white60),
+                enabledBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white24),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+          ),
+          TextButton(
+            onPressed: () async {
+              final dollars = double.tryParse(priceController.text.trim());
+              if (dollars == null || dollars <= 0) {
+                CustomSnackBar.showCustomErrorToast(
+                    message: 'Enter a valid price');
+                return;
+              }
+              Get.back();
+              try {
+                await ApiService.createListing(code, (dollars * 100).round());
+                await controller.fetchTickets();
+                CustomSnackBar.showCustomToast(
+                    message: 'Ticket listed for sale');
+              } catch (e) {
+                CustomSnackBar.showCustomErrorToast(
+                    message: e.toString().replaceFirst('Exception: ', ''));
+              }
+            },
+            child: Text('List it',
+                style: TextStyle(color: ColorConstant.gold)),
           ),
         ],
       ),

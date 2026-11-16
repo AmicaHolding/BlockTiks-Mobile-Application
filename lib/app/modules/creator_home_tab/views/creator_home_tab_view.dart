@@ -1,6 +1,7 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/constants.dart';
 import 'package:block_tix/app/data/widgets/search/search_field.dart';
+import 'package:block_tix/app/data/widgets/web_handoff_sheet.dart';
 import 'package:block_tix/app/modules/resell_tab/views/resell_tab_view.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -29,7 +30,8 @@ class CreatorHomeTabView extends StatelessWidget {
               ),
             ),
             CustomButton(
-              onTap: () => Get.toNamed(Routes.CREATE_EVENT),
+              // Door mode: event creation/editing hands off to Sahra Studio.
+              onTap: () => WebHandoffSheet.show(feature: 'Creating events'),
               text: '+ Create new event',
               margin: getMargin(left: 16,right: 16),
             ),
