@@ -30,7 +30,8 @@ type Section =
   | 'security'
   | 'transactions'
   | 'help'
-  | 'earnings';
+  | 'earnings'
+  | 'referrals';
 
 const NAV: { id: Section; label: string; icon: typeof UsersIcon }[] = [
   { id: 'profile', label: 'Profile', icon: UsersIcon },
@@ -41,6 +42,7 @@ const NAV: { id: Section; label: string; icon: typeof UsersIcon }[] = [
   { id: 'transactions', label: 'Transactions', icon: ReceiptIcon },
   { id: 'help', label: 'Help', icon: HelpIcon },
   { id: 'earnings', label: 'Earnings & promos', icon: CashIcon },
+  { id: 'referrals', label: 'Referrals', icon: UsersIcon },
 ];
 
 const CITIES = ['Dubai', 'Abu Dhabi', 'Riyadh', 'Doha', 'Kuwait City', 'Muscat', 'Manama', 'Jeddah'];
@@ -94,6 +96,7 @@ export default function AccountPage() {
             {section === 'transactions' ? <TransactionsSection /> : null}
             {section === 'help' ? <HelpSection /> : null}
             {section === 'earnings' ? <EarningsSection /> : null}
+            {section === 'referrals' ? <ReferralsSection /> : null}
           </div>
         </div>
       </div>
@@ -624,12 +627,22 @@ function HelpSection() {
 function EarningsSection() {
   const [earnings, setEarnings] = useState<Earnings | null>(null);
   const [promos, setPromos] = useState<{ ready: Promo[]; used: Promo[] } | null>(null);
+  const [payouts, setPayouts] = useState<{ connected: boolean; payoutsEnabled?: boolean; detailsSubmitted?: boolean } | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     api.earnings().then(setEarnings).catch(() => undefined);
     api.accountPromos().then(setPromos).catch(() => undefined);
+    api.payouts().then(setPayouts).catch(() => setPayouts({ connected: false }));
   }, []);
+
+  async function refreshAll() {
+    api.earnings().then(setEarnings).catch(() => undefined);
+    api.payouts().then(setPayouts).catch(() => undefined);
+  }
+
+  const available = earnings?.availableCents ?? 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -638,11 +651,12 @@ function EarningsSection() {
           <Spinner />
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-4">
               {(
                 [
-                  ['Ready to withdraw', earnings.readyCents],
+                  ['Available', earnings.availableCents],
                   ['Pending', earnings.pendingCents],
+                  ['Withdrawn', earnings.withdrawnCents],
                   ['Lifetime', earnings.lifetimeCents],
                 ] as const
               ).map(([label, cents]) => (
@@ -652,21 +666,100 @@ function EarningsSection() {
                 </div>
               ))}
             </div>
+
+            {/* Payout account */}
+            <div className="mt-5 rounded-xl border border-ink/10 bg-dune/40 px-4 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-bold text-ink">Payout account</div>
+                  <div className="text-xs text-ink/60">
+                    {payouts?.connected && payouts.payoutsEnabled
+                      ? 'Stripe Connect onboarding complete — withdrawals go to your bank.'
+                      : payouts?.connected
+                        ? 'Finish Stripe onboarding to receive payouts.'
+                        : 'Connect Stripe to withdraw your earnings.'}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {!payouts?.connected ? (
+                    <Button
+                      variant="night"
+                      disabled={busy}
+                      onClick={async () => {
+                        setBusy(true);
+                        try {
+                          const res = await api.payoutsOnboardingLink();
+                          window.location.href = res.url;
+                        } catch (e) {
+                          setMsg(e instanceof ApiError ? e.message : 'Could not start onboarding');
+                          setBusy(false);
+                        }
+                      }}
+                    >
+                      Connect payouts
+                    </Button>
+                  ) : !payouts.payoutsEnabled ? (
+                    <Button
+                      variant="night"
+                      disabled={busy}
+                      onClick={async () => {
+                        setBusy(true);
+                        try {
+                          const res = await api.payoutsOnboardingLink();
+                          window.location.href = res.url;
+                        } catch (e) {
+                          setMsg(e instanceof ApiError ? e.message : 'Could not start onboarding');
+                          setBusy(false);
+                        }
+                      }}
+                    >
+                      Finish setup
+                    </Button>
+                  ) : null}
+                  {payouts?.connected ? (
+                    <Button
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={async () => {
+                        setBusy(true);
+                        try {
+                          await api.payoutsRefresh();
+                          await refreshAll();
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                    >
+                      Refresh status
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
             <Button
               variant="primary"
               className="mt-5"
+              disabled={busy || available < 100 || !payouts?.payoutsEnabled}
               onClick={async () => {
                 setMsg(null);
+                setBusy(true);
                 try {
-                  await api.withdraw();
-                  setMsg('Withdrawal requested.');
+                  await api.withdraw(available);
+                  setMsg('Withdrawal sent to your payout account.');
+                  await refreshAll();
                 } catch (e) {
-                  setMsg(e instanceof ApiError ? e.message : 'Withdrawals aren’t connected yet');
+                  setMsg(e instanceof ApiError ? e.message : 'Withdrawal failed');
+                } finally {
+                  setBusy(false);
                 }
               }}
             >
-              Withdraw
+              Withdraw {formatCents(available)}
             </Button>
+            {!payouts?.payoutsEnabled ? (
+              <p className="mt-2 text-xs text-ink/50">Complete payout onboarding to enable withdrawals.</p>
+            ) : null}
             {msg ? <p className="mt-3 text-sm text-ink/60">{msg}</p> : null}
             {earnings.sales.length > 0 ? (
               <div className="mt-5 overflow-x-auto rounded-xl border border-ink/10">
@@ -695,6 +788,22 @@ function EarningsSection() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            ) : null}
+            {earnings.withdrawals.length > 0 ? (
+              <div className="mt-5">
+                <div className="text-xs font-bold uppercase tracking-wide text-ink/50">Withdrawals</div>
+                <div className="mt-2 flex flex-col gap-2">
+                  {earnings.withdrawals.map((withdrawal) => (
+                    <div key={withdrawal.id} className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white px-4 py-3 text-sm">
+                      <span className="font-semibold text-ink">{formatCents(withdrawal.amountCents)}</span>
+                      <Badge tone={withdrawal.status === 'PAID' ? 'green' : withdrawal.status === 'FAILED' ? 'muted' : 'gold'}>
+                        {withdrawal.status}
+                      </Badge>
+                      <span className="text-ink/50">{formatShortDateTime(withdrawal.createdAt)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : null}
           </>
@@ -735,5 +844,97 @@ function EarningsSection() {
         )}
       </SectionShell>
     </div>
+  );
+}
+
+function ReferralsSection() {
+  const [data, setData] = useState<{
+    code: string;
+    shareUrl: string;
+    bonusCents?: number;
+    friendCount?: number;
+    friends: { id: string; joinedAt: string }[];
+    referredByCode?: string;
+  } | null>(null);
+  const [applyCode, setApplyCode] = useState('');
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.referrals().then(setData).catch(() => undefined);
+  }, []);
+
+  return (
+    <SectionShell title="Referrals" subtitle="Invite friends to Sahra and track who joins.">
+      {data == null ? (
+        <Spinner />
+      ) : (
+        <div className="flex flex-col gap-5">
+          <div className="rounded-xl border border-ink/10 bg-white px-4 py-4">
+            <div className="text-xs font-semibold uppercase tracking-wide text-ink/50">Your code</div>
+            <div className="mt-1 font-mono text-xl font-extrabold text-ink">{data.code || '—'}</div>
+            {data.shareUrl ? <div className="mt-2 break-all text-xs text-ink/50">{data.shareUrl}</div> : null}
+            <div className="mt-3">
+              <Button
+                variant="night"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(data.shareUrl || data.code);
+                  setMsg('Copied to clipboard.');
+                }}
+              >
+                Copy link
+              </Button>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-xl border border-ink/10 bg-white px-4 py-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-ink/50">Friends joined</div>
+              <div className="mt-1 font-display text-2xl font-extrabold text-ink">{data.friendCount ?? data.friends.length}</div>
+            </div>
+            <div className="rounded-xl border border-ink/10 bg-white px-4 py-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-ink/50">Bonus per referral</div>
+              <div className="mt-1 font-display text-2xl font-extrabold text-ink">
+                {data.bonusCents ? formatCents(data.bonusCents) : '—'}
+              </div>
+            </div>
+          </div>
+          {!data.referredByCode ? (
+            <div className="rounded-xl border border-ink/10 bg-white px-4 py-4">
+              <div className="text-sm font-bold text-ink">Have a referral code?</div>
+              <div className="mt-2 flex gap-2">
+                <Input tone="light" value={applyCode} onChange={(e) => setApplyCode(e.target.value.toUpperCase())} placeholder="Enter code" />
+                <Button
+                  variant="ghost"
+                  disabled={applyCode.trim().length < 4}
+                  onClick={async () => {
+                    setMsg(null);
+                    try {
+                      await api.applyReferral(applyCode.trim());
+                      setMsg('Referral applied.');
+                      setApplyCode('');
+                      api.referrals().then(setData).catch(() => undefined);
+                    } catch (e) {
+                      setMsg(e instanceof ApiError ? e.message : 'Could not apply code');
+                    }
+                  }}
+                >
+                  Apply
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          {msg ? <p className="text-sm text-ink/60">{msg}</p> : null}
+          {data.friends.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {data.friends.map((friend) => (
+                <div key={friend.id} className="flex items-center justify-between rounded-xl border border-ink/10 bg-white px-4 py-3 text-sm">
+                  <span className="font-semibold text-ink">Friend joined</span>
+                  <span className="text-ink/50">{formatShortDateTime(friend.joinedAt)}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      )}
+    </SectionShell>
   );
 }

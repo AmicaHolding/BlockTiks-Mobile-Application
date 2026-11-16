@@ -115,8 +115,14 @@ export default function TicketsPage() {
   async function withdraw() {
     setEarningsMsg(null);
     try {
-      await api.withdraw();
-      setEarningsMsg('Withdrawal requested.');
+      const earnings = await api.earnings();
+      if (earnings.availableCents < 100) {
+        setEarningsMsg('No available balance to withdraw yet.');
+        return;
+      }
+      await api.withdraw(earnings.availableCents);
+      setEarningsMsg('Withdrawal sent.');
+      await load();
     } catch (e) {
       setEarningsMsg(e instanceof ApiError ? e.message : 'Withdrawals are not available yet');
     }

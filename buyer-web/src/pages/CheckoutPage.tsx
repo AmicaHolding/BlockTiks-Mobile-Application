@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { api, ApiError } from '../lib/api';
-import { formatCents, formatShortDateTime } from '../lib/format';
+import { formatMoney, formatShortDateTime } from '../lib/format';
 import type { CheckoutSelection } from './EventPage';
 import { Badge, Button, Card, EmptyState, Input, Spinner } from '../components/ui';
 import { ArrowLeftIcon, CheckIcon, ShieldIcon, TicketIcon } from '../components/icons';
@@ -39,9 +39,15 @@ export default function CheckoutPage() {
   const itemLabel = useMemo(() => {
     if (!selection) return '';
     if (selection.kind === 'resale') return `1 × ${selection.tierName} (resale)`;
-    if (selection.kind === 'section') return `${selection.quantity} × ${selection.sectionName}`;
+    if (selection.kind === 'section') {
+      const seats = selection.seatLabels?.length ? ` — seats ${selection.seatLabels.join(', ')}` : '';
+      return `${selection.quantity} × ${selection.sectionName}${seats}`;
+    }
     return `${selection.quantity} × ${selection.tierName}`;
   }, [selection]);
+
+  const currency = selection?.currency ?? 'usd';
+  const money = (cents: number) => formatMoney(cents, currency);
 
   if (!selection) {
     return (
@@ -66,6 +72,7 @@ export default function CheckoutPage() {
         sectionId: selection!.kind === 'section' ? selection!.sectionId : undefined,
         listingCode: selection!.kind === 'resale' ? selection!.listingCode : undefined,
         quantity: selection!.kind === 'resale' ? 1 : selection!.quantity,
+        seats: selection!.kind === 'section' ? selection!.seatLabels : undefined,
         promoCode,
       });
       if (!res.clientSecret) throw new ApiError(500, 'Stripe is not configured for this order');
@@ -220,22 +227,22 @@ export default function CheckoutPage() {
             <div className="mt-5 flex flex-col gap-2.5 text-sm">
               <div className="flex justify-between">
                 <span className="text-ink/60">Subtotal</span>
-                <span className="font-semibold text-ink">{formatCents(faceTotal)}</span>
+                <span className="font-semibold text-ink">{money(faceTotal)}</span>
               </div>
               {discount > 0 ? (
                 <div className="flex justify-between text-emerald-700">
                   <span>Promo {promoCode}</span>
-                  <span className="font-semibold">−{formatCents(discount)}</span>
+                  <span className="font-semibold">−{money(discount)}</span>
                 </div>
               ) : null}
               <div className="flex justify-between">
                 <span className="text-ink/60">Service fee</span>
-                <span className="font-semibold text-ink">{fees != null ? formatCents(fees) : '—'}</span>
+                <span className="font-semibold text-ink">{fees != null ? money(fees) : '—'}</span>
               </div>
               <div className="flex justify-between border-t border-ink/10 pt-3 text-base">
                 <span className="font-bold text-ink">Total</span>
                 <span className="font-display text-xl font-extrabold text-ink">
-                  {total != null ? formatCents(total) : formatCents(faceTotal)}
+                  {total != null ? money(total) : money(faceTotal)}
                 </span>
               </div>
             </div>

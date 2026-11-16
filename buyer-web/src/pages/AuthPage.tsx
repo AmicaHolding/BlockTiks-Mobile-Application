@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { api, ApiError, type User } from '../lib/api';
+import { api, ApiError, getStoredReferralCode, type User } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { Button, Card, Input, Spinner } from '../components/ui';
 
@@ -10,7 +10,10 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const [tab, setTab] = useState<'signin' | 'signup'>('signin');
+  const [tab, setTab] = useState<'signin' | 'signup'>(() =>
+    new URLSearchParams(window.location.search).get('ref') ? 'signup' : 'signin'
+  );
+  const [referralCode, setReferralCode] = useState(getStoredReferralCode() ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +36,7 @@ export default function AuthPage() {
               email: email.trim(),
               phone: phone.trim() || undefined,
               password,
+              referralCode: referralCode.trim() || undefined,
             });
       login(res.token, res.user);
       navigate(next.startsWith('/') ? next : '/', { replace: true });
@@ -93,6 +97,17 @@ export default function AuthPage() {
                   <Input tone="dark" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Al-Amin" />
                 </label>
               </div>
+            ) : null}
+            {tab === 'signup' ? (
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-semibold text-night-muted">Referral code (optional)</span>
+                <Input
+                  tone="dark"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                  placeholder="e.g. LAYLA1A2B"
+                />
+              </label>
             ) : null}
             <label className="block">
               <span className="mb-1.5 block text-sm font-semibold text-night-muted">Email</span>

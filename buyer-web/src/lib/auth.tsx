@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { api, getToken, setToken, type User } from './api';
+import { api, getRefreshToken, getToken, setRefreshToken, setToken, type User } from './api';
 
 interface AuthState {
   user: User | null;
@@ -17,7 +17,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [booting, setBooting] = useState(true);
 
   const refresh = useCallback(async () => {
-    if (!getToken()) {
+    if (!getToken() && !getRefreshToken()) {
       setUser(null);
       setBooting(false);
       return;
@@ -27,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(res.user);
     } catch {
       setToken(null);
+      setRefreshToken(null);
       setUser(null);
     } finally {
       setBooting(false);
@@ -44,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     setToken(null);
+    setRefreshToken(null);
     setUser(null);
   }, []);
 

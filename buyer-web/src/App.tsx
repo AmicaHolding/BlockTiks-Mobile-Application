@@ -1,5 +1,7 @@
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/auth';
+import { api, setStoredReferralCode } from './lib/api';
 import SiteHeader from './components/SiteHeader';
 import HomePage from './pages/HomePage';
 import ExplorePage from './pages/ExplorePage';
@@ -91,9 +93,74 @@ function SiteLayout() {
             }
           />
           <Route path="/login" element={<AuthPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/r/:code" element={<ReferralRedirect />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
+    </div>
+  );
+}
+
+function ReferralRedirect() {
+  const { code } = useParams<{ code: string }>();
+  useEffect(() => {
+    if (code) setStoredReferralCode(code);
+  }, [code]);
+  return <Navigate to="/login?ref=1" replace />;
+}
+
+function VerifyEmailPage() {
+  const [params] = useSearchParams();
+  const token = params.get('token') ?? '';
+  const navigate = useNavigate();
+  const { authed } = useAuth();
+  const [state, setState] = useState<'working' | 'done' | 'error'>('working');
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    if (!token) {
+      setState('error');
+      setMessage('This verification link is missing its token.');
+      return;
+    }
+    api
+      .verifyEmailConfirm(token)
+      .then(() => setState('done'))
+      .catch((e) => {
+        setState('error');
+        setMessage(e instanceof Error ? e.message : 'Verification failed');
+      });
+  }, [token]);
+
+  return (
+    <div className="mx-auto max-w-xl px-6 py-24 text-center">
+      {state === 'working' ? (
+        <>
+          <Spinner />
+          <p className="mt-4 text-sm text-night-muted">Verifying your email…</p>
+        </>
+      ) : state === 'done' ? (
+        <>
+          <div className="font-display text-3xl font-extrabold text-sand">Email verified</div>
+          <p className="mt-2 text-sm text-night-muted">Your Sahra account email is confirmed.</p>
+          <button
+            type="button"
+            onClick={() => navigate(authed ? '/' : '/login')}
+            className="mt-6 rounded-full bg-gold px-6 py-2.5 text-sm font-bold text-night"
+          >
+            Continue
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="font-display text-3xl font-extrabold text-sand">Verification failed</div>
+          <p className="mt-2 text-sm text-night-muted">{message}</p>
+          <Link to="/account" className="mt-6 inline-block text-sm font-semibold text-gold underline">
+            Go to account
+          </Link>
+        </>
+      )}
     </div>
   );
 }

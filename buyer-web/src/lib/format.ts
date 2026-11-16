@@ -1,3 +1,18 @@
+export function formatMoney(cents: number | null | undefined, currency?: string | null): string {
+  if (cents == null || Number.isNaN(cents)) return '';
+  const code = (currency ?? 'usd').toUpperCase();
+  try {
+    return new Intl.NumberFormat('en-AE', {
+      style: 'currency',
+      currency: code,
+      minimumFractionDigits: Number.isInteger(cents / 100) ? 0 : 2,
+      maximumFractionDigits: 2,
+    }).format(cents / 100);
+  } catch {
+    return formatCents(cents);
+  }
+}
+
 export function formatCents(cents: number | null | undefined): string {
   if (cents == null || Number.isNaN(cents)) return '';
   const dollars = cents / 100;

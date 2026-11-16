@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { api, type SahraEvent, type VenueSection } from '../lib/api';
-import { formatCents, formatShortDateTime } from '../lib/format';
+import { api, type SahraEvent, type Seat, type VenueSection } from '../lib/api';
+import { formatMoney, formatShortDateTime } from '../lib/format';
 import type { CheckoutSelection } from './EventPage';
 import { Badge, Button, Card, EmptyState, Spinner } from '../components/ui';
 import { ArrowLeftIcon, CheckIcon, ClockIcon, MapIcon, MinusIcon, PlusIcon, TicketIcon } from '../components/icons';
@@ -18,6 +18,9 @@ export default function SeatsPage() {
   const [error, setError] = useState<string | null>(null);
   const [sectionId, setSectionId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [seats, setSeats] = useState<Seat[] | null>(null);
+  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
+  const [seatsLoading, setSeatsLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -41,6 +44,39 @@ export default function SeatsPage() {
 
   const sections = useMemo(() => event?.venueSections ?? [], [event]);
   const selected = sections.find((s) => s.id === sectionId) ?? null;
+
+  // Load exact seat availability when a section is chosen.
+  useEffect(() => {
+    setSelectedSeats([]);
+    if (!event || !sectionId) {
+      setSeats(null);
+      return;
+    }
+    let active = true;
+    setSeatsLoading(true);
+    api
+      .seats(event.id, sectionId)
+      .then((res) => {
+        if (active) setSeats(res.seats);
+      })
+      .catch(() => {
+        if (active) setSeats(null);
+      })
+      .finally(() => {
+        if (active) setSeatsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [event, sectionId]);
+
+  function toggleSeat(label: string) {
+    setSelectedSeats((current) => {
+      if (current.includes(label)) return current.filter((l) => l !== label);
+      if (current.length >= quantity) return current;
+      return [...current, label];
+    });
+  }
 
   const bestAvailable = useMemo(() => {
     const available = sections.filter((s) => remaining(s) > 0);
@@ -101,6 +137,8 @@ export default function SeatsPage() {
       sectionName: selected.name,
       priceCents: selected.priceCents,
       quantity,
+      currency: event!.currency,
+      seatLabels: selectedSeats.length === quantity ? selectedSeats : undefined,
       eventTitle: event!.title,
       eventStartsAt: event!.startsAt,
       eventLocation: event!.location,
@@ -177,7 +215,7 @@ export default function SeatsPage() {
                   ) : null}
                   <span className="text-sm font-bold">{section.name}</span>
                   <span className="font-display text-base font-extrabold text-gold">
-                    {formatCents(section.priceCents)}
+                    {formatMoney(section.priceCents, event.currency)}
                   </span>
                   <span className="text-[11px] text-night-muted">
                     {soldOut ? 'Sold out' : `${left} left`}
@@ -193,7 +231,7 @@ export default function SeatsPage() {
           {selected ? (
             <>
               <div className="text-xs font-bold uppercase tracking-[0.16em] text-night-muted">
-                {selected.name} · {formatCents(selected.priceCents)} each
+                {selected.name} · {formatMoney(selected.priceCents, event.currency)} each
               </div>
               <div className="mt-2 text-sm text-night-muted">
                 {remaining(selected)} seats left
@@ -229,7 +267,7 @@ export default function SeatsPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-night-muted">Total</span>
                   <span className="font-display text-2xl font-extrabold text-sand">
-                    {formatCents(selected.priceCents * quantity)}
+                    {formatMoney(selected.priceCents * quantity, event.currency)}
                   </span>
                 </div>
                 <div className="mt-1 text-[11px] text-night-muted">Fees calculated at checkout</div>
@@ -239,6 +277,54 @@ export default function SeatsPage() {
                 <p className="mt-3 text-center text-[11px] leading-relaxed text-night-muted">
                   Seats are held for 15 minutes once you start checkout.
                 </p>
+              </div>
+              {/* Exact seat picker */}
+              <div className="mt-5">
+                <div className="mb-2 flex items-center justify-between text-sm font-semibold text-sand">
+                  <span>Pick {quantity} seat{quantity > 1 ? 's' : ''}</span>
+                  <span className="text-xs font-normal text-night-muted">
+                    {selectedSeats.length}/{quantity} chosen
+                  </span>
+                </div>
+                {seatsLoading ? (
+                  <div className="flex justify-center py-6">
+                    <Spinner />
+                  </div>
+                ) : seats && seats.length > 0 ? (
+                  <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-8">
+                    {seats.map((seat) => {
+                      const unavailable = seat.status !== 'AVAILABLE';
+                      const active = selectedSeats.includes(seat.label);
+                      return (
+                        <button
+                          key={seat.label}
+                          type="button"
+                          disabled={unavailable || (!active && selectedSeats.length >= quantity)}
+                          onClick={() => toggleSeat(seat.label)}
+                          title={seat.label + (seat.accessible ? ' · accessible' : '')}
+                          className={`flex h-8 items-center justify-center rounded-md text-[11px] font-bold transition ${
+                            unavailable
+                              ? 'cursor-not-allowed bg-night-border/30 text-night-muted/40 line-through'
+                              : active
+                                ? 'bg-gold text-night'
+                                : 'bg-night-elevated text-sand hover:bg-night-border'
+                          }`}
+                        >
+                          {seat.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="rounded-xl bg-night/60 px-4 py-3 text-xs text-night-muted">
+                    Seat-level inventory isn’t available for this section yet — seats will be assigned at checkout.
+                  </p>
+                )}
+                {selectedSeats.length > 0 ? (
+                  <p className="mt-2 text-[11px] text-gold">
+                    Selected: {selectedSeats.join(', ')}
+                  </p>
+                ) : null}
               </div>
             </>
           ) : (

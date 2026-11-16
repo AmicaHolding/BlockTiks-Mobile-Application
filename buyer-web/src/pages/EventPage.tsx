@@ -25,6 +25,7 @@ export type CheckoutSelection =
       tierName: string;
       priceCents: number;
       quantity: number;
+      currency?: string;
       eventTitle: string;
       eventStartsAt: string;
       eventLocation: string;
@@ -36,6 +37,8 @@ export type CheckoutSelection =
       sectionName: string;
       priceCents: number;
       quantity: number;
+      currency?: string;
+      seatLabels?: string[];
       eventTitle: string;
       eventStartsAt: string;
       eventLocation: string;
@@ -47,6 +50,7 @@ export type CheckoutSelection =
       tierName: string;
       priceCents: number;
       quantity: 1;
+      currency?: string;
       eventTitle: string;
       eventStartsAt: string;
       eventLocation: string;
