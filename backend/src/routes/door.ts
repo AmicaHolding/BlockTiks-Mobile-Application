@@ -1,5 +1,12 @@
 import type { FastifyInstance } from 'fastify';
-import { checkInTicket, getEventMeta, listEventGuests, listEventOrders } from '../db';
+import {
+  checkInTicket,
+  createBroadcast,
+  getEventMeta,
+  listEventBroadcasts,
+  listEventGuests,
+  listEventOrders,
+} from '../db';
 
 // Creator "door mode": QR check-in and the guest list for one event.
 export async function doorRoutes(app: FastifyInstance) {
@@ -90,6 +97,69 @@ export async function doorRoutes(app: FastifyInstance) {
         })),
       })),
     };
+  });
+
+  app.get('/events/:id/broadcasts', { preHandler: app.authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const event = await getEventMeta(id);
+    if (!event) return reply.status(404).send({ message: 'Event not found' });
+    if (event.creatorId !== request.user.sub && request.user.role !== 'ADMIN') {
+      return reply.status(403).send({ message: 'Not the event creator' });
+    }
+    const broadcasts = await listEventBroadcasts(id);
+    return { broadcasts };
+  });
+
+  app.post('/events/:id/broadcasts', { preHandler: app.authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const event = await getEventMeta(id);
+    if (!event) return reply.status(404).send({ message: 'Event not found' });
+    if (event.creatorId !== request.user.sub && request.user.role !== 'ADMIN') {
+      return reply.status(403).send({ message: 'Not the event creator' });
+    }
+    const body = request.body as {
+      audience?: string;
+      audienceFilter?: { tierName?: string; sectionName?: string; checkedIn?: boolean };
+      message?: string;
+      channels?: { push?: boolean; email?: boolean; sms?: boolean };
+    };
+    const message = body.message?.trim();
+    if (!message) return reply.status(400).send({ message: 'Message is required' });
+    if (message.length > 500) return reply.status(400).send({ message: 'Message is too long' });
+
+    let guests = await listEventGuests(id);
+    const filter = body.audienceFilter;
+    if (filter?.tierName) guests = guests.filter((guest) => guest.tierName === filter.tierName);
+    if (filter?.sectionName) guests = guests.filter((guest) => guest.sectionName === filter.sectionName);
+    if (filter?.checkedIn === true) guests = guests.filter((guest) => Boolean(guest.checkedInAt));
+    if (filter?.checkedIn === false) guests = guests.filter((guest) => !guest.checkedInAt);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const existing = await listEventBroadcasts(id);
+    const sentToday = existing.filter((broadcast) => broadcast.createdAt.slice(0, 10) === today).length;
+    if (sentToday >= 3) {
+      return reply.status(429).send({ message: 'Maximum 3 broadcasts per event day' });
+    }
+
+    const channels = {
+      push: body.channels?.push ?? true,
+      email: body.channels?.email ?? true,
+      sms: body.channels?.sms ?? false,
+    };
+    const broadcast = await createBroadcast({
+      eventId: id,
+      creatorId: request.user.sub,
+      audience: body.audience?.trim() || 'Everyone',
+      audienceFilter: filter,
+      message,
+      channels,
+      recipientCount: guests.length,
+    });
+    return reply.status(201).send({
+      broadcast,
+      delivery: 'queued',
+      note: 'Push/email/SMS delivery is not connected yet; the broadcast is stored for the attendee feed.',
+    });
   });
 
   // GET /events/:id/guests — attendee list for the guest-list screen.

@@ -9,6 +9,7 @@ import {
     getOrderIdByPaymentIntent,
     getPromoByCode,
     getSection,
+    incrementPromoUsage,
     getTicketByCode,
     getTier,
     listUserOrders,
@@ -226,20 +227,58 @@ export async function orderRoutes(app: FastifyInstance) {
 
       if (promoCode) {
         const promo = await getPromoByCode(promoCode);
-        const now = new Date();
-        const valid =
-          promo !== null &&
-          promo.active &&
-          (!promo.expiresAt || new Date(promo.expiresAt) > now) &&
-          (!promo.maxUses || promo.usedCount < promo.maxUses) &&
-          (!promo.eventId || promo.eventId === eventId);
-        if (!promo || !valid) {
+        if (!promo) {
+          return reply.status(400).send({ message: 'Invalid or expired promo code' });
+        }
+
+        const nowMs = Date.now();
+        const endsAt = promo.endsAt ?? promo.expiresAt;
+        const startsAtMs = promo.startsAt ? Date.parse(promo.startsAt) : NaN;
+        const endsAtMs = endsAt ? Date.parse(endsAt) : NaN;
+        let valid = promo.active;
+
+        if (valid && promo.maxUses != null) {
+          valid = promo.usedCount < promo.maxUses;
+        }
+        if (valid && !Number.isNaN(startsAtMs)) {
+          valid = startsAtMs <= nowMs;
+        }
+        if (valid && !Number.isNaN(endsAtMs)) {
+          valid = endsAtMs > nowMs;
+        }
+        if (valid && promo.scope === 'EVENT' && promo.eventId && promo.eventId !== eventId) {
+          valid = false;
+        }
+        if (valid && promo.tierId && promo.tierId !== tierId) {
+          valid = false;
+        }
+        if (
+          valid &&
+          promo.scope === 'TIER' &&
+          promo.tierName &&
+          promo.tierName.toLowerCase() !== tier.name.toLowerCase()
+        ) {
+          valid = false;
+        }
+        if (valid && promo.maxUsesPerUser) {
+          const userOrders = await listUserOrders(request.user.sub);
+          const userUses = userOrders.filter(
+            (order) =>
+              order.status === 'PAID' &&
+              order.promoCodeText?.toUpperCase() === promo.code
+          ).length;
+          valid = userUses < promo.maxUsesPerUser;
+        }
+
+        if (!valid) {
           return reply.status(400).send({ message: 'Invalid or expired promo code' });
         }
         promoCodeText = promo.code;
-        discountCents = promo.percentOff
-          ? Math.round((subtotalCents * promo.percentOff) / 100)
-          : Math.min(promo.amountOffCents ?? 0, subtotalCents);
+        const percentOff = promo.percentOff ?? (promo.kind === 'PERCENT' ? promo.value : undefined);
+        const amountOffCents = promo.amountOffCents ?? (promo.kind === 'FIXED' ? promo.value : undefined);
+        discountCents = percentOff
+          ? Math.round((subtotalCents * percentOff) / 100)
+          : Math.min(amountOffCents ?? 0, subtotalCents);
       }
 
       const feesCents = Math.round(
@@ -314,7 +353,13 @@ export async function orderRoutes(app: FastifyInstance) {
       const pi = event.data.object;
       const orderId = pi.metadata?.orderId ?? (await getOrderIdByPaymentIntent(pi.id));
       if (orderId) {
-        await fulfillOrder(orderId, pi.id);
+        const result = await fulfillOrder(orderId, pi.id);
+        if (result === 'fulfilled') {
+          const order = await getOrder(orderId);
+          if (order?.promoCodeText) {
+            await incrementPromoUsage(order.promoCodeText);
+          }
+        }
       }
     } else if (
       event.type === 'payment_intent.payment_failed' ||

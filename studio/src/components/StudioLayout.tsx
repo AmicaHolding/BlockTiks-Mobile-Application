@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Overview', end: true },
   { to: '/events', label: 'Events' },
   { to: '/orders', label: 'Orders' },
+  { to: '/promos', label: 'Promo codes' },
   { to: '/analytics', label: 'Analytics' },
   { to: '/payouts', label: 'Payouts' },
   { to: '/settings', label: 'Settings' },

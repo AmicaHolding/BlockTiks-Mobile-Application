@@ -9,6 +9,7 @@ import ManageEventPage from './pages/ManageEventPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import SettingsPage from './pages/SettingsPage';
 import OrdersPage from './pages/OrdersPage';
+import PromoCodesPage from './pages/PromoCodesPage';
 import PayoutsPage from './pages/PayoutsPage';
 import VenueLayoutPage from './pages/VenueLayoutPage';
 import PlaceholderPage from './pages/PlaceholderPage';
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/orders" element={<OrdersPage />} />
+          <Route path="/promos" element={<PromoCodesPage />} />
           <Route path="/payouts" element={<PayoutsPage />} />
           <Route path="*" element={<PlaceholderPage title="Not found" />} />
         </Routes>

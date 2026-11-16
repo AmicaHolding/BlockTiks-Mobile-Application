@@ -160,6 +160,49 @@ export interface EventOrdersResponse {
   orders: EventOrder[];
 }
 
+export interface PromoCode {
+  code: string;
+  creatorId?: string;
+  eventId?: string;
+  tierId?: string;
+  tierName?: string;
+  scope?: 'ALL' | 'EVENT' | 'TIER';
+  kind?: 'PERCENT' | 'FIXED';
+  value?: number;
+  percentOff?: number;
+  amountOffCents?: number;
+  maxUses?: number;
+  maxUsesPerUser?: number;
+  startsAt?: string;
+  expiresAt?: string;
+  endsAt?: string;
+  validOnResale?: boolean;
+  usedCount: number;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PromoCodeInput {
+  code?: string;
+  kind?: 'PERCENT' | 'FIXED';
+  value?: number;
+  eventId?: string;
+  tierId?: string;
+  tierName?: string;
+  scope?: 'ALL' | 'EVENT' | 'TIER';
+  maxUses?: number;
+  maxUsesPerUser?: number;
+  startsAt?: string;
+  endsAt?: string;
+  validOnResale?: boolean;
+  active?: boolean;
+}
+
+export interface PromosResponse {
+  promos: PromoCode[];
+}
+
 export const api = {
   login(email: string, password: string) {
     return request<{ token: string; refreshToken?: string; user: User }>('/auth/login', {
@@ -219,5 +262,25 @@ export const api = {
   },
   eventOrders(id: string) {
     return request<EventOrdersResponse>(`/events/${id}/orders`);
+  },
+  promos() {
+    return request<PromosResponse>('/promos');
+  },
+  createPromo(payload: PromoCodeInput) {
+    return request<{ promo: PromoCode }>('/promos', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  updatePromo(code: string, payload: PromoCodeInput) {
+    return request<{ promo: PromoCode }>(`/promos/${encodeURIComponent(code)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+  deletePromo(code: string) {
+    return request<{ ok: boolean }>(`/promos/${encodeURIComponent(code)}`, {
+      method: 'DELETE',
+    });
   },
 };
