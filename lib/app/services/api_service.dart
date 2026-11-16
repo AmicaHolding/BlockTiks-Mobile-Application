@@ -47,7 +47,8 @@ class ApiService {
 
   static String _errorMessage(DioException e) {
     final data = e.response?.data;
-    if (data is Map && data['message'] != null) return data['message'].toString();
+    if (data is Map && data['message'] != null)
+      return data['message'].toString();
     return e.message ?? 'Request failed';
   }
 
@@ -104,9 +105,11 @@ class ApiService {
   }
 
   /// PATCH /auth/me — update profile fields.
-  static Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> fields) async {
+  static Future<Map<String, dynamic>> updateProfile(
+      Map<String, dynamic> fields) async {
     try {
-      final res = await _dio.patch('/auth/me', data: fields, options: _authOptions);
+      final res =
+          await _dio.patch('/auth/me', data: fields, options: _authOptions);
       return Map<String, dynamic>.from(res.data as Map);
     } on DioException catch (e) {
       _throw(e);
@@ -119,10 +122,12 @@ class ApiService {
     required String newPassword,
   }) async {
     try {
-      await _dio.post('/auth/change-password', data: {
-        'currentPassword': currentPassword,
-        'newPassword': newPassword,
-      }, options: _authOptions);
+      await _dio.post('/auth/change-password',
+          data: {
+            'currentPassword': currentPassword,
+            'newPassword': newPassword,
+          },
+          options: _authOptions);
     } on DioException catch (e) {
       _throw(e);
     }
@@ -140,7 +145,8 @@ class ApiService {
   // ---------------------------------------------------------------- events
 
   /// GET /events?category=&q= -> { events: [...] }
-  static Future<List<Map<String, dynamic>>> events({String? category, String? q}) async {
+  static Future<List<Map<String, dynamic>>> events(
+      {String? category, String? q}) async {
     try {
       final res = await _dio.get('/events', queryParameters: {
         if (category != null && category.isNotEmpty) 'category': category,
@@ -175,7 +181,8 @@ class ApiService {
   }
 
   /// POST /events — create a draft event with tiers.
-  static Future<Map<String, dynamic>> createEvent(Map<String, dynamic> body) async {
+  static Future<Map<String, dynamic>> createEvent(
+      Map<String, dynamic> body) async {
     try {
       final res = await _dio.post('/events', data: body, options: _authOptions);
       return Map<String, dynamic>.from(res.data['event'] as Map);
@@ -208,14 +215,17 @@ class ApiService {
     String? promoCode,
   }) async {
     try {
-      final res = await _dio.post('/orders/intent', data: {
-        if (eventId != null) 'eventId': eventId,
-        if (tierId != null) 'tierId': tierId,
-        if (sectionId != null) 'sectionId': sectionId,
-        if (listingCode != null) 'listingCode': listingCode,
-        'quantity': quantity,
-        if (promoCode != null && promoCode.isNotEmpty) 'promoCode': promoCode,
-      }, options: _authOptions);
+      final res = await _dio.post('/orders/intent',
+          data: {
+            if (eventId != null) 'eventId': eventId,
+            if (tierId != null) 'tierId': tierId,
+            if (sectionId != null) 'sectionId': sectionId,
+            if (listingCode != null) 'listingCode': listingCode,
+            'quantity': quantity,
+            if (promoCode != null && promoCode.isNotEmpty)
+              'promoCode': promoCode,
+          },
+          options: _authOptions);
       return Map<String, dynamic>.from(res.data as Map);
     } on DioException catch (e) {
       _throw(e);
@@ -269,7 +279,8 @@ class ApiService {
 
   /// POST /events/:id/checkin { code } -> { result, ticket? }
   /// result: OK | ALREADY_USED | WRONG_EVENT | NOT_FOUND | FORBIDDEN
-  static Future<Map<String, dynamic>> checkInTicket(String eventId, String code) async {
+  static Future<Map<String, dynamic>> checkInTicket(
+      String eventId, String code) async {
     try {
       final res = await _dio.post('/events/$eventId/checkin',
           data: {'code': code}, options: _authOptions);
@@ -287,7 +298,8 @@ class ApiService {
   /// GET /events/:id/guests -> { guests, checkedIn, total }
   static Future<Map<String, dynamic>> eventGuests(String eventId) async {
     try {
-      final res = await _dio.get('/events/$eventId/guests', options: _authOptions);
+      final res =
+          await _dio.get('/events/$eventId/guests', options: _authOptions);
       return Map<String, dynamic>.from(res.data as Map);
     } on DioException catch (e) {
       _throw(e);
@@ -297,7 +309,8 @@ class ApiService {
   // ------------------------------------------------------------- resale
 
   /// GET /listings?eventId= -> { listings: [...] } (active, public)
-  static Future<List<Map<String, dynamic>>> activeListings({String? eventId}) async {
+  static Future<List<Map<String, dynamic>>> activeListings(
+      {String? eventId}) async {
     try {
       final res = await _dio.get('/listings', queryParameters: {
         if (eventId != null) 'eventId': eventId,
@@ -321,7 +334,8 @@ class ApiService {
   }
 
   /// POST /tickets/:code/list { priceCents }
-  static Future<Map<String, dynamic>> createListing(String ticketCode, int priceCents) async {
+  static Future<Map<String, dynamic>> createListing(
+      String ticketCode, int priceCents) async {
     try {
       final res = await _dio.post('/tickets/$ticketCode/list',
           data: {'priceCents': priceCents}, options: _authOptions);
@@ -354,6 +368,197 @@ class ApiService {
     }
   }
 
+  // ------------------------------------------------------------ account
+
+  /// POST /auth/forgot-password -> { ok, devCode?, expiresAt? }
+  static Future<Map<String, dynamic>> forgotPassword(String email) async {
+    try {
+      final res =
+          await _dio.post('/auth/forgot-password', data: {'email': email});
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /auth/verify-reset-code -> { ok }
+  static Future<Map<String, dynamic>> verifyResetCode({
+    required String email,
+    required String code,
+  }) async {
+    try {
+      final res = await _dio.post('/auth/verify-reset-code', data: {
+        'email': email,
+        'code': code,
+      });
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /auth/reset-password
+  static Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String password,
+  }) async {
+    try {
+      await _dio.post('/auth/reset-password', data: {
+        'email': email,
+        'code': code,
+        'password': password,
+      });
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// DELETE /auth/me — soft-delete the current account.
+  static Future<void> deleteAccount() async {
+    try {
+      await _dio.delete('/auth/me', options: _authOptions);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /notifications -> { notifications, unreadCount }
+  static Future<Map<String, dynamic>> notifications() async {
+    try {
+      final res = await _dio.get('/notifications', options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /notifications/read
+  static Future<void> markNotificationsRead() async {
+    try {
+      await _dio.post('/notifications/read', options: _authOptions);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /transactions -> { transactions: [...] }
+  static Future<List<Map<String, dynamic>>> transactions() async {
+    try {
+      final res = await _dio.get('/transactions', options: _authOptions);
+      final list = (res.data['transactions'] as List?) ?? [];
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /account/earnings -> { readyCents, pendingCents, lifetimeCents, currency }
+  static Future<Map<String, dynamic>> earnings() async {
+    try {
+      final res = await _dio.get('/account/earnings', options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /account/withdraw { amountCents }
+  static Future<Map<String, dynamic>> withdraw(int amountCents) async {
+    try {
+      final res = await _dio.post('/account/withdraw',
+          data: {'amountCents': amountCents}, options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /account/payment-methods -> { paymentMethods }
+  static Future<List<Map<String, dynamic>>> paymentMethods() async {
+    try {
+      final res =
+          await _dio.get('/account/payment-methods', options: _authOptions);
+      final list = (res.data['paymentMethods'] as List?) ?? [];
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /account/payment-methods/setup-intent -> { clientSecret }
+  static Future<Map<String, dynamic>> paymentMethodSetupIntent() async {
+    try {
+      final res = await _dio.post('/account/payment-methods/setup-intent',
+          options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /account/payment-methods/:id/detach
+  static Future<void> detachPaymentMethod(String id) async {
+    try {
+      await _dio.post('/account/payment-methods/$id/detach',
+          options: _authOptions);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /account/promos -> { ready, used }
+  static Future<Map<String, dynamic>> accountPromos() async {
+    try {
+      final res = await _dio.get('/account/promos', options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /account/referrals -> { code, shareUrl, earnedCents, friends, note? }
+  static Future<Map<String, dynamic>> referrals() async {
+    try {
+      final res = await _dio.get('/account/referrals', options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /faqs -> { categories }
+  static Future<List<Map<String, dynamic>>> faqs() async {
+    try {
+      final res = await _dio.get('/faqs');
+      final list = (res.data['categories'] as List?) ?? [];
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /events/:id/broadcasts — creator attendee message.
+  static Future<Map<String, dynamic>> createBroadcast(
+    String eventId, {
+    required String message,
+    Map<String, dynamic>? audienceFilter,
+    Map<String, bool>? channels,
+  }) async {
+    try {
+      final res = await _dio.post('/events/$eventId/broadcasts',
+          data: {
+            'message': message,
+            if (audienceFilter != null) 'audienceFilter': audienceFilter,
+            if (channels != null) 'channels': channels,
+          },
+          options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
   // ------------------------------------------------------------ session
 
   /// Persist a { token, user } auth response in the shape the existing
@@ -380,7 +585,10 @@ class ApiService {
       'fullName': '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim(),
       'pushNotification': true,
       'isVerified': true,
-      'role': {'name': isCreator ? 'Creator' : 'User', 'roleId': isCreator ? 2 : 1},
+      'role': {
+        'name': isCreator ? 'Creator' : 'User',
+        'roleId': isCreator ? 2 : 1
+      },
     };
     final model = SignupModel.fromJson({
       'user': legacyUser,

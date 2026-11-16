@@ -1,4 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 
 import '../controllers/profile_settings_controller.dart';
 
@@ -7,276 +8,177 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
 
   @override
   Widget build(BuildContext context) {
-    return BaseViewPageScreen(
-      screenName: "lbl_settings".tr,
-      sidePadding: false,
-      centerTitle: true,
-      showLogo: false,
-      showBackBtn: true,
-      basicAppBar: true,
-      resizeToAvoidBottomInset: true,
-      showNotification: false,
-      bottomNavigationBar: SafeArea(
-        child: CustomButton(
-          text: "lbl_signout".tr,
-          margin: getMargin(right: 20, left: 20, bottom: 30, top: 10),
-          shape: ButtonShape.RoundedBorder10,
-          onTap: () {
-            onLogoutTap();
-          },
-        ),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
+    return Scaffold(
+      backgroundColor: ColorConstant.sand,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           children: [
-            Container(
-              padding: getPadding(left: 16, right: 16),
-              decoration: BoxDecoration(
-                color: ColorConstant.elevated,
-                borderRadius: BorderRadius.circular(12),
+            Row(children: [
+              IconButton(
+                onPressed: Get.back,
+                icon: Icon(Icons.arrow_back_rounded, color: ColorConstant.ink),
               ),
-              child: TextField(
-                onChanged: (val) => controller.searchQuery.value = val,
-                style: AppStyle.bodyInter,
-                decoration: InputDecoration(
-                  icon: CustomImageView(
-                    svgPath: ImageConstant.search,
-                  ),
-                  hintText: 'Search',
-                  hintStyle: AppStyle.bodySmallInter,
-                  border: InputBorder.none,
-                ),
+              Expanded(
+                child: Text('Settings',
+                    style: sahraText(
+                        color: ColorConstant.ink,
+                        size: 26,
+                        weight: FontWeight.w800)),
               ),
+            ]),
+            const SizedBox(height: 8),
+            Text('Account, payments, promos and support.',
+                style: sahraText(
+                    color: ColorConstant.ink.withValues(alpha: .62), size: 14)),
+            const SizedBox(height: 20),
+            _section('Account', [
+              _tile(
+                icon: Icons.person_outline_rounded,
+                title: 'Edit profile',
+                subtitle: 'Name, photo, language and city',
+                onTap: () => Get.toNamed(Routes.EDIT_PROFILE),
+              ),
+              _tile(
+                icon: Icons.lock_outline_rounded,
+                title: 'Change password',
+                subtitle: 'Update your sign-in password',
+                onTap: () => Get.toNamed(Routes.CHANGE_PASSWORD),
+              ),
+              _tile(
+                icon: Icons.notifications_none_rounded,
+                title: 'Notifications',
+                subtitle: 'Purchases, resale and organizer updates',
+                onTap: () => Get.toNamed(Routes.NOTIFICATIONS_PAGE),
+              ),
+              _tile(
+                icon: Icons.receipt_long_outlined,
+                title: 'Transactions',
+                subtitle: 'Orders, refunds and resale activity',
+                onTap: () => Get.toNamed(Routes.TRANSACTIONS),
+              ),
+            ]),
+            _section('Money', [
+              _tile(
+                icon: Icons.account_balance_wallet_outlined,
+                title: 'Earnings & payouts',
+                subtitle: 'Resale proceeds and withdrawals',
+                onTap: () => Get.toNamed(Routes.WITHDRAW),
+              ),
+              _tile(
+                icon: Icons.credit_card_outlined,
+                title: 'Payment methods',
+                subtitle: 'Cards used for checkout',
+                onTap: () => Get.toNamed(Routes.PAYMENT_OPTIONS),
+              ),
+              _tile(
+                icon: Icons.local_offer_outlined,
+                title: 'Promo codes',
+                subtitle: 'Redeem or manage your codes',
+                onTap: () => Get.toNamed(Constants.isUserCreator
+                    ? Routes.CREATOR_PROMO_CODE
+                    : Routes.PROMO_CODES),
+              ),
+              _tile(
+                icon: Icons.card_giftcard_outlined,
+                title: 'Referrals',
+                subtitle: 'Invite friends and track rewards',
+                onTap: () => Get.toNamed(Routes.REFERRALS),
+              ),
+            ]),
+            _section('Support', [
+              _tile(
+                icon: Icons.help_outline_rounded,
+                title: 'Help & FAQs',
+                subtitle: 'Tickets, resale, payments and account',
+                onTap: () => Get.toNamed(Routes.FAQS),
+              ),
+              _tile(
+                icon: Icons.settings_outlined,
+                title: 'Preferences',
+                subtitle: 'Language, theme and app settings',
+                onTap: () => Get.toNamed(Routes.SETTINGS),
+              ),
+            ]),
+            const SizedBox(height: 18),
+            SahraPillButton(
+              label: 'Sign out',
+              dark: true,
+              onTap: () => Get.offAllNamed(Routes.GET_STARTED),
             ),
-            SizedBox(
-              height: getSize(20),
-            ),
-            Obx(() {
-              final q = controller.searchQuery.value.trim().toLowerCase();
-              bool match(String title, String desc) =>
-                  q.isEmpty ||
-                  title.toLowerCase().contains(q) ||
-                  desc.toLowerCase().contains(q);
-              final tiles = <Widget>[
-                if (match("Personal Info",
-                    "Change your Name, email, Phone number"))
-                  profileTile(
-                      title: "Personal Info",
-                      desc: "Change your Name, email, Phone number",
-                      onTap: () => Get.toNamed(Routes.EDIT_PROFILE)),
-                if (match("Payment Methods",
-                    "Add, modify or delete your payment method"))
-                  profileTile(
-                      title: "Payment Methods",
-                      desc: "Add, modify or delete your payment method",
-                      onTap: () => Get.toNamed(Routes.PAYMENT_OPTIONS)),
-                if (match("Promo codes", "Redeem or share your codes"))
-                  profileTile(
-                      title: "Promo codes",
-                      desc: "Redeem or share your codes",
-                      onTap: () {
-                        if (Constants.isUserCreator) {
-                          Get.toNamed(Routes.CREATOR_PROMO_CODE);
-                        } else {
-                          Get.toNamed(Routes.PROMO_CODES);
-                        }
-                      }),
-                if (match("Referrals",
-                    "Share the app with your friends and start earning"))
-                  profileTile(
-                      title: "Referrals",
-                      desc:
-                          "Share the app with your friends and start earning",
-                      onTap: () => Get.toNamed(Routes.REFERRALS)),
-                if (match("Settings", "Change language, theme, etc..."))
-                  profileTile(
-                      title: "Settings",
-                      desc: "Change language, theme, etc...",
-                      onTap: () => Get.toNamed(Routes.SETTINGS)),
-                if (match("Help", "Questions and answers page"))
-                  profileTile(
-                      title: "Help",
-                      desc: "Questions and answers page",
-                      onTap: () => Get.toNamed(Routes.FAQS)),
-                if (Constants.isUserCreator &&
-                    match("Teams", "Create and manage your teams"))
-                  profileTile(
-                      title: "Teams",
-                      desc: "Create and manage your teams",
-                      onTap: () => Get.toNamed(Routes.MANAGE_TEAMS)),
-                if (match(
-                    "Switch to ${!Constants.isUserCreator ? "Creator" : "User"}",
-                    Constants.isUserCreator
-                        ? "Host events and send invites"
-                        : "Find and get tickets to events near you"))
-                  profileTile(
-                    title:
-                        "Switch to ${!Constants.isUserCreator ? "Creator" : "User"}",
-                    desc: Constants.isUserCreator
-                        ? "Host events and send invites"
-                        : "Find and get tickets to events near you",
-                    onTap: () {
-                      if (Constants.isUserCreator != true) {
-                        Constants.isUserCreator = true;
-                        Get.offAllNamed(Routes.CREATOR_DASHBOARD);
-                      } else {
-                        Constants.isUserCreator = false;
-                        Get.offAllNamed(Routes.USER_DASHBOARD);
-                      }
-                    },
-                  ),
-              ];
-              return Column(
-                children: [
-                  ...tiles,
-                  if (q.isNotEmpty && tiles.isEmpty)
-                    Padding(
-                      padding: getPadding(top: 24, bottom: 24),
-                      child: Text(
-                        'No settings match your search',
-                        style: AppStyle.bodySmallInter,
-                      ),
-                    ),
-                ],
-              );
-            }),
-            SizedBox(
-              height: getSize(30),
-            )
           ],
         ),
       ),
     );
   }
 
-  Widget profileTile(
-      {required String title, required String desc, void Function()? onTap}) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        margin: getMargin(bottom: 10),
-        padding: getPadding(left: 16, right: 16, top: 14, bottom: 14),
-        decoration: BoxDecoration(
-            color: ColorConstant.elevated,
-            borderRadius: BorderRadius.circular(16)),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  MyText(
-                    title: title,
-                    customWeight: FontWeight.w600,
-                    fontSize: getFontSize(16),
-                    family: 'Manrope',
-                  ),
-                  SizedBox(
-                    height: getSize(3),
-                  ),
-                  MyText(
-                    title: desc,
-                    fontSize: getFontSize(13),
-                    family: 'Inter',
-                    clr: ColorConstant.white60,
-                    toverflow: TextOverflow.ellipsis,
-                    line: 1,
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(
-              width: getSize(10),
-            ),
-            Icon(
-              Icons.chevron_right,
-              color: ColorConstant.white60,
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  void onLogoutTap() {
-    Get.dialog(
-      Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.0),
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16.0),
-              color: ColorConstant.surface),
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 50), // For the cancel icon spacing
-                    MyText(
-                      title: 'lbl_signout'.tr,
-                      customWeight: FontWeight.w700,
-                      fontSize: 20,
-                      family: 'Manrope',
-                    ),
-                    const SizedBox(height: 5),
-                    MyText(
-                      title: 'logout_msg'.tr,
-                      fontSize: 14,
-                      family: 'Inter',
-                      clr: ColorConstant.white60,
-                    ),
-                    const SizedBox(height: 35),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        Expanded(
-                            child: CustomButton(
-                                text: "No",
-                                height: 40,
-                                variant: ButtonVariant.OutlinePink,
-                                onTap: () {
-                                  Get.back();
-                                })),
-                        const SizedBox(
-                          width: 10,
-                        ),
-                        Expanded(
-                            child: CustomButton(
-                          text: "Yes",
-                          height: 40,
-                          onTap: () {
-                            Get.offAllNamed(Routes.GET_STARTED);
-                          },
-                        )),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Positioned(
-                top: 0,
-                left: 0,
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.close,
-                    color: Colors.grey,
-                    size: 30,
-                  ),
-                  onPressed: () {
-                    Get.back(); // Close the dialog
-                  },
-                ),
-              ),
-            ],
+  Widget _section(String title, List<Widget> children) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Text(title.toUpperCase(),
+                style: sahraText(
+                    color: ColorConstant.ink.withValues(alpha: .55),
+                    size: 11,
+                    weight: FontWeight.w700,
+                    letterSpacing: 1.2)),
           ),
-        ),
+          SahraCard(
+            color: ColorConstant.lightCard,
+            padding: EdgeInsets.zero,
+            radius: 18,
+            child: Column(children: children),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: ColorConstant.dune,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: ColorConstant.ink, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: sahraText(
+                        color: ColorConstant.ink,
+                        size: 15,
+                        weight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    style: sahraText(
+                        color: ColorConstant.ink.withValues(alpha: .58),
+                        size: 12)),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded,
+              color: ColorConstant.ink.withValues(alpha: .45), size: 22),
+        ]),
       ),
     );
   }

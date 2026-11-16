@@ -62,16 +62,40 @@ class BroadcastMessageController extends GetxController {
     selectedAudience.add(audience);
   }
 
-  void send() {
-    if (messageController.text.trim().isEmpty) {
+  Future<void> send() async {
+    final message = messageController.text.trim();
+    if (message.isEmpty) {
       CustomSnackBar.showCustomErrorToast(message: 'Write a message first');
       return;
     }
+    if (eventId.value.isEmpty) {
+      CustomSnackBar.showCustomErrorToast(message: 'Missing event');
+      return;
+    }
     isSending.value = true;
-    CustomSnackBar.showCustomErrorToast(
-        message:
-            'Broadcasts are not connected yet. Guest messaging needs a backend notification endpoint.');
-    isSending.value = false;
+    try {
+      final specific = selectedAudience
+          .where((audience) => audience != 'All ticket holders')
+          .toList();
+      final audienceFilter =
+          specific.length == 1 ? {'tierName': specific.first} : null;
+      await ApiService.createBroadcast(
+        eventId.value,
+        message: message,
+        audienceFilter: audienceFilter,
+        channels: const {'push': true, 'email': true, 'sms': false},
+      );
+      CustomSnackBar.showCustomSnackBar(
+        title: 'Broadcast queued',
+        message: 'Attendees will see this in their Sahra updates.',
+      );
+      messageController.clear();
+    } catch (e) {
+      CustomSnackBar.showCustomErrorToast(
+          message: e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      isSending.value = false;
+    }
   }
 
   @override
