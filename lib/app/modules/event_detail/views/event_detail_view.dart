@@ -700,10 +700,92 @@ class _VenueSections extends GetWidget<EventDetailController> {
             ),
           ),
           const SizedBox(height: 12),
+          _mapPreview(sections),
+          const SizedBox(height: 12),
           ...sections.map(_sectionCard),
         ],
       );
     });
+  }
+
+  Widget _mapPreview(List<Map<String, dynamic>> sections) {
+    return SahraCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 120,
+              height: 26,
+              decoration: BoxDecoration(
+                color: ColorConstant.nightDeep,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Text('STAGE',
+                    style: sahraText(
+                        color: ColorConstant.nightMuted,
+                        size: 10,
+                        weight: FontWeight.w700,
+                        letterSpacing: 1.4)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: sections.map(_mapSectionChip).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mapSectionChip(Map<String, dynamic> section) {
+    final id = section['id']?.toString() ?? '';
+    final selected = controller.selectedSectionId.value == id;
+    final remaining = controller.sectionRemaining(section);
+    final soldOut = remaining <= 0;
+    final name = section['name']?.toString() ?? 'Section';
+    final price = section['priceCents'];
+    final priceLabel = price is num
+        ? formatCents(price)
+        : formatDollars((section['price'] as num?)?.toDouble());
+    return Container(
+      width: 88,
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: soldOut
+            ? ColorConstant.nightDeep
+            : selected
+                ? ColorConstant.gold
+                : ColorConstant.nightElevated,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: selected ? ColorConstant.gold : ColorConstant.nightBorder,
+        ),
+      ),
+      child: Column(
+        children: [
+          Text(name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: sahraText(
+                  color:
+                      selected ? ColorConstant.night : ColorConstant.whiteA700,
+                  size: 12,
+                  weight: FontWeight.w700)),
+          const SizedBox(height: 3),
+          Text(soldOut ? 'Sold out' : priceLabel,
+              style: sahraText(
+                  color:
+                      selected ? ColorConstant.night : ColorConstant.nightMuted,
+                  size: 10)),
+        ],
+      ),
+    );
   }
 
   Widget _sectionCard(Map<String, dynamic> section) {
@@ -788,6 +870,10 @@ class _VenueSections extends GetWidget<EventDetailController> {
                 ),
                 if (selected) ...[
                   const SizedBox(height: 12),
+                  Text('View from this section · facing stage',
+                      style:
+                          sahraText(color: ColorConstant.nightMuted, size: 12)),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       Text('Tickets',
