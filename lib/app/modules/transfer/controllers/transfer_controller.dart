@@ -1,6 +1,7 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:get/get.dart';
+import 'package:block_tix/app/services/api_service.dart';
 
 class TransferController extends GetxController {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
@@ -40,11 +41,15 @@ class TransferController extends GetxController {
     }
   }
 
-  void send() {
+  Future<void> send() async {
     final to = recipient.value.trim();
     if (to.isEmpty) {
+      CustomSnackBar.showCustomErrorToast(message: 'Enter the recipient email');
+      return;
+    }
+    if (!to.contains('@')) {
       CustomSnackBar.showCustomErrorToast(
-          message: 'Enter who should receive this ticket');
+          message: 'Enter a valid recipient email');
       return;
     }
     if (ticketCode.isEmpty) {
@@ -53,10 +58,19 @@ class TransferController extends GetxController {
       return;
     }
     isSending.value = true;
-    CustomSnackBar.showCustomErrorToast(
-        message:
-            'Ticket transfers are not connected yet. The recipient flow needs a backend transfer endpoint.');
-    isSending.value = false;
+    try {
+      await ApiService.transferTicket(ticketCode, to);
+      CustomSnackBar.showCustomSnackBar(
+        title: 'Ticket sent',
+        message: 'The recipient now owns this ticket.',
+      );
+      Get.back();
+    } catch (e) {
+      CustomSnackBar.showCustomErrorToast(
+          message: e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      isSending.value = false;
+    }
   }
 
   @override

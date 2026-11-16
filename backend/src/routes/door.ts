@@ -154,6 +154,7 @@ export async function doorRoutes(app: FastifyInstance) {
       message,
       channels,
       recipientCount: guests.length,
+      recipientIds: [...new Set(guests.map((guest) => guest.userId))],
     });
     return reply.status(201).send({
       broadcast,

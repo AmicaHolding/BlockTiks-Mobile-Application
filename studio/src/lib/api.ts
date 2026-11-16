@@ -72,6 +72,10 @@ export interface VenueSection {
   priceCents: number;
   price?: number;
   capacity: number;
+  rows?: number;
+  seatsPerRow?: number;
+  accessibleCount?: number;
+  heldCount?: number;
   sold?: number;
   available?: number;
   remaining?: number;
@@ -252,6 +256,10 @@ export const api = {
             name: section.name,
             priceCents: section.priceCents,
             capacity: section.capacity,
+            rows: section.rows,
+            seatsPerRow: section.seatsPerRow,
+            accessibleCount: section.accessibleCount,
+            heldCount: section.heldCount,
           })),
         },
       }),

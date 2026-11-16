@@ -10,7 +10,7 @@ class SplashController extends GetxController with GetTickerProviderStateMixin {
   Animation? sizeAnimation;
   bool reverse = false;
   AppPreferences appPreferences = AppPreferences();
-  final int splashDuration = 3;
+  final int splashDuration = 1;
 
   @override
   void onInit() {

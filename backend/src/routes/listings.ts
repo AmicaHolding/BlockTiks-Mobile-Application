@@ -5,7 +5,8 @@ import {
     listActiveListings,
     ListingError,
     listSellerListings,
-    listUserTickets
+    listUserTickets,
+    matchOffersForListing
 } from '../db';
 
 // Resale marketplace: fans list VALID tickets, buyers discover them on the
@@ -47,7 +48,8 @@ export async function listingRoutes(app: FastifyInstance) {
           ticketCode: code,
           priceCents,
         });
-        return reply.status(201).send({ listing });
+        const matchedOffers = await matchOffersForListing(listing).catch(() => []);
+        return reply.status(201).send({ listing, matchedOffers });
       } catch (e) {
         if (e instanceof ListingError) {
           const status =

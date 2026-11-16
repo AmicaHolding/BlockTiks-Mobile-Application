@@ -8,6 +8,10 @@ type SectionDraft = {
   name: string;
   price: string;
   capacity: string;
+  rows: string;
+  seatsPerRow: string;
+  accessibleCount: string;
+  heldCount: string;
   sold: number;
   available: number;
   reserved: number;
@@ -22,6 +26,10 @@ function toDraft(section: VenueSection): SectionDraft {
     name: section.name,
     price: section.priceCents != null ? (section.priceCents / 100).toString() : '',
     capacity: section.capacity != null ? section.capacity.toString() : '',
+    rows: section.rows != null ? section.rows.toString() : '',
+    seatsPerRow: section.seatsPerRow != null ? section.seatsPerRow.toString() : '',
+    accessibleCount: section.accessibleCount != null ? section.accessibleCount.toString() : '',
+    heldCount: section.heldCount != null ? section.heldCount.toString() : '',
     sold,
     available,
     reserved,
@@ -83,6 +91,10 @@ export default function VenueLayoutPage() {
         name: '',
         price: '',
         capacity: '',
+        rows: '',
+        seatsPerRow: '',
+        accessibleCount: '',
+        heldCount: '',
         sold: 0,
         available: 0,
         reserved: 0,
@@ -121,7 +133,20 @@ export default function VenueLayoutPage() {
           `${name} capacity cannot be below ${minimumCapacity} sold/reserved seats`,
         );
       }
-      payload.push({ id: section.id, name, priceCents, capacity });
+      const optional = (value: string) => {
+        const parsed = parseInt(value, 10);
+        return value.trim() && Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
+      };
+      payload.push({
+        id: section.id,
+        name,
+        priceCents,
+        capacity,
+        rows: optional(section.rows),
+        seatsPerRow: optional(section.seatsPerRow),
+        accessibleCount: optional(section.accessibleCount),
+        heldCount: optional(section.heldCount),
+      });
     }
 
     setSaving(true);
@@ -204,7 +229,7 @@ export default function VenueLayoutPage() {
               return (
                 <div
                   key={section.id}
-                  className="grid gap-3 rounded-xl bg-dune/50 p-4 lg:grid-cols-[1fr_140px_120px_120px_120px_44px]"
+                  className="grid gap-3 rounded-xl bg-dune/50 p-4 lg:grid-cols-[1fr_120px_100px_100px_100px_100px_100px_44px]"
                 >
                   <Field label="Section name">
                     <Input
@@ -227,6 +252,38 @@ export default function VenueLayoutPage() {
                       value={section.capacity}
                       onChange={(e) => updateSection(index, { capacity: e.target.value })}
                       placeholder="200"
+                    />
+                  </Field>
+                  <Field label="Rows">
+                    <Input
+                      inputMode="numeric"
+                      value={section.rows}
+                      onChange={(e) => updateSection(index, { rows: e.target.value })}
+                      placeholder="10"
+                    />
+                  </Field>
+                  <Field label="Seats / row">
+                    <Input
+                      inputMode="numeric"
+                      value={section.seatsPerRow}
+                      onChange={(e) => updateSection(index, { seatsPerRow: e.target.value })}
+                      placeholder="20"
+                    />
+                  </Field>
+                  <Field label="Accessible">
+                    <Input
+                      inputMode="numeric"
+                      value={section.accessibleCount}
+                      onChange={(e) => updateSection(index, { accessibleCount: e.target.value })}
+                      placeholder="4"
+                    />
+                  </Field>
+                  <Field label="Held">
+                    <Input
+                      inputMode="numeric"
+                      value={section.heldCount}
+                      onChange={(e) => updateSection(index, { heldCount: e.target.value })}
+                      placeholder="6"
                     />
                   </Field>
                   <div className="rounded-xl bg-white/70 px-3 py-2 text-xs text-night-muted">
@@ -259,8 +316,9 @@ export default function VenueLayoutPage() {
         <div className="font-semibold text-ink">Inventory note</div>
         <div className="mt-1">
           Existing sections keep their sold and held counters. Sections with sales or pending holds
-          cannot be removed, and capacity cannot drop below sold + held seats. Exact seat numbers
-          are still assigned at checkout; this editor configures sections and prices.
+          cannot be removed, and capacity cannot drop below sold + held seats. Rows, seats per row,
+          accessible and held counts are saved as venue layout metadata; exact seat inventory is
+          still assigned at checkout.
         </div>
       </Card>
     </div>

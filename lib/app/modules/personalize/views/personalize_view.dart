@@ -1,5 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
+import 'package:block_tix/app/data/widgets/web_handoff_sheet.dart';
 import 'package:get/get.dart';
 
 import '../controllers/personalize_controller.dart';
@@ -133,27 +134,32 @@ class PersonalizeView extends GetView<PersonalizeController> {
                         },
                       )),
                   const SizedBox(height: 18),
-                  SahraCard(
-                    color: ColorConstant.nightSurface,
-                    child: Row(children: [
-                      Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                            Text('Hosting events?',
-                                style: sahraText(
-                                    size: 14, weight: FontWeight.w600)),
-                            const SizedBox(height: 2),
-                            Text('Set up Sahra Studio for your team',
-                                style: sahraText(
-                                    color: ColorConstant.nightMuted, size: 13)),
-                          ])),
-                      Text('Set up',
-                          style: sahraText(
-                              color: ColorConstant.gold,
-                              size: 14,
-                              weight: FontWeight.w600)),
-                    ]),
+                  GestureDetector(
+                    onTap: () =>
+                        WebHandoffSheet.show(feature: 'Creating events'),
+                    child: SahraCard(
+                      color: ColorConstant.nightSurface,
+                      child: Row(children: [
+                        Expanded(
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                              Text('Hosting events?',
+                                  style: sahraText(
+                                      size: 14, weight: FontWeight.w600)),
+                              const SizedBox(height: 2),
+                              Text('Set up Sahra Studio for your team',
+                                  style: sahraText(
+                                      color: ColorConstant.nightMuted,
+                                      size: 13)),
+                            ])),
+                        Text('Set up',
+                            style: sahraText(
+                                color: ColorConstant.gold,
+                                size: 14,
+                                weight: FontWeight.w600)),
+                      ]),
+                    ),
                   ),
                 ]),
           ),

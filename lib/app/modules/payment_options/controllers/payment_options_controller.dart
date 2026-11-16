@@ -1,6 +1,7 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/services/api_service.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:get/get.dart';
 
 class PaymentOptionsController extends GetxController {
@@ -42,13 +43,27 @@ class PaymentOptionsController extends GetxController {
   Future<void> addCard() async {
     isAdding.value = true;
     try {
-      await ApiService.paymentMethodSetupIntent();
-      CustomSnackBar.showCustomSnackBar(
-        title: 'Card setup started',
-        message:
-            'Stripe setup is ready; card entry will use the payment sheet when enabled.',
+      final res = await ApiService.paymentMethodSetupIntent();
+      final clientSecret = res['clientSecret']?.toString() ?? '';
+      if (clientSecret.isEmpty) {
+        throw Exception('Missing Stripe setup details');
+      }
+      await Stripe.instance.initPaymentSheet(
+        paymentSheetParameters: SetupPaymentSheetParameters(
+          merchantDisplayName: 'Sahra',
+          setupIntentClientSecret: clientSecret,
+          style: ThemeMode.dark,
+        ),
       );
+      await Stripe.instance.presentPaymentSheet();
+      CustomSnackBar.showCustomSnackBar(
+          title: 'Card saved', message: 'Your payment method was added.');
       await fetch();
+    } on StripeException catch (e) {
+      if (e.error.code != FailureCode.Canceled) {
+        CustomSnackBar.showCustomErrorToast(
+            message: e.error.message ?? 'Card setup failed');
+      }
     } catch (e) {
       CustomSnackBar.showCustomErrorToast(
           message: e.toString().replaceFirst('Exception: ', ''));

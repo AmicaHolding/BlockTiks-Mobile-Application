@@ -4,6 +4,7 @@ import {
   listBroadcastsForEvents,
   listSellerListings,
   listPromos,
+  listUserOffers,
   listUserOrders,
   listUserTickets,
   setUserStripeCustomerId,
@@ -18,10 +19,11 @@ function itemSummary(parts: Array<string | undefined>): string {
 export async function accountRoutes(app: FastifyInstance) {
   app.get('/notifications', { preHandler: app.authenticate }, async (request) => {
     const userId = request.user.sub;
-    const [orders, tickets, listings] = await Promise.all([
+    const [orders, tickets, listings, offers] = await Promise.all([
       listUserOrders(userId),
       listUserTickets(userId),
       listSellerListings(userId),
+      listUserOffers(userId),
     ]);
     const eventIds = [
       ...new Set([
@@ -30,7 +32,10 @@ export async function accountRoutes(app: FastifyInstance) {
         ...listings.map((listing) => listing.eventId),
       ]),
     ];
-    const broadcasts = await listBroadcastsForEvents(eventIds);
+    const allBroadcasts = await listBroadcastsForEvents(eventIds);
+    const broadcasts = allBroadcasts.filter(
+      (broadcast) => !broadcast.recipientIds || broadcast.recipientIds.includes(userId)
+    );
 
     const items = [
       ...orders
@@ -54,6 +59,16 @@ export async function accountRoutes(app: FastifyInstance) {
           title: 'Resale ticket sold',
           body: itemSummary([listing.eventTitle, listing.tierName, 'proceeds release after the event']),
           createdAt: listing.createdAt,
+          href: '/tickets',
+        })),
+      ...offers
+        .filter((offer) => offer.status === 'MATCHED' && offer.lastMatchedAt)
+        .map((offer) => ({
+          id: `offer-${offer.id}`,
+          type: 'offer',
+          title: 'Price matched',
+          body: `A resale listing matched your ${offer.tierName} offer.`,
+          createdAt: offer.lastMatchedAt!,
           href: '/tickets',
         })),
       ...broadcasts.map((broadcast) => ({

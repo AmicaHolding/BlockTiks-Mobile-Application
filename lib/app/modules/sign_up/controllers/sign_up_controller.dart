@@ -6,6 +6,7 @@ import 'package:block_tix/app/services/api_service.dart';
 class SignUpController extends GetxController {
   TextEditingController firstNameController = TextEditingController();
   TextEditingController emailController = TextEditingController();
+  TextEditingController phoneController = TextEditingController();
   TextEditingController referralController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
   TextEditingController confirmPasswordController = TextEditingController();
@@ -14,6 +15,7 @@ class SignUpController extends GetxController {
       RoundedLoadingButtonController();
 
   RxBool isSelectedSwitch = false.obs;
+  RxBool acceptTerms = false.obs;
 
   FocusNode? firstNameNode = FocusNode();
   FocusNode? emailNode = FocusNode();
@@ -49,6 +51,7 @@ class SignUpController extends GetxController {
     super.onClose();
     firstNameController.dispose();
     emailController.dispose();
+    phoneController.dispose();
     referralController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
@@ -58,8 +61,20 @@ class SignUpController extends GetxController {
     final firstName = firstNameController.text.trim();
     final email = emailController.text.trim();
     final password = passwordController.text;
+    final phone = phoneController.text.trim();
     if (firstName.isEmpty || email.isEmpty || password.isEmpty) {
-      CustomSnackBar.showCustomErrorToast(message: "Please fill in all fields".tr);
+      CustomSnackBar.showCustomErrorToast(
+          message: "Please fill in all fields".tr);
+      return;
+    }
+    if (!acceptTerms.value) {
+      CustomSnackBar.showCustomErrorToast(
+          message: 'Please accept the Terms and Resale policy'.tr);
+      return;
+    }
+    if (phone.isNotEmpty && phone.replaceAll(RegExp(r'\D'), '').length < 8) {
+      CustomSnackBar.showCustomErrorToast(
+          message: 'Enter a valid mobile number'.tr);
       return;
     }
     if (password != confirmPasswordController.text) {
@@ -67,7 +82,8 @@ class SignUpController extends GetxController {
       return;
     }
     if (password.length < 8) {
-      CustomSnackBar.showCustomErrorToast(message: "Password must be at least 8 characters".tr);
+      CustomSnackBar.showCustomErrorToast(
+          message: "Password must be at least 8 characters".tr);
       return;
     }
     btnController.start();
@@ -75,16 +91,17 @@ class SignUpController extends GetxController {
       final res = await ApiService.signup(
         firstName: firstName,
         email: email,
+        phone: phone.isEmpty ? null : phone,
         password: password,
-        role: isSelectedSwitch.value ? 'creator' : 'user',
       );
       btnController.stop();
       await ApiService.saveSession(res);
-      ApiService.goToDashboard();
+      Get.offAllNamed(Routes.PERSONALIZE);
     } catch (e) {
       btnController.error();
       btnController.stop();
-      CustomSnackBar.showCustomErrorToast(message: e.toString().replaceFirst('Exception: ', ''));
+      CustomSnackBar.showCustomErrorToast(
+          message: e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -96,8 +113,9 @@ class SignUpController extends GetxController {
     Get.offAllNamed(Routes.USER_DASHBOARD);
   }
 
-
   void updateNotificationToggle(context) async {
     isSelectedSwitch.value = !isSelectedSwitch.value;
   }
+
+  void toggleTerms() => acceptTerms.value = !acceptTerms.value;
 }

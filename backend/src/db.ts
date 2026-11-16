@@ -64,6 +64,11 @@ const eventTicketsGsiPk = (eventId: string) => `EVENTTIX#${eventId}`;
 const ACTIVE_LISTINGS_GSI_PK = 'LISTINGS#ACTIVE';
 const listingGsiSk = (eventId: string, iso: string) => `EVENT#${eventId}#${iso}`;
 const listingPk = (ticketCode: string) => `LISTING#${ticketCode}`;
+const offerPk = (id: string) => `OFFER#${id}`;
+const userOffersPk = (userId: string) => `USER#${userId}#OFFERS`;
+const ACTIVE_OFFERS_GSI_PK = 'OFFERS#ACTIVE';
+const offerGsiSk = (eventId: string, tierKey: string, iso: string, id: string) =>
+  `EVENT#${eventId}#${tierKey}#${iso}#${id}`;
 const createdSk = (iso: string, id: string) => `CREATED#${iso}#${id}`;
 
 // ---------- types ----------
@@ -79,6 +84,7 @@ export interface User {
   stripeCustomerId?: string;
   firstNameAr?: string;
   city?: string;
+  interests?: string[];
   dateOfBirth?: string;
   emailVerified?: boolean;
   notificationPrefs?: { push?: boolean; email?: boolean; sms?: boolean };
@@ -104,6 +110,10 @@ export interface VenueSection {
   name: string;
   priceCents: number;
   capacity: number;
+  rows?: number;
+  seatsPerRow?: number;
+  accessibleCount?: number;
+  heldCount?: number;
 }
 
 export interface VenueLayout {
@@ -196,6 +206,9 @@ export interface Ticket {
   userId: string;
   status: 'VALID' | 'USED' | 'TRANSFERRED' | 'REFUNDED';
   checkedInAt?: string;
+  transferredFrom?: string;
+  transferredTo?: string;
+  transferredAt?: string;
   createdAt: string;
 }
 
@@ -303,6 +316,7 @@ export async function updateUser(
       | 'avatarUrl'
       | 'firstNameAr'
       | 'city'
+      | 'interests'
       | 'dateOfBirth'
       | 'emailVerified'
       | 'notificationPrefs'
@@ -1095,6 +1109,273 @@ export async function getTicketByCode(code: string): Promise<Ticket | null> {
   return rest as unknown as Ticket;
 }
 
+export type TransferTicketResult =
+  | { result: 'OK'; ticket: Ticket; recipient: User }
+  | { result: 'NOT_FOUND' }
+  | { result: 'FORBIDDEN' }
+  | { result: 'NOT_YOURS' }
+  | { result: 'NOT_VALID' }
+  | { result: 'LISTED' }
+  | { result: 'SELF' }
+  | { result: 'RECIPIENT_NOT_FOUND' };
+
+// Gift/transfer a VALID ticket to another user by email. The ticket code stays
+// the same (the recipient's wallet/QR reflects the new owner); ownership and
+// the per-user GSI2 feed move atomically.
+export async function transferTicket(input: {
+  ticketCode: string;
+  fromUserId: string;
+  recipientEmail: string;
+}): Promise<TransferTicketResult> {
+  const ticket = await getTicketByCode(input.ticketCode);
+  if (!ticket) return { result: 'NOT_FOUND' };
+  if (ticket.userId !== input.fromUserId) return { result: 'NOT_YOURS' };
+  if (ticket.status !== 'VALID') return { result: 'NOT_VALID' };
+  const listing = await getListing(input.ticketCode);
+  if (listing && (listing.status === 'ACTIVE' || listing.status === 'CHECKOUT')) {
+    return { result: 'LISTED' };
+  }
+  const recipient = await getUserByEmail(input.recipientEmail);
+  if (!recipient || recipient.deletedAt) return { result: 'RECIPIENT_NOT_FOUND' };
+  if (recipient.id === input.fromUserId) return { result: 'SELF' };
+
+  const transferredAt = now();
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: ticketPk(input.ticketCode), sk: 'METADATA' },
+        UpdateExpression:
+          'SET userId = :to, gsi2pk = :ticketsPk, gsi2sk = :ticketsSk, transferredFrom = :from, transferredTo = :toId, transferredAt = :at',
+        ConditionExpression: '#status = :valid AND userId = :from',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':to': recipient.id,
+          ':ticketsPk': userTicketsPk(recipient.id),
+          ':ticketsSk': createdSk(ticket.createdAt, input.ticketCode),
+          ':from': input.fromUserId,
+          ':toId': recipient.id,
+          ':at': transferredAt,
+          ':valid': 'VALID',
+        },
+      })
+    );
+  } catch (e) {
+    if (isConditionalCheck(e)) return { result: 'NOT_VALID' };
+    throw e;
+  }
+  return {
+    result: 'OK',
+    ticket: { ...ticket, userId: recipient.id, transferredFrom: input.fromUserId, transferredTo: recipient.id, transferredAt },
+    recipient,
+  };
+}
+
+// ---------- set-your-price offers (standing auto-buy requests) ----------
+
+export interface Offer {
+  id: string;
+  buyerId: string;
+  eventId: string;
+  tierName: string;
+  tierKey: string;
+  sectionName?: string;
+  maxPriceCents: number;
+  quantity: number;
+  matchedCount: number;
+  status: 'ACTIVE' | 'MATCHED' | 'CANCELLED';
+  lastListingCode?: string;
+  lastMatchedAt?: string;
+  createdAt: string;
+}
+
+export function offerTierKey(tierName: string, sectionName?: string): string {
+  return [tierName, sectionName].filter(Boolean).join('::').trim().toLowerCase();
+}
+
+export class OfferError extends Error {}
+
+export async function createOffer(input: {
+  buyerId: string;
+  eventId: string;
+  tierName: string;
+  sectionName?: string;
+  maxPriceCents: number;
+  quantity: number;
+}): Promise<Offer> {
+  const event = await getEventMeta(input.eventId);
+  if (!event || event.status !== 'PUBLISHED') throw new OfferError('Event is not on sale');
+  if (!input.tierName?.trim()) throw new OfferError('Ticket tier is required');
+  if (!Number.isInteger(input.maxPriceCents) || input.maxPriceCents < 1) {
+    throw new OfferError('Enter a valid max price');
+  }
+  if (!Number.isInteger(input.quantity) || input.quantity < 1 || input.quantity > 8) {
+    throw new OfferError('Quantity must be between 1 and 8');
+  }
+  const existing = await listUserOffers(input.buyerId);
+  const duplicate = existing.find(
+    (offer) =>
+      offer.status === 'ACTIVE' &&
+      offer.eventId === input.eventId &&
+      offer.tierKey === offerTierKey(input.tierName, input.sectionName)
+  );
+  if (duplicate) throw new OfferError('You already have an active offer for these tickets');
+
+  const id = randomUUID();
+  const createdAt = now();
+  const tierKey = offerTierKey(input.tierName, input.sectionName);
+  const offer: Offer = {
+    id,
+    buyerId: input.buyerId,
+    eventId: input.eventId,
+    tierName: input.tierName.trim(),
+    tierKey,
+    sectionName: input.sectionName?.trim() || undefined,
+    maxPriceCents: input.maxPriceCents,
+    quantity: input.quantity,
+    matchedCount: 0,
+    status: 'ACTIVE',
+    createdAt,
+  };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: offerPk(id),
+        sk: 'METADATA',
+        ...offer,
+        gsi1pk: ACTIVE_OFFERS_GSI_PK,
+        gsi1sk: offerGsiSk(input.eventId, tierKey, createdAt, id),
+        gsi2pk: userOffersPk(input.buyerId),
+        gsi2sk: createdSk(createdAt, id),
+      },
+    })
+  );
+  return offer;
+}
+
+function stripOfferKeys(item: Record<string, unknown>): Offer {
+  const { pk, sk, gsi1pk, gsi1sk, gsi2pk, gsi2sk, ...rest } = item;
+  return { ...(rest as unknown as Offer), matchedCount: (rest.matchedCount as number) ?? 0 };
+}
+
+export async function getOffer(id: string): Promise<Offer | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: offerPk(id), sk: 'METADATA' } })
+  );
+  return res.Item ? stripOfferKeys(res.Item) : null;
+}
+
+export async function listUserOffers(userId: string): Promise<Offer[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk',
+      ExpressionAttributeValues: { ':pk': userOffersPk(userId) },
+      ScanIndexForward: false,
+      Limit: 200,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[])
+    .map(stripOfferKeys)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function listActiveOffersForTier(input: {
+  eventId: string;
+  tierName: string;
+  sectionName?: string;
+}): Promise<Offer[]> {
+  const tierKey = offerTierKey(input.tierName, input.sectionName);
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi1',
+      KeyConditionExpression: 'gsi1pk = :pk AND begins_with(gsi1sk, :prefix)',
+      ExpressionAttributeValues: {
+        ':pk': ACTIVE_OFFERS_GSI_PK,
+        ':prefix': `EVENT#${input.eventId}#${tierKey}#`,
+      },
+      ScanIndexForward: true,
+      Limit: 200,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[])
+    .map(stripOfferKeys)
+    .filter(
+      (offer) =>
+        offer.status === 'ACTIVE' &&
+        offer.matchedCount < offer.quantity &&
+        (offer.sectionName ?? '') === (input.sectionName ?? '')
+    );
+}
+
+async function matchOffer(offer: Offer, listingCode: string, priceCents: number): Promise<Offer> {
+  const matchedCount = offer.matchedCount + 1;
+  const status = matchedCount >= offer.quantity ? 'MATCHED' : 'ACTIVE';
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: offerPk(offer.id), sk: 'METADATA' },
+      UpdateExpression:
+        'SET matchedCount = :matched, #status = :status, lastListingCode = :code, lastMatchedAt = :at',
+      ConditionExpression: '#status = :active AND (attribute_not_exists(matchedCount) OR matchedCount < :quantity)',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: {
+        ':matched': matchedCount,
+        ':status': status,
+        ':active': 'ACTIVE',
+        ':quantity': offer.quantity,
+        ':code': listingCode,
+        ':at': now(),
+      },
+    })
+  );
+  return { ...offer, matchedCount, status, lastListingCode: listingCode, lastMatchedAt: now() };
+}
+
+// Called after a resale listing is created. The earliest eligible standing
+// offer at or above the ask is marked matched so the buyer sees it in Tickets;
+// payment still goes through the normal resale checkout when the buyer accepts.
+export async function matchOffersForListing(listing: Listing): Promise<Offer[]> {
+  const offers = await listActiveOffersForTier({
+    eventId: listing.eventId,
+    tierName: listing.tierName,
+  });
+  const eligible = offers
+    .filter((offer) => offer.maxPriceCents >= listing.priceCents)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const matched: Offer[] = [];
+  for (const offer of eligible) {
+    try {
+      matched.push(await matchOffer(offer, listing.ticketCode, listing.priceCents));
+      break; // one ticket can only satisfy one standing offer
+    } catch (e) {
+      if (!isConditionalCheck(e)) throw e;
+    }
+  }
+  return matched;
+}
+
+export async function cancelOffer(userId: string, offerId: string): Promise<'cancelled' | 'not_found' | 'forbidden'> {
+  const offer = await getOffer(offerId);
+  if (!offer) return 'not_found';
+  if (offer.buyerId !== userId) return 'forbidden';
+  if (offer.status !== 'ACTIVE') return 'not_found';
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: offerPk(offerId), sk: 'METADATA' },
+      UpdateExpression: 'SET #status = :cancelled',
+      ConditionExpression: '#status = :active',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: { ':cancelled': 'CANCELLED', ':active': 'ACTIVE' },
+    })
+  );
+  return 'cancelled';
+}
+
 export type CheckInResult =
   | { result: 'OK'; ticket: Ticket }
   | { result: 'ALREADY_USED'; ticket: Ticket }
@@ -1732,7 +2013,7 @@ export async function deleteUser(id: string): Promise<boolean> {
             TableName: T(),
             Key: { pk: userPk(id), sk: 'PROFILE' },
             UpdateExpression:
-              'SET deletedAt = :deletedAt, firstName = :firstName, lastName = :lastName, passwordHash = :passwordHash REMOVE phone, avatarUrl, firstNameAr, city, dateOfBirth, notificationPrefs, stripeCustomerId',
+              'SET deletedAt = :deletedAt, firstName = :firstName, lastName = :lastName, passwordHash = :passwordHash REMOVE phone, avatarUrl, firstNameAr, city, interests, dateOfBirth, notificationPrefs, stripeCustomerId',
             ExpressionAttributeValues: {
               ':deletedAt': deletedAt,
               ':firstName': 'Deleted',
@@ -1863,6 +2144,7 @@ export interface Broadcast {
   message: string;
   channels: { push: boolean; email: boolean; sms: boolean };
   recipientCount: number;
+  recipientIds?: string[];
   createdAt: string;
 }
 

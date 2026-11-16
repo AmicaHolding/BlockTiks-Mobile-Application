@@ -43,6 +43,16 @@ class PersonalizeController extends GetxController {
       final res = await ApiService.me();
       final user = Map<String, dynamic>.from(res['user'] as Map? ?? {});
       firstName.value = user['firstName']?.toString() ?? 'there';
+      final city = user['city']?.toString();
+      if (city != null && cities.contains(city)) selectedCity.value = city;
+      final savedInterests = user['interests'];
+      if (savedInterests is List) {
+        selectedInterests
+          ..clear()
+          ..addAll(savedInterests
+              .map((e) => e.toString())
+              .where(interests.contains));
+      }
     } catch (_) {
       firstName.value = 'there';
     }
@@ -64,8 +74,13 @@ class PersonalizeController extends GetxController {
     if (isSaving.value) return;
     isSaving.value = true;
     try {
-      if (!skip && selectedCity.value.isNotEmpty) {
-        await ApiService.updateProfile({'city': selectedCity.value});
+      if (!skip) {
+        final fields = <String, dynamic>{};
+        if (selectedCity.value.isNotEmpty) fields['city'] = selectedCity.value;
+        if (selectedInterests.isNotEmpty) {
+          fields['interests'] = selectedInterests.toList();
+        }
+        if (fields.isNotEmpty) await ApiService.updateProfile(fields);
       }
     } catch (_) {
       // Personalization is optional; don't block entry if the profile patch fails.

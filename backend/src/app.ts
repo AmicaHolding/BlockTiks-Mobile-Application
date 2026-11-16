@@ -9,6 +9,7 @@ import { doorRoutes } from './routes/door';
 import { eventRoutes } from './routes/events';
 import { healthRoutes } from './routes/health';
 import { listingRoutes } from './routes/listings';
+import { offerRoutes } from './routes/offers';
 import { orderRoutes } from './routes/orders';
 import { promoRoutes } from './routes/promos';
 import { ticketRoutes } from './routes/tickets';
@@ -46,6 +47,7 @@ export function buildApp() {
   void app.register(promoRoutes);
   void app.register(eventRoutes);
   void app.register(orderRoutes);
+  void app.register(offerRoutes);
   void app.register(ticketRoutes);
   void app.register(doorRoutes);
   void app.register(listingRoutes);

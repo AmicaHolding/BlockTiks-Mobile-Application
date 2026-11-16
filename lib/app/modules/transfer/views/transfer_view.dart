@@ -53,8 +53,6 @@ class TransferView extends GetView<TransferController> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _recipientField(),
-                const SizedBox(height: 14),
-                _gapCard(),
               ],
             ),
           ),
@@ -142,7 +140,7 @@ class TransferView extends GetView<TransferController> {
       controller: controller.toController,
       style: sahraText(),
       decoration: InputDecoration(
-        hintText: 'Name, username, or email',
+        hintText: 'Recipient email',
         hintStyle: sahraText(color: ColorConstant.nightMuted),
         filled: true,
         fillColor: ColorConstant.nightSurface,
@@ -158,25 +156,6 @@ class TransferView extends GetView<TransferController> {
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: ColorConstant.gold),
         ),
-      ),
-    );
-  }
-
-  Widget _gapCard() {
-    return SahraCard(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline_rounded, color: ColorConstant.gold, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Ticket transfers are not connected yet. This screen collects the recipient, but the backend still needs a transfer endpoint before ownership can change hands.',
-              style: sahraText(
-                  color: ColorConstant.nightMuted, size: 13, height: 1.45),
-            ),
-          ),
-        ],
       ),
     );
   }

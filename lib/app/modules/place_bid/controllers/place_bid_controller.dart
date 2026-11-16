@@ -98,13 +98,29 @@ class PlaceBidController extends GetxController {
     maxPriceCents.value = next;
   }
 
-  void setPrice() {
-    if (maxPriceCents.value <= 0 || quantity.value <= 0) {
+  Future<void> setPrice() async {
+    if (eventId.isEmpty || maxPriceCents.value <= 0 || quantity.value <= 0) {
       CustomSnackBar.showCustomErrorToast(message: 'Set a valid price');
       return;
     }
-    CustomSnackBar.showCustomErrorToast(
-        message:
-            'Auto-buy is not connected yet. You can buy active resale listings from the event page.');
+    isLoading.value = true;
+    try {
+      await ApiService.createOffer(
+        eventId: eventId,
+        tierName: eventTier,
+        maxPriceCents: maxPriceCents.value,
+        quantity: quantity.value,
+      );
+      CustomSnackBar.showCustomSnackBar(
+        title: 'Offer set',
+        message: 'We will match you when a listing hits your price.',
+      );
+      Get.back();
+    } catch (e) {
+      CustomSnackBar.showCustomErrorToast(
+          message: e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      isLoading.value = false;
+    }
   }
 }

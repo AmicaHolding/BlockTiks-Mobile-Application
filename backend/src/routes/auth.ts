@@ -25,6 +25,7 @@ export function publicUser(u: User) {
     avatarUrl: u.avatarUrl,
     firstNameAr: u.firstNameAr,
     city: u.city,
+    interests: u.interests,
     dateOfBirth: u.dateOfBirth,
     emailVerified: u.emailVerified,
     notificationPrefs: u.notificationPrefs,
@@ -145,6 +146,7 @@ export async function authRoutes(app: FastifyInstance) {
             phone: { type: 'string' },
             avatarUrl: { type: 'string' },
             city: { type: 'string' },
+            interests: { type: 'array', items: { type: 'string' }, maxItems: 10 },
             dateOfBirth: { type: 'string' },
             emailVerified: { type: 'boolean' },
             notificationPrefs: {
@@ -168,6 +170,7 @@ export async function authRoutes(app: FastifyInstance) {
         phone?: string;
         avatarUrl?: string;
         city?: string;
+        interests?: string[];
         dateOfBirth?: string;
         emailVerified?: boolean;
         notificationPrefs?: { push?: boolean; email?: boolean; sms?: boolean };
@@ -182,6 +185,7 @@ export async function authRoutes(app: FastifyInstance) {
         phone: body.phone,
         avatarUrl: body.avatarUrl,
         city: body.city,
+        interests: body.interests,
         dateOfBirth: body.dateOfBirth,
         emailVerified: body.emailVerified,
         notificationPrefs: body.notificationPrefs ??

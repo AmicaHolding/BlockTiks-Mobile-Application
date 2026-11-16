@@ -1,6 +1,5 @@
-import 'package:block_tix/app/data/widgets/base/baseview_auth_screen.dart';
-
 import '../../../data/core/app_export.dart';
+import '../../../data/widgets/sahra_ui.dart';
 import '../controllers/splash_controller.dart';
 
 class SplashView extends GetView<SplashController> {
@@ -8,38 +7,38 @@ class SplashView extends GetView<SplashController> {
 
   @override
   Widget build(BuildContext context) {
-    return BaseviewAuthScreen(
-        child: Stack(
-      alignment: Alignment.center,
-      children: [
-        SizedBox(
-          width: size.width,
-          height: size.height,
-          child: CustomImageView(
-            width: size.width,
-            fit: BoxFit.fill,
-            height: size.height,
-            imagePath: ImageConstant.splashBg,
-          ),
-        ),
-        Container(
-            width: size.width,
-            height: size.height,
-            alignment: Alignment.center,
-            child: GetBuilder<SplashController>(
-              init: SplashController(),
-              initState: (_) {},
-              builder: (controller) {
-                return Center(
-                    child: CustomImageView(
-                  imagePath: ImageConstant.logo,
-                  fit: BoxFit.fitWidth,
-                  width: this.controller.sizeAnimation?.value ?? 0 + 200,
-                  height: this.controller.sizeAnimation?.value ?? 0 + 200,
-                ));
+    return Scaffold(
+      backgroundColor: ColorConstant.night,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedBuilder(
+              animation:
+                  controller.sizeAnimation ?? const AlwaysStoppedAnimation(0.0),
+              builder: (context, child) {
+                final progress = ((controller.sizeAnimation?.value ?? 50) / 300)
+                    .clamp(0.0, 1.0);
+                return Transform.scale(
+                  scale: 0.86 + (progress * 0.14),
+                  child: Opacity(
+                    opacity: progress,
+                    child: Text('Sahra',
+                        style: sahraText(
+                            color: ColorConstant.gold,
+                            size: 44,
+                            weight: FontWeight.w800,
+                            letterSpacing: -1.2)),
+                  ),
+                );
               },
-            )),
-      ],
-    ));
+            ),
+            const SizedBox(height: 12),
+            Text('sahra.app',
+                style: sahraText(color: ColorConstant.nightMuted, size: 15)),
+          ],
+        ),
+      ),
+    );
   }
 }

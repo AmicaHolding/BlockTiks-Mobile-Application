@@ -61,6 +61,7 @@ class ApiService {
     required String firstName,
     String? lastName,
     required String email,
+    String? phone,
     required String password,
     String role = 'user',
   }) async {
@@ -69,6 +70,7 @@ class ApiService {
         'firstName': firstName,
         'lastName': lastName ?? '',
         'email': email,
+        if (phone != null && phone.isNotEmpty) 'phone': phone,
         'password': password,
         'role': role,
       });
@@ -354,6 +356,67 @@ class ApiService {
     }
   }
 
+  /// POST /tickets/:code/transfer { recipientEmail }
+  static Future<Map<String, dynamic>> transferTicket(
+      String ticketCode, String recipientEmail) async {
+    try {
+      final res = await _dio.post('/tickets/$ticketCode/transfer',
+          data: {'recipientEmail': recipientEmail.trim().toLowerCase()},
+          options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  // ------------------------------------------------------- set your price
+
+  /// GET /offers/mine -> { offers: [...] }
+  static Future<List<Map<String, dynamic>>> myOffers() async {
+    try {
+      final res = await _dio.get('/offers/mine', options: _authOptions);
+      final list = (res.data['offers'] as List?) ?? [];
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /offers
+  static Future<Map<String, dynamic>> createOffer({
+    required String eventId,
+    required String tierName,
+    String? sectionName,
+    required int maxPriceCents,
+    required int quantity,
+  }) async {
+    try {
+      final res = await _dio.post('/offers',
+          data: {
+            'eventId': eventId,
+            'tierName': tierName,
+            if (sectionName != null && sectionName.isNotEmpty)
+              'sectionName': sectionName,
+            'maxPriceCents': maxPriceCents,
+            'quantity': quantity,
+          },
+          options: _authOptions);
+      return Map<String, dynamic>.from(
+          res.data['offer'] as Map? ?? res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// DELETE /offers/:id — cancel my ACTIVE offer.
+  static Future<void> cancelOffer(String offerId) async {
+    try {
+      await _dio.delete('/offers/$offerId', options: _authOptions);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
   // ------------------------------------------------------ venue (creator)
 
   /// PATCH /events/:id { venueLayout } — set seated-event sections.
@@ -541,6 +604,7 @@ class ApiService {
   /// POST /events/:id/broadcasts — creator attendee message.
   static Future<Map<String, dynamic>> createBroadcast(
     String eventId, {
+    String? audience,
     required String message,
     Map<String, dynamic>? audienceFilter,
     Map<String, bool>? channels,
@@ -549,11 +613,25 @@ class ApiService {
       final res = await _dio.post('/events/$eventId/broadcasts',
           data: {
             'message': message,
+            if (audience != null && audience.isNotEmpty) 'audience': audience,
             if (audienceFilter != null) 'audienceFilter': audienceFilter,
             if (channels != null) 'channels': channels,
           },
           options: _authOptions);
       return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /events/:id/broadcasts — creator's sent attendee messages.
+  static Future<List<Map<String, dynamic>>> eventBroadcasts(
+      String eventId) async {
+    try {
+      final res =
+          await _dio.get('/events/$eventId/broadcasts', options: _authOptions);
+      final list = (res.data['broadcasts'] as List?) ?? [];
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     } on DioException catch (e) {
       _throw(e);
     }

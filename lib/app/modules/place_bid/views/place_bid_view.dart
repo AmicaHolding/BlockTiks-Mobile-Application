@@ -29,7 +29,7 @@ class PlaceBidView extends GetView<PlaceBidController> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Auto-buy is not connected yet. Active resale listings can be bought from the event page.',
+                  'Set a max price and we will match you when a resale listing hits it.',
                   textAlign: TextAlign.center,
                   style: sahraText(color: ColorConstant.nightMuted, size: 12),
                 ),

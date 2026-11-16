@@ -176,7 +176,7 @@ class AppPages {
     ),
     GetPage(
       name: _Paths.OTP_VERIFICATION_SCREEN,
-      page: () => const OtpVerificationScreenView(),
+      page: () => OtpVerificationScreenView(),
       binding: OtpVerificationScreenBinding(),
     ),
     GetPage(
