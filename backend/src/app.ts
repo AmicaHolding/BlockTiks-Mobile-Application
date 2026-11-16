@@ -4,8 +4,10 @@ import Fastify from 'fastify';
 import { env } from './env';
 import { authPlugin } from './plugins/auth';
 import { authRoutes } from './routes/auth';
+import { doorRoutes } from './routes/door';
 import { eventRoutes } from './routes/events';
 import { healthRoutes } from './routes/health';
+import { listingRoutes } from './routes/listings';
 import { orderRoutes } from './routes/orders';
 import { ticketRoutes } from './routes/tickets';
 
@@ -41,6 +43,8 @@ export function buildApp() {
   void app.register(eventRoutes);
   void app.register(orderRoutes);
   void app.register(ticketRoutes);
+  void app.register(doorRoutes);
+  void app.register(listingRoutes);
 
   app.setErrorHandler((error: { statusCode?: number; message?: string }, _request, reply) => {
     const statusCode = error.statusCode ?? 500;

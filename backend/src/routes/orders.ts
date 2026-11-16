@@ -1,15 +1,22 @@
 import type { FastifyInstance } from 'fastify';
 import {
+    claimListingForCheckout,
     createPendingOrder,
     fulfillOrder,
     getEvent,
+    getListing,
     getOrder,
     getOrderIdByPaymentIntent,
     getPromoByCode,
+    getSection,
+    getTicketByCode,
     getTier,
     listUserOrders,
+    releaseListingCheckout,
     releaseOrder,
+    releaseSectionHold,
     releaseTierHold,
+    reserveSectionSeats,
     reserveTickets,
     setOrderPaymentIntent,
     type Order
@@ -21,6 +28,11 @@ export async function orderRoutes(app: FastifyInstance) {
   // POST /orders/intent — create a pending order + Stripe PaymentIntent.
   // The client confirms the PaymentIntent with the Stripe SDK/payment sheet,
   // then the webhook marks the order PAID and issues tickets.
+  //
+  // Three purchase kinds:
+  //   { eventId, tierId, quantity, promoCode? }  — GA tier tickets
+  //   { eventId, sectionId, quantity }           — seated venue sections
+  //   { listingCode }                            — resale ticket transfer
   app.post(
     '/orders/intent',
     {
@@ -28,10 +40,11 @@ export async function orderRoutes(app: FastifyInstance) {
       schema: {
         body: {
           type: 'object',
-          required: ['eventId', 'tierId', 'quantity'],
           properties: {
             eventId: { type: 'string' },
             tierId: { type: 'string' },
+            sectionId: { type: 'string' },
+            listingCode: { type: 'string' },
             quantity: { type: 'integer', minimum: 1, maximum: 8 },
             promoCode: { type: 'string' },
           },
@@ -39,20 +52,168 @@ export async function orderRoutes(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { eventId, tierId, quantity, promoCode } = request.body as {
-        eventId: string;
-        tierId: string;
-        quantity: number;
+      const body = request.body as {
+        eventId?: string;
+        tierId?: string;
+        sectionId?: string;
+        listingCode?: string;
+        quantity?: number;
         promoCode?: string;
       };
 
-      const eventResult = await getEvent(eventId);
-      const tier = eventResult?.tiers.find((t) => t.id === tierId) ?? (await getTier(tierId, eventId));
-      if (!eventResult || !tier || tier.eventId !== eventId) {
-        return reply.status(404).send({ message: 'Ticket tier not found' });
+      const feesFor = (cents: number) =>
+        Math.round((cents * env.platformFeePercent) / 100);
+      const expiresAtFor = () =>
+        new Date(Date.now() + env.reservationTtlMinutes * 60_000).toISOString();
+
+      // Shared tail: create the PENDING order, open the Stripe intent, and
+      // compensate the hold if anything after the hold fails.
+      const checkout = async (opts: {
+        kind?: 'TICKET' | 'RESALE' | 'SEATED';
+        eventId: string;
+        listingCode?: string;
+        items: Parameters<typeof createPendingOrder>[0]['items'];
+        subtotalCents: number;
+        discountCents?: number;
+        totalCents: number;
+        promoCodeText?: string;
+        compensate: () => Promise<void>;
+      }) => {
+        const discountCents = opts.discountCents ?? 0;
+        const feesCents = opts.totalCents - opts.subtotalCents + discountCents;
+        let order: Order | undefined;
+        try {
+          order = await createPendingOrder({
+            userId: request.user.sub,
+            eventId: opts.eventId,
+            kind: opts.kind,
+            listingCode: opts.listingCode,
+            items: opts.items,
+            subtotalCents: opts.subtotalCents,
+            discountCents,
+            feesCents,
+            totalCents: opts.totalCents,
+            promoCodeText: opts.promoCodeText,
+            expiresAt: expiresAtFor(),
+          });
+
+          const stripe = getStripe();
+          const paymentIntent = await stripe.paymentIntents.create(
+            {
+              amount: opts.totalCents,
+              currency: 'usd',
+              automatic_payment_methods: { enabled: true },
+              metadata: {
+                orderId: order.id,
+                userId: request.user.sub,
+                eventId: opts.eventId,
+                kind: opts.kind ?? 'TICKET',
+              },
+            },
+            { idempotencyKey: `order-${order.id}` }
+          );
+
+          await setOrderPaymentIntent(order.id, paymentIntent.id);
+
+          return {
+            orderId: order.id,
+            clientSecret: paymentIntent.client_secret,
+            amountCents: opts.totalCents,
+            subtotalCents: opts.subtotalCents,
+            discountCents,
+            feesCents,
+          };
+        } catch (err) {
+          if (order) await releaseOrder(order.id, 'CANCELLED');
+          else await opts.compensate();
+          throw err;
+        }
+      };
+
+      // ---- RESALE: buy a listed ticket ----
+      if (body.listingCode) {
+        const listing = await getListing(body.listingCode);
+        if (!listing || listing.status !== 'ACTIVE') {
+          return reply.status(404).send({ message: 'Listing not found' });
+        }
+        if (listing.sellerId === request.user.sub) {
+          return reply.status(400).send({ message: 'Cannot buy your own listing' });
+        }
+        const ticket = await getTicketByCode(body.listingCode);
+        if (!ticket || ticket.status !== 'VALID' || ticket.userId !== listing.sellerId) {
+          return reply.status(409).send({ message: 'This ticket is no longer available' });
+        }
+        const claimed = await claimListingForCheckout(body.listingCode);
+        if (!claimed) {
+          return reply.status(409).send({ message: 'This ticket was just sold' });
+        }
+        const totalCents = listing.priceCents + feesFor(listing.priceCents);
+        return checkout({
+          kind: 'RESALE',
+          eventId: listing.eventId,
+          listingCode: body.listingCode,
+          items: [
+            {
+              ticketCode: body.listingCode,
+              tierName: listing.tierName,
+              quantity: 1,
+              unitPriceCents: listing.priceCents,
+            },
+          ],
+          subtotalCents: listing.priceCents,
+          totalCents,
+          compensate: () => releaseListingCheckout(body.listingCode!),
+        });
       }
-      if (eventResult.event.status !== 'PUBLISHED') {
+
+      if (!body.eventId) {
+        return reply.status(400).send({ message: 'eventId is required' });
+      }
+      const { eventId, quantity = 1 } = body;
+
+      const eventResult = await getEvent(eventId);
+      if (!eventResult || eventResult.event.status !== 'PUBLISHED') {
         return reply.status(400).send({ message: 'Event is not on sale' });
+      }
+
+      // ---- SEATED: reserve seats in a venue section ----
+      if (body.sectionId) {
+        const section = await getSection(eventId, body.sectionId);
+        if (!section) {
+          return reply.status(404).send({ message: 'Section not found' });
+        }
+        const held = await reserveSectionSeats(eventId, body.sectionId, quantity);
+        if (!held) {
+          return reply.status(409).send({ message: 'Not enough seats remaining' });
+        }
+        const subtotalCents = section.priceCents * quantity;
+        const totalCents = subtotalCents + feesFor(subtotalCents);
+        return checkout({
+          kind: 'SEATED',
+          eventId,
+          items: [
+            {
+              sectionId: body.sectionId,
+              sectionName: section.name,
+              tierName: section.name,
+              quantity,
+              unitPriceCents: section.priceCents,
+            },
+          ],
+          subtotalCents,
+          totalCents,
+          compensate: () => releaseSectionHold(eventId, body.sectionId!, quantity),
+        });
+      }
+
+      // ---- GA TIER: existing flow ----
+      if (!body.tierId) {
+        return reply.status(400).send({ message: 'tierId or sectionId is required' });
+      }
+      const { tierId, promoCode } = body;
+      const tier = eventResult.tiers.find((t) => t.id === tierId) ?? (await getTier(tierId, eventId));
+      if (!tier || tier.eventId !== eventId) {
+        return reply.status(404).send({ message: 'Ticket tier not found' });
       }
       if (tier.sold + quantity > tier.quantity) {
         return reply.status(409).send({ message: 'Not enough tickets remaining' });
@@ -93,52 +254,22 @@ export async function orderRoutes(app: FastifyInstance) {
         return reply.status(409).send({ message: 'Not enough tickets remaining' });
       }
 
-      const expiresAt = new Date(
-        Date.now() + env.reservationTtlMinutes * 60_000
-      ).toISOString();
-      let order: Order | undefined;
-      try {
-        order = await createPendingOrder({
-          userId: request.user.sub,
-          eventId,
-          tier,
-          quantity,
-          subtotalCents,
-          discountCents,
-          feesCents,
-          totalCents,
-          promoCodeText,
-          expiresAt,
-        });
-
-        const stripe = getStripe();
-        const paymentIntent = await stripe.paymentIntents.create(
+      return checkout({
+        eventId,
+        items: [
           {
-            amount: totalCents,
-            currency: 'usd',
-            automatic_payment_methods: { enabled: true },
-            metadata: { orderId: order.id, userId: request.user.sub, eventId },
+            tierId,
+            tierName: tier.name,
+            quantity,
+            unitPriceCents: tier.priceCents,
           },
-          { idempotencyKey: `order-${order.id}` }
-        );
-
-        await setOrderPaymentIntent(order.id, paymentIntent.id);
-
-        return {
-          orderId: order.id,
-          clientSecret: paymentIntent.client_secret,
-          amountCents: totalCents,
-          subtotalCents,
-          discountCents,
-          feesCents,
-        };
-      } catch (err) {
-        // Compensate: give the hold back. If the order record exists, release
-        // through it (clears the expiry index too); otherwise credit the tier.
-        if (order) await releaseOrder(order.id, 'CANCELLED');
-        else await releaseTierHold(eventId, tierId, quantity);
-        throw err;
-      }
+        ],
+        subtotalCents,
+        discountCents,
+        totalCents,
+        promoCodeText,
+        compensate: () => releaseTierHold(eventId, tierId, quantity),
+      });
     }
   );
 

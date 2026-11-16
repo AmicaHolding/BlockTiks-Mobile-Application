@@ -29,6 +29,7 @@ import {
     BatchGetCommand,
     DeleteCommand,
     GetCommand,
+    PutCommand,
     QueryCommand,
     TransactWriteCommand,
     UpdateCommand,
@@ -56,6 +57,13 @@ const eventFeedSk = (startsAt: string) => `STARTS#${startsAt}`;
 const creatorPk = (creatorId: string) => `CREATOR#${creatorId}`;
 const userOrdersPk = (userId: string) => `USER#${userId}#ORDERS`;
 const userTicketsPk = (userId: string) => `USER#${userId}#TICKETS`;
+const userListingsPk = (userId: string) => `USER#${userId}#LISTINGS`;
+// GSI1 feed of every ticket issued for an event — powers the creator guest
+// list / door check-in. Distinct namespace from EVENTS#PUBLISHED.
+const eventTicketsGsiPk = (eventId: string) => `EVENTTIX#${eventId}`;
+const ACTIVE_LISTINGS_GSI_PK = 'LISTINGS#ACTIVE';
+const listingGsiSk = (eventId: string, iso: string) => `EVENT#${eventId}#${iso}`;
+const listingPk = (ticketCode: string) => `LISTING#${ticketCode}`;
 const createdSk = (iso: string, id: string) => `CREATED#${iso}#${id}`;
 
 // ---------- types ----------
@@ -85,6 +93,17 @@ export interface TicketTier {
   saleEndsAt?: string;
 }
 
+export interface VenueSection {
+  id: string;
+  name: string;
+  priceCents: number;
+  capacity: number;
+}
+
+export interface VenueLayout {
+  sections: VenueSection[];
+}
+
 export interface EventItem {
   id: string;
   creatorId: string;
@@ -97,6 +116,7 @@ export interface EventItem {
   address?: string;
   imageUrl?: string;
   status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
+  venueLayout?: VenueLayout;
   createdAt: string;
 }
 
@@ -112,16 +132,25 @@ export interface PromoCode {
 }
 
 export interface OrderItem {
-  tierId: string;
+  tierId?: string;
   tierName: string;
   quantity: number;
   unitPriceCents: number;
+  // Seated orders: which venue section the tickets are for.
+  sectionId?: string;
+  sectionName?: string;
+  // Resale orders: the ticket code being transferred.
+  ticketCode?: string;
 }
+
+export type OrderKind = 'TICKET' | 'RESALE' | 'SEATED';
 
 export interface Order {
   id: string;
   userId: string;
   eventId: string;
+  kind?: OrderKind; // absent on legacy rows = TICKET
+  listingCode?: string; // RESALE: ticket code being bought
   status: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'CANCELLED';
   subtotalCents: number;
   discountCents: number;
@@ -142,8 +171,10 @@ export interface Ticket {
   eventTitle: string;
   eventStartsAt: string;
   eventLocation: string;
-  tierId: string;
+  tierId?: string; // absent on seated tickets (sectionName used instead)
   tierName: string;
+  sectionName?: string; // seated events
+  seatLabel?: string; // reserved for seat-level booking
   userId: string;
   status: 'VALID' | 'USED' | 'TRANSFERRED' | 'REFUNDED';
   checkedInAt?: string;
@@ -361,7 +392,7 @@ export async function createEventWithTiers(input: {
   return { event, tiers };
 }
 
-async function getEventMeta(id: string): Promise<EventItem | null> {
+export async function getEventMeta(id: string): Promise<EventItem | null> {
   const res = await docClient.send(
     new GetCommand({ TableName: T(), Key: { pk: eventPk(id), sk: 'METADATA' } })
   );
@@ -507,8 +538,9 @@ export async function getPromoByCode(code: string): Promise<PromoCode | null> {
 export async function createPendingOrder(input: {
   userId: string;
   eventId: string;
-  tier: TicketTier;
-  quantity: number;
+  kind?: OrderKind;
+  listingCode?: string;
+  items: OrderItem[];
   subtotalCents: number;
   discountCents: number;
   feesCents: number;
@@ -522,6 +554,8 @@ export async function createPendingOrder(input: {
     id,
     userId: input.userId,
     eventId: input.eventId,
+    kind: input.kind ?? 'TICKET',
+    listingCode: input.listingCode,
     status: 'PENDING',
     subtotalCents: input.subtotalCents,
     discountCents: input.discountCents,
@@ -546,19 +580,16 @@ export async function createPendingOrder(input: {
             },
           },
         },
-        {
+        ...input.items.map((item) => ({
           Put: {
             TableName: T(),
             Item: {
               pk: orderPk(id),
-              sk: `ITEM#${input.tier.id}`,
-              tierId: input.tier.id,
-              tierName: input.tier.name,
-              quantity: input.quantity,
-              unitPriceCents: input.tier.priceCents,
+              sk: `ITEM#${item.tierId ?? item.sectionId ?? item.ticketCode ?? item.tierName}`,
+              ...item,
             },
           },
-        },
+        })),
         // Expiry index — lets the sweeper find stale PENDING orders via GSI1.
         {
           Put: {
@@ -643,6 +674,19 @@ export async function releaseTierHold(eventId: string, tierId: string, quantity:
   );
 }
 
+// Credit held seats back to a venue section (order creation failed before
+// an order record existed).
+export async function releaseSectionHold(eventId: string, sectionId: string, quantity: number) {
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: eventPk(eventId), sk: `SECTION#${sectionId}` },
+      UpdateExpression: 'ADD available :qty',
+      ExpressionAttributeValues: { ':qty': quantity },
+    })
+  );
+}
+
 function expireIndexDelete(orderId: string) {
   return {
     Delete: {
@@ -677,15 +721,45 @@ export async function releaseOrder(
       },
     },
     expireIndexDelete(orderId),
-    ...items.map((item) => ({
+  ];
+
+  // Release whatever the order held: tier seats, venue-section seats, or a
+  // resale listing checkout claim. Only TICKET items carry tierId.
+  for (const item of items) {
+    if (item.tierId) {
+      transactItems.push({
+        Update: {
+          TableName: T(),
+          Key: { pk: eventPk(order.eventId), sk: `TIER#${item.tierId}` },
+          UpdateExpression: 'ADD available :qty',
+          ExpressionAttributeValues: { ':qty': item.quantity },
+        },
+      });
+    }
+    if (item.sectionId) {
+      transactItems.push({
+        Update: {
+          TableName: T(),
+          Key: { pk: eventPk(order.eventId), sk: `SECTION#${item.sectionId}` },
+          UpdateExpression: 'ADD available :qty',
+          ExpressionAttributeValues: { ':qty': item.quantity },
+        },
+      });
+    }
+  }
+  // RESALE orders claimed the listing (ACTIVE → CHECKOUT) at intent time.
+  if (order.kind === 'RESALE' && order.listingCode) {
+    transactItems.push({
       Update: {
         TableName: T(),
-        Key: { pk: eventPk(order.eventId), sk: `TIER#${item.tierId}` },
-        UpdateExpression: 'ADD available :qty',
-        ExpressionAttributeValues: { ':qty': item.quantity },
+        Key: { pk: listingPk(order.listingCode), sk: 'METADATA' },
+        UpdateExpression: 'SET #status = :active',
+        ConditionExpression: '#status = :checkout',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':active': 'ACTIVE', ':checkout': 'CHECKOUT' },
       },
-    })),
-  ];
+    });
+  }
 
   try {
     await docClient.send(new TransactWriteCommand({ TransactItems: transactItems }));
@@ -815,6 +889,8 @@ export async function fulfillOrder(orderId: string, paymentIntentId: string): Pr
   const order = await getOrderMeta(orderId);
   if (!order) return 'already';
   if (order.status !== 'PENDING') return 'already';
+  if (order.kind === 'RESALE') return fulfillResaleOrder(order, paymentIntentId);
+  if (order.kind === 'SEATED') return fulfillSeatedOrder(order, paymentIntentId);
 
   const [items, event] = await Promise.all([getOrderItems(orderId), getEventMeta(order.eventId)]);
   const createdAt = now();
@@ -869,24 +945,30 @@ export async function fulfillOrder(orderId: string, paymentIntentId: string): Pr
             eventLocation: event?.location ?? '',
             tierId: item.tierId,
             tierName: item.tierName,
+            sectionName: item.sectionName,
             userId: order.userId,
             status: 'VALID',
             createdAt,
             gsi2pk: userTicketsPk(order.userId),
             gsi2sk: createdSk(createdAt, code),
+            // GSI1: per-event ticket feed for guest lists / check-in.
+            gsi1pk: eventTicketsGsiPk(order.eventId),
+            gsi1sk: createdSk(createdAt, code),
           },
         },
       });
     }
     // bump sold count per tier
-    transactItems.push({
-      Update: {
-        TableName: T(),
-        Key: { pk: eventPk(order.eventId), sk: `TIER#${item.tierId}` },
-        UpdateExpression: 'ADD sold :qty',
-        ExpressionAttributeValues: { ':qty': item.quantity },
-      },
-    });
+    if (item.tierId) {
+      transactItems.push({
+        Update: {
+          TableName: T(),
+          Key: { pk: eventPk(order.eventId), sk: `TIER#${item.tierId}` },
+          UpdateExpression: 'ADD sold :qty',
+          ExpressionAttributeValues: { ':qty': item.quantity },
+        },
+      });
+    }
   }
 
   if (order.promoCodeText) {
@@ -926,4 +1008,538 @@ export async function listUserTickets(userId: string): Promise<Ticket[]> {
     const { pk, sk, gsi2pk, gsi2sk, ...rest } = item;
     return rest as unknown as Ticket;
   });
+}
+
+// ---------- door ops: ticket lookup, check-in, guest list ----------
+
+export async function getTicketByCode(code: string): Promise<Ticket | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: ticketPk(code), sk: 'METADATA' } })
+  );
+  if (!res.Item) return null;
+  const { pk, sk, gsi1pk, gsi1sk, gsi2pk, gsi2sk, ...rest } = res.Item as Record<string, unknown>;
+  return rest as unknown as Ticket;
+}
+
+export type CheckInResult =
+  | { result: 'OK'; ticket: Ticket }
+  | { result: 'ALREADY_USED'; ticket: Ticket }
+  | { result: 'WRONG_EVENT' }
+  | { result: 'NOT_FOUND' }
+  | { result: 'FORBIDDEN' };
+
+// Creator/admin scans a ticket code at the door. Atomic VALID → USED flip so
+// two scanners can't both get a green light.
+export async function checkInTicket(
+  eventId: string,
+  code: string,
+  actorId: string,
+  actorRole: string
+): Promise<CheckInResult> {
+  const event = await getEventMeta(eventId);
+  if (!event) return { result: 'NOT_FOUND' };
+  if (event.creatorId !== actorId && actorRole !== 'ADMIN') {
+    return { result: 'FORBIDDEN' };
+  }
+  const ticket = await getTicketByCode(code);
+  if (!ticket) return { result: 'NOT_FOUND' };
+  if (ticket.eventId !== eventId) return { result: 'WRONG_EVENT' };
+  if (ticket.status !== 'VALID') {
+    return { result: 'ALREADY_USED', ticket };
+  }
+  const checkedInAt = now();
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: ticketPk(code), sk: 'METADATA' },
+        UpdateExpression: 'SET #status = :used, checkedInAt = :at',
+        ConditionExpression: '#status = :valid',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':used': 'USED',
+          ':valid': 'VALID',
+          ':at': checkedInAt,
+        },
+      })
+    );
+    return { result: 'OK', ticket: { ...ticket, status: 'USED', checkedInAt } };
+  } catch (e) {
+    if (isConditionalCheck(e)) {
+      const fresh = await getTicketByCode(code);
+      return { result: 'ALREADY_USED', ticket: fresh ?? ticket };
+    }
+    throw e;
+  }
+}
+
+// Every ticket issued for an event, via the GSI1 EVENTTIX# feed written at
+// fulfillment. (Tickets issued before this index existed won't appear.)
+export async function listEventTickets(eventId: string): Promise<Ticket[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi1',
+      KeyConditionExpression: 'gsi1pk = :pk',
+      ExpressionAttributeValues: { ':pk': eventTicketsGsiPk(eventId) },
+      ScanIndexForward: true,
+      Limit: 1000,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[]).map((item) => {
+    const { pk, sk, gsi1pk, gsi1sk, gsi2pk, gsi2sk, ...rest } = item;
+    return rest as unknown as Ticket;
+  });
+}
+
+export interface EventGuest extends Ticket {
+  guestName: string;
+  guestEmail: string;
+}
+
+export async function listEventGuests(eventId: string): Promise<EventGuest[]> {
+  const tickets = await listEventTickets(eventId);
+  const userIds = [...new Set(tickets.map((t) => t.userId))];
+  const users = await batchGet<{ id: string; firstName?: string; lastName?: string; email?: string }>(
+    userIds.map((id) => ({ pk: userPk(id), sk: 'PROFILE' }))
+  );
+  const byId = new Map(users.map((u) => [u.id, u]));
+  return tickets.map((t) => {
+    const u = byId.get(t.userId);
+    const name = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
+    return {
+      ...t,
+      guestName: name || u?.email || 'Guest',
+      guestEmail: u?.email ?? '',
+    };
+  });
+}
+
+// ---------- resale listings ----------
+
+export interface Listing {
+  ticketCode: string;
+  sellerId: string;
+  eventId: string;
+  eventTitle: string;
+  eventStartsAt: string;
+  eventLocation: string;
+  tierName: string;
+  priceCents: number;
+  status: 'ACTIVE' | 'CHECKOUT' | 'SOLD' | 'CANCELLED';
+  buyerId?: string;
+  createdAt: string;
+}
+
+function stripKeys(item: Record<string, unknown>) {
+  const { pk, sk, gsi1pk, gsi1sk, gsi2pk, gsi2sk, ...rest } = item;
+  return rest;
+}
+
+export async function getListing(ticketCode: string): Promise<Listing | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: listingPk(ticketCode), sk: 'METADATA' } })
+  );
+  return res.Item ? (stripKeys(res.Item) as unknown as Listing) : null;
+}
+
+export class ListingError extends Error {}
+
+// List a VALID ticket for resale. One listing per ticket code (pk = code);
+// re-listing after SOLD/CANCELLED overwrites the record.
+export async function createListing(input: {
+  sellerId: string;
+  ticketCode: string;
+  priceCents: number;
+}): Promise<Listing> {
+  const ticket = await getTicketByCode(input.ticketCode);
+  if (!ticket) throw new ListingError('Ticket not found');
+  if (ticket.userId !== input.sellerId) throw new ListingError('Not your ticket');
+  if (ticket.status !== 'VALID') throw new ListingError('Ticket is not sellable');
+
+  const existing = await getListing(input.ticketCode);
+  if (existing && (existing.status === 'ACTIVE' || existing.status === 'CHECKOUT')) {
+    throw new ListingError('Ticket is already listed');
+  }
+
+  const createdAt = now();
+  const listing: Listing = {
+    ticketCode: input.ticketCode,
+    sellerId: input.sellerId,
+    eventId: ticket.eventId,
+    eventTitle: ticket.eventTitle,
+    eventStartsAt: ticket.eventStartsAt,
+    eventLocation: ticket.eventLocation,
+    tierName: ticket.tierName,
+    priceCents: input.priceCents,
+    status: 'ACTIVE',
+    createdAt,
+  };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: listingPk(input.ticketCode),
+        sk: 'METADATA',
+        ...listing,
+        gsi1pk: ACTIVE_LISTINGS_GSI_PK,
+        gsi1sk: listingGsiSk(ticket.eventId, createdAt),
+        gsi2pk: userListingsPk(input.sellerId),
+        gsi2sk: createdSk(createdAt, input.ticketCode),
+      },
+      // Allow overwrite only of terminal states.
+      ConditionExpression:
+        'attribute_not_exists(pk) OR #status = :sold OR #status = :cancelled',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: { ':sold': 'SOLD', ':cancelled': 'CANCELLED' },
+    })
+  );
+  return listing;
+}
+
+// Active listings, optionally scoped to one event (GSI1 sk prefix).
+export async function listActiveListings(eventId?: string): Promise<Listing[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi1',
+      KeyConditionExpression: eventId
+        ? 'gsi1pk = :pk AND begins_with(gsi1sk, :prefix)'
+        : 'gsi1pk = :pk',
+      ExpressionAttributeValues: eventId
+        ? { ':pk': ACTIVE_LISTINGS_GSI_PK, ':prefix': `EVENT#${eventId}#` }
+        : { ':pk': ACTIVE_LISTINGS_GSI_PK },
+      ScanIndexForward: false,
+      Limit: 200,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[])
+    .map((item) => stripKeys(item) as unknown as Listing)
+    .filter((l) => l.status === 'ACTIVE');
+}
+
+export async function listSellerListings(sellerId: string): Promise<Listing[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk',
+      ExpressionAttributeValues: { ':pk': userListingsPk(sellerId) },
+      ScanIndexForward: false,
+      Limit: 200,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[]).map(
+    (item) => stripKeys(item) as unknown as Listing
+  );
+}
+
+// Atomically claim a listing for checkout: ACTIVE → CHECKOUT. Returns false
+// when it's already listed-sold/claimed or missing.
+export async function claimListingForCheckout(ticketCode: string): Promise<boolean> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: listingPk(ticketCode), sk: 'METADATA' },
+        UpdateExpression: 'SET #status = :checkout',
+        ConditionExpression: '#status = :active',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':checkout': 'CHECKOUT', ':active': 'ACTIVE' },
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+}
+
+// Release a CHECKOUT claim back to ACTIVE (order creation failed before an
+// order record existed, so releaseOrder never ran).
+export async function releaseListingCheckout(ticketCode: string): Promise<void> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: listingPk(ticketCode), sk: 'METADATA' },
+        UpdateExpression: 'SET #status = :active',
+        ConditionExpression: '#status = :checkout',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':active': 'ACTIVE', ':checkout': 'CHECKOUT' },
+      })
+    );
+  } catch (e) {
+    if (!isConditionalCheck(e)) throw e;
+  }
+}
+
+export async function cancelListing(sellerId: string, ticketCode: string): Promise<'cancelled' | 'not_found' | 'forbidden'> {
+  const listing = await getListing(ticketCode);
+  if (!listing) return 'not_found';
+  if (listing.sellerId !== sellerId) return 'forbidden';
+  if (listing.status !== 'ACTIVE') return 'not_found';
+  await docClient.send(
+    new DeleteCommand({ TableName: T(), Key: { pk: listingPk(ticketCode), sk: 'METADATA' } })
+  );
+  return 'cancelled';
+}
+
+// Fulfill a paid resale order: listing CHECKOUT → SOLD, ticket ownership
+// moves to the buyer (stays VALID), order → PAID. One transaction, so a
+// double-fulfill or a stale listing fails cleanly.
+async function fulfillResaleOrder(
+  order: Order,
+  paymentIntentId: string
+): Promise<'fulfilled' | 'already'> {
+  if (!order.listingCode) return 'already';
+  const createdAt = now();
+  try {
+    await docClient.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Update: {
+              TableName: T(),
+              Key: { pk: orderPk(order.id), sk: 'METADATA' },
+              UpdateExpression:
+                'SET #status = :paid, paidAt = :paidAt, stripePaymentIntentId = :pi, ticketCodes = :codes',
+              ConditionExpression: '#status = :pending',
+              ExpressionAttributeNames: { '#status': 'status' },
+              ExpressionAttributeValues: {
+                ':paid': 'PAID',
+                ':pending': 'PENDING',
+                ':paidAt': createdAt,
+                ':pi': paymentIntentId,
+                ':codes': [order.listingCode],
+              },
+            },
+          },
+          expireIndexDelete(order.id),
+          {
+            Update: {
+              TableName: T(),
+              Key: { pk: listingPk(order.listingCode), sk: 'METADATA' },
+              UpdateExpression: 'SET #status = :sold, buyerId = :buyer',
+              ConditionExpression: '#status IN (:checkout, :active)',
+              ExpressionAttributeNames: { '#status': 'status' },
+              ExpressionAttributeValues: {
+                ':sold': 'SOLD',
+                ':checkout': 'CHECKOUT',
+                ':active': 'ACTIVE',
+                ':buyer': order.userId,
+              },
+            },
+          },
+          {
+            // Transfer the ticket: new owner + move it between the per-user
+            // GSI2 feeds so it appears in the buyer's wallet.
+            Update: {
+              TableName: T(),
+              Key: { pk: ticketPk(order.listingCode), sk: 'METADATA' },
+              UpdateExpression:
+                'SET userId = :buyer, gsi2pk = :ticketsPk, gsi2sk = :ticketsSk',
+              ConditionExpression: '#status = :valid',
+              ExpressionAttributeNames: { '#status': 'status' },
+              ExpressionAttributeValues: {
+                ':buyer': order.userId,
+                ':ticketsPk': userTicketsPk(order.userId),
+                ':ticketsSk': createdSk(createdAt, order.listingCode),
+                ':valid': 'VALID',
+              },
+            },
+          },
+        ],
+      })
+    );
+    return 'fulfilled';
+  } catch (e) {
+    if (isConditionalCheck(e)) return 'already';
+    throw e;
+  }
+}
+
+// ---------- venue layouts & seated sections ----------
+
+// Section inventory items live at EVENT#<id> / SECTION#<sectionId> with the
+// same sold/available counters as tiers.
+export interface SectionInventory {
+  sectionId: string;
+  name: string;
+  priceCents: number;
+  capacity: number;
+  sold: number;
+  available?: number;
+}
+
+export async function getSection(eventId: string, sectionId: string): Promise<SectionInventory | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: eventPk(eventId), sk: `SECTION#${sectionId}` } })
+  );
+  if (!res.Item) return null;
+  const { pk, sk, ...rest } = res.Item as Record<string, unknown>;
+  return { sectionId, ...rest } as unknown as SectionInventory;
+}
+
+export async function listSections(eventId: string): Promise<SectionInventory[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :prefix)',
+      ExpressionAttributeValues: { ':pk': eventPk(eventId), ':prefix': 'SECTION#' },
+    })
+  );
+  return (res.Items ?? []).map((item) => {
+    const { pk, sk, ...rest } = item as Record<string, unknown>;
+    return { sectionId: (sk as string).slice(8), ...rest } as unknown as SectionInventory;
+  });
+}
+
+// Creator sets/replaces the venue layout. Upserts SECTION# inventory rows so
+// section availability counters exist before the first order.
+export async function setVenueLayout(
+  eventId: string,
+  actorId: string,
+  actorRole: string,
+  layout: VenueLayout
+): Promise<EventItem | null> {
+  const event = await getEventMeta(eventId);
+  if (!event) return null;
+  if (event.creatorId !== actorId && actorRole !== 'ADMIN') {
+    throw new ConditionFailedError('Not the event creator');
+  }
+  const transactItems: TransactWriteCommandInput['TransactItems'] = [
+    {
+      Update: {
+        TableName: T(),
+        Key: { pk: eventPk(eventId), sk: 'METADATA' },
+        UpdateExpression: 'SET venueLayout = :layout',
+        ExpressionAttributeValues: { ':layout': layout },
+      },
+    },
+    ...layout.sections.map((s) => ({
+      Put: {
+        TableName: T(),
+        Item: {
+          pk: eventPk(eventId),
+          sk: `SECTION#${s.id}`,
+          sectionId: s.id,
+          name: s.name,
+          priceCents: s.priceCents,
+          capacity: s.capacity,
+          sold: 0,
+          available: s.capacity,
+        },
+      },
+    })),
+  ];
+  await docClient.send(new TransactWriteCommand({ TransactItems: transactItems }));
+  return { ...event, venueLayout: layout };
+}
+
+export async function reserveSectionSeats(
+  eventId: string,
+  sectionId: string,
+  quantity: number
+): Promise<boolean> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: eventPk(eventId), sk: `SECTION#${sectionId}` },
+        UpdateExpression: 'ADD available :neg',
+        ConditionExpression: 'available >= :qty',
+        ExpressionAttributeValues: { ':neg': -quantity, ':qty': quantity },
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+}
+
+// Fulfill a paid seated order: bump section sold counters and issue tickets
+// stamped with the section name.
+async function fulfillSeatedOrder(
+  order: Order,
+  paymentIntentId: string
+): Promise<'fulfilled' | 'already'> {
+  const [items, event] = await Promise.all([getOrderItems(order.id), getEventMeta(order.eventId)]);
+  const createdAt = now();
+
+  const ticketCodes: string[] = [];
+  const ticketPuts: TransactWriteCommandInput['TransactItems'] = [];
+  for (const item of items) {
+    for (let i = 0; i < item.quantity; i++) {
+      const code = `BT-${order.id.replace(/-/g, '').slice(0, 6).toUpperCase()}-${ticketCodes.length + 1}-${randomUUID().slice(0, 6).toUpperCase()}`;
+      ticketCodes.push(code);
+      ticketPuts.push({
+        Put: {
+          TableName: T(),
+          Item: {
+            pk: ticketPk(code),
+            sk: 'METADATA',
+            code,
+            orderId: order.id,
+            eventId: order.eventId,
+            eventTitle: event?.title ?? '',
+            eventStartsAt: event?.startsAt ?? '',
+            eventLocation: event?.location ?? '',
+            tierName: item.sectionName ?? item.tierName,
+            sectionName: item.sectionName,
+            userId: order.userId,
+            status: 'VALID',
+            createdAt,
+            gsi2pk: userTicketsPk(order.userId),
+            gsi2sk: createdSk(createdAt, code),
+            gsi1pk: eventTicketsGsiPk(order.eventId),
+            gsi1sk: createdSk(createdAt, code),
+          },
+        },
+      });
+    }
+    if (item.sectionId) {
+      ticketPuts.push({
+        Update: {
+          TableName: T(),
+          Key: { pk: eventPk(order.eventId), sk: `SECTION#${item.sectionId}` },
+          UpdateExpression: 'ADD sold :qty',
+          ExpressionAttributeValues: { ':qty': item.quantity },
+        },
+      });
+    }
+  }
+
+  try {
+    await docClient.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Update: {
+              TableName: T(),
+              Key: { pk: orderPk(order.id), sk: 'METADATA' },
+              UpdateExpression:
+                'SET #status = :paid, paidAt = :paidAt, stripePaymentIntentId = :pi, ticketCodes = :codes',
+              ConditionExpression: '#status = :pending',
+              ExpressionAttributeNames: { '#status': 'status' },
+              ExpressionAttributeValues: {
+                ':paid': 'PAID',
+                ':pending': 'PENDING',
+                ':paidAt': createdAt,
+                ':pi': paymentIntentId,
+                ':codes': ticketCodes,
+              },
+            },
+          },
+          expireIndexDelete(order.id),
+          ...ticketPuts,
+        ],
+      })
+    );
+    return 'fulfilled';
+  } catch (e) {
+    if (isConditionalCheck(e)) return 'already';
+    throw e;
+  }
 }

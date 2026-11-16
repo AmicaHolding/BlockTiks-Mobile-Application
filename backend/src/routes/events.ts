@@ -5,7 +5,10 @@ import {
     getEvent,
     listCreatorEvents,
     listPublishedEvents,
+    listSections,
     publishEvent,
+    setVenueLayout,
+    type VenueLayout,
 } from '../db';
 
 export async function eventRoutes(app: FastifyInstance) {
@@ -45,11 +48,16 @@ export async function eventRoutes(app: FastifyInstance) {
     return { events };
   });
 
-  // GET /events/:id — event detail with tiers
+  // GET /events/:id — event detail with tiers (+ venue sections when the
+  // organizer configured a layout)
   app.get('/events/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const result = await getEvent(id);
     if (!result) return reply.status(404).send({ message: 'Event not found' });
+    const sections = result.event.venueLayout
+      ? await listSections(id)
+      : [];
+    const sectionById = new Map(sections.map((s) => [s.sectionId, s]));
     return {
       event: {
         ...result.event,
@@ -64,9 +72,70 @@ export async function eventRoutes(app: FastifyInstance) {
           available: t.available ?? t.quantity - t.sold,
           remaining: Math.max(0, t.available ?? t.quantity - t.sold),
         })),
+        // Live availability per venue section, merged onto the layout.
+        venueSections: (result.event.venueLayout?.sections ?? []).map((s) => {
+          const inv = sectionById.get(s.id);
+          return {
+            ...s,
+            sold: inv?.sold ?? 0,
+            available: inv?.available ?? s.capacity,
+            remaining: Math.max(0, inv?.available ?? s.capacity),
+          };
+        }),
       },
     };
   });
+
+  // PATCH /events/:id — creator updates venue layout (seated events).
+  app.patch(
+    '/events/:id',
+    {
+      preHandler: app.authenticate,
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            venueLayout: {
+              type: 'object',
+              required: ['sections'],
+              properties: {
+                sections: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    required: ['id', 'name', 'priceCents', 'capacity'],
+                    properties: {
+                      id: { type: 'string' },
+                      name: { type: 'string' },
+                      priceCents: { type: 'integer', minimum: 0 },
+                      capacity: { type: 'integer', minimum: 1 },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const { venueLayout } = request.body as { venueLayout?: VenueLayout };
+      if (!venueLayout) {
+        return reply.status(400).send({ message: 'venueLayout is required' });
+      }
+      try {
+        const event = await setVenueLayout(id, request.user.sub, request.user.role, venueLayout);
+        if (!event) return reply.status(404).send({ message: 'Event not found' });
+        return { event };
+      } catch (e) {
+        if (e instanceof ConditionFailedError) {
+          return reply.status(403).send({ message: e.message });
+        }
+        throw e;
+      }
+    }
+  );
 
   // POST /events — creator creates an event (starts as DRAFT)
   app.post(
