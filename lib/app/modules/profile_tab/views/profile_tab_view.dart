@@ -22,9 +22,6 @@ class ProfileTabView extends GetView<ProfileTabController> {
               padding: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
               child: Text('Your next events will appear here.',
                   style: TextStyle(color: ColorConstant.nightMuted))),
-          const SahraSmallLabel('Following'),
-          _settingRow('Following',
-              onTap: () => Get.toNamed(Routes.FOLLOW_FOLLOWING)),
           const SahraSmallLabel('Account'),
           _settingRow('Edit profile & settings',
               onTap: () => Get.toNamed(Routes.PROFILE_SETTINGS)),
@@ -41,9 +38,7 @@ class ProfileTabView extends GetView<ProfileTabController> {
           _settingRow('Payment methods',
               onTap: () => Get.toNamed(Routes.PAYMENT_OPTIONS)),
           _settingRow('Promo codes',
-              onTap: () => Get.toNamed(Constants.isUserCreator
-                  ? Routes.CREATOR_PROMO_CODE
-                  : Routes.PROMO_CODES)),
+              onTap: () => Get.toNamed(Routes.PROMO_CODES)),
           const SahraSmallLabel('Support'),
           _settingRow('Help & FAQs', onTap: () => Get.toNamed(Routes.FAQS)),
           _settingRow('Invite friends',

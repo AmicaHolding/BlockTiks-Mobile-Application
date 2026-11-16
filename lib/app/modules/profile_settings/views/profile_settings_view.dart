@@ -75,9 +75,7 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
                 icon: Icons.local_offer_outlined,
                 title: 'Promo codes',
                 subtitle: 'Redeem or manage your codes',
-                onTap: () => Get.toNamed(Constants.isUserCreator
-                    ? Routes.CREATOR_PROMO_CODE
-                    : Routes.PROMO_CODES),
+                onTap: () => Get.toNamed(Routes.PROMO_CODES),
               ),
               _tile(
                 icon: Icons.card_giftcard_outlined,
@@ -92,12 +90,6 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
                 title: 'Help & FAQs',
                 subtitle: 'Tickets, resale, payments and account',
                 onTap: () => Get.toNamed(Routes.FAQS),
-              ),
-              _tile(
-                icon: Icons.settings_outlined,
-                title: 'Preferences',
-                subtitle: 'Language, theme and app settings',
-                onTap: () => Get.toNamed(Routes.SETTINGS),
               ),
             ]),
             const SizedBox(height: 18),

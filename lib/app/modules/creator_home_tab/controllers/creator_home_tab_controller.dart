@@ -2,6 +2,7 @@ import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/custom_divider.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/data/widgets/media_selection_tile.dart';
+import 'package:block_tix/app/data/widgets/web_handoff_sheet.dart';
 import 'package:block_tix/app/services/api_service.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -44,7 +45,9 @@ class CreatorHomeTabController extends GetxController {
   /// Drafts, cancelled/completed events and published events in the past.
   List<Map<String, dynamic>> get pastEvents {
     final upcomingIds = upcomingEvents.map((e) => e['id'].toString()).toSet();
-    return events.where((e) => !upcomingIds.contains(e['id'].toString())).toList();
+    return events
+        .where((e) => !upcomingIds.contains(e['id'].toString()))
+        .toList();
   }
 
   static DateTime? eventStartsAt(Map<String, dynamic> e) => _startsAt(e);
@@ -69,9 +72,9 @@ class CreatorHomeTabController extends GetxController {
       context: ctx,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(14),
-            topRight: Radius.circular(14),
-          )),
+        topLeft: Radius.circular(14),
+        topRight: Radius.circular(14),
+      )),
       backgroundColor: Colors.transparent,
       builder: (BuildContext bc) {
         return SafeArea(
@@ -108,9 +111,9 @@ class CreatorHomeTabController extends GetxController {
                     ),
                     const CustomDivider(),
                     GestureDetector(
-                      onTap: (){
+                      onTap: () {
                         Get.back();
-                        Get.toNamed(Routes.CREATE_EVENT,arguments: {Constants.paramEdit : true});
+                        WebHandoffSheet.show(feature: 'Editing events');
                       },
                       child: Container(
                         width: size.width,
@@ -151,9 +154,9 @@ class CreatorHomeTabController extends GetxController {
       context: ctx,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(14),
-            topRight: Radius.circular(14),
-          )),
+        topLeft: Radius.circular(14),
+        topRight: Radius.circular(14),
+      )),
       backgroundColor: Colors.transparent,
       builder: (BuildContext bc) {
         return SafeArea(
@@ -190,9 +193,9 @@ class CreatorHomeTabController extends GetxController {
                     ),
                     const CustomDivider(),
                     GestureDetector(
-                      onTap: (){
+                      onTap: () {
                         Get.back();
-                        Get.toNamed(Routes.CREATE_EVENT,arguments: {Constants.paramEdit : true});
+                        WebHandoffSheet.show(feature: 'Editing events');
                       },
                       child: Container(
                         width: size.width,
@@ -208,9 +211,10 @@ class CreatorHomeTabController extends GetxController {
                     ),
                     const CustomDivider(),
                     GestureDetector(
-                      onTap: (){
+                      onTap: () {
                         Get.back();
-                        CustomSnackBar.showCustomToast(message: "Event Deleted Successfully");
+                        CustomSnackBar.showCustomToast(
+                            message: "Event Deleted Successfully");
                       },
                       child: Container(
                         width: size.width,
