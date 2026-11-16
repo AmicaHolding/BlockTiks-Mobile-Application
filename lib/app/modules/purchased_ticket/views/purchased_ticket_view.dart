@@ -285,10 +285,29 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
   }
 
   void _transfer() {
+    String code = '';
+    var tier = controller.ticketTier;
+    var section = '';
+    var seat = '';
+    for (final row in controller.ticketRows) {
+      final rowCode = row['code']?.toString() ?? '';
+      if (rowCode.isEmpty) continue;
+      code = rowCode;
+      final rowTier = row['tier']?.toString() ?? '';
+      if (rowTier.isNotEmpty) tier = rowTier;
+      section = row['section']?.toString() ?? '';
+      seat = row['seat']?.toString() ?? '';
+      break;
+    }
     Get.toNamed(Routes.TRANSFER, arguments: {
       'title': controller.eventTitle,
-      'type': controller.ticketTier,
+      'type': controller.eventType,
       'date': controller.ticketDate,
+      'tier': tier,
+      'section': section,
+      'seat': seat,
+      'ticketCode': code,
+      'orderId': controller.orderId,
     });
   }
 
