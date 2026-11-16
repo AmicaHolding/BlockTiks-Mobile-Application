@@ -2,22 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, type StudioEvent } from '../lib/api';
 import { formatCents, formatDateTime, statusLabel } from '../lib/format';
+import { eventCapacity, eventGrossCents, eventSold } from '../lib/sales';
 import { Badge, Button, Card, EmptyState, Input, Stat } from '../components/ui';
-
-function tierSold(event: StudioEvent): number {
-  return (event.tiers ?? []).reduce((sum, tier) => sum + (tier.sold ?? 0), 0);
-}
-
-function tierCapacity(event: StudioEvent): number {
-  return (event.tiers ?? []).reduce((sum, tier) => sum + (tier.quantity ?? 0), 0);
-}
-
-function tierGrossCents(event: StudioEvent): number {
-  return (event.tiers ?? []).reduce(
-    (sum, tier) => sum + (tier.priceCents ?? 0) * (tier.sold ?? 0),
-    0,
-  );
-}
 
 export default function OverviewPage() {
   const navigate = useNavigate();
@@ -70,7 +56,7 @@ export default function OverviewPage() {
     const monthGross = events.reduce((sum, event) => {
       const d = event.startsAt ? new Date(event.startsAt) : null;
       if (!d || d.getMonth() !== month || d.getFullYear() !== year) return sum;
-      return sum + tierGrossCents(event);
+      return sum + eventGrossCents(event);
     }, 0);
     return {
       liveNow: onSale.filter((e) => e.startsAt && new Date(e.startsAt).getTime() >= now).length,
@@ -156,9 +142,9 @@ export default function OverviewPage() {
                 </tr>
               ) : (
                 filtered.map((event) => {
-                  const sold = tierSold(event);
-                  const capacity = tierCapacity(event);
-                  const gross = tierGrossCents(event);
+                  const sold = eventSold(event);
+                  const capacity = eventCapacity(event);
+                  const gross = eventGrossCents(event);
                   const status = (event.status ?? '').toUpperCase();
                   return (
                     <tr
@@ -178,7 +164,15 @@ export default function OverviewPage() {
                         </Badge>
                       </td>
                       <td className="py-4 pr-4 text-ink">
-                        {sold.toLocaleString()} / {capacity.toLocaleString()}
+                        <div>
+                          {sold.toLocaleString()} / {capacity.toLocaleString()}
+                        </div>
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-dune">
+                          <div
+                            className="h-full rounded-full bg-night"
+                            style={{ width: `${capacity ? Math.min(100, (sold / capacity) * 100) : 0}%` }}
+                          />
+                        </div>
                       </td>
                       <td className="py-4 font-semibold text-ink">{formatCents(gross)}</td>
                     </tr>

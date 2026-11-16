@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { checkInTicket, getEventMeta, listEventGuests } from '../db';
+import { checkInTicket, getEventMeta, listEventGuests, listEventOrders } from '../db';
 
 // Creator "door mode": QR check-in and the guest list for one event.
 export async function doorRoutes(app: FastifyInstance) {
@@ -52,6 +52,45 @@ export async function doorRoutes(app: FastifyInstance) {
       }
     }
   );
+
+  // GET /events/:id/orders — paid order feed for Studio. Derived from issued
+  // tickets because the MVP schema has no event-order GSI; pending/failed
+  // checkouts are intentionally excluded.
+  app.get('/events/:id/orders', { preHandler: app.authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const event = await getEventMeta(id);
+    if (!event) return reply.status(404).send({ message: 'Event not found' });
+    if (event.creatorId !== request.user.sub && request.user.role !== 'ADMIN') {
+      return reply.status(403).send({ message: 'Not the event creator' });
+    }
+    const orders = await listEventOrders(id);
+    return {
+      orders: orders.map((order) => ({
+        id: order.id,
+        kind: order.kind ?? 'TICKET',
+        status: order.status,
+        subtotalCents: order.subtotalCents,
+        discountCents: order.discountCents,
+        feesCents: order.feesCents,
+        totalCents: order.totalCents,
+        promoCodeText: order.promoCodeText,
+        createdAt: order.createdAt,
+        paidAt: order.paidAt,
+        ticketCount: order.ticketCodes?.length ?? order.items.reduce((sum, item) => sum + item.quantity, 0),
+        buyerName: order.buyerName,
+        buyerEmail: order.buyerEmail,
+        items: order.items.map((item) => ({
+          tierId: item.tierId,
+          tierName: item.tierName,
+          sectionId: item.sectionId,
+          sectionName: item.sectionName,
+          ticketCode: item.ticketCode,
+          quantity: item.quantity,
+          unitPriceCents: item.unitPriceCents,
+        })),
+      })),
+    };
+  });
 
   // GET /events/:id/guests — attendee list for the guest-list screen.
   // Creator/admin only; each row carries the ticket code so the app can

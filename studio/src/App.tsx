@@ -8,6 +8,9 @@ import CreateEventPage from './pages/CreateEventPage';
 import ManageEventPage from './pages/ManageEventPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import SettingsPage from './pages/SettingsPage';
+import OrdersPage from './pages/OrdersPage';
+import PayoutsPage from './pages/PayoutsPage';
+import VenueLayoutPage from './pages/VenueLayoutPage';
 import PlaceholderPage from './pages/PlaceholderPage';
 
 export default function App() {
@@ -65,10 +68,11 @@ export default function App() {
           <Route path="/events" element={<OverviewPage />} />
           <Route path="/events/new" element={<CreateEventPage />} />
           <Route path="/events/:id" element={<ManageEventPage />} />
+          <Route path="/events/:id/venue" element={<VenueLayoutPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/orders" element={<PlaceholderPage title="Orders" />} />
-          <Route path="/payouts" element={<PlaceholderPage title="Payouts" />} />
+          <Route path="/orders" element={<OrdersPage />} />
+          <Route path="/payouts" element={<PayoutsPage />} />
           <Route path="*" element={<PlaceholderPage title="Not found" />} />
         </Routes>
       </StudioLayout>

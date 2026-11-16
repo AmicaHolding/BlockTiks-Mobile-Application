@@ -863,6 +863,57 @@ export async function listUserOrders(userId: string): Promise<
   );
 }
 
+export interface EventOrder extends Order {
+  items: OrderItem[];
+  buyerName: string;
+  buyerEmail: string;
+}
+
+// Creator-facing order feed for one event. There is no event-order GSI yet, so
+// this derives paid orders from the EVENTTIX ticket feed and hydrates each
+// order's line items + buyer profile. Pending/failed checkouts have no issued
+// tickets and therefore do not appear here.
+export async function listEventOrders(eventId: string): Promise<EventOrder[]> {
+  const tickets = await listEventTickets(eventId);
+  const orderIds = [...new Set(tickets.map((ticket) => ticket.orderId).filter(Boolean))];
+  if (orderIds.length === 0) return [];
+
+  const orderRows = await batchGet<Record<string, unknown>>(
+    orderIds.map((id) => ({ pk: orderPk(id), sk: 'METADATA' }))
+  );
+  const orders = orderRows
+    .map((item) => {
+      const { pk, sk, gsi2pk, gsi2sk, ...rest } = item;
+      return rest as unknown as Order;
+    })
+    .filter((order) => order.eventId === eventId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  if (orders.length === 0) return [];
+
+  const userIds = [...new Set(orders.map((order) => order.userId))];
+  const [itemsByOrder, users] = await Promise.all([
+    Promise.all(
+      orders.map(async (order) => [order.id, await getOrderItems(order.id)] as const)
+    ),
+    batchGet<{ id: string; firstName?: string; lastName?: string; email?: string }>(
+      userIds.map((id) => ({ pk: userPk(id), sk: 'PROFILE' }))
+    ),
+  ]);
+  const itemsMap = new Map(itemsByOrder);
+  const userMap = new Map(users.map((user) => [user.id, user]));
+
+  return orders.map((order) => {
+    const user = userMap.get(order.userId);
+    const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+    return {
+      ...order,
+      items: itemsMap.get(order.id) ?? [],
+      buyerName: name || user?.email || 'Guest',
+      buyerEmail: user?.email ?? '',
+    };
+  });
+}
+
 export async function getOrder(orderId: string): Promise<
   | (Order & {
       items: OrderItem[];
@@ -1408,6 +1459,10 @@ export async function setVenueLayout(
   if (event.creatorId !== actorId && actorRole !== 'ADMIN') {
     throw new ConditionFailedError('Not the event creator');
   }
+
+  const existing = await listSections(eventId);
+  const existingById = new Map(existing.map((section) => [section.sectionId, section]));
+  const nextIds = new Set(layout.sections.map((section) => section.id));
   const transactItems: TransactWriteCommandInput['TransactItems'] = [
     {
       Update: {
@@ -1417,22 +1472,66 @@ export async function setVenueLayout(
         ExpressionAttributeValues: { ':layout': layout },
       },
     },
-    ...layout.sections.map((s) => ({
+  ];
+
+  for (const section of layout.sections) {
+    const previous = existingById.get(section.id);
+    let sold = 0;
+    let available = section.capacity;
+    if (previous) {
+      sold = previous.sold ?? 0;
+      const previousAvailable =
+        previous.available ?? Math.max(0, previous.capacity - sold);
+      const reserved = Math.max(
+        0,
+        previous.capacity - sold - previousAvailable
+      );
+      const minimumCapacity = sold + reserved;
+      if (section.capacity < minimumCapacity) {
+        throw new ConditionFailedError(
+          `Section ${section.name || section.id} capacity cannot be below ${minimumCapacity} sold/reserved seats`
+        );
+      }
+      available = Math.max(
+        0,
+        previousAvailable + (section.capacity - previous.capacity)
+      );
+    }
+    transactItems.push({
       Put: {
         TableName: T(),
         Item: {
           pk: eventPk(eventId),
-          sk: `SECTION#${s.id}`,
-          sectionId: s.id,
-          name: s.name,
-          priceCents: s.priceCents,
-          capacity: s.capacity,
-          sold: 0,
-          available: s.capacity,
+          sk: `SECTION#${section.id}`,
+          sectionId: section.id,
+          name: section.name,
+          priceCents: section.priceCents,
+          capacity: section.capacity,
+          sold,
+          available,
         },
       },
-    })),
-  ];
+    });
+  }
+
+  for (const previous of existing) {
+    if (nextIds.has(previous.sectionId)) continue;
+    const sold = previous.sold ?? 0;
+    const available = previous.available ?? Math.max(0, previous.capacity - sold);
+    const reserved = Math.max(0, previous.capacity - sold - available);
+    if (sold > 0 || reserved > 0) {
+      throw new ConditionFailedError(
+        `Cannot remove ${previous.name || previous.sectionId}; it has sold or reserved seats`
+      );
+    }
+    transactItems.push({
+      Delete: {
+        TableName: T(),
+        Key: { pk: eventPk(eventId), sk: `SECTION#${previous.sectionId}` },
+      },
+    });
+  }
+
   await docClient.send(new TransactWriteCommand({ TransactItems: transactItems }));
   return { ...event, venueLayout: layout };
 }

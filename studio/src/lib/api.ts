@@ -70,10 +70,15 @@ export interface VenueSection {
   id: string;
   name: string;
   priceCents: number;
+  price?: number;
   capacity: number;
   sold?: number;
   available?: number;
   remaining?: number;
+}
+
+export interface VenueLayout {
+  sections: VenueSection[];
 }
 
 export interface StudioEvent {
@@ -89,7 +94,7 @@ export interface StudioEvent {
   status?: string;
   creatorId?: string;
   tiers?: Tier[];
-  venueLayout?: { sections?: VenueSection[] };
+  venueLayout?: VenueLayout;
   venueSections?: VenueSection[];
   createdAt?: string;
   updatedAt?: string;
@@ -105,6 +110,54 @@ export interface CreateEventPayload {
   address?: string;
   imageUrl?: string;
   tiers?: { name: string; description?: string; priceCents: number; quantity: number }[];
+}
+
+export interface EventGuest {
+  code: string;
+  name: string;
+  email: string;
+  tierName: string;
+  sectionName?: string;
+  status: string;
+  checkedInAt?: string;
+  createdAt: string;
+}
+
+export interface EventGuestsResponse {
+  guests: EventGuest[];
+  checkedIn: number;
+  total: number;
+}
+
+export interface EventOrderItem {
+  tierId?: string;
+  tierName: string;
+  sectionId?: string;
+  sectionName?: string;
+  ticketCode?: string;
+  quantity: number;
+  unitPriceCents: number;
+}
+
+export interface EventOrder {
+  id: string;
+  kind?: 'TICKET' | 'RESALE' | 'SEATED' | string;
+  status: string;
+  subtotalCents: number;
+  discountCents: number;
+  feesCents: number;
+  totalCents: number;
+  promoCodeText?: string;
+  createdAt: string;
+  paidAt?: string;
+  ticketCount: number;
+  buyerName: string;
+  buyerEmail: string;
+  items: EventOrderItem[];
+}
+
+export interface EventOrdersResponse {
+  orders: EventOrder[];
 }
 
 export const api = {
@@ -145,5 +198,26 @@ export const api = {
     return request<{ event: StudioEvent }>(`/events/${id}/publish`, {
       method: 'POST',
     });
+  },
+  updateVenueLayout(id: string, sections: VenueSection[]) {
+    return request<{ event: StudioEvent }>(`/events/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        venueLayout: {
+          sections: sections.map((section) => ({
+            id: section.id,
+            name: section.name,
+            priceCents: section.priceCents,
+            capacity: section.capacity,
+          })),
+        },
+      }),
+    });
+  },
+  eventGuests(id: string) {
+    return request<EventGuestsResponse>(`/events/${id}/guests`);
+  },
+  eventOrders(id: string) {
+    return request<EventOrdersResponse>(`/events/${id}/orders`);
   },
 };
