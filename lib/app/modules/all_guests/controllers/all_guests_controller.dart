@@ -8,7 +8,8 @@ class AllGuestsController extends GetxController {
   final RxString selectedEventId = ''.obs;
   String get selectedEventTitle {
     for (final e in events) {
-      if (e['id'] == selectedEventId.value) return (e['title'] ?? '').toString();
+      if (e['id'] == selectedEventId.value)
+        return (e['title'] ?? '').toString();
     }
     return '';
   }
@@ -25,6 +26,11 @@ class AllGuestsController extends GetxController {
 
   List<String> filter = ['All', 'Checked In', 'Not Checked In'];
   RxInt selectedFilter = 0.obs;
+  final RxString searchQuery = ''.obs;
+
+  void setSearch(String value) {
+    searchQuery.value = value.trim().toLowerCase();
+  }
 
   @override
   void onInit() {
@@ -62,8 +68,9 @@ class AllGuestsController extends GetxController {
     loadError.value = null;
     try {
       final res = await ApiService.eventGuests(selectedEventId.value);
-      guests.value =
-          (res['guests'] as List? ?? []).map((g) => Map<String, dynamic>.from(g as Map)).toList();
+      guests.value = (res['guests'] as List? ?? [])
+          .map((g) => Map<String, dynamic>.from(g as Map))
+          .toList();
       checkedIn.value = (res['checkedIn'] as num?)?.toInt() ?? 0;
       total.value = (res['total'] as num?)?.toInt() ?? guests.length;
       filterItems();
@@ -79,13 +86,28 @@ class AllGuestsController extends GetxController {
   }
 
   List<Map<String, dynamic>> get visibleGuests {
+    Iterable<Map<String, dynamic>> out = guests;
+    final q = searchQuery.value;
+    if (q.isNotEmpty) {
+      out = out.where((g) {
+        final haystack = [
+          g['name'],
+          g['email'],
+          g['code'],
+          g['orderId'],
+          g['tierName'],
+          g['sectionName'],
+        ].map((e) => e?.toString().toLowerCase() ?? '').join(' ');
+        return haystack.contains(q);
+      });
+    }
     switch (selectedFilter.value) {
       case 1:
-        return guests.where((g) => g['status'] == 'USED').toList();
+        return out.where((g) => g['status'] == 'USED').toList();
       case 2:
-        return guests.where((g) => g['status'] != 'USED').toList();
+        return out.where((g) => g['status'] != 'USED').toList();
       default:
-        return guests;
+        return out.toList();
     }
   }
 

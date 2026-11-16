@@ -1,10 +1,6 @@
-import 'dart:math';
-
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:block_tix/app/data/utils/dummy_content.dart';
-import 'package:block_tix/app/data/utils/helper_functions.dart';
-import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
-import 'package:block_tix/app/data/widgets/custom_text_form_field.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
+import 'package:get/get.dart';
 
 import '../controllers/withdraw_controller.dart';
 
@@ -13,171 +9,234 @@ class WithdrawView extends GetView<WithdrawController> {
 
   @override
   Widget build(BuildContext context) {
-    return BaseViewPageScreen(
-      sidePadding: false,
-      showLogo: true,
-      basicAppBar: true,
-      showBackBtn: true,
-      showNotification: true,
-      bottomNavigationBar: SafeArea(
-        child: CustomButton(
-          text: controller.fromDeposit ? "Confirm Deposit":"Confirm Transfer".tr,
-          margin: getMargin(right: 20, left: 20, bottom: 30, top: 10),
-          shape: ButtonShape.RoundedBorder10,
-          onTap: () {
-           if(controller.formKey.currentState!.validate()){
-             var map = {
-               Constants.paramEmail: "abc@gmail.com",
-               Constants.paramComingFrom: Constants.paramTransform
-             };
-             Get.toNamed(Routes.OTP_VERIFICATION_SCREEN, arguments: map);
-           }else{
-             CustomSnackBar.showCustomErrorToast(message: "Please provide complete details to continue");
-           }
+    return Scaffold(
+      backgroundColor: ColorConstant.night,
+      appBar: AppBar(
+        backgroundColor: ColorConstant.night,
+        elevation: 0,
+        title: Text('Earnings',
+            style: sahraText(size: 22, weight: FontWeight.w800)),
+      ),
+      body: Obx(() {
+        if (controller.isLoading.value) {
+          return Center(
+              child: CircularProgressIndicator(color: ColorConstant.gold));
+        }
+        if (controller.loadError.value != null) {
+          return Center(
+              child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(controller.loadError.value!,
+                      textAlign: TextAlign.center,
+                      style: sahraText(color: ColorConstant.nightMuted))));
+        }
+        return RefreshIndicator(
+          color: ColorConstant.gold,
+          onRefresh: () async {
+            await controller.load();
+            await controller.refreshPayoutStatus();
           },
-        ),
-      ),
-      child: Form(
-        key: controller.formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CustomTextFormField(
-                hintText: "Type in amount",
-                labelText: controller.fromDeposit ? "Deposit":'Withdraw',
-                variant: TextFormFieldVariant.None,
-                textInputType: TextInputType.number,
-                suffix: Container(
-                  padding: getPadding(top: 12, bottom: 12),
-                  child: MyText(
-                    title: 'Max',
-                    family: 'Inter',
-                    customWeight: FontWeight.w500,
-                    fontSize: 14,
-                    clr: ColorConstant.primaryAccent,
-                  ),
-                ),
-                validator: (value) {
-                  return HelperFunction.stringValidate(value!);
-                },
-              ),
-              SizedBox(
-                height: getSize(15),
-              ),
-              CustomTextFormField(
-                hintText: "Account Name*",
-                labelText: controller.fromDeposit ? "From":'To',
-                variant: TextFormFieldVariant.None,
-                validator: (value) {
-                  return HelperFunction.nameValidate(value!);
-                },
-              ),
-              const SizedBox(
-                height: 5,
-              ),
-              CustomTextFormField(
-                hintText: "Account Number*",
-                variant: TextFormFieldVariant.None,
-                validator: (value) {
-                  return HelperFunction.nameValidate(value!);
-                },
-              ),
-              const SizedBox(
-                height: 5,
-              ),
-              CustomTextFormField(
-                hintText: "IBAN Number*",
-                variant: TextFormFieldVariant.None,
-                validator: (value) {
-                  return HelperFunction.nameValidate(value!);
-                },
-              ),
-              const SizedBox(
-                height: 5,
-              ),
-              CustomTextFormField(
-                hintText: "Bank Address*",
-                variant: TextFormFieldVariant.None,
-                validator: (value) {
-                  return HelperFunction.nameValidate(value!);
-                },
-              ),
-              const SizedBox(
-                height: 5,
-              ),
-              CustomTextFormField(
-                hintText: "Account Nick Name*",
-                variant: TextFormFieldVariant.None,
-                validator: (value) {
-                  return HelperFunction.nameValidate(value!);
-                },
-              ),
-              SizedBox(
-                height: getSize(30),
-              ),
-               MyText(
-                 title: controller.fromDeposit ? "Recent Accounts":"Recent users transferred to",
-                 family: 'Manrope',
-                 customWeight: FontWeight.w600,
-                 fontSize: getFontSize(16),
-               ),
-              SizedBox(
-                height: getSize(10),
-              ),
-              ListView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                itemCount: 3,
-                scrollDirection: Axis.vertical,
-                padding: EdgeInsets.zero,
-                itemBuilder: (context, index) {
-                  return GestureDetector(
-                    onTap: () {
-                      var map = {
-                        Constants.paramEmail: "abc@gmail.com",
-                        Constants.paramComingFrom: Constants.paramTransform
-                      };
-                      Get.toNamed(Routes.OTP_VERIFICATION_SCREEN, arguments: map);
-                    },
-                    child: Container(
-                      padding:
-                          getPadding(left: 15, right: 15, top: 10, bottom: 10),
-                      margin: getMargin(bottom: 10),
-                      decoration: BoxDecoration(
-                          color: ColorConstant.elevated,
-                          borderRadius: BorderRadius.circular(16)),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 30,
-                            height: 30,
-                            child: CustomImageView(
-                              imagePath: DummyContent.images[Random().nextInt(DummyContent.images.length)],
-                              width: 30,
-                              height: 30,
-                              radius: BorderRadius.circular(20),
+          child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+              children: [
+                _balanceCard(),
+                const SizedBox(height: 14),
+                _payoutCard(),
+                const SizedBox(height: 14),
+                Text(
+                    'Lifetime: ${controller.money(controller.lifetimeCents.value)} from resale sales · withdrawn ${controller.money(controller.withdrawnCents.value)}',
+                    style:
+                        sahraText(color: ColorConstant.nightMuted, size: 13)),
+                const SizedBox(height: 12),
+                Text('Sales',
+                    style: sahraText(size: 17, weight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                if (controller.sales.isEmpty)
+                  SahraCard(
+                      child: Text('No resale sales yet',
+                          style: sahraText(
+                              color: ColorConstant.nightMuted, size: 14)))
+                else
+                  ...controller.sales.map((sale) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: SahraCard(
+                          child: Row(children: [
+                            Expanded(
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(sale['title']?.toString() ?? 'Resale',
+                                        style: sahraText(
+                                            size: 15, weight: FontWeight.w600)),
+                                    const SizedBox(height: 3),
+                                    Text(sale['subtitle']?.toString() ?? '',
+                                        style: sahraText(
+                                            color: ColorConstant.nightMuted,
+                                            size: 12)),
+                                  ]),
                             ),
-                          ),
-                          const SizedBox(
-                            width: 15,
-                          ),
-                          MyText(
-                            title: "Name $index",
-                            family: 'Manrope',
-                            customWeight: FontWeight.w600,
-                            fontSize: 15,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              )
-            ],
-          ),
-        ),
-      ),
+                            const SizedBox(width: 12),
+                            Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                      controller.money(
+                                          (sale['amountCents'] as num?)
+                                                  ?.toInt() ??
+                                              0),
+                                      style: sahraText(
+                                          size: 15, weight: FontWeight.w700)),
+                                  const SizedBox(height: 4),
+                                  SahraStatusPill(
+                                      sale['status']?.toString() ?? '',
+                                      color: sale['status'] == 'Ready'
+                                          ? ColorConstant.gold
+                                          : ColorConstant.nightMuted),
+                                ]),
+                          ]),
+                        ),
+                      )),
+                const SizedBox(height: 8),
+                Text('Withdrawals',
+                    style: sahraText(size: 17, weight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                if (controller.withdrawals.isEmpty)
+                  SahraCard(
+                      child: Text('No withdrawals yet',
+                          style: sahraText(
+                              color: ColorConstant.nightMuted, size: 14)))
+                else
+                  ...controller.withdrawals.map((w) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: SahraCard(
+                          child: Row(children: [
+                            Expanded(
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Payout',
+                                        style: sahraText(
+                                            size: 15, weight: FontWeight.w600)),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                        '${controller.dateLabel(w['createdAt']?.toString())} · ${w['status']?.toString() ?? ''}',
+                                        style: sahraText(
+                                            color: ColorConstant.nightMuted,
+                                            size: 12)),
+                                  ]),
+                            ),
+                            Text(
+                                controller.money(
+                                    (w['amountCents'] as num?)?.toInt() ?? 0),
+                                style: sahraText(
+                                    size: 15, weight: FontWeight.w700)),
+                          ]),
+                        ),
+                      )),
+              ]),
+        );
+      }),
     );
+  }
+
+  Widget _balanceCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+          color: ColorConstant.gold, borderRadius: BorderRadius.circular(20)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Available to withdraw',
+            style: sahraText(color: ColorConstant.night, size: 14)),
+        const SizedBox(height: 4),
+        Text(controller.money(controller.availableCents.value),
+            style: sahraText(
+                color: ColorConstant.night,
+                size: 34,
+                weight: FontWeight.w800,
+                letterSpacing: -0.8)),
+        const SizedBox(height: 14),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Expanded(
+              child: Text('Pending · releases after the event',
+                  style: sahraText(color: ColorConstant.night, size: 13))),
+          Text(controller.money(controller.pendingCents.value),
+              style: sahraText(
+                  color: ColorConstant.night,
+                  size: 14,
+                  weight: FontWeight.w700)),
+        ]),
+        const SizedBox(height: 14),
+        Obx(() => SahraPillButton(
+              label: controller.isWithdrawing.value ? 'Sending…' : 'Withdraw',
+              dark: true,
+              enabled: controller.canWithdraw,
+              onTap: controller.withdraw,
+            )),
+        if (!controller.payoutsEnabled.value) ...[
+          const SizedBox(height: 8),
+          Text('Set up your payout account below to enable withdrawals.',
+              style: sahraText(
+                  color: ColorConstant.night.withValues(alpha: .75), size: 12)),
+        ],
+      ]),
+    );
+  }
+
+  Widget _payoutCard() {
+    return Obx(() {
+      final enabled = controller.payoutsEnabled.value;
+      final connected = controller.payoutsConnected.value;
+      final status = enabled
+          ? 'Payouts enabled'
+          : connected
+              ? 'Setup incomplete — finish payout onboarding'
+              : 'Connect a payout account to withdraw earnings';
+      return SahraCard(
+        child: Row(children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: ColorConstant.nightElevated,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+                enabled
+                    ? Icons.verified_rounded
+                    : Icons.account_balance_outlined,
+                color: enabled ? ColorConstant.gold : ColorConstant.nightMuted,
+                size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Payout account',
+                  style: sahraText(size: 15, weight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              Text(status,
+                  style: sahraText(color: ColorConstant.nightMuted, size: 12)),
+            ]),
+          ),
+          TextButton(
+            onPressed: controller.isSettingUpPayouts.value
+                ? null
+                : controller.setupPayouts,
+            child: Text(
+                controller.isSettingUpPayouts.value
+                    ? 'Opening…'
+                    : enabled
+                        ? 'Manage'
+                        : connected
+                            ? 'Finish setup'
+                            : 'Set up',
+                style: sahraText(
+                    color: ColorConstant.gold,
+                    size: 14,
+                    weight: FontWeight.w600)),
+          ),
+        ]),
+      );
+    });
   }
 }

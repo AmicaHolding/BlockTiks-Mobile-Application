@@ -1,56 +1,67 @@
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:html/parser.dart';
+import 'package:block_tix/app/services/api_service.dart';
+import 'package:get/get.dart';
 
 class FaqsController extends GetxController {
   final RxString searchQuery = ''.obs;
-
-  final List<Map<String, String>> faqs = [
-    {
-      'type': 'Tickets',
-      'question': 'How do I buy tickets for an event?',
-      'answer':
-          'Browse events, pick your ticket tier, and complete checkout. Your ticket appears in My Tickets right after payment.',
-    },
-    {
-      'type': 'Tickets',
-      'question': 'How do I transfer tickets to another user?',
-      'answer':
-          'Open the ticket from My Tickets, tap Transfer, enter the recipient\'s email or phone number, and confirm. The recipient gets the ticket instantly.',
-    },
-    {
-      'type': 'Resale',
-      'question': 'How does ticket resale work?',
-      'answer':
-          'List your ticket at your chosen price from the Resale tab. When it sells, the payout goes to your BlockTix wallet.',
-    },
-    {
-      'type': 'Account',
-      'question': 'How do I change my password?',
-      'answer':
-          'Go to Profile → Settings → Security & Privacy → Change Password and enter your current and new password.',
-    },
-    {
-      'type': 'Payments',
-      'question': 'Which payment methods are supported?',
-      'answer':
-          'We accept major cards, Apple Pay, and Google Pay at checkout. Payouts are sent to your linked bank account.',
-    },
-  ];
-
-  List<Map<String, String>> get filteredFaqs {
-    final q = searchQuery.value.trim().toLowerCase();
-    if (q.isEmpty) return faqs;
-    return faqs
-        .where((f) =>
-            f['question']!.toLowerCase().contains(q) ||
-            f['type']!.toLowerCase().contains(q) ||
-            f['answer']!.toLowerCase().contains(q))
-        .toList();
-  }
+  final RxString category = 'All'.obs;
+  final RxList<Map<String, dynamic>> categories = <Map<String, dynamic>>[].obs;
+  final RxSet<int> expanded = <int>{}.obs;
+  final RxBool isLoading = true.obs;
+  final Rxn<String> loadError = Rxn<String>();
 
   @override
   void onInit() {
-    // getFaqs();
     super.onInit();
+    fetch();
+  }
+
+  Future<void> fetch() async {
+    isLoading.value = true;
+    loadError.value = null;
+    try {
+      categories.value = await ApiService.faqs();
+    } catch (e) {
+      loadError.value = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  List<Map<String, dynamic>> get flatFaqs {
+    final q = searchQuery.value.trim().toLowerCase();
+    final out = <Map<String, dynamic>>[];
+    var index = 0;
+    for (final cat in categories) {
+      final catName = cat['name']?.toString() ?? '';
+      if (category.value != 'All' && category.value != catName) continue;
+      final faqs = (cat['faqs'] as List?) ?? [];
+      for (final faq in faqs.whereType<Map>()) {
+        final question = faq['q']?.toString() ?? '';
+        final answer = faq['a']?.toString() ?? '';
+        if (q.isNotEmpty &&
+            !question.toLowerCase().contains(q) &&
+            !answer.toLowerCase().contains(q) &&
+            !catName.toLowerCase().contains(q)) {
+          index++;
+          continue;
+        }
+        out.add(
+            {'index': index, 'category': catName, 'q': question, 'a': answer});
+        index++;
+      }
+    }
+    return out;
+  }
+
+  List<String> get categoryNames =>
+      ['All', ...categories.map((c) => c['name']?.toString() ?? '')];
+
+  void toggle(int index) {
+    if (expanded.contains(index)) {
+      expanded.remove(index);
+    } else {
+      expanded.add(index);
+    }
   }
 }

@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  background: #f7f1e6;
+}
+
+body {
+  @apply bg-sand text-ink font-sans antialiased;
+}

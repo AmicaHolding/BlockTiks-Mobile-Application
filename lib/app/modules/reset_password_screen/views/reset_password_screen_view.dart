@@ -1,7 +1,7 @@
+import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/helper_functions.dart';
-import 'package:block_tix/app/data/widgets/custom_text_form_field.dart';
-
-import '../../../data/core/app_export.dart';
+import 'package:block_tix/app/data/widgets/sahra_auth.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import '../../sign_in/views/widgets/auth_pill_button.dart';
 import '../controllers/reset_password_screen_controller.dart';
 
@@ -12,130 +12,75 @@ class ResetPasswordScreenView extends GetView<ResetPasswordScreenController> {
 
   @override
   Widget build(BuildContext context) {
-    return BaseViewPageScreen(
-      screenName: 'msg_create_new_password'.tr,
-      sidePadding: false,
-      basicAppBar: true,
-      showBackBtn: true,
-      leadingImagePath: ImageConstant.imgBackIcon,
+    return SahraAuthScaffold(
+      title: 'Set a new password',
+      subtitle: 'Choose a strong password you don’t use elsewhere.',
       child: Form(
-          key: _formKey,
-          child: SizedBox(
-              width: double.maxFinite,
-              child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      height: getSize(30),
-                    ),
-                    Text(
-                      'msg_create_new_password'.tr,
-                      style: AppStyle.heading1Manrope,
-                    ),
-                    SizedBox(
-                      height: getSize(10),
-                    ),
-                    Text(
-                      "msg_your_new_password".tr,
-                      style: AppStyle.bodySmallInter,
-                    ),
-                    SizedBox(
-                      height: getSize(30),
-                    ),
-                    Obx(
-                      () => CustomTextFormField(
-                        focusNode: controller.newPasswordNode,
-                        controller: controller.newPasswordController,
-                        labelText: "lbl_new_password".tr,
-                        hintText: "lbl_new_password".tr,
-                        textInputAction: TextInputAction.next,
-                        // fontStyle: FloatingEditTextFontStyle.AgeoRegular14,
-                        textInputType: TextInputType.visiblePassword,
-                        // limit: Constants.PASSWORD_VALIDATION,
-                        isObscureText: controller.isShowPassword.value,
-                        suffix: InkWell(
-                          onTap: () {
-                            controller.isShowPassword.value =
-                                !controller.isShowPassword.value;
-                          },
-                          child: Container(
-                            margin: getMargin(
-                              left: 16,
-                              right: 16,
-                            ),
-                            child: CustomImageView(
-                              svgPath: controller.isShowPassword.value
-                                  ? ImageConstant.imgEyeOpen
-                                  : ImageConstant.imgEyeClose,
-                              color: ColorConstant.whiteA700,
-                            ),
-                          ),
-                        ),
-                        suffixConstraints: BoxConstraints(
-                          maxHeight: getVerticalSize(
-                            56,
-                          ),
-                        ),
-                        validator: (value) {
-                          return HelperFunction.passwordValidate(value!);
-                        },
-                      ),
-                    ),
-                    SizedBox(
-                      height: getVerticalSize(20),
-                    ),
-                    Obx(
-                      () => CustomTextFormField(
-                        focusNode: controller.confirmPasswordNode,
-                        controller: controller.confirmPasswordController,
-                        labelText: "msg_confirm_password".tr,
-                        hintText: "msg_confirm_password".tr,
-                        textInputAction: TextInputAction.done,
-                        // fontStyle: FloatingEditTextFontStyle.AgeoRegular14,
-                        textInputType: TextInputType.visiblePassword,
-                        // limit: Constants.PASSWORD_VALIDATION,
-                        isObscureText: controller.isShowConfirmPassword.value,
-                        suffix: InkWell(
-                          onTap: () {
-                            controller.isShowConfirmPassword.value =
-                                !controller.isShowConfirmPassword.value;
-                          },
-                          child: Container(
-                            margin: getMargin(
-                              left: 16,
-                              right: 16,
-                            ),
-                            child: CustomImageView(
-                              svgPath: controller.isShowConfirmPassword.value
-                                  ? ImageConstant.imgEyeOpen
-                                  : ImageConstant.imgEyeClose,
-                              color: ColorConstant.whiteA700,
-                            ),
-                          ),
-                        ),
-                        suffixConstraints: BoxConstraints(
-                          maxHeight: getVerticalSize(
-                            56,
-                          ),
-                        ),
-                        validator: (value) {
-                          return HelperFunction.confirmPasswordValidate(
-                              value!, controller.newPasswordController.text);
-                        },
-                      ),
-                    ),
-                    AuthPillButton(
-                      controller: controller.btnController,
-                      margin: getMargin(top: 30, bottom: 5),
-                      text: "lbl_update_password".tr,
-                      onTap: () {
-                        if (_formKey.currentState!.validate()) {
-                          controller.resetPasswordApi(context);
-                        }
-                      },
-                    ),
-                  ]))),
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Obx(
+              () => SahraAuthField(
+                controller: controller.newPasswordController,
+                label: 'New password',
+                obscure: controller.isShowPassword.value,
+                textInputAction: TextInputAction.next,
+                validator: (value) => HelperFunction.passwordValidate(value!),
+                suffix: IconButton(
+                  onPressed: () => controller.isShowPassword.value =
+                      !controller.isShowPassword.value,
+                  icon: Icon(
+                    controller.isShowPassword.value
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: ColorConstant.gold,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Obx(
+              () => SahraAuthField(
+                controller: controller.confirmPasswordController,
+                label: 'Confirm new password',
+                obscure: controller.isShowConfirmPassword.value,
+                textInputAction: TextInputAction.done,
+                validator: (value) => HelperFunction.confirmPasswordValidate(
+                    value!, controller.newPasswordController.text),
+                suffix: IconButton(
+                  onPressed: () => controller.isShowConfirmPassword.value =
+                      !controller.isShowConfirmPassword.value,
+                  icon: Icon(
+                    controller.isShowConfirmPassword.value
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: ColorConstant.gold,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            AuthPillButton(
+              controller: controller.btnController,
+              text: 'Save and sign in',
+              onTap: () {
+                if (_formKey.currentState!.validate()) {
+                  controller.resetPasswordApi(context);
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: Text('Other devices will be signed out',
+                  style: sahraText(
+                      color: ColorConstant.nightMuted, size: 12, height: 1.4)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -35,7 +35,7 @@ import {
     UpdateCommand,
     type TransactWriteCommandInput
 } from '@aws-sdk/lib-dynamodb';
-import { randomUUID } from 'crypto';
+import { createHash, randomInt, randomUUID } from 'crypto';
 import { docClient } from './aws';
 import { env } from './env';
 
@@ -64,7 +64,16 @@ const eventTicketsGsiPk = (eventId: string) => `EVENTTIX#${eventId}`;
 const ACTIVE_LISTINGS_GSI_PK = 'LISTINGS#ACTIVE';
 const listingGsiSk = (eventId: string, iso: string) => `EVENT#${eventId}#${iso}`;
 const listingPk = (ticketCode: string) => `LISTING#${ticketCode}`;
+const offerPk = (id: string) => `OFFER#${id}`;
+const userOffersPk = (userId: string) => `USER#${userId}#OFFERS`;
+const ACTIVE_OFFERS_GSI_PK = 'OFFERS#ACTIVE';
+const offerGsiSk = (eventId: string, tierKey: string, iso: string, id: string) =>
+  `EVENT#${eventId}#${tierKey}#${iso}#${id}`;
 const createdSk = (iso: string, id: string) => `CREATED#${iso}#${id}`;
+const refreshPk = (tokenHash: string) => `REFRESH#${tokenHash}`;
+const verifyPk = (tokenHash: string) => `VERIFY#${tokenHash}`;
+const seatSk = (sectionId: string, seatLabel: string) => `SEAT#${sectionId}#${seatLabel}`;
+const withdrawalPk = (id: string) => `WITHDRAW#${id}`;
 
 // ---------- types ----------
 export interface User {
@@ -77,6 +86,20 @@ export interface User {
   avatarUrl?: string;
   role: 'FAN' | 'CREATOR' | 'ADMIN';
   stripeCustomerId?: string;
+  stripeConnectAccountId?: string;
+  stripeConnectDetailsSubmitted?: boolean;
+  stripeConnectChargesEnabled?: boolean;
+  stripeConnectPayoutsEnabled?: boolean;
+  firstNameAr?: string;
+  city?: string;
+  interests?: string[];
+  dateOfBirth?: string;
+  emailVerified?: boolean;
+  notificationPrefs?: { push?: boolean; email?: boolean; sms?: boolean };
+  referralCode?: string;
+  referredByCode?: string;
+  referralCount?: number;
+  deletedAt?: string;
   createdAt: string;
 }
 
@@ -98,6 +121,10 @@ export interface VenueSection {
   name: string;
   priceCents: number;
   capacity: number;
+  rows?: number;
+  seatsPerRow?: number;
+  accessibleCount?: number;
+  heldCount?: number;
 }
 
 export interface VenueLayout {
@@ -117,18 +144,32 @@ export interface EventItem {
   imageUrl?: string;
   status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
   venueLayout?: VenueLayout;
+  // ISO 4217 currency for all prices on this event (default 'usd').
+  currency?: string;
   createdAt: string;
 }
 
 export interface PromoCode {
   code: string;
+  creatorId?: string;
   eventId?: string;
+  tierId?: string;
+  tierName?: string;
+  scope?: 'ALL' | 'EVENT' | 'TIER';
+  kind?: 'PERCENT' | 'FIXED';
+  value?: number; // percent for PERCENT, cents for FIXED
   percentOff?: number;
   amountOffCents?: number;
   maxUses?: number;
-  usedCount: number;
+  maxUsesPerUser?: number;
+  startsAt?: string;
   expiresAt?: string;
+  endsAt?: string;
+  validOnResale?: boolean;
+  usedCount: number;
   active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface OrderItem {
@@ -141,6 +182,8 @@ export interface OrderItem {
   sectionName?: string;
   // Resale orders: the ticket code being transferred.
   ticketCode?: string;
+  // Seated orders with seat-level picking: seat labels aligned with quantity.
+  seatLabels?: string[];
 }
 
 export type OrderKind = 'TICKET' | 'RESALE' | 'SEATED';
@@ -159,6 +202,7 @@ export interface Order {
   promoCodeText?: string;
   stripePaymentIntentId?: string;
   ticketCodes?: string[];
+  currency?: string;
   expiresAt?: string; // reservation expiry for PENDING orders
   createdAt: string;
   paidAt?: string;
@@ -174,10 +218,14 @@ export interface Ticket {
   tierId?: string; // absent on seated tickets (sectionName used instead)
   tierName: string;
   sectionName?: string; // seated events
-  seatLabel?: string; // reserved for seat-level booking
+  seatLabel?: string; // seat-level booking (e.g. "A-12")
+  currency?: string;
   userId: string;
   status: 'VALID' | 'USED' | 'TRANSFERRED' | 'REFUNDED';
   checkedInAt?: string;
+  transferredFrom?: string;
+  transferredTo?: string;
+  transferredAt?: string;
   createdAt: string;
 }
 
@@ -212,6 +260,11 @@ async function batchGet<T = Record<string, unknown>>(keys: { pk: string; sk: str
 
 // ---------- users ----------
 
+function generateReferralCode(firstName: string, lastName: string, id: string): string {
+  const base = `${firstName}${lastName}`.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8);
+  return `${base || 'SAHRA'}${id.replace(/-/g, '').slice(0, 4).toUpperCase()}`;
+}
+
 export async function createUser(input: {
   email: string;
   passwordHash: string;
@@ -219,9 +272,11 @@ export async function createUser(input: {
   lastName: string;
   phone?: string;
   role: 'FAN' | 'CREATOR';
+  referredByCode?: string;
 }): Promise<User> {
   const id = randomUUID();
   const createdAt = now();
+  const referralCode = generateReferralCode(input.firstName, input.lastName, id);
   const user: User = {
     id,
     email: input.email.toLowerCase(),
@@ -230,6 +285,9 @@ export async function createUser(input: {
     lastName: input.lastName,
     phone: input.phone,
     role: input.role,
+    referralCode,
+    referredByCode: input.referredByCode,
+    referralCount: 0,
     createdAt,
   };
   try {
@@ -276,22 +334,33 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 
 export async function updateUser(
   id: string,
-  fields: Partial<Pick<User, 'firstName' | 'lastName' | 'phone' | 'avatarUrl'>>
+  fields: Partial<
+    Pick<
+      User,
+      | 'firstName'
+      | 'lastName'
+      | 'phone'
+      | 'avatarUrl'
+      | 'firstNameAr'
+      | 'city'
+      | 'interests'
+      | 'dateOfBirth'
+      | 'emailVerified'
+      | 'notificationPrefs'
+    >
+  >
 ): Promise<User | null> {
-  const names: Record<string, string> = {
-    firstName: '#firstName',
-    lastName: '#lastName',
-    phone: '#phone',
-    avatarUrl: '#avatarUrl',
-  };
+  const names: Record<string, string> = {};
   const values: Record<string, unknown> = {};
   const sets: string[] = [];
   let i = 0;
   for (const [key, value] of Object.entries(fields)) {
     if (value === undefined) continue;
-    const placeholder = `:v${i++}`;
-    sets.push(`${names[key]} = ${placeholder}`);
-    values[placeholder] = value;
+    const name = `#f${i}`;
+    names[name] = key;
+    sets.push(`${name} = :v${i}`);
+    values[`:v${i}`] = value;
+    i++;
   }
   if (sets.length === 0) return getUserById(id);
   await docClient.send(
@@ -299,12 +368,7 @@ export async function updateUser(
       TableName: T(),
       Key: { pk: userPk(id), sk: 'PROFILE' },
       UpdateExpression: `SET ${sets.join(', ')}`,
-      ExpressionAttributeNames: {
-        '#firstName': 'firstName',
-        '#lastName': 'lastName',
-        '#phone': 'phone',
-        '#avatarUrl': 'avatarUrl',
-      },
+      ExpressionAttributeNames: names,
       ExpressionAttributeValues: values,
       ConditionExpression: 'attribute_exists(pk)',
     })
@@ -336,10 +400,13 @@ export async function createEventWithTiers(input: {
   location: string;
   address?: string;
   imageUrl?: string;
+  currency?: string;
   tiers: { name: string; description?: string; priceCents: number; quantity: number }[];
 }): Promise<{ event: EventItem; tiers: TicketTier[] }> {
   const id = randomUUID();
   const createdAt = now();
+  const currency = (input.currency ?? 'usd').toLowerCase();
+  if (!/^[a-z]{3}$/.test(currency)) throw new ConditionFailedError('Invalid currency');
   const event: EventItem = {
     id,
     creatorId: input.creatorId,
@@ -352,6 +419,7 @@ export async function createEventWithTiers(input: {
     address: input.address,
     imageUrl: input.imageUrl,
     status: 'DRAFT',
+    currency,
     createdAt,
   };
   const tiers: TicketTier[] = (input.tiers ?? []).map((t) => ({
@@ -426,7 +494,8 @@ export async function listPublishedEvents(opts: {
   category?: string;
   q?: string;
   limit?: number;
-}): Promise<{ event: EventItem; tiers: TicketTier[] }[]> {
+  cursor?: string;
+}): Promise<{ items: { event: EventItem; tiers: TicketTier[] }[]; nextCursor?: string }> {
   const res = await docClient.send(
     new QueryCommand({
       TableName: T(),
@@ -435,6 +504,7 @@ export async function listPublishedEvents(opts: {
       ExpressionAttributeValues: { ':pk': EVENT_FEED_PK },
       ScanIndexForward: true, // soonest first
       Limit: opts.limit ?? 50,
+      ExclusiveStartKey: decodeCursor(opts.cursor) as never,
     })
   );
   let events = ((res.Items ?? []) as Record<string, unknown>[]).map((item) => {
@@ -462,7 +532,8 @@ export async function listPublishedEvents(opts: {
       tiersByEvent.set(e.id, await getTiersForEvent(e.id));
     })
   );
-  return events.map((event) => ({ event, tiers: tiersByEvent.get(event.id) ?? [] }));
+  const items = events.map((event) => ({ event, tiers: tiersByEvent.get(event.id) ?? [] }));
+  return { items, nextCursor: encodeCursor(res.LastEvaluatedKey as Record<string, unknown> | undefined) };
 }
 
 export async function listCreatorEvents(creatorId: string): Promise<EventItem[]> {
@@ -546,6 +617,7 @@ export async function createPendingOrder(input: {
   feesCents: number;
   totalCents: number;
   promoCodeText?: string;
+  currency?: string;
   expiresAt: string;
 }): Promise<Order> {
   const id = randomUUID();
@@ -562,6 +634,7 @@ export async function createPendingOrder(input: {
     feesCents: input.feesCents,
     totalCents: input.totalCents,
     promoCodeText: input.promoCodeText,
+    currency: input.currency,
     expiresAt: input.expiresAt,
     createdAt,
   };
@@ -746,6 +819,21 @@ export async function releaseOrder(
         },
       });
     }
+    // Seat-level holds: HELD → AVAILABLE (only seats this order reserved).
+    if (item.sectionId && item.seatLabels) {
+      for (const label of item.seatLabels) {
+        transactItems.push({
+          Update: {
+            TableName: T(),
+            Key: { pk: eventPk(order.eventId), sk: seatSk(item.sectionId, label) },
+            UpdateExpression: 'SET #status = :available REMOVE reservedAt',
+            ConditionExpression: '#status = :held',
+            ExpressionAttributeNames: { '#status': 'status' },
+            ExpressionAttributeValues: { ':available': 'AVAILABLE', ':held': 'HELD' },
+          },
+        });
+      }
+    }
   }
   // RESALE orders claimed the listing (ACTIVE → CHECKOUT) at intent time.
   if (order.kind === 'RESALE' && order.listingCode) {
@@ -823,9 +911,13 @@ async function getOrderItems(orderId: string): Promise<OrderItem[]> {
   });
 }
 
-export async function listUserOrders(userId: string): Promise<
-  (Order & { items: OrderItem[]; event?: { id: string; title: string; startsAt: string; location: string; imageUrl?: string } })[]
-> {
+export async function listUserOrders(
+  userId: string,
+  opts: { limit?: number; cursor?: string } = {}
+): Promise<{
+  items: (Order & { items: OrderItem[]; event?: { id: string; title: string; startsAt: string; location: string; imageUrl?: string } })[];
+  nextCursor?: string;
+}> {
   const res = await docClient.send(
     new QueryCommand({
       TableName: T(),
@@ -833,14 +925,15 @@ export async function listUserOrders(userId: string): Promise<
       KeyConditionExpression: 'gsi2pk = :pk',
       ExpressionAttributeValues: { ':pk': userOrdersPk(userId) },
       ScanIndexForward: false,
-      Limit: 100,
+      Limit: opts.limit ?? 100,
+      ExclusiveStartKey: decodeCursor(opts.cursor) as never,
     })
   );
   const orders = ((res.Items ?? []) as Record<string, unknown>[]).map((item) => {
     const { pk, sk, gsi2pk, gsi2sk, ...rest } = item;
     return rest as unknown as Order;
   });
-  return Promise.all(
+  const items = await Promise.all(
     orders.map(async (order) => {
       const [items, eventMeta] = await Promise.all([
         getOrderItems(order.id),
@@ -861,6 +954,58 @@ export async function listUserOrders(userId: string): Promise<
       };
     })
   );
+  return { items, nextCursor: encodeCursor(res.LastEvaluatedKey as Record<string, unknown> | undefined) };
+}
+
+export interface EventOrder extends Order {
+  items: OrderItem[];
+  buyerName: string;
+  buyerEmail: string;
+}
+
+// Creator-facing order feed for one event. There is no event-order GSI yet, so
+// this derives paid orders from the EVENTTIX ticket feed and hydrates each
+// order's line items + buyer profile. Pending/failed checkouts have no issued
+// tickets and therefore do not appear here.
+export async function listEventOrders(eventId: string): Promise<EventOrder[]> {
+  const tickets = await listEventTickets(eventId);
+  const orderIds = [...new Set(tickets.map((ticket) => ticket.orderId).filter(Boolean))];
+  if (orderIds.length === 0) return [];
+
+  const orderRows = await batchGet<Record<string, unknown>>(
+    orderIds.map((id) => ({ pk: orderPk(id), sk: 'METADATA' }))
+  );
+  const orders = orderRows
+    .map((item) => {
+      const { pk, sk, gsi2pk, gsi2sk, ...rest } = item;
+      return rest as unknown as Order;
+    })
+    .filter((order) => order.eventId === eventId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  if (orders.length === 0) return [];
+
+  const userIds = [...new Set(orders.map((order) => order.userId))];
+  const [itemsByOrder, users] = await Promise.all([
+    Promise.all(
+      orders.map(async (order) => [order.id, await getOrderItems(order.id)] as const)
+    ),
+    batchGet<{ id: string; firstName?: string; lastName?: string; email?: string }>(
+      userIds.map((id) => ({ pk: userPk(id), sk: 'PROFILE' }))
+    ),
+  ]);
+  const itemsMap = new Map(itemsByOrder);
+  const userMap = new Map(users.map((user) => [user.id, user]));
+
+  return orders.map((order) => {
+    const user = userMap.get(order.userId);
+    const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+    return {
+      ...order,
+      items: itemsMap.get(order.id) ?? [],
+      buyerName: name || user?.email || 'Guest',
+      buyerEmail: user?.email ?? '',
+    };
+  });
 }
 
 export async function getOrder(orderId: string): Promise<
@@ -946,6 +1091,7 @@ export async function fulfillOrder(orderId: string, paymentIntentId: string): Pr
             tierId: item.tierId,
             tierName: item.tierName,
             sectionName: item.sectionName,
+            currency: order.currency ?? 'usd',
             userId: order.userId,
             status: 'VALID',
             createdAt,
@@ -993,7 +1139,10 @@ export async function fulfillOrder(orderId: string, paymentIntentId: string): Pr
 
 // ---------- tickets ----------
 
-export async function listUserTickets(userId: string): Promise<Ticket[]> {
+export async function listUserTickets(
+  userId: string,
+  opts: { limit?: number; cursor?: string } = {}
+): Promise<{ items: Ticket[]; nextCursor?: string }> {
   const res = await docClient.send(
     new QueryCommand({
       TableName: T(),
@@ -1001,13 +1150,15 @@ export async function listUserTickets(userId: string): Promise<Ticket[]> {
       KeyConditionExpression: 'gsi2pk = :pk',
       ExpressionAttributeValues: { ':pk': userTicketsPk(userId) },
       ScanIndexForward: false,
-      Limit: 100,
+      Limit: opts.limit ?? 100,
+      ExclusiveStartKey: decodeCursor(opts.cursor) as never,
     })
   );
-  return ((res.Items ?? []) as Record<string, unknown>[]).map((item) => {
+  const items = ((res.Items ?? []) as Record<string, unknown>[]).map((item) => {
     const { pk, sk, gsi2pk, gsi2sk, ...rest } = item;
     return rest as unknown as Ticket;
   });
+  return { items, nextCursor: encodeCursor(res.LastEvaluatedKey as Record<string, unknown> | undefined) };
 }
 
 // ---------- door ops: ticket lookup, check-in, guest list ----------
@@ -1019,6 +1170,278 @@ export async function getTicketByCode(code: string): Promise<Ticket | null> {
   if (!res.Item) return null;
   const { pk, sk, gsi1pk, gsi1sk, gsi2pk, gsi2sk, ...rest } = res.Item as Record<string, unknown>;
   return rest as unknown as Ticket;
+}
+
+export type TransferTicketResult =
+  | { result: 'OK'; ticket: Ticket; recipient: User }
+  | { result: 'NOT_FOUND' }
+  | { result: 'FORBIDDEN' }
+  | { result: 'NOT_YOURS' }
+  | { result: 'NOT_VALID' }
+  | { result: 'LISTED' }
+  | { result: 'SELF' }
+  | { result: 'RECIPIENT_NOT_FOUND' };
+
+// Gift/transfer a VALID ticket to another user by email. The ticket code stays
+// the same (the recipient's wallet/QR reflects the new owner); ownership and
+// the per-user GSI2 feed move atomically.
+export async function transferTicket(input: {
+  ticketCode: string;
+  fromUserId: string;
+  recipientEmail: string;
+}): Promise<TransferTicketResult> {
+  const ticket = await getTicketByCode(input.ticketCode);
+  if (!ticket) return { result: 'NOT_FOUND' };
+  if (ticket.userId !== input.fromUserId) return { result: 'NOT_YOURS' };
+  if (ticket.status !== 'VALID') return { result: 'NOT_VALID' };
+  const listing = await getListing(input.ticketCode);
+  if (listing && (listing.status === 'ACTIVE' || listing.status === 'CHECKOUT')) {
+    return { result: 'LISTED' };
+  }
+  const recipient = await getUserByEmail(input.recipientEmail);
+  if (!recipient || recipient.deletedAt) return { result: 'RECIPIENT_NOT_FOUND' };
+  if (recipient.id === input.fromUserId) return { result: 'SELF' };
+
+  const transferredAt = now();
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: ticketPk(input.ticketCode), sk: 'METADATA' },
+        UpdateExpression:
+          'SET userId = :to, gsi2pk = :ticketsPk, gsi2sk = :ticketsSk, transferredFrom = :from, transferredTo = :toId, transferredAt = :at',
+        ConditionExpression: '#status = :valid AND userId = :from',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':to': recipient.id,
+          ':ticketsPk': userTicketsPk(recipient.id),
+          ':ticketsSk': createdSk(ticket.createdAt, input.ticketCode),
+          ':from': input.fromUserId,
+          ':toId': recipient.id,
+          ':at': transferredAt,
+          ':valid': 'VALID',
+        },
+      })
+    );
+  } catch (e) {
+    if (isConditionalCheck(e)) return { result: 'NOT_VALID' };
+    throw e;
+  }
+  return {
+    result: 'OK',
+    ticket: { ...ticket, userId: recipient.id, transferredFrom: input.fromUserId, transferredTo: recipient.id, transferredAt },
+    recipient,
+  };
+}
+
+// ---------- set-your-price offers (standing auto-buy requests) ----------
+
+export interface Offer {
+  id: string;
+  buyerId: string;
+  eventId: string;
+  tierName: string;
+  tierKey: string;
+  sectionName?: string;
+  maxPriceCents: number;
+  quantity: number;
+  matchedCount: number;
+  status: 'ACTIVE' | 'MATCHED' | 'CANCELLED';
+  lastListingCode?: string;
+  lastMatchedAt?: string;
+  createdAt: string;
+}
+
+export function offerTierKey(tierName: string, sectionName?: string): string {
+  return [tierName, sectionName].filter(Boolean).join('::').trim().toLowerCase();
+}
+
+export class OfferError extends Error {}
+
+export async function createOffer(input: {
+  buyerId: string;
+  eventId: string;
+  tierName: string;
+  sectionName?: string;
+  maxPriceCents: number;
+  quantity: number;
+}): Promise<Offer> {
+  const event = await getEventMeta(input.eventId);
+  if (!event || event.status !== 'PUBLISHED') throw new OfferError('Event is not on sale');
+  if (!input.tierName?.trim()) throw new OfferError('Ticket tier is required');
+  if (!Number.isInteger(input.maxPriceCents) || input.maxPriceCents < 1) {
+    throw new OfferError('Enter a valid max price');
+  }
+  if (!Number.isInteger(input.quantity) || input.quantity < 1 || input.quantity > 8) {
+    throw new OfferError('Quantity must be between 1 and 8');
+  }
+  const existing = (await listUserOffers(input.buyerId)).items;
+  const duplicate = existing.find(
+    (offer) =>
+      offer.status === 'ACTIVE' &&
+      offer.eventId === input.eventId &&
+      offer.tierKey === offerTierKey(input.tierName, input.sectionName)
+  );
+  if (duplicate) throw new OfferError('You already have an active offer for these tickets');
+
+  const id = randomUUID();
+  const createdAt = now();
+  const tierKey = offerTierKey(input.tierName, input.sectionName);
+  const offer: Offer = {
+    id,
+    buyerId: input.buyerId,
+    eventId: input.eventId,
+    tierName: input.tierName.trim(),
+    tierKey,
+    sectionName: input.sectionName?.trim() || undefined,
+    maxPriceCents: input.maxPriceCents,
+    quantity: input.quantity,
+    matchedCount: 0,
+    status: 'ACTIVE',
+    createdAt,
+  };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: offerPk(id),
+        sk: 'METADATA',
+        ...offer,
+        gsi1pk: ACTIVE_OFFERS_GSI_PK,
+        gsi1sk: offerGsiSk(input.eventId, tierKey, createdAt, id),
+        gsi2pk: userOffersPk(input.buyerId),
+        gsi2sk: createdSk(createdAt, id),
+      },
+    })
+  );
+  return offer;
+}
+
+function stripOfferKeys(item: Record<string, unknown>): Offer {
+  const { pk, sk, gsi1pk, gsi1sk, gsi2pk, gsi2sk, ...rest } = item;
+  return { ...(rest as unknown as Offer), matchedCount: (rest.matchedCount as number) ?? 0 };
+}
+
+export async function getOffer(id: string): Promise<Offer | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: offerPk(id), sk: 'METADATA' } })
+  );
+  return res.Item ? stripOfferKeys(res.Item) : null;
+}
+
+export async function listUserOffers(
+  userId: string,
+  opts: { limit?: number; cursor?: string } = {}
+): Promise<{ items: Offer[]; nextCursor?: string }> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk',
+      ExpressionAttributeValues: { ':pk': userOffersPk(userId) },
+      ScanIndexForward: false,
+      Limit: opts.limit ?? 200,
+      ExclusiveStartKey: decodeCursor(opts.cursor) as never,
+    })
+  );
+  const items = ((res.Items ?? []) as Record<string, unknown>[])
+    .map(stripOfferKeys)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return { items, nextCursor: encodeCursor(res.LastEvaluatedKey as Record<string, unknown> | undefined) };
+}
+
+export async function listActiveOffersForTier(input: {
+  eventId: string;
+  tierName: string;
+  sectionName?: string;
+}): Promise<Offer[]> {
+  const tierKey = offerTierKey(input.tierName, input.sectionName);
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi1',
+      KeyConditionExpression: 'gsi1pk = :pk AND begins_with(gsi1sk, :prefix)',
+      ExpressionAttributeValues: {
+        ':pk': ACTIVE_OFFERS_GSI_PK,
+        ':prefix': `EVENT#${input.eventId}#${tierKey}#`,
+      },
+      ScanIndexForward: true,
+      Limit: 200,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[])
+    .map(stripOfferKeys)
+    .filter(
+      (offer) =>
+        offer.status === 'ACTIVE' &&
+        offer.matchedCount < offer.quantity &&
+        (offer.sectionName ?? '') === (input.sectionName ?? '')
+    );
+}
+
+async function matchOffer(offer: Offer, listingCode: string, priceCents: number): Promise<Offer> {
+  const matchedCount = offer.matchedCount + 1;
+  const status = matchedCount >= offer.quantity ? 'MATCHED' : 'ACTIVE';
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: offerPk(offer.id), sk: 'METADATA' },
+      UpdateExpression:
+        'SET matchedCount = :matched, #status = :status, lastListingCode = :code, lastMatchedAt = :at',
+      ConditionExpression: '#status = :active AND (attribute_not_exists(matchedCount) OR matchedCount < :quantity)',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: {
+        ':matched': matchedCount,
+        ':status': status,
+        ':active': 'ACTIVE',
+        ':quantity': offer.quantity,
+        ':code': listingCode,
+        ':at': now(),
+      },
+    })
+  );
+  return { ...offer, matchedCount, status, lastListingCode: listingCode, lastMatchedAt: now() };
+}
+
+// Called after a resale listing is created. The earliest eligible standing
+// offer at or above the ask is marked matched so the buyer sees it in Tickets;
+// payment still goes through the normal resale checkout when the buyer accepts.
+export async function matchOffersForListing(listing: Listing): Promise<Offer[]> {
+  const offers = await listActiveOffersForTier({
+    eventId: listing.eventId,
+    tierName: listing.tierName,
+  });
+  const eligible = offers
+    .filter((offer) => offer.maxPriceCents >= listing.priceCents)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const matched: Offer[] = [];
+  for (const offer of eligible) {
+    try {
+      matched.push(await matchOffer(offer, listing.ticketCode, listing.priceCents));
+      break; // one ticket can only satisfy one standing offer
+    } catch (e) {
+      if (!isConditionalCheck(e)) throw e;
+    }
+  }
+  return matched;
+}
+
+export async function cancelOffer(userId: string, offerId: string): Promise<'cancelled' | 'not_found' | 'forbidden'> {
+  const offer = await getOffer(offerId);
+  if (!offer) return 'not_found';
+  if (offer.buyerId !== userId) return 'forbidden';
+  if (offer.status !== 'ACTIVE') return 'not_found';
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: offerPk(offerId), sk: 'METADATA' },
+      UpdateExpression: 'SET #status = :cancelled',
+      ConditionExpression: '#status = :active',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: { ':cancelled': 'CANCELLED', ':active': 'ACTIVE' },
+    })
+  );
+  return 'cancelled';
 }
 
 export type CheckInResult =
@@ -1126,6 +1549,7 @@ export interface Listing {
   eventLocation: string;
   tierName: string;
   priceCents: number;
+  currency?: string;
   status: 'ACTIVE' | 'CHECKOUT' | 'SOLD' | 'CANCELLED';
   buyerId?: string;
   createdAt: string;
@@ -1162,6 +1586,7 @@ export async function createListing(input: {
     throw new ListingError('Ticket is already listed');
   }
 
+  const event = await getEventMeta(ticket.eventId);
   const createdAt = now();
   const listing: Listing = {
     ticketCode: input.ticketCode,
@@ -1172,6 +1597,7 @@ export async function createListing(input: {
     eventLocation: ticket.eventLocation,
     tierName: ticket.tierName,
     priceCents: input.priceCents,
+    currency: ticket.currency ?? event?.currency ?? 'usd',
     status: 'ACTIVE',
     createdAt,
   };
@@ -1218,7 +1644,10 @@ export async function listActiveListings(eventId?: string): Promise<Listing[]> {
     .filter((l) => l.status === 'ACTIVE');
 }
 
-export async function listSellerListings(sellerId: string): Promise<Listing[]> {
+export async function listSellerListings(
+  sellerId: string,
+  opts: { limit?: number; cursor?: string } = {}
+): Promise<{ items: Listing[]; nextCursor?: string }> {
   const res = await docClient.send(
     new QueryCommand({
       TableName: T(),
@@ -1226,12 +1655,14 @@ export async function listSellerListings(sellerId: string): Promise<Listing[]> {
       KeyConditionExpression: 'gsi2pk = :pk',
       ExpressionAttributeValues: { ':pk': userListingsPk(sellerId) },
       ScanIndexForward: false,
-      Limit: 200,
+      Limit: opts.limit ?? 200,
+      ExclusiveStartKey: decodeCursor(opts.cursor) as never,
     })
   );
-  return ((res.Items ?? []) as Record<string, unknown>[]).map(
+  const items = ((res.Items ?? []) as Record<string, unknown>[]).map(
     (item) => stripKeys(item) as unknown as Listing
   );
+  return { items, nextCursor: encodeCursor(res.LastEvaluatedKey as Record<string, unknown> | undefined) };
 }
 
 // Atomically claim a listing for checkout: ACTIVE → CHECKOUT. Returns false
@@ -1408,6 +1839,10 @@ export async function setVenueLayout(
   if (event.creatorId !== actorId && actorRole !== 'ADMIN') {
     throw new ConditionFailedError('Not the event creator');
   }
+
+  const existing = await listSections(eventId);
+  const existingById = new Map(existing.map((section) => [section.sectionId, section]));
+  const nextIds = new Set(layout.sections.map((section) => section.id));
   const transactItems: TransactWriteCommandInput['TransactItems'] = [
     {
       Update: {
@@ -1417,22 +1852,66 @@ export async function setVenueLayout(
         ExpressionAttributeValues: { ':layout': layout },
       },
     },
-    ...layout.sections.map((s) => ({
+  ];
+
+  for (const section of layout.sections) {
+    const previous = existingById.get(section.id);
+    let sold = 0;
+    let available = section.capacity;
+    if (previous) {
+      sold = previous.sold ?? 0;
+      const previousAvailable =
+        previous.available ?? Math.max(0, previous.capacity - sold);
+      const reserved = Math.max(
+        0,
+        previous.capacity - sold - previousAvailable
+      );
+      const minimumCapacity = sold + reserved;
+      if (section.capacity < minimumCapacity) {
+        throw new ConditionFailedError(
+          `Section ${section.name || section.id} capacity cannot be below ${minimumCapacity} sold/reserved seats`
+        );
+      }
+      available = Math.max(
+        0,
+        previousAvailable + (section.capacity - previous.capacity)
+      );
+    }
+    transactItems.push({
       Put: {
         TableName: T(),
         Item: {
           pk: eventPk(eventId),
-          sk: `SECTION#${s.id}`,
-          sectionId: s.id,
-          name: s.name,
-          priceCents: s.priceCents,
-          capacity: s.capacity,
-          sold: 0,
-          available: s.capacity,
+          sk: `SECTION#${section.id}`,
+          sectionId: section.id,
+          name: section.name,
+          priceCents: section.priceCents,
+          capacity: section.capacity,
+          sold,
+          available,
         },
       },
-    })),
-  ];
+    });
+  }
+
+  for (const previous of existing) {
+    if (nextIds.has(previous.sectionId)) continue;
+    const sold = previous.sold ?? 0;
+    const available = previous.available ?? Math.max(0, previous.capacity - sold);
+    const reserved = Math.max(0, previous.capacity - sold - available);
+    if (sold > 0 || reserved > 0) {
+      throw new ConditionFailedError(
+        `Cannot remove ${previous.name || previous.sectionId}; it has sold or reserved seats`
+      );
+    }
+    transactItems.push({
+      Delete: {
+        TableName: T(),
+        Key: { pk: eventPk(eventId), sk: `SECTION#${previous.sectionId}` },
+      },
+    });
+  }
+
   await docClient.send(new TransactWriteCommand({ TransactItems: transactItems }));
   return { ...event, venueLayout: layout };
 }
@@ -1488,6 +1967,8 @@ async function fulfillSeatedOrder(
             eventLocation: event?.location ?? '',
             tierName: item.sectionName ?? item.tierName,
             sectionName: item.sectionName,
+            seatLabel: item.seatLabels?.[i],
+            currency: order.currency ?? 'usd',
             userId: order.userId,
             status: 'VALID',
             createdAt,
@@ -1508,6 +1989,21 @@ async function fulfillSeatedOrder(
           ExpressionAttributeValues: { ':qty': item.quantity },
         },
       });
+      // Seat-level: HELD → SOLD for the exact seats this order reserved.
+      if (item.seatLabels) {
+        for (const label of item.seatLabels) {
+          ticketPuts.push({
+            Update: {
+              TableName: T(),
+              Key: { pk: eventPk(order.eventId), sk: seatSk(item.sectionId, label) },
+              UpdateExpression: 'SET #status = :sold REMOVE reservedAt',
+              ConditionExpression: '#status = :held',
+              ExpressionAttributeNames: { '#status': 'status' },
+              ExpressionAttributeValues: { ':sold': 'SOLD', ':held': 'HELD' },
+            },
+          });
+        }
+      }
     }
   }
 
@@ -1541,5 +2037,822 @@ async function fulfillSeatedOrder(
   } catch (e) {
     if (isConditionalCheck(e)) return 'already';
     throw e;
+  }
+}
+
+// ---------- account lifecycle ----------
+
+const resetPk = (email: string) => `RESET#${email.toLowerCase()}`;
+
+function resetCodeHash(code: string): string {
+  return createHash('sha256').update(code).digest('hex');
+}
+
+export async function createPasswordReset(email: string): Promise<{ code: string; expiresAt: string }> {
+  const code = String(randomInt(100000, 1000000));
+  const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: resetPk(email),
+        sk: 'CODE',
+        codeHash: resetCodeHash(code),
+        expiresAt,
+        createdAt: now(),
+      },
+    })
+  );
+  return { code, expiresAt };
+}
+
+async function passwordResetMatches(email: string, code: string): Promise<boolean> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: resetPk(email), sk: 'CODE' } })
+  );
+  const item = res.Item as { codeHash?: string; expiresAt?: string } | undefined;
+  return Boolean(
+    item?.codeHash === resetCodeHash(code) && item.expiresAt && new Date(item.expiresAt) > new Date()
+  );
+}
+
+export async function verifyPasswordReset(email: string, code: string): Promise<boolean> {
+  return passwordResetMatches(email, code);
+}
+
+export async function consumePasswordReset(email: string, code: string): Promise<boolean> {
+  if (!(await passwordResetMatches(email, code))) return false;
+  await docClient.send(
+    new DeleteCommand({ TableName: T(), Key: { pk: resetPk(email), sk: 'CODE' } })
+  );
+  return true;
+}
+
+export async function deleteUser(id: string): Promise<boolean> {
+  const user = await getUserById(id);
+  if (!user || user.deletedAt) return false;
+  const deletedAt = now();
+  await docClient.send(
+    new TransactWriteCommand({
+      TransactItems: [
+        {
+          Delete: {
+            TableName: T(),
+            Key: { pk: emailPk(user.email), sk: 'ID' },
+          },
+        },
+        {
+          Update: {
+            TableName: T(),
+            Key: { pk: userPk(id), sk: 'PROFILE' },
+            UpdateExpression:
+              'SET deletedAt = :deletedAt, firstName = :firstName, lastName = :lastName, passwordHash = :passwordHash REMOVE phone, avatarUrl, firstNameAr, city, interests, dateOfBirth, notificationPrefs, stripeCustomerId',
+            ExpressionAttributeValues: {
+              ':deletedAt': deletedAt,
+              ':firstName': 'Deleted',
+              ':lastName': 'User',
+              ':passwordHash': '!deleted',
+            },
+            ConditionExpression: 'attribute_exists(pk)',
+          },
+        },
+      ],
+    })
+  );
+  // A deleted account must not keep sellable inventory or standing offers:
+  // cancel active resale listings and offers so nothing can be purchased on
+  // behalf of a deleted user.
+  const [listings, offers] = await Promise.all([
+    listSellerListings(id),
+    listUserOffers(id),
+  ]);
+  for (const listing of listings.items) {
+    if (listing.status === 'ACTIVE' || listing.status === 'CHECKOUT') {
+      await cancelListing(id, listing.ticketCode).catch(() => undefined);
+    }
+  }
+  for (const offer of offers.items) {
+    if (offer.status === 'ACTIVE') {
+      await cancelOffer(id, offer.id).catch(() => undefined);
+    }
+  }
+  await revokeAllRefreshTokens(id).catch(() => undefined);
+  return true;
+}
+
+// ---------- promo CRUD ----------
+
+const PROMOS_GSI_PK = 'PROMOS#ALL';
+
+export async function createPromo(input: PromoCode & { creatorId: string }): Promise<PromoCode> {
+  const code = input.code.trim().toUpperCase();
+  const timestamp = now();
+  const promo: PromoCode = {
+    ...input,
+    code,
+    usedCount: input.usedCount ?? 0,
+    active: input.active ?? true,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: promoPk(code),
+        sk: 'METADATA',
+        ...promo,
+        gsi1pk: PROMOS_GSI_PK,
+        gsi1sk: createdSk(timestamp, code),
+      },
+      ConditionExpression: 'attribute_not_exists(pk)',
+    })
+  );
+  return promo;
+}
+
+export async function listPromos(creatorId?: string): Promise<PromoCode[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi1',
+      KeyConditionExpression: 'gsi1pk = :pk',
+      ExpressionAttributeValues: { ':pk': PROMOS_GSI_PK },
+      ScanIndexForward: false,
+      Limit: 200,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[])
+    .map((item) => stripKeys(item) as unknown as PromoCode)
+    .filter((promo) => !creatorId || promo.creatorId === creatorId);
+}
+
+export async function updatePromo(
+  code: string,
+  fields: Partial<Omit<PromoCode, 'code' | 'usedCount'>>
+): Promise<PromoCode | null> {
+  const key = promoPk(code);
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: key, sk: 'METADATA' } })
+  );
+  if (!res.Item) return null;
+  const next = {
+    ...(res.Item as Record<string, unknown>),
+    ...fields,
+    code: code.toUpperCase(),
+    updatedAt: now(),
+  };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        ...next,
+        pk: key,
+        sk: 'METADATA',
+        gsi1pk: PROMOS_GSI_PK,
+        gsi1sk: (res.Item as { gsi1sk?: string }).gsi1sk ?? createdSk(now(), code.toUpperCase()),
+      },
+    })
+  );
+  return stripKeys(next) as unknown as PromoCode;
+}
+
+export async function deletePromo(code: string): Promise<boolean> {
+  try {
+    await docClient.send(
+      new DeleteCommand({ TableName: T(), Key: { pk: promoPk(code), sk: 'METADATA' } })
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function incrementPromoUsage(code: string): Promise<void> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: promoPk(code), sk: 'METADATA' },
+        UpdateExpression: 'ADD usedCount :one SET updatedAt = :now',
+        ExpressionAttributeValues: { ':one': 1, ':now': now() },
+        ConditionExpression: 'attribute_exists(pk)',
+      })
+    );
+  } catch (e) {
+    if (!isConditionalCheck(e)) throw e;
+  }
+}
+
+// ---------- creator broadcasts ----------
+
+export interface Broadcast {
+  id: string;
+  eventId: string;
+  creatorId: string;
+  audience: string;
+  audienceFilter?: { tierName?: string; sectionName?: string; checkedIn?: boolean };
+  message: string;
+  channels: { push: boolean; email: boolean; sms: boolean };
+  recipientCount: number;
+  recipientIds?: string[];
+  createdAt: string;
+}
+
+const broadcastPk = (eventId: string) => `BROADCAST#${eventId}`;
+const broadcastsGsiPk = (eventId: string) => `BROADCASTS#${eventId}`;
+
+export async function createBroadcast(input: Omit<Broadcast, 'id' | 'createdAt'>): Promise<Broadcast> {
+  const id = randomUUID();
+  const createdAt = now();
+  const broadcast: Broadcast = { ...input, id, createdAt };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: broadcastPk(input.eventId),
+        sk: createdSk(createdAt, id),
+        ...broadcast,
+        gsi1pk: broadcastsGsiPk(input.eventId),
+        gsi1sk: createdAt,
+      },
+    })
+  );
+  return broadcast;
+}
+
+export async function listEventBroadcasts(eventId: string): Promise<Broadcast[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi1',
+      KeyConditionExpression: 'gsi1pk = :pk',
+      ExpressionAttributeValues: { ':pk': broadcastsGsiPk(eventId) },
+      ScanIndexForward: false,
+      Limit: 20,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[]).map(
+    (item) => stripKeys(item) as unknown as Broadcast
+  );
+}
+
+export async function listBroadcastsForEvents(eventIds: string[]): Promise<Broadcast[]> {
+  const feeds = await Promise.all(eventIds.map((eventId) => listEventBroadcasts(eventId)));
+  return feeds.flat().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 50);
+}
+
+export async function setUserStripeCustomerId(id: string, stripeCustomerId: string): Promise<void> {
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: userPk(id), sk: 'PROFILE' },
+      UpdateExpression: 'SET stripeCustomerId = :id',
+      ExpressionAttributeValues: { ':id': stripeCustomerId },
+      ConditionExpression: 'attribute_exists(pk)',
+    })
+  );
+}
+
+// ---------- refresh tokens (opaque, rotating) ----------
+
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+// Issues a new refresh token for the user. Only one active refresh token per
+// user: issuing a new one revokes the previous (rotation on every refresh).
+export async function issueRefreshToken(userId: string): Promise<string> {
+  const token = randomUUID() + randomUUID();
+  const tokenHash = hashToken(token);
+  const createdAt = now();
+  // Revoke any existing refresh tokens for this user first.
+  await revokeAllRefreshTokens(userId);
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: refreshPk(tokenHash),
+        sk: 'TOKEN',
+        userId,
+        createdAt,
+        gsi2pk: `USER#${userId}#REFRESH`,
+        gsi2sk: createdSk(createdAt, tokenHash.slice(0, 12)),
+      },
+    })
+  );
+  return token;
+}
+
+export async function getRefreshTokenUserId(token: string): Promise<string | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: refreshPk(hashToken(token)), sk: 'TOKEN' } })
+  );
+  return (res.Item?.userId as string | undefined) ?? null;
+}
+
+export async function revokeRefreshToken(token: string): Promise<void> {
+  await docClient.send(
+    new DeleteCommand({ TableName: T(), Key: { pk: refreshPk(hashToken(token)), sk: 'TOKEN' } })
+  );
+}
+
+export async function revokeAllRefreshTokens(userId: string): Promise<void> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk',
+      ExpressionAttributeValues: { ':pk': `USER#${userId}#REFRESH` },
+    })
+  );
+  for (const item of res.Items ?? []) {
+    const pk = item.pk as string;
+    await docClient.send(new DeleteCommand({ TableName: T(), Key: { pk, sk: 'TOKEN' } }));
+  }
+}
+
+// ---------- email verification tokens ----------
+
+export async function createEmailVerificationToken(userId: string, email: string): Promise<string> {
+  const token = randomUUID() + randomUUID();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60_000).toISOString();
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: verifyPk(hashToken(token)),
+        sk: 'TOKEN',
+        userId,
+        email: email.toLowerCase(),
+        expiresAt,
+        createdAt: now(),
+      },
+    })
+  );
+  return token;
+}
+
+export async function consumeEmailVerificationToken(
+  token: string
+): Promise<{ userId: string; email: string } | null> {
+  const key = { pk: verifyPk(hashToken(token)), sk: 'TOKEN' };
+  const res = await docClient.send(new GetCommand({ TableName: T(), Key: key }));
+  const item = res.Item as { userId?: string; email?: string; expiresAt?: string } | undefined;
+  if (!item?.userId || !item.expiresAt || new Date(item.expiresAt) <= new Date()) return null;
+  await docClient.send(new DeleteCommand({ TableName: T(), Key: key }));
+  return { userId: item.userId, email: item.email ?? '' };
+}
+
+// ---------- referrals ----------
+
+export async function getUserByReferralCode(code: string): Promise<User | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: `USER#REFERRAL#${code.toUpperCase()}`, sk: 'ID' } })
+  );
+  const userId = res.Item?.userId as string | undefined;
+  return userId ? getUserById(userId) : null;
+}
+
+// Records a referral relationship: sets referredByCode on the new user (once),
+// increments the referrer's count, and writes a REFERRAL# row for listing.
+export async function applyReferralCode(userId: string, code: string): Promise<boolean> {
+  const referrer = await getUserByReferralCode(code);
+  if (!referrer || referrer.id === userId || referrer.deletedAt) return false;
+  const user = await getUserById(userId);
+  if (!user || user.referredByCode) return false;
+  const createdAt = now();
+  try {
+    await docClient.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Update: {
+              TableName: T(),
+              Key: { pk: userPk(userId), sk: 'PROFILE' },
+              UpdateExpression: 'SET referredByCode = :code',
+              ConditionExpression: 'attribute_not_exists(referredByCode)',
+              ExpressionAttributeValues: { ':code': referrer.referralCode },
+            },
+          },
+          {
+            Update: {
+              TableName: T(),
+              Key: { pk: userPk(referrer.id), sk: 'PROFILE' },
+              UpdateExpression: 'ADD referralCount :one',
+              ExpressionAttributeValues: { ':one': 1 },
+            },
+          },
+          {
+            Put: {
+              TableName: T(),
+              Item: {
+                pk: userPk(referrer.id),
+                sk: `REFERRAL#${createdAt}#${userId}`,
+                referredUserId: userId,
+                referredEmail: user.email,
+                referredName: [user.firstName, user.lastName].filter(Boolean).join(' '),
+                createdAt,
+                gsi2pk: userReferralsPk(referrer.id),
+                gsi2sk: createdSk(createdAt, userId),
+              },
+            },
+          },
+        ],
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false; // already referred
+    throw e;
+  }
+}
+
+const userReferralsPk = (userId: string) => `USER#${userId}#REFERRALS`;
+
+export interface ReferralRow {
+  referredUserId: string;
+  referredEmail: string;
+  referredName: string;
+  createdAt: string;
+}
+
+export async function listUserReferrals(userId: string): Promise<ReferralRow[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk',
+      ExpressionAttributeValues: { ':pk': userReferralsPk(userId) },
+      ScanIndexForward: false,
+      Limit: 200,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[]).map((item) => ({
+    referredUserId: item.referredUserId as string,
+    referredEmail: item.referredEmail as string,
+    referredName: item.referredName as string,
+    createdAt: item.createdAt as string,
+  }));
+}
+
+// Registers the referral-code lookup item for a new user. Called right after
+// createUser so codes are resolvable immediately.
+export async function registerReferralCode(userId: string, code: string): Promise<void> {
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: { pk: `USER#REFERRAL#${code.toUpperCase()}`, sk: 'ID', userId },
+    })
+  );
+}
+
+// ---------- Stripe Connect (payouts) ----------
+
+export async function setUserStripeConnectAccount(
+  id: string,
+  accountId: string
+): Promise<void> {
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: userPk(id), sk: 'PROFILE' },
+      UpdateExpression: 'SET stripeConnectAccountId = :acct',
+      ExpressionAttributeValues: { ':acct': accountId },
+      ConditionExpression: 'attribute_exists(pk)',
+    })
+  );
+}
+
+export async function updateUserStripeConnectStatus(
+  id: string,
+  fields: {
+    detailsSubmitted?: boolean;
+    chargesEnabled?: boolean;
+    payoutsEnabled?: boolean;
+  }
+): Promise<void> {
+  const sets: string[] = [];
+  const values: Record<string, unknown> = {};
+  let i = 0;
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined) continue;
+    sets.push(`stripeConnect${key[0].toUpperCase()}${key.slice(1)} = :v${i}`);
+    values[`:v${i}`] = value;
+    i++;
+  }
+  if (sets.length === 0) return;
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: userPk(id), sk: 'PROFILE' },
+      UpdateExpression: `SET ${sets.join(', ')}`,
+      ExpressionAttributeValues: values,
+      ConditionExpression: 'attribute_exists(pk)',
+    })
+  );
+}
+
+// ---------- withdrawals ----------
+
+export interface Withdrawal {
+  id: string;
+  userId: string;
+  amountCents: number;
+  currency: string;
+  stripePayoutId?: string;
+  status: 'PENDING' | 'PAID' | 'FAILED';
+  createdAt: string;
+}
+
+export async function createWithdrawal(input: {
+  userId: string;
+  amountCents: number;
+  currency: string;
+  stripePayoutId?: string;
+}): Promise<Withdrawal> {
+  const id = randomUUID();
+  const createdAt = now();
+  const withdrawal: Withdrawal = {
+    id,
+    userId: input.userId,
+    amountCents: input.amountCents,
+    currency: input.currency,
+    stripePayoutId: input.stripePayoutId,
+    status: 'PENDING',
+    createdAt,
+  };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: withdrawalPk(id),
+        sk: 'METADATA',
+        ...withdrawal,
+        gsi2pk: userWithdrawalsPk(input.userId),
+        gsi2sk: createdSk(createdAt, id),
+      },
+    })
+  );
+  return withdrawal;
+}
+
+const userWithdrawalsPk = (userId: string) => `USER#${userId}#WITHDRAWALS`;
+
+export async function updateWithdrawal(
+  id: string,
+  fields: Partial<Pick<Withdrawal, 'status' | 'stripePayoutId'>>
+): Promise<void> {
+  const names: Record<string, string> = {};
+  const values: Record<string, unknown> = {};
+  const sets: string[] = [];
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined) continue;
+    names[`#${key}`] = key;
+    values[`:${key}`] = value;
+    sets.push(`#${key} = :${key}`);
+  }
+  if (sets.length === 0) return;
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: withdrawalPk(id), sk: 'METADATA' },
+      UpdateExpression: `SET ${sets.join(', ')}`,
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
+    })
+  );
+}
+
+export async function listUserWithdrawals(userId: string): Promise<Withdrawal[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk',
+      ExpressionAttributeValues: { ':pk': userWithdrawalsPk(userId) },
+      ScanIndexForward: false,
+      Limit: 200,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[]).map((item) => {
+    const { pk, sk, gsi2pk, gsi2sk, ...rest } = item;
+    return rest as unknown as Withdrawal;
+  });
+}
+
+// ---------- seat-level inventory ----------
+
+export interface SectionSeat {
+  sectionId: string;
+  seatLabel: string;
+  status: 'AVAILABLE' | 'HELD' | 'SOLD';
+  accessible: boolean;
+  permanentlyHeld: boolean;
+}
+
+function seatLabelFor(rowIndex: number, col: number): string {
+  // A..Z then AA.. for large venues.
+  let label = '';
+  let n = rowIndex;
+  do {
+    label = String.fromCharCode(65 + (n % 26)) + label;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return `${label}-${col}`;
+}
+
+// Generates the seat list for a section from its layout geometry. Returns []
+// when the section has no row/seat geometry (capacity-only sections).
+export function seatsForSection(section: VenueSection): { label: string; accessible: boolean; held: boolean }[] {
+  const rows = section.rows ?? 0;
+  const seatsPerRow = section.seatsPerRow ?? 0;
+  if (rows < 1 || seatsPerRow < 1) return [];
+  const total = Math.min(section.capacity, rows * seatsPerRow);
+  const seats: { label: string; accessible: boolean; held: boolean }[] = [];
+  for (let i = 0; i < total; i++) {
+    const row = Math.floor(i / seatsPerRow);
+    const col = (i % seatsPerRow) + 1;
+    seats.push({ label: seatLabelFor(row, col), accessible: false, held: false });
+  }
+  // Accessible seats at the back, permanently-held seats at the front.
+  const accessibleCount = Math.min(section.accessibleCount ?? 0, total);
+  const heldCount = Math.min(section.heldCount ?? 0, total - accessibleCount);
+  for (let i = total - accessibleCount; i < total; i++) seats[i].accessible = true;
+  for (let i = 0; i < heldCount; i++) seats[i].held = true;
+  return seats;
+}
+
+async function listRawSeats(eventId: string, sectionId: string): Promise<Record<string, unknown>[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :prefix)',
+      ExpressionAttributeValues: { ':pk': eventPk(eventId), ':prefix': `SEAT#${sectionId}#` },
+    })
+  );
+  return (res.Items ?? []) as Record<string, unknown>[];
+}
+
+// Lazily materializes seat rows for a section on first access. Idempotent and
+// race-safe: concurrent ensures lose the condition check and re-read.
+export async function ensureSectionSeats(eventId: string, section: VenueSection): Promise<void> {
+  const existing = await listRawSeats(eventId, section.id);
+  if (existing.length > 0) return;
+  const seats = seatsForSection(section);
+  if (seats.length === 0) return;
+  for (let i = 0; i < seats.length; i += 90) {
+    const chunk = seats.slice(i, i + 90);
+    try {
+      await docClient.send(
+        new TransactWriteCommand({
+          TransactItems: chunk.map((seat) => ({
+            Put: {
+              TableName: T(),
+              Item: {
+                pk: eventPk(eventId),
+                sk: seatSk(section.id, seat.label),
+                sectionId: section.id,
+                seatLabel: seat.label,
+                status: seat.held ? 'HELD' : 'AVAILABLE',
+                accessible: seat.accessible,
+                permanentlyHeld: seat.held,
+              },
+              ConditionExpression: 'attribute_not_exists(pk)',
+            },
+          })),
+        })
+      );
+    } catch (e) {
+      if (!isConditionalCheck(e)) throw e;
+      return; // another request won the race
+    }
+  }
+}
+
+export async function listSectionSeats(eventId: string, sectionId: string): Promise<SectionSeat[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :prefix)',
+      ExpressionAttributeValues: { ':pk': eventPk(eventId), ':prefix': `SEAT#${sectionId}#` },
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[])
+    .map((item) => ({
+      sectionId: item.sectionId as string,
+      seatLabel: item.seatLabel as string,
+      status: (item.status as SectionSeat['status']) ?? 'AVAILABLE',
+      accessible: Boolean(item.accessible),
+      permanentlyHeld: Boolean(item.permanentlyHeld),
+    }))
+    .sort((a, b) => a.seatLabel.localeCompare(b.seatLabel, undefined, { numeric: true }));
+}
+
+// Atomically holds specific seats: AVAILABLE → HELD. Returns false if any seat
+// is unavailable (sold, held, or already reserved).
+export async function reserveSeats(
+  eventId: string,
+  sectionId: string,
+  seatLabels: string[]
+): Promise<boolean> {
+  try {
+    await docClient.send(
+      new TransactWriteCommand({
+        TransactItems: seatLabels.map((label) => ({
+          Update: {
+            TableName: T(),
+            Key: { pk: eventPk(eventId), sk: seatSk(sectionId, label) },
+            UpdateExpression: 'SET #status = :held, reservedAt = :at',
+            ConditionExpression: '#status = :available',
+            ExpressionAttributeNames: { '#status': 'status' },
+            ExpressionAttributeValues: {
+              ':held': 'HELD',
+              ':available': 'AVAILABLE',
+              ':at': now(),
+            },
+          },
+        })),
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+}
+
+// Releases held seats back to AVAILABLE (PENDING order failed/expired).
+export async function releaseSeats(
+  eventId: string,
+  sectionId: string,
+  seatLabels: string[]
+): Promise<void> {
+  for (let i = 0; i < seatLabels.length; i += 90) {
+    const chunk = seatLabels.slice(i, i + 90);
+    try {
+      await docClient.send(
+        new TransactWriteCommand({
+          TransactItems: chunk.map((label) => ({
+            Update: {
+              TableName: T(),
+              Key: { pk: eventPk(eventId), sk: seatSk(sectionId, label) },
+              UpdateExpression: 'SET #status = :available REMOVE reservedAt',
+              ConditionExpression: '#status = :held',
+              ExpressionAttributeNames: { '#status': 'status' },
+              ExpressionAttributeValues: { ':available': 'AVAILABLE', ':held': 'HELD' },
+            },
+          })),
+        })
+      );
+    } catch (e) {
+      if (!isConditionalCheck(e)) throw e;
+    }
+  }
+}
+
+// Marks held seats as SOLD at fulfillment.
+export async function markSeatsSold(
+  eventId: string,
+  sectionId: string,
+  seatLabels: string[]
+): Promise<void> {
+  for (let i = 0; i < seatLabels.length; i += 90) {
+    const chunk = seatLabels.slice(i, i + 90);
+    try {
+      await docClient.send(
+        new TransactWriteCommand({
+          TransactItems: chunk.map((label) => ({
+            Update: {
+              TableName: T(),
+              Key: { pk: eventPk(eventId), sk: seatSk(sectionId, label) },
+              UpdateExpression: 'SET #status = :sold REMOVE reservedAt',
+              ConditionExpression: '#status = :held',
+              ExpressionAttributeNames: { '#status': 'status' },
+              ExpressionAttributeValues: { ':sold': 'SOLD', ':held': 'HELD' },
+            },
+          })),
+        })
+      );
+    } catch (e) {
+      if (!isConditionalCheck(e)) throw e;
+    }
+  }
+}
+
+// ---------- cursor pagination helpers ----------
+
+export function encodeCursor(key: Record<string, unknown> | undefined): string | undefined {
+  if (!key) return undefined;
+  return Buffer.from(JSON.stringify(key)).toString('base64');
+}
+
+export function decodeCursor(cursor: string | undefined): Record<string, unknown> | undefined {
+  if (!cursor) return undefined;
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, 'base64').toString('utf8'));
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : undefined;
+  } catch {
+    return undefined;
   }
 }

@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  background: #16263b;
+}
+
+body {
+  @apply bg-night text-sand font-sans antialiased;
+}
+
+.font-display {
+  font-family: 'Bricolage Grotesque', 'Aref Ruqaa', serif;
+}
+
+/* Thin scrollbars for horizontal card rows */
+.row-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.row-scroll::-webkit-scrollbar-thumb {
+  background: #3a506c;
+  border-radius: 999px;
+}

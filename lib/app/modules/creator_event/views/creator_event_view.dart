@@ -1,8 +1,6 @@
-import 'dart:math';
-
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:block_tix/app/data/utils/dummy_content.dart';
-import 'package:block_tix/app/data/widgets/media_selection_tile.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:block_tix/app/data/widgets/web_handoff_sheet.dart';
 import 'package:flutter/material.dart';
 
@@ -12,498 +10,378 @@ import '../controllers/creator_event_controller.dart';
 
 class CreatorEventView extends GetView<CreatorEventController> {
   const CreatorEventView({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return BaseViewPageScreen(
-      bodyPadding: true,
+      hideAppBar: true,
+      safeTopArea: false,
       sidePadding: false,
-      showLogo: false,
-      showBackBtn: true,
-      basicAppBar: true,
-      resizeToAvoidBottomInset: true,
-      showNotification: false,
-      actions: [
-        GestureDetector(
-          onTap: (){
-            Get.toNamed(Routes.CREATE_EVENT,arguments: {Constants.paramEdit : true, 'title': controller.eventTitle.value, 'id': controller.eventId.value});
-          },
-          child: MyText(title: 'Edit',
-            fontSize: 18,
-            customWeight: FontWeight.bold,
+      bodyPadding: false,
+      backgroundColor: ColorConstant.night,
+      child: Obx(() {
+        if (controller.isLoading.value && controller.event.value == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (controller.loadError.value != null &&
+            controller.event.value == null) {
+          return SahraEmptyState(
+            title: "Couldn't load event",
+            message: controller.loadError.value,
+            actionLabel: 'Retry',
+            onAction: controller.loadEvent,
+          );
+        }
+        return RefreshIndicator(
+          onRefresh: controller.loadEvent,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+            children: [
+              _header(),
+              const SizedBox(height: 18),
+              _statsRow(),
+              const SizedBox(height: 14),
+              _doorActions(),
+              const SizedBox(height: 22),
+              _tiersSection(),
+              const SizedBox(height: 22),
+              _studioLinks(),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _header() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _backButton(),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                controller.venueLabel.isEmpty
+                    ? 'Event snapshot'
+                    : 'Tonight · ${controller.venueLabel}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: sahraText(
+                    color: ColorConstant.gold,
+                    size: 12,
+                    weight: FontWeight.w700,
+                    letterSpacing: 1.1),
+              ),
+            ),
+            Obx(() => SahraStatusPill(
+                  controller.statusLabel,
+                  color: controller.eventStatus.value == 'PUBLISHED'
+                      ? ColorConstant.successGreen
+                      : controller.eventStatus.value == 'DRAFT'
+                          ? ColorConstant.warningOrange
+                          : ColorConstant.nightMuted,
+                  background: ColorConstant.nightSurface,
+                )),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Obx(() => Text(
+              controller.eventTitle.value,
+              style: sahraText(size: 28, weight: FontWeight.w700, height: 1.15),
+            )),
+        const SizedBox(height: 6),
+        Obx(() => Text(
+              [
+                if (controller.startsAtLabel.isNotEmpty)
+                  controller.startsAtLabel,
+                if (controller.venueLabel.isNotEmpty) controller.venueLabel,
+              ].join(' · '),
+              style: sahraText(color: ColorConstant.nightMuted, size: 13),
+            )),
+      ],
+    );
+  }
+
+  Widget _backButton() {
+    return GestureDetector(
+      onTap: () => Get.back(),
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: ColorConstant.nightSurface,
+          shape: BoxShape.circle,
+          border: Border.all(color: ColorConstant.nightBorder),
+        ),
+        child: Icon(Icons.arrow_back_rounded,
+            color: ColorConstant.whiteA700, size: 19),
+      ),
+    );
+  }
+
+  Widget _statsRow() {
+    return Obx(() => Row(
+          children: [
+            Expanded(
+                child: _statCard('Sold', '${controller.ticketsSold.value}',
+                    'of ${controller.capacity.value}')),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _statCard(
+                'Checked in',
+                '${controller.checkedIn.value}',
+                '${controller.checkInPercent}% live',
+                accent: true,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+                child: _statCard('Gross revenue',
+                    formatDollars(controller.revenue.value), 'ticket sales')),
+          ],
+        ));
+  }
+
+  Widget _statCard(String label, String value, String caption,
+      {bool accent = false}) {
+    return SahraCard(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: sahraText(color: ColorConstant.nightMuted, size: 11)),
+          const SizedBox(height: 5),
+          Text(value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: sahraText(
+                  color: accent
+                      ? ColorConstant.successGreen
+                      : ColorConstant.whiteA700,
+                  size: 21,
+                  weight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text(caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: sahraText(color: ColorConstant.nightMuted, size: 10)),
+        ],
+      ),
+    );
+  }
+
+  Widget _doorActions() {
+    return Row(
+      children: [
+        Expanded(
+          child: _actionButton(
+            icon: Icons.qr_code_scanner_rounded,
+            label: 'Scan tickets',
+            filled: true,
+            onTap: () => Get.toNamed(Routes.MY_SCANNER, arguments: {
+              'eventId': controller.eventId.value,
+              'title': controller.eventTitle.value,
+            }),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _actionButton(
+            icon: Icons.groups_rounded,
+            label: 'Guest list',
+            onTap: () => Get.toNamed(Routes.ALL_GUESTS, arguments: {
+              'eventId': controller.eventId.value,
+            }),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _actionButton(
+            icon: Icons.campaign_rounded,
+            label: 'Message',
+            onTap: () => Get.toNamed(Routes.BROADCAST_MESSAGE, arguments: {
+              'eventId': controller.eventId.value,
+              'title': controller.eventTitle.value,
+            }),
           ),
         ),
       ],
-      child: SingleChildScrollView(
+    );
+  }
+
+  Widget _actionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool filled = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 13),
+        decoration: BoxDecoration(
+          color: filled ? ColorConstant.gold : ColorConstant.nightSurface,
+          borderRadius: BorderRadius.circular(16),
+          border: filled ? null : Border.all(color: ColorConstant.nightBorder),
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: getSize(20),),
-            Row(
-              children: [
-                Obx(() => MyText(title: controller.eventTitle.value,
-                  fontSize: 29,
-                  customWeight: FontWeight.bold,
-                )),
-                SizedBox(width: getSize(15),),
-                Container(
-                  width: getSize(16),
-                  height: getSize(16),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: ColorConstant.successGreen
-                  ),
-                ),
-                Spacer(),
-                GestureDetector(
-                  onTap: (){
-                    Get.toNamed(Routes.EVENT_DETAIL,arguments: {Constants.paramCreator:true,'title': controller.eventTitle.value});
-                  },
-                  child: Container(
-                    padding: getPadding(left: 12,right: 12,top: 6,bottom: 6),
-                    decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: ColorConstant.hairline
-                      )
-                    ),
-                    child: MyText(
-                      title: "Preview Event",
-                      fontSize: 8,
-                      customWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: getSize(30),),
-            CustomButton(
-              onTap: (){
-                Get.toNamed(Routes.MY_SCANNER, arguments: {
-                  'eventId': controller.eventId.value,
-                  'title': controller.eventTitle.value,
-                });
-              },
-              text: "Check in People",
-              prefixWidget: CustomImageView(
-                svgPath: ImageConstant.scanner,
-                height: getSize(21),
-                margin: getMargin(right: 10),
-              ),
-            ),
-            SizedBox(height: getSize(30),),
-            MyText(title: 'Analytics',fontSize: 18,customWeight: FontWeight.w600,),
-            SizedBox(height: getSize(15),),
-            Obx(() {
-              if (controller.eventId.value.isNotEmpty && controller.isLoading.value) {
-                return const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
-              if (controller.loadError.value != null) {
-                return Padding(
-                  padding: getPadding(bottom: 10),
-                  child: MyText(
-                    title: "Couldn't load event stats: ${controller.loadError.value}",
-                    clr: ColorConstant.white60,
-                    fontSize: 12,
-                    line: 3,
-                  ),
-                );
-              }
-              return Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _userWidget("Tickets Sold","${controller.ticketsSold.value}",null,),
-                      ),
-                      Expanded(
-                        child: _userWidget("Total Sales",controller.revenueLabel,null,),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _userWidget("Going","${controller.goingCount.value}",null,),
-                      ),
-                      Expanded(
-                        child: _userWidget("Capacity","—",null,),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            }),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                MyText(title: 'Broadcast Messages',fontSize: 18,customWeight: FontWeight.w600,),
-                GestureDetector(
-                  onTap: (){
-                    Get.toNamed(Routes.BROADCAST_MESSAGE)!.then((value){
-                      if(value != null){
-                        controller.broadcastMessages.add(DummyBroadcastModel(message: value['message'], name: value['name']));
-                        controller.broadcastMessages.refresh();
-                      }
-                    });
-                  },
-                  child: Icon(
-                    Icons.add,
-                    color: ColorConstant.whiteA700,
-                  ),
-                )
-              ],
-            ),
-            SizedBox(height: getSize(15),),
-            Obx(() => ListView.builder(
-              scrollDirection: Axis.vertical,
-              itemCount: controller.broadcastMessages.length,
-              physics: NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              itemBuilder: (_, index) {
-                final item = controller.broadcastMessages[index];
-                return GuestTile(
-                  name: item.name,
-                  message: item.message,
-                  index: index,
-                );
-              },
-            )),
-            SizedBox(height: getSize(15),),
-            Row(
-              children: [
-                MyText(title: 'Guest List',fontSize: 18,customWeight: FontWeight.w600,),
-                Spacer(),
-                GestureDetector(
-                  onTap: (){
-                    Get.toNamed(Routes.SEND_TICKETS);
-                  },
-                  child: Container(
-                    padding: getPadding(left: 8,right: 8,top: 5,bottom: 5),
-                    decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: ColorConstant.hairline
-                        )
-                    ),
-                    child: MyText(
-                      title: "+ send reserved tickets",
-                      fontSize: 8,
-                      customWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                SizedBox(width: getSize(20),),
-                GestureDetector(
-                  onTap: (){
-                    Get.toNamed(Routes.ALL_GUESTS, arguments: {
-                      'eventId': controller.eventId.value,
-                    });
-                  },
-                  child: Container(
-                    padding: getPadding(left: 8,right: 8,top: 5,bottom: 5),
-                    decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: ColorConstant.hairline
-                        )
-                    ),
-                    child: MyText(
-                      title: "View All",
-                      fontSize: 8,
-                      customWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: getSize(10),),
-            Obx(() => MyText(title: '${controller.goingCount.value} Going',fontSize: 16,customWeight: FontWeight.w400,)),
-            SizedBox(height: getSize(15),),
-            SizedBox(
-              height: 50, // Set a fixed height for the ListView
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: 5, // Adding 1 for the "+76 others" item
-                itemBuilder: (context, index) {
-                  if (index < 4) {
-                    // Display image items
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                      child:  CustomImageView(
-                        imagePath: DummyContent.images[Random().nextInt(DummyContent.images.length)],
-                        width: 50,
-                        height: 50,
-                        radius: BorderRadius.circular(30),
-                        onTap: (){
-                          Get.toNamed(Routes.OTHER_USER_PROFILE);
-                        },
-                      ),
-                    );
-                  } else {
-                    // Display the "+76 others" item
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                      child: Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: ColorConstant.elevated,
-                          borderRadius: BorderRadius.circular(50),
-                        ),
-                        child: Center(
-                          child: MyText(
-                            title: '+76',
-                            fontSize: 16,
-                            customWeight: FontWeight.bold,
-                            clr: ColorConstant.whiteA700,
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-                },
-              ),
-            ),SizedBox(height: getSize(15),),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                MyText(title: 'Team',fontSize: 18,customWeight: FontWeight.w600,),
-                GestureDetector(
-                  onTap: (){
-                    WebHandoffSheet.show(feature: 'Teams & co-hosts');
-                  },
-                  child: Container(
-                    padding: getPadding(left: 8,right: 8,top: 5,bottom: 5),
-                    decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: ColorConstant.hairline
-                        )
-                    ),
-                    child: MyText(
-                      title: "Edit team",
-                      fontSize: 8,
-                      customWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: getSize(10),),
-            MyText(title: '3 Members',fontSize: 16,customWeight: FontWeight.w400,),
-            SizedBox(height: getSize(15),),
-            SizedBox(
-              height: 50, // Set a fixed height for the ListView
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: 3, // Adding 1 for the "+76 others" item
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                    child:  CustomImageView(
-                      imagePath: DummyContent.images[Random().nextInt(DummyContent.images.length)],
-                      width: 50,
-                      height: 50,
-                      radius: BorderRadius.circular(30),
-                      onTap: (){
-                        Get.toNamed(Routes.OTHER_USER_PROFILE);
-                      },
-                    ),
-                  );
-                },
-              ),
-            ),
-            SizedBox(height: getSize(30),),
+            Icon(icon,
+                color: filled ? ColorConstant.night : ColorConstant.gold,
+                size: 20),
+            const SizedBox(height: 5),
+            Text(label,
+                style: sahraText(
+                    color:
+                        filled ? ColorConstant.night : ColorConstant.whiteA700,
+                    size: 12,
+                    weight: FontWeight.w600)),
           ],
         ),
       ),
     );
   }
 
-  Widget _userWidget(String title,String amount,String? progress,
-      {bool showUSD = false, bool decline = false}){
-    return Padding(
-      padding: getPadding( bottom: 20),
-      child: Column(
+  Widget _tiersSection() {
+    return Obx(() {
+      if (controller.tiers.isEmpty) {
+        return SahraCard(
+          child: Text('No ticket tiers yet.',
+              style: sahraText(color: ColorConstant.nightMuted, size: 13)),
+        );
+      }
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(
-            height: 5,
+          Text('Tiers', style: sahraText(size: 18, weight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          ...controller.tiers.map(_tierRow),
+        ],
+      );
+    });
+  }
+
+  Widget _tierRow(Map<String, dynamic> tier) {
+    final name =
+        tier['name']?.toString() ?? tier['sectionName']?.toString() ?? 'Ticket';
+    final capacityValue = tier['capacity'] ?? tier['quantity'];
+    final capacity = capacityValue is num ? capacityValue.toInt() : 0;
+    final soldValue = tier['sold'];
+    final sold = soldValue is num ? soldValue.toInt() : 0;
+    final priceCentsValue = tier['priceCents'];
+    final priceValue = tier['price'];
+    final priceCents = priceCentsValue is num
+        ? priceCentsValue
+        : (priceValue is num ? priceValue * 100 : 0);
+    final price = controller.moneyCents(priceCents);
+    final progress = capacity == 0 ? 0.0 : (sold / capacity).clamp(0.0, 1.0);
+    return SahraCard(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: sahraText(size: 14, weight: FontWeight.w600)),
+              ),
+              Text(price,
+                  style: sahraText(
+                      color: ColorConstant.gold,
+                      size: 13,
+                      weight: FontWeight.w700)),
+            ],
           ),
-          MyText(title: title,fontSize: 14,),
-          const SizedBox(
-            height: 3,
-          ),
-          MyText(
-            title: showUSD ? "\$$amount" : amount,
-            fontSize: 28,
-            customWeight: FontWeight.w800,
-          ),
-          if (progress != null) ...[
-            const SizedBox(
-              height: 5,
+          const SizedBox(height: 9),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 6,
+              backgroundColor: ColorConstant.nightElevated,
+              valueColor: AlwaysStoppedAnimation<Color>(ColorConstant.gold),
             ),
-            Row(
-              children: [
-                MyText(
-                  title: "This week",
-                  clr: ColorConstant.white60,
-                ),
-                const SizedBox(
-                  width: 5,
-                ),
-                MyText(
-                  title: "${decline ? "-" : "+"}$progress%",
-                  clr: decline ? ColorConstant.errorRed : ColorConstant.successGreen,
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(
-            height: 10,
+          ),
+          const SizedBox(height: 7),
+          Row(
+            children: [
+              Text('$sold sold',
+                  style: sahraText(color: ColorConstant.nightMuted, size: 11)),
+              const Spacer(),
+              Text('$capacity capacity',
+                  style: sahraText(color: ColorConstant.nightMuted, size: 11)),
+            ],
           ),
         ],
       ),
     );
-
   }
-}
 
-class GuestTile extends StatelessWidget {
-  GuestTile(
-      {super.key, required this.name,required this.message,required this.index, this.onTap});
+  Widget _studioLinks() {
+    return Column(
+      children: [
+        _webLinkTile(
+          title: 'Edit event, tiers & promo codes',
+          subtitle:
+              'Seating maps, ticket tiers, promo codes and payouts need Sahra Studio.',
+          onTap: () => WebHandoffSheet.show(
+            feature: 'Editing events and ticket tiers',
+            eventId: controller.eventId.value,
+          ),
+        ),
+        const SizedBox(height: 10),
+        _webLinkTile(
+          title: 'Full analytics & payouts',
+          subtitle: 'Revenue, attendance and payout controls live on the web.',
+          onTap: () => WebHandoffSheet.show(
+            feature: 'Full analytics and payouts',
+            eventId: controller.eventId.value,
+          ),
+        ),
+      ],
+    );
+  }
 
-  final String name;
-  final String message;
-  final int index;
-  final void Function()? onTap;
-
-  final controller = Get.put(CreatorEventController());
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _webLinkTile({
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
-      onTap: () {
-        showEditBroadcastSheet(context);
-      },
-      child: Container(
-        padding: getPadding(left: 15, right: 15, top: 10, bottom: 10),
-        margin: getMargin(bottom: 15),
-        decoration: BoxDecoration(
-            color: ColorConstant.surface,
-            borderRadius: BorderRadius.circular(16)),
+      onTap: onTap,
+      child: SahraCard(
+        color: ColorConstant.nightElevated,
         child: Row(
           children: [
-            CustomImageView(
-              imagePath: DummyContent.images[Random().nextInt(DummyContent.images.length)],
-              width: 40,
-              height: 40,
-              radius: BorderRadius.circular(30),
-              onTap: (){
-                Get.toNamed(Routes.OTHER_USER_PROFILE);
-              },
-            ),
-            const SizedBox(
-              width: 15,
-            ),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  MyText(
-                    title: message,
-                    fontSize: 16,
-                    customWeight: FontWeight.w600,
-                    line: 1,
-                    toverflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: getSize(3),),
-                  MyText(
-                    title: name,
-                    fontSize: 12,
-                    clr: ColorConstant.white60,
-                  ),
+                  Text(title,
+                      style: sahraText(size: 14, weight: FontWeight.w600)),
+                  const SizedBox(height: 3),
+                  Text(subtitle,
+                      style: sahraText(
+                          color: ColorConstant.nightMuted,
+                          size: 11,
+                          height: 1.4)),
                 ],
               ),
             ),
+            const SizedBox(width: 12),
+            Icon(Icons.open_in_new_rounded,
+                color: ColorConstant.gold, size: 19),
           ],
         ),
       ),
-    );
-  }
-
-  void showEditBroadcastSheet(BuildContext context){
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(14),
-            topRight: Radius.circular(14),
-          )),
-      builder: (BuildContext bc) {
-        return SafeArea(
-          child: Container(
-            padding: getPadding(left: 16, right: 16, top: 15),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Stack(
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        Get.back();
-                      },
-                      child: MyText(
-                        title: "lbl_cancel".tr,
-                        clr: ColorConstant.white60,
-                        fontSize: getFontSize(14),
-                        customWeight: FontWeight.w400,
-                      ),
-                    ),
-                    SizedBox(
-                      width: size.width,
-                      child: Center(
-                        child: MyText(
-                          title: "lbl_select_option".tr,
-                          clr: ColorConstant.whiteA700,
-                          fontSize: getFontSize(16),
-                          customWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(
-                  height: getVerticalSize(20),
-                ),
-                MediaSelectionTileAndroid(
-                    title: "Edit".tr,
-                    onPressed: () {
-                      Get.back();
-                      Get.toNamed(Routes.BROADCAST_MESSAGE,arguments: {Constants.paramEdit: true});
-                    }),
-                SizedBox(
-                  height: getVerticalSize(20),
-                ),
-                MediaSelectionTileAndroid(
-                    title: "Delete".tr,
-                    onPressed: () {
-                      Get.back();
-                      controller.broadcastMessages.removeAt(index);
-                      controller.broadcastMessages.refresh();
-                    }),
-                SizedBox(
-                  height: getVerticalSize(20),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 }

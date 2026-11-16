@@ -1,5 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 /// Sahra ticket pass (brand: "the ticket is a promise"). Gold stock, Night
 /// logo, dashed perforation with notches, QR on a Sand panel. Used for real
@@ -11,6 +12,7 @@ class SahraTicketCard extends StatelessWidget {
     this.subtitle,
     this.fields = const {},
     this.code,
+    this.qrData,
     this.status,
     this.onTap,
   });
@@ -21,6 +23,9 @@ class SahraTicketCard extends StatelessWidget {
   /// Label → value pairs shown in the info grid (e.g. Zone, Gate, Order).
   final Map<String, String> fields;
   final String? code;
+
+  /// Payload encoded in the gate QR. Falls back to [code] when omitted.
+  final String? qrData;
   final String? status;
   final VoidCallback? onTap;
 
@@ -73,8 +78,7 @@ class SahraTicketCard extends StatelessWidget {
                           .take(4)
                           .map((e) => Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       e.key,
@@ -189,19 +193,13 @@ class SahraTicketCard extends StatelessWidget {
                   Container(
                     width: 150,
                     height: 150,
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: ColorConstant.sand,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: ColorConstant.dune),
                     ),
-                    child: Center(
-                      child: CustomImageView(
-                        svgPath: ImageConstant.qr,
-                        width: 130,
-                        height: 130,
-                        color: ColorConstant.ink,
-                      ),
-                    ),
+                    child: _qrPanel(),
                   ),
                   const SizedBox(height: 10),
                   Text(
@@ -216,6 +214,26 @@ class SahraTicketCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _qrPanel() {
+    final data = (qrData != null && qrData!.isNotEmpty)
+        ? qrData!
+        : (code != null && code!.isNotEmpty ? code! : 'Sahra ticket');
+    return QrImageView(
+      data: data,
+      version: QrVersions.auto,
+      size: 130,
+      backgroundColor: ColorConstant.sand,
+      eyeStyle: QrEyeStyle(
+        eyeShape: QrEyeShape.square,
+        color: ColorConstant.ink,
+      ),
+      dataModuleStyle: QrDataModuleStyle(
+        dataModuleShape: QrDataModuleShape.square,
+        color: ColorConstant.ink,
       ),
     );
   }

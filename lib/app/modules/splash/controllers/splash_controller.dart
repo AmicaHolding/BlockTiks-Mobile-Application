@@ -10,7 +10,7 @@ class SplashController extends GetxController with GetTickerProviderStateMixin {
   Animation? sizeAnimation;
   bool reverse = false;
   AppPreferences appPreferences = AppPreferences();
-  final int splashDuration = 3;
+  final int splashDuration = 1;
 
   @override
   void onInit() {
@@ -97,9 +97,10 @@ class SplashController extends GetxController with GetTickerProviderStateMixin {
 
     final loggedIn = await appPreferences.getIsLoggedIn() ?? false;
     if (loggedIn) {
-      final token = await appPreferences.getAccessToken();
-      if (token != null && token.isNotEmpty) {
-        ApiService.setToken(token);
+      // Restores access + refresh tokens; exchanges the refresh token when
+      // the access token is missing/expired.
+      final hasSession = await ApiService.restoreSession();
+      if (hasSession) {
         final role = await appPreferences.getRole();
         Constants.isUserCreator = role == 'creator';
         ApiService.goToDashboard();

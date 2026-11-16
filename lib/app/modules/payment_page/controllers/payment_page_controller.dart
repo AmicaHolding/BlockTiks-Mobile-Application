@@ -1,4 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/services/api_service.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
@@ -25,8 +26,14 @@ class PaymentPageController extends GetxController {
   String? sectionId; // seated events
   String? sectionName;
   String? listingCode; // resale purchases
+  String? listingName;
+  String? eventDate;
+  String? eventVenue;
+  String? imageUrl;
   int quantity = 1;
   String? promoCode;
+  String currency = 'usd';
+  List<String> seatLabels = [];
   List<Map<String, dynamic>> selections = [];
   int subtotalCents = 0;
 
@@ -76,10 +83,23 @@ class PaymentPageController extends GetxController {
       if (lc != null && lc.toString().isNotEmpty) {
         listingCode = lc.toString();
       }
+      listingName = data['listingName']?.toString();
+      eventDate = data['date']?.toString();
+      eventVenue = data['venue']?.toString();
+      imageUrl = data['imageUrl']?.toString();
       final qty = data['quantity'] ?? data['qty'];
       if (qty != null) quantity = _readInt(qty, 1);
       if (data['promoCode'] != null) {
         promoCode = data['promoCode'].toString();
+      }
+      final cur = data['currency'];
+      if (cur != null && cur.toString().isNotEmpty) {
+        currency = cur.toString().toLowerCase();
+      }
+      final seats = data['seatLabels'];
+      if (seats is List) {
+        seatLabels =
+            seats.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
       }
       if (data['subtotalCents'] != null) {
         subtotalCents = _readInt(data['subtotalCents'], 0);
@@ -114,6 +134,33 @@ class PaymentPageController extends GetxController {
       (eventId != null &&
           (selections.isNotEmpty ||
               ((tierId != null || sectionId != null) && quantity > 0)));
+
+  /// Display subtotal before backend fees. Falls back to legacy counters.
+  int get displaySubtotalCents {
+    if (subtotalCents > 0) return subtotalCents;
+    final legacyCount = platinum + gold + silver + bronze;
+    return legacyCount * 40500;
+  }
+
+  /// Mirrors the backend default platform fee until the intent response
+  /// returns the authoritative feesCents/totalCents.
+  int get estimatedFeesCents => (displaySubtotalCents * 12 / 100).round();
+
+  int get estimatedTotalCents => displaySubtotalCents + estimatedFeesCents;
+
+  /// Currency-aware money label for checkout totals.
+  String money(int cents) => formatMoney(cents, currency);
+
+  int get ticketQuantity {
+    if (listingCode != null) return 1;
+    if (selections.isNotEmpty) {
+      return selections.fold<int>(
+          0, (sum, t) => sum + (_readInt(t['quantity'], 1)));
+    }
+    if (sectionId != null) return quantity;
+    final legacyCount = platinum + gold + silver + bronze;
+    return legacyCount > 0 ? legacyCount : quantity;
+  }
 
   /// Checkout entry point invoked from the Buy button (via the loader).
   /// Creates real order intents on the backend when we have event context;
@@ -161,6 +208,7 @@ class PaymentPageController extends GetxController {
           eventId: eventId!,
           sectionId: sectionId,
           quantity: quantity,
+          seats: seatLabels.isNotEmpty ? seatLabels : null,
         ));
       } else {
         results.add(await ApiService.createOrderIntent(

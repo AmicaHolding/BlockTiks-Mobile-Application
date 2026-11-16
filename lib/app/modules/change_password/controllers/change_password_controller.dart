@@ -41,7 +41,8 @@ class ChangePasswordController extends GetxController {
         newPassword: passwordController.text,
       );
       btnController.stop();
-      CustomSnackBar.showCustomErrorToast(message: "Password updated successfully".tr);
+      CustomSnackBar.showCustomErrorToast(
+          message: "Password updated successfully".tr);
       Get.back();
     } catch (e) {
       btnController.error();

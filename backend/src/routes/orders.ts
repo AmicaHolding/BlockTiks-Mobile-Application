@@ -3,19 +3,24 @@ import {
     claimListingForCheckout,
     createPendingOrder,
     fulfillOrder,
+    ensureSectionSeats,
     getEvent,
     getListing,
     getOrder,
     getOrderIdByPaymentIntent,
     getPromoByCode,
     getSection,
+    getUserById,
+    incrementPromoUsage,
     getTicketByCode,
     getTier,
     listUserOrders,
     releaseListingCheckout,
     releaseOrder,
+    releaseSeats,
     releaseSectionHold,
     releaseTierHold,
+    reserveSeats,
     reserveSectionSeats,
     reserveTickets,
     setOrderPaymentIntent,
@@ -47,6 +52,8 @@ export async function orderRoutes(app: FastifyInstance) {
             listingCode: { type: 'string' },
             quantity: { type: 'integer', minimum: 1, maximum: 8 },
             promoCode: { type: 'string' },
+            // Seat-level picking: specific seat labels within sectionId.
+            seats: { type: 'array', items: { type: 'string' }, maxItems: 8 },
           },
         },
       },
@@ -59,6 +66,7 @@ export async function orderRoutes(app: FastifyInstance) {
         listingCode?: string;
         quantity?: number;
         promoCode?: string;
+        seats?: string[];
       };
 
       const feesFor = (cents: number) =>
@@ -77,10 +85,12 @@ export async function orderRoutes(app: FastifyInstance) {
         discountCents?: number;
         totalCents: number;
         promoCodeText?: string;
+        currency?: string;
         compensate: () => Promise<void>;
       }) => {
         const discountCents = opts.discountCents ?? 0;
         const feesCents = opts.totalCents - opts.subtotalCents + discountCents;
+        const currency = (opts.currency ?? 'usd').toLowerCase();
         let order: Order | undefined;
         try {
           order = await createPendingOrder({
@@ -94,6 +104,7 @@ export async function orderRoutes(app: FastifyInstance) {
             feesCents,
             totalCents: opts.totalCents,
             promoCodeText: opts.promoCodeText,
+            currency,
             expiresAt: expiresAtFor(),
           });
 
@@ -101,7 +112,7 @@ export async function orderRoutes(app: FastifyInstance) {
           const paymentIntent = await stripe.paymentIntents.create(
             {
               amount: opts.totalCents,
-              currency: 'usd',
+              currency,
               automatic_payment_methods: { enabled: true },
               metadata: {
                 orderId: order.id,
@@ -119,6 +130,7 @@ export async function orderRoutes(app: FastifyInstance) {
             orderId: order.id,
             clientSecret: paymentIntent.client_secret,
             amountCents: opts.totalCents,
+            currency,
             subtotalCents: opts.subtotalCents,
             discountCents,
             feesCents,
@@ -147,11 +159,13 @@ export async function orderRoutes(app: FastifyInstance) {
         if (!claimed) {
           return reply.status(409).send({ message: 'This ticket was just sold' });
         }
+        const eventCurrency = listing.currency ?? 'usd';
         const totalCents = listing.priceCents + feesFor(listing.priceCents);
         return checkout({
           kind: 'RESALE',
           eventId: listing.eventId,
           listingCode: body.listingCode,
+          currency: eventCurrency,
           items: [
             {
               ticketCode: body.listingCode,
@@ -182,15 +196,41 @@ export async function orderRoutes(app: FastifyInstance) {
         if (!section) {
           return reply.status(404).send({ message: 'Section not found' });
         }
+        const seatLabels = body.seats?.map((s) => s.trim()).filter(Boolean);
+        if (seatLabels && seatLabels.length !== quantity) {
+          return reply.status(400).send({ message: 'Seat count must match quantity' });
+        }
+        if (seatLabels && new Set(seatLabels).size !== seatLabels.length) {
+          return reply.status(400).send({ message: 'Duplicate seats selected' });
+        }
+        // Capacity guard first, then exact-seat holds. Both must succeed or
+        // both are compensated below.
         const held = await reserveSectionSeats(eventId, body.sectionId, quantity);
         if (!held) {
           return reply.status(409).send({ message: 'Not enough seats remaining' });
+        }
+        let seatsHeld = true;
+        if (seatLabels?.length) {
+          const layoutSection = eventResult.event.venueLayout?.sections.find((s) => s.id === body.sectionId);
+          if (layoutSection) {
+            await ensureSectionSeats(eventId, {
+              ...layoutSection,
+              priceCents: section.priceCents,
+              capacity: section.capacity,
+            });
+          }
+          seatsHeld = await reserveSeats(eventId, body.sectionId, seatLabels);
+          if (!seatsHeld) {
+            await releaseSectionHold(eventId, body.sectionId, quantity).catch(() => undefined);
+            return reply.status(409).send({ message: 'One or more seats are no longer available' });
+          }
         }
         const subtotalCents = section.priceCents * quantity;
         const totalCents = subtotalCents + feesFor(subtotalCents);
         return checkout({
           kind: 'SEATED',
           eventId,
+          currency: eventResult.event.currency ?? 'usd',
           items: [
             {
               sectionId: body.sectionId,
@@ -198,11 +238,17 @@ export async function orderRoutes(app: FastifyInstance) {
               tierName: section.name,
               quantity,
               unitPriceCents: section.priceCents,
+              seatLabels: seatLabels?.length ? seatLabels : undefined,
             },
           ],
           subtotalCents,
           totalCents,
-          compensate: () => releaseSectionHold(eventId, body.sectionId!, quantity),
+          compensate: async () => {
+            if (seatLabels?.length) {
+              await releaseSeats(eventId, body.sectionId!, seatLabels).catch(() => undefined);
+            }
+            await releaseSectionHold(eventId, body.sectionId!, quantity);
+          },
         });
       }
 
@@ -218,6 +264,15 @@ export async function orderRoutes(app: FastifyInstance) {
       if (tier.sold + quantity > tier.quantity) {
         return reply.status(409).send({ message: 'Not enough tickets remaining' });
       }
+      // Enforce the tier's on-sale window (fields exist on tiers but were
+      // previously unchecked, allowing purchases outside the sale period).
+      const saleNow = Date.now();
+      if (tier.saleStartsAt && Date.parse(tier.saleStartsAt) > saleNow) {
+        return reply.status(400).send({ message: 'Ticket sales have not started yet' });
+      }
+      if (tier.saleEndsAt && Date.parse(tier.saleEndsAt) <= saleNow) {
+        return reply.status(400).send({ message: 'Ticket sales for this tier have ended' });
+      }
 
       // Server-side pricing — never trust client amounts.
       const subtotalCents = tier.priceCents * quantity;
@@ -226,20 +281,58 @@ export async function orderRoutes(app: FastifyInstance) {
 
       if (promoCode) {
         const promo = await getPromoByCode(promoCode);
-        const now = new Date();
-        const valid =
-          promo !== null &&
-          promo.active &&
-          (!promo.expiresAt || new Date(promo.expiresAt) > now) &&
-          (!promo.maxUses || promo.usedCount < promo.maxUses) &&
-          (!promo.eventId || promo.eventId === eventId);
-        if (!promo || !valid) {
+        if (!promo) {
+          return reply.status(400).send({ message: 'Invalid or expired promo code' });
+        }
+
+        const nowMs = Date.now();
+        const endsAt = promo.endsAt ?? promo.expiresAt;
+        const startsAtMs = promo.startsAt ? Date.parse(promo.startsAt) : NaN;
+        const endsAtMs = endsAt ? Date.parse(endsAt) : NaN;
+        let valid = promo.active;
+
+        if (valid && promo.maxUses != null) {
+          valid = promo.usedCount < promo.maxUses;
+        }
+        if (valid && !Number.isNaN(startsAtMs)) {
+          valid = startsAtMs <= nowMs;
+        }
+        if (valid && !Number.isNaN(endsAtMs)) {
+          valid = endsAtMs > nowMs;
+        }
+        if (valid && promo.scope === 'EVENT' && promo.eventId && promo.eventId !== eventId) {
+          valid = false;
+        }
+        if (valid && promo.tierId && promo.tierId !== tierId) {
+          valid = false;
+        }
+        if (
+          valid &&
+          promo.scope === 'TIER' &&
+          promo.tierName &&
+          promo.tierName.toLowerCase() !== tier.name.toLowerCase()
+        ) {
+          valid = false;
+        }
+        if (valid && promo.maxUsesPerUser) {
+          const userOrdersResult = await listUserOrders(request.user.sub, { limit: 200 });
+          const userUses = userOrdersResult.items.filter(
+            (order) =>
+              order.status === 'PAID' &&
+              order.promoCodeText?.toUpperCase() === promo.code
+          ).length;
+          valid = userUses < promo.maxUsesPerUser;
+        }
+
+        if (!valid) {
           return reply.status(400).send({ message: 'Invalid or expired promo code' });
         }
         promoCodeText = promo.code;
-        discountCents = promo.percentOff
-          ? Math.round((subtotalCents * promo.percentOff) / 100)
-          : Math.min(promo.amountOffCents ?? 0, subtotalCents);
+        const percentOff = promo.percentOff ?? (promo.kind === 'PERCENT' ? promo.value : undefined);
+        const amountOffCents = promo.amountOffCents ?? (promo.kind === 'FIXED' ? promo.value : undefined);
+        discountCents = percentOff
+          ? Math.round((subtotalCents * percentOff) / 100)
+          : Math.min(amountOffCents ?? 0, subtotalCents);
       }
 
       const feesCents = Math.round(
@@ -256,6 +349,7 @@ export async function orderRoutes(app: FastifyInstance) {
 
       return checkout({
         eventId,
+        currency: eventResult.event.currency ?? 'usd',
         items: [
           {
             tierId,
@@ -273,10 +367,14 @@ export async function orderRoutes(app: FastifyInstance) {
     }
   );
 
-  // GET /orders — current user's orders
+  // GET /orders — current user's orders (?cursor=, ?limit=)
   app.get('/orders', { preHandler: app.authenticate }, async (request) => {
-    const orders = await listUserOrders(request.user.sub);
-    return { orders };
+    const { cursor, limit } = request.query as { cursor?: string; limit?: string };
+    const result = await listUserOrders(request.user.sub, {
+      cursor,
+      limit: limit ? Math.min(parseInt(limit, 10) || 50, 100) : 100,
+    });
+    return { orders: result.items, nextCursor: result.nextCursor };
   });
 
   // GET /orders/:id — order detail incl. issued tickets
@@ -314,7 +412,16 @@ export async function orderRoutes(app: FastifyInstance) {
       const pi = event.data.object;
       const orderId = pi.metadata?.orderId ?? (await getOrderIdByPaymentIntent(pi.id));
       if (orderId) {
-        await fulfillOrder(orderId, pi.id);
+        const result = await fulfillOrder(orderId, pi.id);
+        if (result === 'fulfilled') {
+          const order = await getOrder(orderId);
+          if (order?.promoCodeText) {
+            await incrementPromoUsage(order.promoCodeText);
+          }
+          // Resale proceeds accrue to the seller's earnings balance and are
+          // paid out via /account/withdraw (Stripe Connect transfer), so no
+          // transfer happens here.
+        }
       }
     } else if (
       event.type === 'payment_intent.payment_failed' ||

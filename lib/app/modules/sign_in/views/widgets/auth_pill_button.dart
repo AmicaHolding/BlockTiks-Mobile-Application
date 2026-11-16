@@ -1,12 +1,11 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/custom_round_button.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 
-/// Luma-minimal pill button for auth flows.
+/// Sahra pill button for auth flows.
 ///
-/// - [AuthPillButtonVariant.primary]: white pill with ink text (the only
-///   primary CTA treatment in the design system).
-/// - [AuthPillButtonVariant.secondary]: elevated surface pill with a hairline
+/// - [AuthPillButtonVariant.primary]: gold pill with night text.
+/// - [AuthPillButtonVariant.secondary]: dune pill with ink text and a hairline
 ///   border, used for social/alternative actions.
 enum AuthPillButtonVariant { primary, secondary }
 
@@ -30,11 +29,9 @@ class AuthPillButton extends StatelessWidget {
 
   bool get _isPrimary => variant == AuthPillButtonVariant.primary;
 
-  Color get _background =>
-      _isPrimary ? ColorConstant.whiteA700 : ColorConstant.elevated;
+  Color get _background => _isPrimary ? ColorConstant.gold : ColorConstant.dune;
 
-  Color get _foreground =>
-      _isPrimary ? ColorConstant.canvas : ColorConstant.whiteA700;
+  Color get _foreground => _isPrimary ? ColorConstant.night : ColorConstant.ink;
 
   @override
   Widget build(BuildContext context) {
@@ -43,10 +40,10 @@ class AuthPillButton extends StatelessWidget {
     final label = Text(
       text,
       textAlign: TextAlign.center,
-      style: GoogleFonts.manrope(
+      style: sahraText(
         color: _foreground,
-        fontSize: getFontSize(16),
-        fontWeight: FontWeight.w600,
+        size: 16,
+        weight: FontWeight.w700,
       ),
     );
 
@@ -88,7 +85,7 @@ class AuthPillButton extends StatelessWidget {
           shape: const StadiumBorder(),
           side: _isPrimary
               ? BorderSide.none
-              : BorderSide(color: ColorConstant.hairline),
+              : BorderSide(color: ColorConstant.lightBorder),
         ),
         child: child,
       );

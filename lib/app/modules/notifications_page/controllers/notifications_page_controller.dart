@@ -1,42 +1,74 @@
-import 'package:block_tix/app/data/utils/dummy_content.dart';
-import 'package:block_tix/app/modules/notifications_page/models/notification_item_model.dart';
-
-import '../../../data/core/app_export.dart';
+import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
+import 'package:block_tix/app/services/api_service.dart';
+import 'package:get/get.dart';
 
 class NotificationsPageController extends GetxController {
-  RxBool isMarkAllReadVisible = true.obs;
-
-  final RxList<NotificationModel> dummyNotifications =
-      DummyContent.dummyNotifications.obs;
+  final RxList<Map<String, dynamic>> items = <Map<String, dynamic>>[].obs;
+  final RxBool isLoading = true.obs;
+  final Rxn<String> loadError = Rxn<String>();
+  final RxInt unreadCount = 0.obs;
+  final RxSet<String> readIds = <String>{}.obs;
 
   @override
   void onInit() {
     super.onInit();
-    dummyNotifications.value = DummyContent.dummyNotifications;
+    fetch();
   }
 
-  @override
-  void onReady() {
-    super.onReady();
-    getMarkAllAsReadVisibility();
-  }
-
-  void readAllNotifications() {
-    for (int i = 0; i < dummyNotifications.length; i++) {
-      dummyNotifications[i].isRead.value = true;
+  Future<void> fetch() async {
+    isLoading.value = true;
+    loadError.value = null;
+    try {
+      final res = await ApiService.notifications();
+      final list = (res['notifications'] as List?) ?? [];
+      items.value = list
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+      unreadCount.value = (res['unreadCount'] as num?)?.toInt() ?? 0;
+    } catch (e) {
+      loadError.value = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      isLoading.value = false;
     }
-    isMarkAllReadVisible.value = false;
   }
 
-  void getMarkAllAsReadVisibility() {
-    isMarkAllReadVisible.value = false;
-    for (int i = 0; i < dummyNotifications.length; i++) {
-      if (!dummyNotifications[i].isRead.value) {
-        isMarkAllReadVisible.value = true;
-        return;
-      }
+  bool isRead(Map<String, dynamic> item) =>
+      readIds.contains(item['id']?.toString());
+
+  Future<void> markAllRead() async {
+    readIds.addAll(items.map((e) => e['id']?.toString() ?? ''));
+    unreadCount.value = 0;
+    try {
+      await ApiService.markNotificationsRead();
+    } catch (e) {
+      CustomSnackBar.showCustomErrorToast(
+          message: e.toString().replaceFirst('Exception: ', ''));
     }
-    dummyNotifications.clear();
-    dummyNotifications.refresh();
+  }
+
+  IconData iconFor(String? type) {
+    switch (type) {
+      case 'sale':
+        return Icons.sell_outlined;
+      case 'broadcast':
+        return Icons.campaign_outlined;
+      default:
+        return Icons.confirmation_number_outlined;
+    }
+  }
+
+  String timeLabel(String? iso) {
+    final dt = DateTime.tryParse(iso ?? '');
+    if (dt == null) return '';
+    final local = dt.toLocal();
+    final now = DateTime.now();
+    final diff = now.difference(local);
+    if (diff.inMinutes < 1) return 'now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m';
+    if (diff.inDays < 1) return '${diff.inHours}h';
+    if (diff.inDays < 7) return '${diff.inDays}d';
+    return '${local.day}/${local.month}/${local.year}';
   }
 }

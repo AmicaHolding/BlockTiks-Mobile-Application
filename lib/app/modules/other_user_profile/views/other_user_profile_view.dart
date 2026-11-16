@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/dummy_content.dart';
 import 'package:block_tix/app/data/utils/helper_functions.dart';
-import 'package:block_tix/app/modules/for_you/views/for_you_view.dart';
 
 import '../controllers/other_user_profile_controller.dart';
 
@@ -84,7 +83,9 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                   ListView(),
                   Column(
                     children: [
-                      SizedBox(height: getSize(42),),
+                      SizedBox(
+                        height: getSize(42),
+                      ),
                       SizedBox(
                         height: size.height * 0.095,
                         width: size.width,
@@ -105,7 +106,8 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                         ),
                       ),
                       CustomImageView(
-                        imagePath: DummyContent.images[Random().nextInt(DummyContent.images.length)],
+                        imagePath: DummyContent.images[
+                            Random().nextInt(DummyContent.images.length)],
                         height: size.height * 0.12,
                         radius: BorderRadius.circular(200),
                         margin: getMargin(bottom: 20),
@@ -114,7 +116,7 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                         title: "123 Clouds Music",
                         family: 'Manrope',
                         customWeight: FontWeight.w700,
-                        fontSize:(20),
+                        fontSize: (20),
                       ),
                       SizedBox(
                         height: getSize(10),
@@ -187,63 +189,63 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                                 : null,
                             width: 200,
                           )),
-                      Obx(() => controller.isFollowing.value ?
-
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              MyText(
-                                title: "Bio",
-                                family: 'Manrope',
-                                customWeight: FontWeight.w600,
-                                fontSize: (16),
-                              ),
-                              SizedBox(
-                                height: getSize(5),
-                              ),
-                              MyText(
-                                title:
-                                    "Dubai event creator who hosts the best DJ sets and parties in the Middle East.",
-                                fontSize: (14),
-                                family: 'Inter',
-                                clr: ColorConstant.white60,
-                              ),
-                              SizedBox(
-                                height: getSize(5),
-                              ),
-                              Row(
-                                children: [
-                                  MyText(
-                                    title: "cloudmusic.com",
-                                    family: 'Inter',
-                                    clr: ColorConstant.primaryAccent,
-                                    fontSize: (15),
-                                  ),
-                                  Container(
-                                    width: 1,
-                                    height: 15,
-                                    margin: getPadding(left: 15,right: 15),
-                                    color: ColorConstant.hairline,
-                                  ),
-                                  CustomImageView(
-                                    imagePath: ImageConstant.twitterClr,
-                                    height: 18,
-                                    margin: getMargin(right: 10),
-                                  ),
-                                  CustomImageView(
-                                    imagePath: ImageConstant.instaClr,
-                                    height: 18,
-                                    margin: getMargin(right: 10),
-                                  ),
-                                  CustomImageView(
-                                    imagePath: ImageConstant.fbClr,
-                                    height: 18,
-                                    margin: getMargin(right: 10),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ) : Offstage()),
+                      Obx(() => controller.isFollowing.value
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                MyText(
+                                  title: "Bio",
+                                  family: 'Manrope',
+                                  customWeight: FontWeight.w600,
+                                  fontSize: (16),
+                                ),
+                                SizedBox(
+                                  height: getSize(5),
+                                ),
+                                MyText(
+                                  title:
+                                      "Dubai event creator who hosts the best DJ sets and parties in the Middle East.",
+                                  fontSize: (14),
+                                  family: 'Inter',
+                                  clr: ColorConstant.white60,
+                                ),
+                                SizedBox(
+                                  height: getSize(5),
+                                ),
+                                Row(
+                                  children: [
+                                    MyText(
+                                      title: "cloudmusic.com",
+                                      family: 'Inter',
+                                      clr: ColorConstant.primaryAccent,
+                                      fontSize: (15),
+                                    ),
+                                    Container(
+                                      width: 1,
+                                      height: 15,
+                                      margin: getPadding(left: 15, right: 15),
+                                      color: ColorConstant.hairline,
+                                    ),
+                                    CustomImageView(
+                                      imagePath: ImageConstant.twitterClr,
+                                      height: 18,
+                                      margin: getMargin(right: 10),
+                                    ),
+                                    CustomImageView(
+                                      imagePath: ImageConstant.instaClr,
+                                      height: 18,
+                                      margin: getMargin(right: 10),
+                                    ),
+                                    CustomImageView(
+                                      imagePath: ImageConstant.fbClr,
+                                      height: 18,
+                                      margin: getMargin(right: 10),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            )
+                          : Offstage()),
                       SizedBox(
                         height: getSize(20),
                       ),
@@ -274,30 +276,42 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                               child: ListView(
                                 scrollDirection: Axis.horizontal,
                                 children: [
-                                  TrendingCard(
-                                    imageUrl: ImageConstant.splashBg,
-                                    // Replace with your image URL
-                                    title: 'Cyberpunk',
-                                    type: "Music Concert",
-                                    price: '\$110',
-                                    // fromMarketPlace: fromMarketPlace,
-                                  ),
-                                  TrendingCard(
-                                    imageUrl: ImageConstant.splashBg,
-                                    // Replace with your image URL
-                                    title: 'Rock N Roll',
-                                    type: "Music Concert",
-                                    price: '\$140',
-                                    // fromMarketPlace: fromMarketPlace,
-                                  ),
-                                  TrendingCard(
-                                    imageUrl: ImageConstant.splashBg,
-                                    // Replace with your image URL
-                                    title: 'Epic Bass',
-                                    type: "Music Concert",
-                                    price: '\$60',
-                                    // fromMarketPlace: fromMarketPlace,
-                                  ),
+                                  Container(
+                                      width: 150,
+                                      height: 170,
+                                      margin: const EdgeInsets.only(right: 12),
+                                      decoration: BoxDecoration(
+                                          color: ColorConstant.nightSurface,
+                                          borderRadius:
+                                              BorderRadius.circular(16)),
+                                      child: Center(
+                                          child: Icon(
+                                              Icons.event_available_outlined,
+                                              color: ColorConstant.gold))),
+                                  Container(
+                                      width: 150,
+                                      height: 170,
+                                      margin: const EdgeInsets.only(right: 12),
+                                      decoration: BoxDecoration(
+                                          color: ColorConstant.nightSurface,
+                                          borderRadius:
+                                              BorderRadius.circular(16)),
+                                      child: Center(
+                                          child: Icon(
+                                              Icons.event_available_outlined,
+                                              color: ColorConstant.gold))),
+                                  Container(
+                                      width: 150,
+                                      height: 170,
+                                      margin: const EdgeInsets.only(right: 12),
+                                      decoration: BoxDecoration(
+                                          color: ColorConstant.nightSurface,
+                                          borderRadius:
+                                              BorderRadius.circular(16)),
+                                      child: Center(
+                                          child: Icon(
+                                              Icons.event_available_outlined,
+                                              color: ColorConstant.gold))),
                                 ],
                               ),
                             ),
@@ -307,30 +321,42 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                               child: ListView(
                                 scrollDirection: Axis.horizontal,
                                 children: [
-                                  TrendingCard(
-                                    imageUrl: ImageConstant.splashBg,
-                                    // Replace with your image URL
-                                    title: 'Cyberpunk',
-                                    type: "Music Concert",
-                                    price: '\$110',
-                                    // fromMarketPlace: fromMarketPlace,
-                                  ),
-                                  TrendingCard(
-                                    imageUrl: ImageConstant.splashBg,
-                                    // Replace with your image URL
-                                    title: 'Rock N Roll',
-                                    type: "Music Concert",
-                                    price: '\$140',
-                                    // fromMarketPlace: fromMarketPlace,
-                                  ),
-                                  TrendingCard(
-                                    imageUrl: ImageConstant.splashBg,
-                                    // Replace with your image URL
-                                    title: 'Epic Bass',
-                                    type: "Music Concert",
-                                    price: '\$60',
-                                    // fromMarketPlace: fromMarketPlace,
-                                  ),
+                                  Container(
+                                      width: 150,
+                                      height: 170,
+                                      margin: const EdgeInsets.only(right: 12),
+                                      decoration: BoxDecoration(
+                                          color: ColorConstant.nightSurface,
+                                          borderRadius:
+                                              BorderRadius.circular(16)),
+                                      child: Center(
+                                          child: Icon(
+                                              Icons.event_available_outlined,
+                                              color: ColorConstant.gold))),
+                                  Container(
+                                      width: 150,
+                                      height: 170,
+                                      margin: const EdgeInsets.only(right: 12),
+                                      decoration: BoxDecoration(
+                                          color: ColorConstant.nightSurface,
+                                          borderRadius:
+                                              BorderRadius.circular(16)),
+                                      child: Center(
+                                          child: Icon(
+                                              Icons.event_available_outlined,
+                                              color: ColorConstant.gold))),
+                                  Container(
+                                      width: 150,
+                                      height: 170,
+                                      margin: const EdgeInsets.only(right: 12),
+                                      decoration: BoxDecoration(
+                                          color: ColorConstant.nightSurface,
+                                          borderRadius:
+                                              BorderRadius.circular(16)),
+                                      child: Center(
+                                          child: Icon(
+                                              Icons.event_available_outlined,
+                                              color: ColorConstant.gold))),
                                 ],
                               ),
                             ),

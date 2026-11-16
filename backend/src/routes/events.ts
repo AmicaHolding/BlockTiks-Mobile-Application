@@ -2,9 +2,12 @@ import type { FastifyInstance } from 'fastify';
 import {
     ConditionFailedError,
     createEventWithTiers,
+    ensureSectionSeats,
     getEvent,
+    getSection,
     listCreatorEvents,
     listPublishedEvents,
+    listSectionSeats,
     listSections,
     publishEvent,
     setVenueLayout,
@@ -12,20 +15,23 @@ import {
 } from '../db';
 
 export async function eventRoutes(app: FastifyInstance) {
-  // GET /events — published events, optional ?category= & ?q=
+  // GET /events — published events, optional ?category=, ?q=, ?cursor=, ?limit=
   app.get('/events', async (request) => {
-    const { category, q, limit } = request.query as {
+    const { category, q, limit, cursor } = request.query as {
       category?: string;
       q?: string;
       limit?: string;
+      cursor?: string;
     };
     const results = await listPublishedEvents({
       category,
       q,
       limit: limit ? Math.min(parseInt(limit, 10) || 50, 100) : 50,
+      cursor,
     });
     return {
-      events: results.map(({ event, tiers }) => ({
+      nextCursor: results.nextCursor,
+      events: results.items.map(({ event, tiers }) => ({
         ...event,
         tiers: tiers.map((t) => ({
           id: t.id,
@@ -42,10 +48,48 @@ export async function eventRoutes(app: FastifyInstance) {
     };
   });
 
-  // GET /events/mine — events created by the current user (any status)
+  // GET /events/mine — events created by the current user (any status),
+  // enriched with tiers so Studio can compute sales without N+1 detail calls.
   app.get('/events/mine', { preHandler: app.authenticate }, async (request) => {
     const events = await listCreatorEvents(request.user.sub);
-    return { events };
+    const detailed = await Promise.all(
+      events.map(async (event) => {
+        const result = await getEvent(event.id);
+        if (!result) return null;
+        const sections = result.event.venueLayout ? await listSections(event.id) : [];
+        return { result, sections };
+      })
+    );
+    return {
+      events: detailed
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+        .map(({ result, sections }) => {
+          const sectionById = new Map(sections.map((section) => [section.sectionId, section]));
+          return {
+            ...result.event,
+            tiers: result.tiers.map((t) => ({
+              id: t.id,
+              name: t.name,
+              description: t.description,
+              priceCents: t.priceCents,
+              price: t.priceCents / 100,
+              quantity: t.quantity,
+              sold: t.sold,
+              available: t.available ?? t.quantity - t.sold,
+              remaining: Math.max(0, t.available ?? t.quantity - t.sold),
+            })),
+            venueSections: (result.event.venueLayout?.sections ?? []).map((section) => {
+              const inventory = sectionById.get(section.id);
+              return {
+                ...section,
+                sold: inventory?.sold ?? 0,
+                available: inventory?.available ?? section.capacity,
+                remaining: Math.max(0, inventory?.available ?? section.capacity),
+              };
+            }),
+          };
+        }),
+    };
   });
 
   // GET /events/:id — event detail with tiers (+ venue sections when the
@@ -86,6 +130,26 @@ export async function eventRoutes(app: FastifyInstance) {
     };
   });
 
+  // GET /events/:id/seats?sectionId= — seat-level availability for a venue
+  // section. Materializes seat rows lazily on first access.
+  app.get('/events/:id/seats', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { sectionId } = request.query as { sectionId?: string };
+    if (!sectionId) return reply.status(400).send({ message: 'sectionId is required' });
+    const result = await getEvent(id);
+    if (!result) return reply.status(404).send({ message: 'Event not found' });
+    if (result.event.status !== 'PUBLISHED') {
+      return reply.status(400).send({ message: 'Event is not on sale' });
+    }
+    const layoutSection = result.event.venueLayout?.sections.find((s) => s.id === sectionId);
+    if (!layoutSection) return reply.status(404).send({ message: 'Section not found' });
+    const section = await getSection(id, sectionId);
+    if (!section) return reply.status(404).send({ message: 'Section not found' });
+    await ensureSectionSeats(id, { ...layoutSection, priceCents: section.priceCents, capacity: section.capacity });
+    const seats = await listSectionSeats(id, sectionId);
+    return { sectionId, seats, currency: result.event.currency ?? 'usd' };
+  });
+
   // PATCH /events/:id — creator updates venue layout (seated events).
   app.patch(
     '/events/:id',
@@ -109,6 +173,10 @@ export async function eventRoutes(app: FastifyInstance) {
                       name: { type: 'string' },
                       priceCents: { type: 'integer', minimum: 0 },
                       capacity: { type: 'integer', minimum: 1 },
+                      rows: { type: 'integer', minimum: 0 },
+                      seatsPerRow: { type: 'integer', minimum: 0 },
+                      accessibleCount: { type: 'integer', minimum: 0 },
+                      heldCount: { type: 'integer', minimum: 0 },
                     },
                   },
                 },
@@ -119,6 +187,9 @@ export async function eventRoutes(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
+      if (request.user.role !== 'CREATOR' && request.user.role !== 'ADMIN') {
+        return reply.status(403).send({ message: 'Creator access required' });
+      }
       const { id } = request.params as { id: string };
       const { venueLayout } = request.body as { venueLayout?: VenueLayout };
       if (!venueLayout) {
@@ -155,6 +226,7 @@ export async function eventRoutes(app: FastifyInstance) {
             location: { type: 'string' },
             address: { type: 'string' },
             imageUrl: { type: 'string' },
+            currency: { type: 'string', pattern: '^[a-zA-Z]{3}$' },
             tiers: {
               type: 'array',
               items: {
@@ -173,6 +245,9 @@ export async function eventRoutes(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
+      if (request.user.role !== 'CREATOR' && request.user.role !== 'ADMIN') {
+        return reply.status(403).send({ message: 'Creator access required' });
+      }
       const body = request.body as {
         title: string;
         description: string;
@@ -182,6 +257,7 @@ export async function eventRoutes(app: FastifyInstance) {
         location: string;
         address?: string;
         imageUrl?: string;
+        currency?: string;
         tiers?: { name: string; description?: string; priceCents: number; quantity: number }[];
       };
 
@@ -195,6 +271,7 @@ export async function eventRoutes(app: FastifyInstance) {
         location: body.location,
         address: body.address,
         imageUrl: body.imageUrl,
+        currency: body.currency,
         tiers: body.tiers ?? [],
       });
 
@@ -204,6 +281,9 @@ export async function eventRoutes(app: FastifyInstance) {
 
   // POST /events/:id/publish — creator publishes a draft event
   app.post('/events/:id/publish', { preHandler: app.authenticate }, async (request, reply) => {
+    if (request.user.role !== 'CREATOR' && request.user.role !== 'ADMIN') {
+      return reply.status(403).send({ message: 'Creator access required' });
+    }
     const { id } = request.params as { id: string };
     try {
       const event = await publishEvent(id, request.user.sub, request.user.role);

@@ -5,7 +5,8 @@ import {
     listActiveListings,
     ListingError,
     listSellerListings,
-    listUserTickets
+    listUserTickets,
+    matchOffersForListing
 } from '../db';
 
 // Resale marketplace: fans list VALID tickets, buyers discover them on the
@@ -21,8 +22,12 @@ export async function listingRoutes(app: FastifyInstance) {
 
   // GET /listings/mine — current user's listings (any status).
   app.get('/listings/mine', { preHandler: app.authenticate }, async (request) => {
-    const listings = await listSellerListings(request.user.sub);
-    return { listings };
+    const { cursor, limit } = request.query as { cursor?: string; limit?: string };
+    const result = await listSellerListings(request.user.sub, {
+      cursor,
+      limit: limit ? Math.min(parseInt(limit, 10) || 100, 200) : 200,
+    });
+    return { listings: result.items, nextCursor: result.nextCursor };
   });
 
   // POST /tickets/:code/list — put one of my tickets up for resale.
@@ -47,7 +52,8 @@ export async function listingRoutes(app: FastifyInstance) {
           ticketCode: code,
           priceCents,
         });
-        return reply.status(201).send({ listing });
+        const matchedOffers = await matchOffersForListing(listing).catch(() => []);
+        return reply.status(201).send({ listing, matchedOffers });
       } catch (e) {
         if (e instanceof ListingError) {
           const status =
@@ -65,10 +71,12 @@ export async function listingRoutes(app: FastifyInstance) {
   // GET /tickets/mine — alias kept for the app's ticket picker: returns my
   // VALID tickets that are NOT currently listed, ready to sell.
   app.get('/tickets/sellable', { preHandler: app.authenticate }, async (request) => {
-    const [tickets, listings] = await Promise.all([
-      listUserTickets(request.user.sub),
-      listSellerListings(request.user.sub),
+    const [ticketsResult, listingsResult] = await Promise.all([
+      listUserTickets(request.user.sub, { limit: 200 }),
+      listSellerListings(request.user.sub, { limit: 200 }),
     ]);
+    const tickets = ticketsResult.items;
+    const listings = listingsResult.items;
     const listed = new Set(
       listings.filter((l) => l.status === 'ACTIVE' || l.status === 'CHECKOUT').map((l) => l.ticketCode)
     );
@@ -82,6 +90,7 @@ export async function listingRoutes(app: FastifyInstance) {
           eventLocation: t.eventLocation,
           tierName: t.tierName,
           sectionName: t.sectionName,
+          currency: t.currency,
         })),
     };
   });

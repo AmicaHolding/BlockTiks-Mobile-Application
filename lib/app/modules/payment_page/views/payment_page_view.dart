@@ -1,7 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
-// import 'package:flutter_stripe/flutter_stripe.dart';
-import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
-import 'package:block_tix/app/data/widgets/custom_text_form_field.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../controllers/payment_page_controller.dart';
 
@@ -15,296 +13,108 @@ class PaymentPageView extends GetView<PaymentPageController> {
       hideAppBar: true,
       sidePadding: false,
       safeTopArea: false,
-      resizeToAvoidBottomInset: true,
-      // Sahra checkout is a light Sand surface (design 04).
-      backgroundColor: ColorConstant.lightBackground,
+      backgroundColor: ColorConstant.sand,
       bottomNavigationBar: SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Honest labeling: Stripe TEST mode — real PaymentSheet, but
-            // test card numbers only (no real money moves).
-            Container(
-              margin: getMargin(left: 20, right: 20, bottom: 8),
-              padding: getPadding(left: 12, right: 12, top: 10, bottom: 10),
-              decoration: BoxDecoration(
-                color: ColorConstant.warningOrange.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                    color: ColorConstant.warningOrange.withValues(alpha: 0.4)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.science_outlined,
-                      size: 16, color: ColorConstant.warningOrange),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: MyText(
-                      title: controller.hasBackendContext
-                          ? 'Test mode — pay with 4242 4242 4242 4242'
-                          : 'Test checkout — no real payment yet',
-                      family: 'Inter',
-                      fontSize: 12,
-                      clr: ColorConstant.warningOrange,
+            if (controller.hasBackendContext)
+              Container(
+                margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: ColorConstant.warningOrange.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color:
+                          ColorConstant.warningOrange.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.science_outlined,
+                        size: 16, color: ColorConstant.warningOrange),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Test mode — pay with 4242 4242 4242 4242',
+                        style: sahraText(
+                            color: ColorConstant.warningOrange, size: 12),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            PrimaryPillButton(
-              text: controller.fromPlaceBid ? "Place" : "lbl_buy_now".tr,
-              margin: getMargin(right: 20, left: 20, bottom: 30, top: 4),
-              onTap: () {
-                // Card details must validate before we proceed — but only
-                // for the manual-entry/simulated path. Real checkouts use
-                // the Stripe PaymentSheet for card entry instead.
-                if (!controller.hasBackendContext &&
-                    controller.selectedPayment.value == 4 &&
-                    !controller.validateCard()) {
-                  CustomSnackBar.showCustomErrorToast(
-                      message: "Please complete your card details");
-                  return;
-                }
-                // Real checkout: creates order intents on the backend when
-                // event context is present; simulated fallback otherwise.
-                controller.checkout();
-              },
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+              child: PrimaryPillButton(
+                text: controller.fromPlaceBid
+                    ? 'Place'
+                    : 'Pay ${controller.money(controller.estimatedTotalCents)}',
+                onTap: () => controller.checkout(),
+              ),
             ),
           ],
         ),
       ),
       child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              height: getSize(342),
-              child: Stack(
-                children: [
-                  CustomImageView(
-                    imagePath: ImageConstant.splashBg,
-                    height: getSize(343),
-                    width: size.width,
-                    fit: BoxFit.cover,
-                  ),
-                  Positioned(
-                    top: 42,
-                    left: 0,
-                    child: Padding(
-                      padding: getPadding(left: 16,right: 16,top: 8,bottom: 8),
-                      child: GestureDetector(
-                        onTap:() {
-                              Get.back();
-                            },
-                        child: Container(
-                          height:getSize(30),
-                          width:getSize(30),
-                          decoration: BoxDecoration(
-                              color: ColorConstant.whiteA700.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8)
-                          ),
-                          alignment: Alignment.center,
-                          child: Padding(
-                            padding: getPadding(left: 8),
-                            child: Icon(Icons.arrow_back_ios,
-                              color: ColorConstant.whiteA700,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 10,
-                    left: 16,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        MyText(
-                          title: controller.eventType,
-                          family: 'Inter',
-                          clr: ColorConstant.white60,
-                          fontSize: 14,
-                        ),
-                        const SizedBox(height: 5),
-                        MyText(
-                          title: controller.eventTitle,
-                          family: 'Manrope',
-                          customWeight: FontWeight.w700,
-                          fontSize: 24,
-                          height: 1.15,
-                        ),
-                        controller.platinum>0 ? _ticketWidget(controller.platinum,"Platinum Ticket") : Offstage(),
-                        controller.gold>0 ? _ticketWidget(controller.gold,"Gold Ticket") : Offstage(),
-                        controller.silver>0 ? _ticketWidget(controller.silver,"Silver Ticket") : Offstage(),
-                        controller.bronze>0 ? _ticketWidget(controller.bronze,"Bronze Ticket") : Offstage(),
-                        controller.selections.isNotEmpty
-                            ? _ticketWidget(
-                                controller.selections.fold<int>(0, (s, t) =>
-                                    s + ((t['quantity'] as num?)?.toInt() ?? 1)),
-                                'Ticket',
-                                isLast: true,
-                                totalLabel: controller.subtotalCents > 0
-                                    ? '\$${(controller.subtotalCents / 100).toStringAsFixed(2)}'
-                                    : null,
-                              )
-                            : Offstage(),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            Row(
+              children: [
+                SahraIconAction(
+                  icon: Icons.arrow_back_ios_new_rounded,
+                  color: ColorConstant.ink,
+                  onTap: Get.back,
+                ),
+                const Spacer(),
+                Text('Step 2 of 2',
+                    style: sahraText(
+                        color: ColorConstant.ink.withValues(alpha: .55),
+                        size: 12)),
+              ],
             ),
-            Padding(
-              padding: getPadding(left: 16, right: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    height: getSize(15),
-                  ),
-                  Text(
-                    'Choose payment method',
-                    style: GoogleFonts.bricolageGrotesque(
-                      color: ColorConstant.lightText,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  SizedBox(
-                    height: getSize(15),
-                  ),
-                  CardWidget(
-                    image: ImageConstant.mini,
-                    title: 'BlockTix wallet',
-                    desc: 'Balance: \$24.03',
-                    index: 0,
-                  ),
-                  CardWidget(
-                    image: ImageConstant.applePay,
-                    title: 'Apple Pay',
-                    desc: 'Takes minutes to complete',
-                    index: 1,
-                  ),
-                  CardWidget(
-                    image: ImageConstant.googlePay,
-                    title: 'Google Pay',
-                    desc: 'Takes minutes to complete',
-                    index: 2,
-                  ),
-                  CardWidget(
-                    image: ImageConstant.googlePay,
-                    title: 'Chase Debit',
-                    desc: 'VISA ****4493',
-                    index: 3,
-                  ),
-                  CardWidget(
-                    image: ImageConstant.addCard,
-                    title: 'Add Debit/Credit Card',
-                    desc: 'Takes minutes to complete',
-                    colorWhite: true,
-                    index: 4,
-                  ),
-                  SizedBox(
-                    height: getSize(15),
-                  ),
-                  Obx(() => controller.selectedPayment.value == 4
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            MyText(
-                              title: 'Card Information',
-                              family: 'Manrope',
-                              fontSize: 14,
-                              customWeight: FontWeight.w600,
-                              clr: ColorConstant.lightText,
-                            ),
-                            const SizedBox(
-                              height: 5,
-                            ),
-                            Form(
-                              key: controller.cardFormKey,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  CustomTextFormField(
-                                    controller: controller.cardNumberController,
-                                    labelText: 'Card Number',
-                                    hintText: 'XXXX XXXX XXXX XXXX',
-                                    textInputType: TextInputType.number,
-                                    variant: TextFormFieldVariant.OutlineNewGray,
-                                    validator: (val) {
-                                      final digits =
-                                          (val ?? '').replaceAll(RegExp(r'\D'), '');
-                                      if (digits.length < 13) {
-                                        return 'Enter a valid card number';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: CustomTextFormField(
-                                          controller: controller.expiryController,
-                                          labelText: 'Expiry (MM/YY)',
-                                          hintText: 'MM/YY',
-                                          textInputType: TextInputType.number,
-                                          variant: TextFormFieldVariant.OutlineNewGray,
-                                          validator: (val) {
-                                            final text = (val ?? '').trim();
-                                            if (!RegExp(r'^(0[1-9]|1[0-2])/\d{2}$')
-                                                .hasMatch(text)) {
-                                              return 'Use MM/YY';
-                                            }
-                                            return null;
-                                          },
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: CustomTextFormField(
-                                          controller: controller.cvvController,
-                                          labelText: 'CVV',
-                                          hintText: 'XXX',
-                                          textInputType: TextInputType.number,
-                                          variant: TextFormFieldVariant.OutlineNewGray,
-                                          validator: (val) {
-                                            final cvv = (val ?? '').trim();
-                                            if (cvv.length < 3) {
-                                              return 'Enter CVV';
-                                            }
-                                            return null;
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  CustomTextFormField(
-                                    controller: controller.nameController,
-                                    labelText: 'Card Holder',
-                                    hintText: 'Name on card',
-                                    variant: TextFormFieldVariant.OutlineNewGray,
-                                    validator: (val) {
-                                      if ((val ?? '').trim().length < 2) {
-                                        return 'Enter the name on the card';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(
-                              height: getSize(30),
-                            ),
-                          ],
-                        )
-                      : const Offstage()),
-                ],
+            const SizedBox(height: 18),
+            Text('Checkout',
+                style: sahraText(
+                    color: ColorConstant.ink,
+                    size: 30,
+                    weight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            Text(
+              [controller.eventTitle, controller.eventType]
+                  .where((e) => e.isNotEmpty)
+                  .join(' · '),
+              style: sahraText(
+                  color: ColorConstant.ink.withValues(alpha: .6), size: 14),
+            ),
+            if ((controller.eventDate ?? '').isNotEmpty ||
+                (controller.eventVenue ?? '').isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                [controller.eventDate, controller.eventVenue]
+                    .whereType<String>()
+                    .where((e) => e.isNotEmpty)
+                    .join(' · '),
+                style: sahraText(
+                    color: ColorConstant.ink.withValues(alpha: .55), size: 12),
               ),
+            ],
+            const SizedBox(height: 22),
+            _summaryCard(),
+            const SizedBox(height: 16),
+            _paymentMethodCard(),
+            const SizedBox(height: 14),
+            Text(
+              controller.hasBackendContext
+                  ? 'Tickets appear in your Tickets tab instantly after payment.'
+                  : 'Simulated checkout — no real payment is processed.',
+              style: sahraText(
+                  color: ColorConstant.ink.withValues(alpha: .55),
+                  size: 12,
+                  height: 1.45),
             ),
           ],
         ),
@@ -312,41 +122,178 @@ class PaymentPageView extends GetView<PaymentPageController> {
     );
   }
 
-  Widget _ticketWidget(int count,String type,{bool isLast = false, String? totalLabel}){
+  Widget _summaryCard() {
+    final lines = _orderLines();
     return Container(
-      padding: getPadding(bottom: isLast ? 0:5),
-      child: Row(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: ColorConstant.lightCard,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: ColorConstant.dune),
+      ),
+      child: Column(
         children: [
-          MyText(
-            title: '$count $type${count > 1 ? 's':''}',
-            family: 'Inter',
-            clr: ColorConstant.lightMuted,
-            fontSize: 14,
+          ...lines.map((line) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(line.label,
+                          style: sahraText(
+                              color: ColorConstant.ink,
+                              size: 15,
+                              weight: FontWeight.w600)),
+                    ),
+                    Text(line.amount,
+                        style: sahraText(
+                            color: ColorConstant.ink,
+                            size: 15,
+                            weight: FontWeight.w600)),
+                  ],
+                ),
+              )),
+          Divider(height: 22, color: ColorConstant.dune),
+          _feeRow('Service fee (est.)',
+              controller.money(controller.estimatedFeesCents)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text('Total',
+                  style: sahraText(
+                      color: ColorConstant.ink,
+                      size: 18,
+                      weight: FontWeight.w700)),
+              const Spacer(),
+              Text(controller.money(controller.estimatedTotalCents),
+                  style: sahraText(
+                      color: ColorConstant.gold,
+                      size: 20,
+                      weight: FontWeight.w700)),
+            ],
           ),
-          Container(
-            margin: getMargin(left: 10,right: 10),
-            height: 14,
-            width: 1,
-            decoration: BoxDecoration(
-              color: ColorConstant.lightMuted
-            ),
-          ),
-          MyText(
-            title: 'Total:  ',
-            family: 'Inter',
-            clr: ColorConstant.lightMuted,
-            fontSize: 14,
-          ),
-          MyText(
-            title: totalLabel ?? '\$${count * 405}',
-            family: 'Inter',
-            clr: ColorConstant.successGreen,
-            fontSize: 14,
+          const SizedBox(height: 6),
+          Text(
+            'Final total is confirmed by Stripe at payment.',
+            style: sahraText(
+                color: ColorConstant.ink.withValues(alpha: .5), size: 11),
           ),
         ],
       ),
     );
   }
+
+  Widget _feeRow(String label, String value) {
+    return Row(
+      children: [
+        Expanded(
+            child: Text(label,
+                style: sahraText(
+                    color: ColorConstant.ink.withValues(alpha: .65),
+                    size: 13))),
+        Text(value, style: sahraText(color: ColorConstant.ink, size: 13)),
+      ],
+    );
+  }
+
+  Widget _paymentMethodCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: ColorConstant.lightCard,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: ColorConstant.dune),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: ColorConstant.dune,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.credit_card_rounded,
+                color: ColorConstant.ink, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Card',
+                    style: sahraText(
+                        color: ColorConstant.ink,
+                        size: 15,
+                        weight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(
+                  controller.hasBackendContext
+                      ? 'Stripe PaymentSheet — Apple Pay / Google Pay when available'
+                      : 'Simulated checkout — no real payment',
+                  style: sahraText(
+                      color: ColorConstant.ink.withValues(alpha: .55),
+                      size: 12),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.check_circle_rounded, color: ColorConstant.gold, size: 22),
+        ],
+      ),
+    );
+  }
+
+  List<_OrderLine> _orderLines() {
+    final lines = <_OrderLine>[];
+    if (controller.selections.isNotEmpty) {
+      for (final sel in controller.selections) {
+        final qty = (sel['quantity'] as num?)?.toInt() ?? 1;
+        final price = (sel['priceCents'] as num?)?.toInt() ?? 0;
+        final name =
+            (sel['tierName'] ?? sel['sectionName'] ?? 'Ticket').toString();
+        lines.add(_OrderLine('$qty × $name', controller.money(price * qty)));
+      }
+      return lines;
+    }
+    if (controller.listingCode != null) {
+      lines.add(_OrderLine(
+        '1 × ${controller.listingName ?? 'Resale ticket'}',
+        controller.money(controller.displaySubtotalCents),
+      ));
+      return lines;
+    }
+    if (controller.sectionId != null) {
+      final seatSuffix = controller.seatLabels.isNotEmpty
+          ? ' · seats ${controller.seatLabels.join(', ')}'
+          : '';
+      lines.add(_OrderLine(
+        '${controller.quantity} × ${controller.sectionName ?? 'Seated ticket'}$seatSuffix',
+        controller.money(controller.displaySubtotalCents),
+      ));
+      return lines;
+    }
+    final legacyCount = controller.platinum +
+        controller.gold +
+        controller.silver +
+        controller.bronze;
+    if (legacyCount > 0) {
+      lines.add(_OrderLine('$legacyCount × Ticket',
+          controller.money(controller.displaySubtotalCents)));
+    } else {
+      lines.add(_OrderLine('${controller.quantity} × Ticket',
+          controller.money(controller.displaySubtotalCents)));
+    }
+    return lines;
+  }
+}
+
+class _OrderLine {
+  const _OrderLine(this.label, this.amount);
+  final String label;
+  final String amount;
 }
 
 class CardWidget extends StatelessWidget {
@@ -430,10 +377,8 @@ class CardWidget extends StatelessWidget {
                 Container(
                   width: 30,
                   height: 30,
-
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-
                     border: Border.all(
                         color: controller.selectedPayment.value == index
                             ? ColorConstant.night
@@ -442,13 +387,12 @@ class CardWidget extends StatelessWidget {
                   child: Padding(
                     padding: getPadding(all: 3),
                     child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
+                        decoration: BoxDecoration(
+                      shape: BoxShape.circle,
                       color: controller.selectedPayment.value == index
                           ? ColorConstant.night
                           : Colors.transparent,
-                      )
-                    ),
+                    )),
                   ),
                 )
               ],

@@ -1,130 +1,208 @@
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
-import 'package:flutter/material.dart';
-
-import 'package:get/get.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 
 import '../controllers/broadcast_message_controller.dart';
 
 class BroadcastMessageView extends GetView<BroadcastMessageController> {
   const BroadcastMessageView({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return BaseViewPageScreen(
-      bodyPadding: true,
+      hideAppBar: true,
+      safeTopArea: true,
       sidePadding: false,
-      showLogo: false,
-      showBackBtn: true,
-      basicAppBar: true,
+      bodyPadding: false,
+      backgroundColor: ColorConstant.night,
       resizeToAvoidBottomInset: true,
-      showNotification: false,
-      bottomNavigationBar: SafeArea(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            CustomButton(
-              width: getSize(120),
-              text: "lbl_save".tr,
-              margin: getMargin(right: 20, left: 20, bottom: 30, top: 10),
-              shape: ButtonShape.RoundedBorder10,
-              onTap: () {
-                if(controller.messageController.text.trim().isNotEmpty){
-                  Get.back(result: {
-                    "name": "123 Music",
-                    "message": controller.messageController.text
-                  });
-                }else{
-                  CustomSnackBar.showCustomErrorToast(message: "Please type message first");
-                }
-
-              },
+      bottomNavigationBar: Obx(() {
+        controller.version.value;
+        controller.pushEnabled.value;
+        controller.emailEnabled.value;
+        controller.smsEnabled.value;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Max 3 broadcasts per event day · attendees see this in Sahra',
+                  textAlign: TextAlign.center,
+                  style: sahraText(color: ColorConstant.nightMuted, size: 12),
+                ),
+                const SizedBox(height: 8),
+                SahraPillButton(
+                  label: controller.isSending.value
+                      ? 'Sending…'
+                      : 'Send to ${controller.selectedAudience.value}',
+                  enabled: controller.canSend,
+                  onTap: controller.send,
+                ),
+              ],
             ),
-          ],
+          ),
+        );
+      }),
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 150),
+        children: [
+          _header(),
+          SahraSectionLabel('To'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: _audienceChips(),
+          ),
+          SahraSectionLabel('Channels'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: _channels(),
+          ),
+          SahraSectionLabel('Message'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _messageField(),
+                const SizedBox(height: 10),
+                Obx(() => Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${controller.messageController.text.trim().length}/500',
+                            style: sahraText(
+                                color: ColorConstant.nightMuted, size: 12),
+                          ),
+                        ),
+                        if (controller.lastSent.value.isNotEmpty)
+                          Text(controller.lastSent.value,
+                              style: sahraText(
+                                  color: ColorConstant.nightMuted, size: 12)),
+                      ],
+                    )),
+                const SizedBox(height: 14),
+                _noteCard(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _header() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 20, 10),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: Get.back,
+            icon: Icon(Icons.arrow_back_ios_new_rounded,
+                color: ColorConstant.whiteA700, size: 20),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Obx(() => Text(controller.eventTitle.value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        sahraText(color: ColorConstant.nightMuted, size: 13))),
+                Text('Message guests',
+                    style: sahraText(size: 26, weight: FontWeight.w800)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _audienceChips() {
+    return Obx(() => Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: controller.audiences.map((audience) {
+            final label = audience['label']?.toString() ?? '';
+            return SahraChip(
+              label: label,
+              selected: controller.selectedAudience.value == label,
+              onTap: () => controller.selectedAudience.value = label,
+            );
+          }).toList(),
+        ));
+  }
+
+  Widget _channels() {
+    return SahraCard(
+      child: Column(
+        children: [
+          _channelRow('Push notification', controller.pushEnabled),
+          _channelRow('Email', controller.emailEnabled),
+          _channelRow('SMS', controller.smsEnabled),
+        ],
+      ),
+    );
+  }
+
+  Widget _channelRow(String label, RxBool value) {
+    return Obx(() => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              Expanded(child: Text(label, style: sahraText(size: 14))),
+              Switch.adaptive(
+                value: value.value,
+                activeColor: ColorConstant.gold,
+                onChanged: (v) => value.value = v,
+              ),
+            ],
+          ),
+        ));
+  }
+
+  Widget _messageField() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: ColorConstant.nightSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ColorConstant.nightBorder),
+      ),
+      child: TextField(
+        controller: controller.messageController,
+        maxLength: 500,
+        maxLines: 6,
+        buildCounter: (_,
+                {required currentLength, required isFocused, maxLength}) =>
+            null,
+        style: sahraText(height: 1.45),
+        decoration: InputDecoration(
+          hintText: 'Tell your guests what they need to know',
+          hintStyle: sahraText(color: ColorConstant.nightMuted),
+          border: InputBorder.none,
         ),
       ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: getSize(20),),
-            MyText(title: 'To',
-              fontSize: 18,
-              customWeight: FontWeight.bold,
-            ),
-            SizedBox(height: getSize(15),),
-            SizedBox(
-              height: 30, // Set a fixed height for the ListView
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: controller.ticketHolders.length,
-                itemBuilder: (context, index) {
-                  return GestureDetector(
-                    onTap: (){
-                      controller.ticketChecks[index].value = !controller.ticketChecks[index].value;
-                    },
-                    child: Obx(()=> Container(
-                      margin: getMargin(right: 5),
-                      padding: getPadding(left: 8,right: 8,top: 5,bottom: 5),
-                      decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                              color: controller.ticketChecks[index].value? Colors.transparent : ColorConstant.hairline
-                          ),
-                          color: controller.ticketChecks[index].value ? ColorConstant.primaryAccent : Colors.transparent
-                      ),
-                      child: MyText(
-                        title: controller.ticketHolders[index],
-                        fontSize: 10,
-                        customWeight: FontWeight.bold,
-                      ),
-                    ),)
-                  );
-                },
-              ),
-            ),
-            SizedBox(height: getSize(30),),
-            MyText(title: 'Message',
-              fontSize: 18,
-              customWeight: FontWeight.bold,
-            ),
-            SizedBox(height: getSize(15),),
-            Container(
-              padding: getPadding(left: 16, right: 16,top: 5,bottom: 5),
-              margin: getMargin(bottom: 20),
-              decoration: BoxDecoration(
-                color: ColorConstant.elevated,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              alignment: Alignment.center,
-              child: TextField(
-                controller: controller.messageController,
-                // onTap: onTap,
-                style: GoogleFonts.getFont("Inter",
-                    fontSize: 16, color: ColorConstant.whiteA700),
-                maxLines: 6,
-                decoration: InputDecoration(
-                  contentPadding: getPadding(
-                    right: getSize(15),
-                  ),
-                  hintText:  "Add your message",
-                  hintStyle: TextStyle(color: ColorConstant.white60),
-                  border: InputBorder.none,
-                ),
-              ),
-            ),
+    );
+  }
 
-            Obx(() => CustomImageView(
-              onTap: ()=> controller.mediaSelectionBottomSheetAndroid(context),
-              file: controller.image.value.path.isNotEmpty ? controller.image.value : null,
-              svgPath:  controller.image.value.path.isNotEmpty ? null : ImageConstant.insertImage,
-              height: getSize(115),
-              width: getSize(115),
-              radius: BorderRadius.circular(12),
-              margin: getMargin(bottom: 20,top: 30),
-            ),)
-          ],
-        ),
+  Widget _noteCard() {
+    return SahraCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.campaign_outlined, color: ColorConstant.gold, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Delivery is queued into the attendee feed for now. Push/email/SMS providers are not connected yet.',
+              style: sahraText(
+                  color: ColorConstant.nightMuted, size: 13, height: 1.45),
+            ),
+          ),
+        ],
       ),
     );
   }

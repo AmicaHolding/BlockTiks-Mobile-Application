@@ -1,402 +1,152 @@
-import 'dart:math';
+import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 
-import 'package:block_tix/app/data/utils/dummy_content.dart';
-import 'package:block_tix/app/data/utils/helper_functions.dart';
-import 'package:block_tix/app/modules/for_you/views/for_you_view.dart';
-import '../../../data/core/app_export.dart';
 import '../controllers/profile_tab_controller.dart';
 
 class ProfileTabView extends GetView<ProfileTabController> {
   ProfileTabView({Key? key}) : super(key: key);
 
-  final controller = Get.put(ProfileTabController());
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      bottom: false,
+      child: RefreshIndicator(
+        color: ColorConstant.gold,
+        backgroundColor: ColorConstant.nightSurface,
+        onRefresh: controller.getMyProfile,
+        child: ListView(children: [
+          _header(),
+          _stats(),
+          const SahraSmallLabel('Upcoming'),
+          Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              child: Text('Your next events will appear here.',
+                  style: TextStyle(color: ColorConstant.nightMuted))),
+          const SahraSmallLabel('Account'),
+          _settingRow('Edit profile & settings',
+              onTap: () => Get.toNamed(Routes.PROFILE_SETTINGS)),
+          _settingRow('Edit profile',
+              onTap: () => Get.toNamed(Routes.EDIT_PROFILE)),
+          _settingRow('Change password',
+              onTap: () => Get.toNamed(Routes.CHANGE_PASSWORD)),
+          _settingRow('Notifications',
+              onTap: () => Get.toNamed(Routes.NOTIFICATIONS_PAGE)),
+          _settingRow('Transactions',
+              onTap: () => Get.toNamed(Routes.TRANSACTIONS)),
+          _settingRow('Earnings & payouts',
+              onTap: () => Get.toNamed(Routes.WITHDRAW)),
+          _settingRow('Payment methods',
+              onTap: () => Get.toNamed(Routes.PAYMENT_OPTIONS)),
+          _settingRow('Promo codes',
+              onTap: () => Get.toNamed(Routes.PROMO_CODES)),
+          const SahraSmallLabel('Support'),
+          _settingRow('Help & FAQs', onTap: () => Get.toNamed(Routes.FAQS)),
+          _settingRow('Invite friends',
+              onTap: () => Get.toNamed(Routes.REFERRALS)),
+          const SizedBox(height: 28),
+          Center(
+              child: GestureDetector(
+                  onTap: () => Get.offAllNamed(Routes.SIGN_IN),
+                  child: Text('Sign out',
+                      style: sahraText(
+                          color: ColorConstant.rumman,
+                          size: 14,
+                          weight: FontWeight.w600)))),
+          const SizedBox(height: 36),
+        ]),
+      ),
+    );
+  }
 
-  String _displayName() {
+  String _name() {
     final user = controller.profileData.value?.user;
     final full = (user?.fullName ?? '').toString().trim();
     if (full.isNotEmpty) return full;
-    final name =
-        '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
-    return name.isNotEmpty ? name : 'User';
+    final name = '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
+    return name.isEmpty ? 'Sahra fan' : name;
   }
 
-  String _displayRole() {
-    final role =
-        controller.profileData.value?.user?.role?.name?.toString().trim();
-    if (role != null && role.isNotEmpty) return role;
-    return 'User';
+  Widget _header() {
+    return Obx(() {
+      final user = controller.profileData.value?.user;
+      final initials = _name()
+          .split(' ')
+          .where((e) => e.isNotEmpty)
+          .take(2)
+          .map((e) => e[0].toUpperCase())
+          .join();
+      return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+          child: Row(children: [
+            Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                    color: ColorConstant.nightSurface,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: ColorConstant.gold, width: 2)),
+                child: Center(
+                    child: Text(initials.isEmpty ? 'S' : initials,
+                        style: sahraText(
+                            color: ColorConstant.gold,
+                            size: 22,
+                            weight: FontWeight.w700)))),
+            const SizedBox(width: 16),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(_name(),
+                      style: sahraText(size: 24, weight: FontWeight.w800)),
+                  Text(user?.email ?? 'Set up your profile',
+                      style:
+                          sahraText(color: ColorConstant.nightMuted, size: 13)),
+                ])),
+            SahraIconAction(
+                icon: Icons.edit_outlined,
+                onTap: () => Get.toNamed(Routes.PROFILE_SETTINGS)),
+          ]));
+    });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: () async {
-        await Future.delayed(
-            const Duration(milliseconds: Constants.refreshDelay));
-        controller.getMyProfile();
-      },
-      child: Stack(
-        children: [
-          SizedBox(
-            width: size.width,
-            height: size.height,
-            child: Column(
-              children: [
-                Container(
-                  width: size.width,
-                  foregroundDecoration: BoxDecoration(
-                      gradient: LinearGradient(
-                    colors: [
-                      Colors.black.withValues(alpha: 0.1),
-                      Colors.black.withValues(alpha: 0.9),
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  )),
-                  child: CustomImageView(
-                    width: size.width,
-                    fit: BoxFit.fitWidth,
-                    imagePath: ImageConstant.splashBg,
-                  ),
-                ),
-                Expanded(
-                    child: Container(
-                        width: size.width,
-                        decoration: BoxDecoration(
-                            color: ColorConstant.bg,
-                            border: Border.all(
-                                color: ColorConstant.hairline, width: 1))))
-              ],
-            ),
-          ),
-          SizedBox(
-            width: size.width,
-            height: size.height,
-            child: Column(
-              children: [
-                SizedBox(
-                  height: size.height * 0.22,
-                ),
-                Expanded(
-                    child: Container(
-                        width: size.width,
-                        decoration: BoxDecoration(
-                            color: ColorConstant.bg,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(24),
-                              topRight: Radius.circular(24),
-                            ))))
-              ],
-            ),
-          ),
-          Container(
-            padding: getPadding(all: HelperFunction.SCREENS_SIDE_PADDING),
-            child: Stack(
-              children: <Widget>[
-                ListView(),
-                Column(
-                  children: [
-                    SizedBox(height: getSize(42),),
-                    SizedBox(
-                      height: size.height * 0.095,
-                      width: size.width,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Align(
-                            alignment: Alignment.bottomRight,
-                            child: GestureDetector(
-                              onTap: () => Get.toNamed(Routes.PROFILE_SETTINGS),
-                              child: Container(
-                                margin: getMargin(bottom: 15),
-                                child: CustomImageView(
-                                  svgPath: ImageConstant.optionProfile,
-                                  height: getSize(40),
-                                  // width: 30,
-                                  fit: BoxFit.fitHeight,
-                                ),
-                              ),
-                            ),
-                          )
-                        ],
-                      ),
-                    ),
-                    Obx(() => CustomImageView(
-                          url: controller.profileData.value?.user?.profileImage ??
-                              "",
-                          imagePath: DummyContent
-                              .images[Random().nextInt(DummyContent.images.length)],
-                          height: size.height * 0.12,
-                          radius: BorderRadius.circular(200),
-                          margin: getMargin(bottom: 20),
-                        )),
-                    Obx(() => MyText(
-                          title: _displayName(),
-                          customWeight: FontWeight.w700,
-                          fontSize: (18),
-                          family: 'Manrope',
-                        )),
-                    SizedBox(
-                      height: getSize(10),
-                    ),
-                    Obx(() => MyText(
-                          title: _displayRole(),
-                          customWeight: FontWeight.w400,
-                          fontSize: (16),
-                          family: 'Inter',
-                          clr: ColorConstant.white60,
-                        )),
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => Get.toNamed(Routes.FOLLOW_FOLLOWING),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          Column(
-                            children: [
-                              MyText(
-                                title: "Followers",
-                                customWeight: FontWeight.w400,
-                                fontSize: (16),
-                                clr: ColorConstant.white60,
-                              ),
-                              SizedBox(
-                                height: getSize(5),
-                              ),
-                              MyText(
-                                title: "37",
-                                customWeight: FontWeight.w600,
-                                fontSize: (18),
-                              ),
-                            ],
-                          ),
-                          Column(
-                            children: [
-                              MyText(
-                                title: "Following",
-                                customWeight: FontWeight.w400,
-                                fontSize: (16),
-                                clr: ColorConstant.white60,
-                              ),
-                              SizedBox(
-                                height: getSize(5),
-                              ),
-                              MyText(
-                                title: "41k",
-                                customWeight: FontWeight.w600,
-                                fontSize: (18),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(
-                      height: getSize(15),
-                    ),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            MyText(
-                              title: "Bio",
-                              customWeight: FontWeight.w600,
-                              fontSize:(16),
-                            ),
-                            SizedBox(
-                              height: getSize(5),
-                            ),
-                            MyText(
-                              title:
-                                  "Dubai event creator who hosts the best DJ sets and parties in the Middle East.",
-                              fontSize: (14),
-                              family: 'Inter',
-                              clr: ColorConstant.white60,
-                            ),
-                            SizedBox(
-                              height: getSize(5),
-                            ),
-                            Row(
-                              children: [
-                                MyText(
-                                  title: "cloudmusic.com",
-                                  family: 'Inter',
-                                  clr: ColorConstant.primaryAccent,
-                                  fontSize: (15),
-                                ),
-                                Container(
-                                  width: 1,
-                                  height: 15,
-                                  margin: getPadding(left: 15,right: 15),
-                                  color: ColorConstant.hairline,
-                                ),
-                                CustomImageView(
-                                  imagePath: ImageConstant.twitterClr,
-                                  height: 18,
-                                  margin: getMargin(right: 10),
-                                ),
-                                CustomImageView(
-                                  imagePath: ImageConstant.instaClr,
-                                  height: 18,
-                                  margin: getMargin(right: 10),
-                                ),
-                                CustomImageView(
-                                  imagePath: ImageConstant.fbClr,
-                                  height: 18,
-                                  margin: getMargin(right: 10),
-                                ),
-                              ],
-                            ),
-                            SizedBox(
-                              height: getSize(20),
-                            ),
-                            TabBar(
-                              controller: controller.tabController,
-                              indicatorColor: ColorConstant.primaryAccent,
-                              // Set indicator color
-                              indicatorWeight: 3.0,
-                              // Set indicator thickness
-                              isScrollable: false,
-                              indicatorSize: TabBarIndicatorSize.tab,
-                              labelColor: ColorConstant.whiteA700,
-                              // Set label color
-                              unselectedLabelColor: ColorConstant.white60,
-                              // Set unselected label color
-                              tabs: Constants.isUserCreator ? const [
-                                Tab(text: 'Hosted'),
-                                Tab(text: 'Attended'),
-                              ]: const [
-                                Tab(text: 'Hosted'),
-                                // Tab(text: 'Attended'),
-                              ],
-                            ),
-                            SizedBox(
-                              height: 230,
-                              child: Constants.isUserCreator?
-                                TabBarView(
-                                physics: const NeverScrollableScrollPhysics(),
-                                controller: controller.tabController,
-                                children: [
-                                  Container(
-                                    margin: getMargin(top: 20, bottom: 20),
-                                    height: 200,
-                                    child: ListView(
-                                      scrollDirection: Axis.horizontal,
-                                      children: [
-                                        TrendingCard(
-                                          imageUrl: ImageConstant.splashBg,
-                                          // Replace with your image URL
-                                          title: 'Cyberpunk',
-                                          type: "Music Concert",
-                                          price: '\$110',
-                                          // fromMarketPlace: fromMarketPlace,
-                                        ),
-                                        TrendingCard(
-                                          imageUrl: ImageConstant.splashBg,
-                                          // Replace with your image URL
-                                          title: 'Rock N Roll',
-                                          type: "Music Concert",
-                                          price: '\$140',
-                                          // fromMarketPlace: fromMarketPlace,
-                                        ),
-                                        TrendingCard(
-                                          imageUrl: ImageConstant.splashBg,
-                                          // Replace with your image URL
-                                          title: 'Epic Bass',
-                                          type: "Music Concert",
-                                          price: '\$60',
-                                          // fromMarketPlace: fromMarketPlace,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    margin: getMargin(top: 20, bottom: 20),
-                                    height: 200,
-                                    child: ListView(
-                                      scrollDirection: Axis.horizontal,
-                                      children: [
-                                        TrendingCard(
-                                          imageUrl: ImageConstant.splashBg,
-                                          // Replace with your image URL
-                                          title: 'Cyberpunk',
-                                          type: "Music Concert",
-                                          price: '\$110',
-                                          // fromMarketPlace: fromMarketPlace,
-                                        ),
-                                        TrendingCard(
-                                          imageUrl: ImageConstant.splashBg,
-                                          // Replace with your image URL
-                                          title: 'Rock N Roll',
-                                          type: "Music Concert",
-                                          price: '\$140',
-                                          // fromMarketPlace: fromMarketPlace,
-                                        ),
-                                        TrendingCard(
-                                          imageUrl: ImageConstant.splashBg,
-                                          // Replace with your image URL
-                                          title: 'Epic Bass',
-                                          type: "Music Concert",
-                                          price: '\$60',
-                                          // fromMarketPlace: fromMarketPlace,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ):
-                                TabBarView(
-                                physics: const NeverScrollableScrollPhysics(),
-                                controller: controller.tabController,
-                                children: [
-                                  Container(
-                                    margin: getMargin(top: 20, bottom: 20),
-                                    height: 200,
-                                    child: ListView(
-                                      scrollDirection: Axis.horizontal,
-                                      children: [
-                                        TrendingCard(
-                                          imageUrl: ImageConstant.splashBg,
-                                          // Replace with your image URL
-                                          title: 'Cyberpunk',
-                                          type: "Music Concert",
-                                          price: '\$110',
-                                          // fromMarketPlace: fromMarketPlace,
-                                        ),
-                                        TrendingCard(
-                                          imageUrl: ImageConstant.splashBg,
-                                          // Replace with your image URL
-                                          title: 'Rock N Roll',
-                                          type: "Music Concert",
-                                          price: '\$140',
-                                          // fromMarketPlace: fromMarketPlace,
-                                        ),
-                                        TrendingCard(
-                                          imageUrl: ImageConstant.splashBg,
-                                          // Replace with your image URL
-                                          title: 'Epic Bass',
-                                          type: "Music Concert",
-                                          price: '\$60',
-                                          // fromMarketPlace: fromMarketPlace,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  Widget _stats() {
+    return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
+        child: SahraCard(
+            child: Row(children: [
+          _stat('Sahras', '0'),
+          _stat('Upcoming', '0'),
+          _stat('Following', '0'),
+        ])));
+  }
+
+  Widget _stat(String label, String value) {
+    return Expanded(
+        child: Column(children: [
+      Text(value, style: sahraText(size: 24, weight: FontWeight.w800)),
+      Text(label, style: sahraText(color: ColorConstant.nightMuted, size: 12))
+    ]));
+  }
+
+  Widget _settingRow(String label, {String? value, VoidCallback? onTap}) {
+    return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: SahraCard(
+            padding: EdgeInsets.zero,
+            radius: 14,
+            child: ListTile(
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+              title: Text(label, style: sahraText(size: 15)),
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                if (value != null)
+                  Text(value,
+                      style:
+                          sahraText(color: ColorConstant.nightMuted, size: 13)),
+                Icon(Icons.chevron_right_rounded,
+                    color: ColorConstant.gold, size: 20)
+              ]),
+              onTap: onTap,
+            )));
   }
 }

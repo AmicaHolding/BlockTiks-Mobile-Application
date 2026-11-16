@@ -14,10 +14,13 @@
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/client-ses": "^3.1169.0",
     "@aws-sdk/lib-dynamodb": "^3.0.0",
     "@fastify/aws-lambda": "^6.0.0",
     "@fastify/cors": "^11.0.0",
+    "@fastify/helmet": "^13.2.0",
     "@fastify/jwt": "^10.0.0",
+    "@fastify/rate-limit": "^11.2.2",
     "fastify": "^5.6.0",
     "fastify-plugin": "^5.0.0",
     "stripe": "^18.5.0"

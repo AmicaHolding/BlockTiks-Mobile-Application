@@ -12,7 +12,8 @@ import '../controllers/creator_dashboard_controller.dart';
 
 class CreatorDashboardView extends StatelessWidget {
   CreatorDashboardView({Key? key}) : super(key: key);
-  final CreatorDashboardController controller = Get.put(CreatorDashboardController());
+  final CreatorDashboardController controller =
+      Get.put(CreatorDashboardController());
 
   final Responsive responsive = Responsive();
 
@@ -38,7 +39,7 @@ class CreatorDashboardView extends StatelessWidget {
         return true;
       },
       child: Obx(
-            () => BaseviewScreen(
+        () => BaseviewScreen(
           showLogo: true,
           sidePadding: false,
           // mainTopHeight: controller.mainTopPadding.value,
@@ -59,7 +60,7 @@ class CreatorDashboardView extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             children: [
               CreatorHomeTabView(),
-              AllGuestsView(),
+              AllGuestsView(embedded: true),
               ProfileTabView(),
             ],
           ),

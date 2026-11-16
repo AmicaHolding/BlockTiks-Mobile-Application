@@ -9,8 +9,8 @@ class MyScannerController extends GetxController {
 
   /// Event being scanned for. Set from route arguments, or picked from the
   /// event list when the scanner is opened from the bottom bar.
-  String eventId = '';
-  String eventTitle = '';
+  final RxString eventId = ''.obs;
+  final RxString eventTitle = ''.obs;
 
   /// Latest check-in API result: { result: OK|ALREADY_USED|..., ticket? }.
   final Rxn<Map<String, dynamic>> lastResult = Rxn<Map<String, dynamic>>();
@@ -24,24 +24,43 @@ class MyScannerController extends GetxController {
   // (eventId) have been applied — calling it here would race them.
 
   Future<void> loadEventsIfNeeded() async {
-    if (eventId.isNotEmpty || isLoadingEvents.value) return;
+    if (eventId.value.isNotEmpty) {
+      refreshCheckedInCount();
+      return;
+    }
+    if (isLoadingEvents.value) return;
     isLoadingEvents.value = true;
     try {
       final events = await ApiService.myEvents();
       // Door mode cares about upcoming/published events.
       myEvents.value = events
-          .where((e) =>
-              (e['status']?.toString() ?? '') == 'PUBLISHED')
+          .where((e) => (e['status']?.toString() ?? '') == 'PUBLISHED')
           .toList();
       // Default to the soonest event if there's exactly one obvious choice.
       if (myEvents.length == 1) {
-        eventId = myEvents.first['id'].toString();
-        eventTitle = (myEvents.first['title'] ?? '').toString();
+        await selectEvent(myEvents.first);
       }
     } catch (_) {
       // Picker just stays empty; the guest can go back.
     } finally {
       isLoadingEvents.value = false;
+    }
+  }
+
+  Future<void> selectEvent(Map<String, dynamic> event) async {
+    eventId.value = event['id']?.toString() ?? '';
+    eventTitle.value = event['title']?.toString() ?? '';
+    await refreshCheckedInCount();
+  }
+
+  Future<void> refreshCheckedInCount() async {
+    if (eventId.value.isEmpty) return;
+    try {
+      final res = await ApiService.eventGuests(eventId.value);
+      final count = res['checkedIn'];
+      if (count is num) checkedInCount.value = count.toInt();
+    } catch (_) {
+      // Scanner still works without the door-count header.
     }
   }
 

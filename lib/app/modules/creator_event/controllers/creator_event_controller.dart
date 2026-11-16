@@ -1,26 +1,20 @@
-import 'package:block_tix/app/data/utils/dummy_content.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/services/api_service.dart';
 import 'package:get/get.dart';
 
 class CreatorEventController extends GetxController {
-  RxList<DummyBroadcastModel> broadcastMessages = DummyContent.broadcastMessages.obs;
-
-  /// Title of the event being managed. Populated from GetX arguments
-  /// (`arguments['title']`) when navigating from the creator home tab,
-  /// falling back to a placeholder so the screen never shows stale data.
-  RxString eventTitle = 'Cyberpunk'.obs;
-
-  /// Event id from `arguments['id']`; when present the real event (with
-  /// tiers) is fetched from `GET /events/:id`.
+  RxString eventTitle = 'Untitled event'.obs;
   RxString eventId = ''.obs;
-
   RxBool isLoading = false.obs;
   Rxn<String> loadError = Rxn<String>();
 
-  /// Real stats derived from the event's ticket tiers.
+  Rxn<Map<String, dynamic>> event = Rxn<Map<String, dynamic>>();
+  RxList<Map<String, dynamic>> tiers = <Map<String, dynamic>>[].obs;
   RxInt ticketsSold = 0.obs;
+  RxInt capacity = 0.obs;
+  RxInt checkedIn = 0.obs;
+  RxInt totalGuests = 0.obs;
   RxDouble revenue = 0.0.obs;
-  RxInt goingCount = 0.obs;
   RxString eventStatus = ''.obs;
 
   @override
@@ -44,26 +38,46 @@ class CreatorEventController extends GetxController {
     isLoading.value = true;
     loadError.value = null;
     try {
-      final event = await ApiService.event(eventId.value);
-      if (event['title'] != null) {
-        eventTitle.value = event['title'].toString();
-      }
-      eventStatus.value = (event['status']?.toString() ?? '').toUpperCase();
+      final fetched = await ApiService.event(eventId.value);
+      event.value = fetched;
+      eventTitle.value = fetched['title']?.toString() ?? eventTitle.value;
+      eventStatus.value = (fetched['status']?.toString() ?? '').toUpperCase();
 
-      final tiers = (event['tiers'] as List?) ?? [];
+      final sections = (fetched['venueSections'] as List?) ?? [];
+      final gaTiers = (fetched['tiers'] as List?) ?? [];
+      final useSections = sections.isNotEmpty;
+      final rows = useSections ? sections : gaTiers;
+      tiers.assignAll(rows
+          .whereType<Map>()
+          .map((t) => Map<String, dynamic>.from(t))
+          .toList());
+
       var sold = 0;
+      var capacityTotal = 0;
       var revenueCents = 0;
-      for (final t in tiers) {
-        if (t is! Map) continue;
-        final tierSold = (t['sold'] as num?)?.toInt() ?? 0;
-        sold += tierSold;
-        final priceCents = (t['priceCents'] as num?)?.toInt() ??
-            (((t['price'] as num?) ?? 0) * 100).round();
-        revenueCents += tierSold * priceCents;
+      for (final row in tiers) {
+        final quantity = _int(row['capacity'] ?? row['quantity']);
+        final rowSold = _int(row['sold']);
+        final priceCents = _int(row['priceCents']) != 0
+            ? _int(row['priceCents'])
+            : ((_num(row['price'])) * 100).round();
+        capacityTotal += quantity;
+        sold += rowSold;
+        revenueCents += rowSold * priceCents;
       }
       ticketsSold.value = sold;
+      capacity.value = capacityTotal;
       revenue.value = revenueCents / 100;
-      goingCount.value = sold;
+
+      try {
+        final guests = await ApiService.eventGuests(eventId.value);
+        checkedIn.value = _int(guests['checkedIn']);
+        totalGuests.value = _int(guests['total']);
+        if (totalGuests.value == 0) totalGuests.value = ticketsSold.value;
+      } catch (_) {
+        // Snapshot still works if the guest endpoint is unavailable.
+        totalGuests.value = ticketsSold.value;
+      }
     } catch (e) {
       loadError.value = e.toString();
     } finally {
@@ -71,15 +85,26 @@ class CreatorEventController extends GetxController {
     }
   }
 
-  /// "$1,234" style formatting for the revenue stat.
-  String get revenueLabel {
-    final rounded = revenue.value.round();
-    final digits = rounded.abs().toString();
-    final buffer = StringBuffer();
-    for (var i = 0; i < digits.length; i++) {
-      if (i > 0 && (digits.length - i) % 3 == 0) buffer.write(',');
-      buffer.write(digits[i]);
-    }
-    return '${revenue.value < 0 ? '-' : ''}\$${buffer.toString()}';
+  int _int(dynamic value) => value is num ? value.toInt() : 0;
+  double _num(dynamic value) => value is num ? value.toDouble() : 0;
+
+  String get venueLabel => event.value?['location']?.toString() ?? '';
+  String get startsAtLabel => formatEventDate(
+        event.value?['startsAt']?.toString(),
+        includeTime: true,
+      );
+  String get statusLabel => eventStatus.value.isEmpty
+      ? '—'
+      : eventStatus.value[0] + eventStatus.value.substring(1).toLowerCase();
+  int get checkInPercent => capacity.value == 0
+      ? 0
+      : ((checkedIn.value / capacity.value) * 100).round();
+
+  /// Event currency for tier price display (defaults to USD).
+  String get currency {
+    final c = event.value?['currency']?.toString();
+    return (c == null || c.isEmpty) ? 'usd' : c.toLowerCase();
   }
+
+  String moneyCents(num? cents) => formatMoney(cents, currency);
 }

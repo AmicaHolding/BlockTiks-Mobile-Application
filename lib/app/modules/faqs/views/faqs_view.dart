@@ -1,11 +1,6 @@
-import 'package:block_tix/app/data/theme/app_style.dart';
-import 'package:block_tix/app/data/utils/color_constant.dart';
-import 'package:block_tix/app/data/utils/size_utils.dart';
-import 'package:block_tix/app/data/widgets/base/baseview_process_screen.dart';
-import 'package:block_tix/app/data/widgets/custom_faq_tile.dart';
-import 'package:flutter/material.dart';
+import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:get/get.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../controllers/faqs_controller.dart';
 
@@ -14,120 +9,139 @@ class FaqsView extends GetView<FaqsController> {
 
   @override
   Widget build(BuildContext context) {
-    return BaseviewScreen(
-      basicAppBar: true,
-      showBackBtn: true,
-      sidePadding: false,
-      showDivider: false,
-      mainTopHeight: 0,
-      isHideLogo: true,
-      hideAppBar: false,
-      safeAreaTop: true,
-      isAgent: true,
-      isServices: false,
-      showBottomBar: false,
-      child: Padding(
-        padding: getPadding(all: 16),
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              Container(
-                padding: getPadding(left: 16, right: 16),
-                decoration: BoxDecoration(
-                  color: ColorConstant.elevated,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: TextField(
-                  onChanged: (val) => controller.searchQuery.value = val,
-                  style: GoogleFonts.getFont("Inter",
-                      fontSize: 16, color: ColorConstant.whiteA700),
-                  decoration: InputDecoration(
-                    contentPadding: getPadding(
-                      right: 30,
-                    ),
-                    icon: Icon(Icons.search,
-                        color: ColorConstant.white60),
-                    hintText: 'Search',
-                    hintStyle:
-                        TextStyle(color: ColorConstant.white60),
-                    border: InputBorder.none,
-                  ),
-                ),
+    return Scaffold(
+      backgroundColor: ColorConstant.night,
+      appBar: AppBar(
+          backgroundColor: ColorConstant.night,
+          elevation: 0,
+          title: Text('Help',
+              style: sahraText(size: 22, weight: FontWeight.w800))),
+      body: Obx(() {
+        if (controller.isLoading.value) {
+          return Center(
+              child: CircularProgressIndicator(color: ColorConstant.gold));
+        }
+        if (controller.loadError.value != null) {
+          return Center(
+              child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(controller.loadError.value!,
+                      textAlign: TextAlign.center,
+                      style: sahraText(color: ColorConstant.nightMuted))));
+        }
+        final faqs = controller.flatFaqs;
+        return Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: TextField(
+              onChanged: (v) => controller.searchQuery.value = v,
+              style: sahraText(size: 15),
+              decoration: InputDecoration(
+                hintText: 'Search questions',
+                hintStyle: sahraText(color: ColorConstant.nightMuted, size: 15),
+                prefixIcon: Icon(Icons.search, color: ColorConstant.nightMuted),
+                filled: true,
+                fillColor: ColorConstant.nightSurface,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              SizedBox(
-                height: getSize(20),
-              ),
-              Obx(() {
-                final items = controller.filteredFaqs;
-                if (items.isEmpty) {
-                  return Padding(
-                    padding: getPadding(top: 24, bottom: 24),
-                    child: Center(
-                      child: Text(
-                        'No FAQs found',
-                        style: AppStyle.bodySmallInter,
-                      ),
-                    ),
-                  );
-                }
-                return Column(
-                  children: items
-                      .map((f) => FAQTile(
-                            type: f['type']!,
-                            question: f['question']!,
-                            answer: f['answer']!,
-                          ))
-                      .toList(),
-                );
-              }),
-            ],
+            ),
           ),
-        ),
-      ),
-      // backgroundColor: ColorConstant.bodyBackground,
-      // child: RefreshIndicator(
-      //   onRefresh: () async {
-      //     await Future.delayed(const Duration(milliseconds: Constants.refreshDelay));
-      //     controller.getFaqs();
-      //   },
-      //   child: SingleChildScrollView(
-      //     child: Column(
-      //       children: [
-      //         Obx(
-      //           () => Container(
-      //             // padding: getPadding(left: getSize(10),right: getSize(10)),
-      //             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(getSize(10))),
-      //             child: controller.faqsModelObj.value.data == null
-      //                 ? const SizedBox(
-      //                     height: 500,
-      //                     child: FaqsShimmer(
-      //                         //color: ColorConstant.blackColor,
-      //                         ))
-      //                 : controller.faqsModelObj.value.data!.result!.isEmpty
-      //                     ? SizedBox(
-      //                         height: 500,
-      //                         child: Center(
-      //                             child: Text(
-      //                           "no_faqs_found".tr,
-      //                           style: TextStyle(fontSize: getFontSize(14), fontWeight: FontWeight.w500, color: ColorConstant.blackColor),
-      //                         )))
-      //                     : ListView.builder(
-      //                         physics: const NeverScrollableScrollPhysics(),
-      //                         shrinkWrap: true,
-      //                         itemCount: controller.faqsModelObj.value.data?.result?.length,
-      //                         scrollDirection: Axis.vertical,
-      //                         padding: EdgeInsets.zero,
-      //                         itemBuilder: (context, index) {
-      //                           final item = controller.faqsModelObj.value.data?.result![index];
-      //                           return faqItem(item!.question!, item.answer!, isFirst: index == 0);
-      //                         },
-      //                       ),
-      //           ),
-      //         ),
-      //       ],
-      //     ),
-      //   ),
-      // ),
+          SizedBox(
+            height: 46,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: controller.categoryNames.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final name = controller.categoryNames[index];
+                return Obx(() => SahraChip(
+                    label: name,
+                    selected: controller.category.value == name,
+                    onTap: () => controller.category.value = name));
+              },
+            ),
+          ),
+          Expanded(
+            child: faqs.isEmpty
+                ? Center(
+                    child: Text('No questions found',
+                        style: sahraText(color: ColorConstant.nightMuted)))
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
+                    itemCount: faqs.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final faq = faqs[index];
+                      final i = faq['index'] as int;
+                      final open = controller.expanded.contains(i);
+                      return SahraCard(
+                        padding: EdgeInsets.zero,
+                        child: Column(children: [
+                          InkWell(
+                            onTap: () => controller.toggle(i),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(children: [
+                                Expanded(
+                                    child: Text(faq['q']?.toString() ?? '',
+                                        style: sahraText(
+                                            size: 15,
+                                            weight: FontWeight.w600))),
+                                const SizedBox(width: 12),
+                                Text(open ? '−' : '+',
+                                    style: sahraText(
+                                        color: ColorConstant.gold,
+                                        size: 20,
+                                        weight: FontWeight.w700)),
+                              ]),
+                            ),
+                          ),
+                          if (open)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                              child: Text(faq['a']?.toString() ?? '',
+                                  style: sahraText(
+                                      color: ColorConstant.nightMuted,
+                                      size: 14)),
+                            ),
+                        ]),
+                      );
+                    },
+                  ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: SahraCard(
+                child: Row(children: [
+                  Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        Text('Still stuck?',
+                            style:
+                                sahraText(size: 14, weight: FontWeight.w600)),
+                        Text('We reply in Arabic or English',
+                            style: sahraText(
+                                color: ColorConstant.nightMuted, size: 13)),
+                      ])),
+                  TextButton(
+                      onPressed: () {},
+                      child: Text('Chat',
+                          style: sahraText(
+                              color: ColorConstant.night,
+                              size: 14,
+                              weight: FontWeight.w600))),
+                ]),
+              ),
+            ),
+          ),
+        ]);
+      }),
     );
   }
 }
