@@ -18,7 +18,7 @@ class AskBidView extends GetView<AskBidController> {
       bottomNavigationBar: Obx(() {
         controller.priceVersion.value;
         final count = controller.selectedCount;
-        final price = formatCents(controller.priceCents);
+        final price = controller.money(controller.priceCents);
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
@@ -265,7 +265,8 @@ class AskBidView extends GetView<AskBidController> {
   Widget _listingTile(Map<String, dynamic> listing) {
     final status = listing['status']?.toString() ?? '';
     final cents = listing['priceCents'];
-    final price = cents is num ? formatCents(cents) : '';
+    final price =
+        cents is num ? formatMoney(cents, listing['currency']?.toString()) : '';
     final active = status == 'ACTIVE';
     final code =
         listing['ticketCode']?.toString() ?? listing['code']?.toString() ?? '';

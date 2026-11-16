@@ -1,4 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/services/api_service.dart';
 import 'package:get/get.dart';
 
@@ -40,12 +41,16 @@ class PromoCodesController extends GetxController {
     if (percent is num)
       return '${percent.toStringAsFixed(percent % 1 == 0 ? 0 : 1)}%';
     final amount = promo['amountOffCents'];
-    if (amount is num) return 'AED ${(amount / 100).toStringAsFixed(0)}';
+    if (amount is num) {
+      return formatMoney(amount, promo['currency']?.toString());
+    }
     if (promo['kind']?.toString() == 'PERCENT') {
       return '${promo['value'] ?? 0}%';
     }
     final value = promo['value'];
-    if (value is num) return 'AED ${(value / 100).toStringAsFixed(0)}';
+    if (value is num) {
+      return formatMoney(value, promo['currency']?.toString());
+    }
     return 'CODE';
   }
 

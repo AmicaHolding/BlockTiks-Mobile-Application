@@ -99,4 +99,12 @@ class CreatorEventController extends GetxController {
   int get checkInPercent => capacity.value == 0
       ? 0
       : ((checkedIn.value / capacity.value) * 100).round();
+
+  /// Event currency for tier price display (defaults to USD).
+  String get currency {
+    final c = event.value?['currency']?.toString();
+    return (c == null || c.isEmpty) ? 'usd' : c.toLowerCase();
+  }
+
+  String moneyCents(num? cents) => formatMoney(cents, currency);
 }

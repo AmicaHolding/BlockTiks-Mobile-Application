@@ -76,7 +76,7 @@ class EventDetailView extends GetView<EventDetailController> {
         ? '${controller.selectedCount} ticket${controller.selectedCount == 1 ? '' : 's'}'
         : 'From';
     final price = selected
-        ? formatDollars(controller.subtotalDollars)
+        ? controller.moneyDollars(controller.subtotalDollars)
         : _fromPriceLabel();
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -116,7 +116,7 @@ class EventDetailView extends GetView<EventDetailController> {
     }
     if (centsValues.isEmpty) return '—';
     centsValues.sort();
-    return formatCents(centsValues.first);
+    return controller.moneyCents(centsValues.first);
   }
 
   void _continueToCheckout() {
@@ -419,8 +419,8 @@ class EventDetailView extends GetView<EventDetailController> {
   String _tierPriceLabel(Map<String, dynamic> tier) {
     final price = tier['price'];
     final cents = tier['priceCents'];
-    if (price is num) return formatDollars(price);
-    if (cents is num) return formatCents(cents);
+    if (cents is num) return controller.moneyCents(cents);
+    if (price is num) return controller.moneyDollars(price);
     return '—';
   }
 
@@ -459,7 +459,9 @@ class EventDetailView extends GetView<EventDetailController> {
   Widget _resaleCard(Map<String, dynamic> listing) {
     final code = listing['ticketCode']?.toString() ?? '';
     final cents = listing['priceCents'];
-    final price = cents is num ? formatCents(cents) : '—';
+    final price = cents is num
+        ? formatMoney(cents, listing['currency']?.toString())
+        : '—';
     final tier = listing['tierName']?.toString() ?? 'Resale ticket';
     return Obx(() {
       final isSelected = controller.selectedListingCode.value == code;
@@ -715,8 +717,8 @@ class _VenueSections extends GetWidget<EventDetailController> {
     final remaining = controller.sectionRemaining(section);
     final price = section['priceCents'];
     final priceLabel = price is num
-        ? formatCents(price)
-        : formatDollars((section['price'] as num?)?.toDouble());
+        ? controller.moneyCents(price)
+        : controller.moneyDollars((section['price'] as num?)?.toDouble());
     Get.bottomSheet(
       Container(
         decoration: BoxDecoration(
@@ -751,33 +753,45 @@ class _VenueSections extends GetWidget<EventDetailController> {
                 Text('View from this section · facing stage',
                     style: sahraText(color: ColorConstant.gold, size: 12)),
                 const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Text('Tickets',
-                        style: sahraText(size: 15, weight: FontWeight.w600)),
-                    const Spacer(),
-                    _smallStep(Icons.remove_rounded,
-                        () => controller.adjustSectionCount(-1)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('$count',
-                          style: sahraText(size: 16, weight: FontWeight.w700)),
-                    ),
-                    _smallStep(Icons.add_rounded,
-                        () => controller.adjustSectionCount(1)),
-                  ],
-                ),
+                Obx(() {
+                  if (controller.seatsLoading.value) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 28),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  if (controller.sectionSeats.isNotEmpty) {
+                    return _seatPicker();
+                  }
+                  return _sectionStepper(count);
+                }),
                 const SizedBox(height: 14),
-                Text(
-                  'Seat-level picks are not connected yet. Sahra assigns seats in this section at checkout.',
-                  style: sahraText(
-                      color: ColorConstant.nightMuted, size: 12, height: 1.45),
-                ),
-                const SizedBox(height: 18),
+                Obx(() {
+                  final seatMode = controller.sectionSeats.isNotEmpty;
+                  final fallbackNote = !seatMode &&
+                      !controller.seatsLoading.value &&
+                      controller.seatsError.value != null;
+                  if (!fallbackNote) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: Text(
+                      'Seat map unavailable — Sahra assigns seats in this section at checkout.',
+                      style: sahraText(
+                          color: ColorConstant.nightMuted,
+                          size: 12,
+                          height: 1.45),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 4),
                 SahraPillButton(
-                  label: count > 0
-                      ? 'Select $count seat${count == 1 ? '' : 's'}'
-                      : 'Sold out',
+                  label: controller.sectionSeats.isNotEmpty
+                      ? (count > 0
+                          ? 'Select $count seat${count == 1 ? '' : 's'}'
+                          : 'Pick seats')
+                      : count > 0
+                          ? 'Select $count seat${count == 1 ? '' : 's'}'
+                          : 'Sold out',
                   enabled: count > 0,
                   onTap: Get.back,
                 ),
@@ -788,6 +802,146 @@ class _VenueSections extends GetWidget<EventDetailController> {
       ),
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+    );
+  }
+
+  /// Exact-seat grid backed by GET /events/:id/seats. Tapping an available
+  /// seat toggles it; the checkout quantity follows the selection.
+  Widget _seatPicker() {
+    return Obx(() {
+      final seats = controller.sectionSeats;
+      final selectedCount = controller.selectedSeatLabels.length;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('Pick your seats',
+                  style: sahraText(size: 15, weight: FontWeight.w600)),
+              const Spacer(),
+              Text('$selectedCount selected',
+                  style: sahraText(
+                      color: ColorConstant.gold,
+                      size: 12,
+                      weight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 240),
+            child: SingleChildScrollView(
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: seats.map(_seatChip).toList(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _seatLegend(
+                  color: ColorConstant.nightElevated, label: 'Available'),
+              const SizedBox(width: 14),
+              _seatLegend(color: ColorConstant.gold, label: 'Selected'),
+              const SizedBox(width: 14),
+              _seatLegend(color: ColorConstant.nightDeep, label: 'Taken'),
+            ],
+          ),
+        ],
+      );
+    });
+  }
+
+  Widget _seatChip(Map<String, dynamic> seat) {
+    final label = seat['seatLabel']?.toString() ?? '';
+    final available = controller.seatSelectable(seat);
+    final isSelected = controller.selectedSeatLabels.contains(label);
+    final accessible = seat['accessible'] == true;
+    return GestureDetector(
+      onTap: available ? () => controller.toggleSeat(label) : null,
+      child: Container(
+        width: 46,
+        height: 38,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? ColorConstant.gold
+              : available
+                  ? ColorConstant.nightElevated
+                  : ColorConstant.nightDeep,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? ColorConstant.gold : ColorConstant.nightBorder,
+          ),
+        ),
+        child: available || isSelected
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (accessible)
+                    Icon(Icons.accessible_rounded,
+                        size: 10,
+                        color: isSelected
+                            ? ColorConstant.night
+                            : ColorConstant.gold),
+                  Text(label,
+                      style: sahraText(
+                          color: isSelected
+                              ? ColorConstant.night
+                              : ColorConstant.whiteA700,
+                          size: 12,
+                          weight: FontWeight.w700)),
+                ],
+              )
+            : Icon(Icons.close_rounded,
+                size: 14, color: ColorConstant.nightMuted),
+      ),
+    );
+  }
+
+  Widget _seatLegend({required Color color, required String label}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: ColorConstant.nightBorder),
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(label,
+            style: sahraText(color: ColorConstant.nightMuted, size: 11)),
+      ],
+    );
+  }
+
+  /// Quantity stepper fallback when exact seats can't be loaded.
+  Widget _sectionStepper(int count) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('Tickets',
+                style: sahraText(size: 15, weight: FontWeight.w600)),
+            const Spacer(),
+            _smallStep(
+                Icons.remove_rounded, () => controller.adjustSectionCount(-1)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text('$count',
+                  style: sahraText(size: 16, weight: FontWeight.w700)),
+            ),
+            _smallStep(
+                Icons.add_rounded, () => controller.adjustSectionCount(1)),
+          ],
+        ),
+      ],
     );
   }
 
@@ -839,8 +993,8 @@ class _VenueSections extends GetWidget<EventDetailController> {
     final name = section['name']?.toString() ?? 'Section';
     final price = section['priceCents'];
     final priceLabel = price is num
-        ? formatCents(price)
-        : formatDollars((section['price'] as num?)?.toDouble());
+        ? controller.moneyCents(price)
+        : controller.moneyDollars((section['price'] as num?)?.toDouble());
     return Container(
       width: 88,
       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -883,8 +1037,8 @@ class _VenueSections extends GetWidget<EventDetailController> {
     final soldOut = remaining <= 0;
     final price = section['priceCents'];
     final priceLabel = price is num
-        ? formatCents(price)
-        : formatDollars((section['price'] as num?)?.toDouble());
+        ? controller.moneyCents(price)
+        : controller.moneyDollars((section['price'] as num?)?.toDouble());
     return Obx(() {
       final count = controller.sectionCount.value;
       return Opacity(

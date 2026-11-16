@@ -1,5 +1,4 @@
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 
 import '../controllers/place_bid_controller.dart';
@@ -16,7 +15,7 @@ class PlaceBidView extends GetView<PlaceBidController> {
       bodyPadding: false,
       backgroundColor: ColorConstant.night,
       bottomNavigationBar: Obx(() {
-        final total = formatCents(controller.totalCents);
+        final total = controller.money(controller.totalCents);
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
@@ -143,7 +142,7 @@ class PlaceBidView extends GetView<PlaceBidController> {
                   onTap: () => controller.changePrice(-500),
                 ),
                 const SizedBox(width: 18),
-                Text(formatCents(controller.maxPriceCents.value),
+                Text(controller.money(controller.maxPriceCents.value),
                     style: sahraText(size: 34, weight: FontWeight.w800)),
                 const SizedBox(width: 18),
                 _circleButton(
@@ -184,9 +183,9 @@ class PlaceBidView extends GetView<PlaceBidController> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(face > 0 ? 'Face ${formatCents(face)}' : 'Face value',
+              Text(face > 0 ? 'Face ${controller.money(face)}' : 'Face value',
                   style: sahraText(color: ColorConstant.nightMuted, size: 12)),
-              Text(cap > 0 ? 'Cap ${formatCents(cap)}' : 'Cap',
+              Text(cap > 0 ? 'Cap ${controller.money(cap)}' : 'Cap',
                   style: sahraText(color: ColorConstant.nightMuted, size: 12)),
             ],
           ),
@@ -224,7 +223,7 @@ class PlaceBidView extends GetView<PlaceBidController> {
               child: Text(
                 lowest == null
                     ? '${listings.length} active resale listings.'
-                    : '${listings.length} active resale listings · from ${formatCents(lowest)}',
+                    : '${listings.length} active resale listings · from ${controller.money(lowest)}',
                 style: sahraText(color: ColorConstant.whiteA700, size: 13),
               ),
             ),

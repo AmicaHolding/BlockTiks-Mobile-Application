@@ -61,6 +61,25 @@ String formatCents(num? cents) {
   return formatDollars(cents.toDouble() / 100);
 }
 
+/// Currency-aware money from integer cents, e.g.
+/// formatMoney(40500, 'usd') -> "$405", formatMoney(40500, 'aed') -> "AED 405.00".
+/// Falls back to [formatCents] for USD/unknown currencies.
+String formatMoney(num? cents, [String? currency]) {
+  final code = (currency ?? 'usd').trim().toLowerCase();
+  if (cents == null) return '';
+  if (code.isEmpty || code == 'usd') return formatCents(cents);
+  try {
+    final value = NumberFormat.currency(
+      locale: 'en_US',
+      name: code.toUpperCase(),
+      symbol: '',
+    ).format(cents.toDouble() / 100);
+    return '${code.toUpperCase()} ${value.trim()}';
+  } catch (_) {
+    return '${code.toUpperCase()} ${(cents.toDouble() / 100).toStringAsFixed(2)}';
+  }
+}
+
 /// Lowest tier price in dollars for an event map, or null when unknown.
 double? lowestTierPrice(Map<String, dynamic> event) {
   final tiers = event['tiers'];

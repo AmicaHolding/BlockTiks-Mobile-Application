@@ -51,6 +51,7 @@ class AppPreferences {
   static const String prefAppleImage = "APPLE_IMAGE";
 
   static const String prefAccessToken = "ACCESS_TOKEN";
+  static const String prefRefreshToken = "REFRESH_TOKEN";
   static const String prefProfile = "PROFILE";
   static const String loginAttempt = "FIRST_LOGIN_ATTEMPT";
   static const String prefFcmToken = "FCM_TOKEN";
@@ -221,6 +222,20 @@ class AppPreferences {
 
   Future<String?> getAccessToken() async =>
       await _getPreference(prefName: prefAccessToken);
+
+  void setRefreshToken({required String token}) => _setPreference(
+      prefName: prefRefreshToken, prefValue: token, prefType: prefTypeString);
+
+  Future<String?> getRefreshToken() async =>
+      await _getPreference(prefName: prefRefreshToken);
+
+  /// Removes only the auth tokens (used on logout/session expiry without
+  /// wiping unrelated preferences).
+  Future<void> clearAuthTokens() async {
+    await isPreferenceReady;
+    _preferences.remove(prefAccessToken);
+    _preferences.remove(prefRefreshToken);
+  }
 
   void setProfileData({required String data}) => _setPreference(
       prefName: prefProfile, prefValue: data, prefType: prefTypeString);

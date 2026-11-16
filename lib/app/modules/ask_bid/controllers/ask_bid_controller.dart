@@ -1,4 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/services/api_service.dart';
 import 'package:get/get.dart';
@@ -17,6 +18,23 @@ class AskBidController extends GetxController {
   final RxInt priceVersion = 0.obs;
 
   int get selectedCount => selectedCodes.length;
+
+  /// Currency of the tickets being priced (from the sellable tickets API).
+  String get currency {
+    for (final t in sellableTickets) {
+      final code = t['code']?.toString();
+      if (selectedCodes.isNotEmpty &&
+          code != null &&
+          !selectedCodes.contains(code)) {
+        continue;
+      }
+      final c = t['currency']?.toString();
+      if (c != null && c.isNotEmpty) return c.toLowerCase();
+    }
+    return 'usd';
+  }
+
+  String money(num? cents) => formatMoney(cents, currency);
 
   int get priceCents {
     final dollars = double.tryParse(priceController.text.trim());

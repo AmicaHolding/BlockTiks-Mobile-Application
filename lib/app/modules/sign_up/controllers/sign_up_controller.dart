@@ -93,6 +93,7 @@ class SignUpController extends GetxController {
         email: email,
         phone: phone.isEmpty ? null : phone,
         password: password,
+        referralCode: referralController.text.trim(),
       );
       btnController.stop();
       await ApiService.saveSession(res);

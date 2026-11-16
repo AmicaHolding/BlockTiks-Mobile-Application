@@ -278,7 +278,7 @@ class CreatorEventView extends GetView<CreatorEventController> {
     final priceCents = priceCentsValue is num
         ? priceCentsValue
         : (priceValue is num ? priceValue * 100 : 0);
-    final price = formatCents(priceCents);
+    final price = controller.moneyCents(priceCents);
     final progress = capacity == 0 ? 0.0 : (sold / capacity).clamp(0.0, 1.0);
     return SahraCard(
       margin: const EdgeInsets.only(bottom: 10),

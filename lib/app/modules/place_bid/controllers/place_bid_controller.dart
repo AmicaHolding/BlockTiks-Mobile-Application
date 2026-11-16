@@ -1,4 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/services/api_service.dart';
 import 'package:get/get.dart';
@@ -10,6 +11,7 @@ class PlaceBidController extends GetxController {
   String eventTier = 'Ticket';
   int faceCents = 0;
   int capCents = 0;
+  String currency = 'usd';
 
   final RxInt quantity = 1.obs;
   final RxInt maxPriceCents = 0.obs;
@@ -18,6 +20,8 @@ class PlaceBidController extends GetxController {
   final Rxn<String> loadError = Rxn<String>();
 
   int get totalCents => maxPriceCents.value * quantity.value;
+
+  String money(num? cents) => formatMoney(cents, currency);
 
   List<Map<String, dynamic>> get marketListings {
     if (eventTier.isEmpty || eventTier == 'Ticket') return listings;
@@ -54,6 +58,8 @@ class PlaceBidController extends GetxController {
       faceCents =
           _cents(data['faceCents'] ?? data['priceCents'], data['price']);
       capCents = _cents(data['capCents'], null);
+      final cur = data['currency']?.toString();
+      if (cur != null && cur.isNotEmpty) currency = cur.toLowerCase();
     }
     if (capCents <= 0 && faceCents > 0) {
       capCents = (faceCents * 1.2).round();
@@ -80,6 +86,13 @@ class PlaceBidController extends GetxController {
     loadError.value = null;
     try {
       listings.value = await ApiService.activeListings(eventId: eventId);
+      for (final l in listings) {
+        final c = l['currency']?.toString();
+        if (c != null && c.isNotEmpty) {
+          currency = c.toLowerCase();
+          break;
+        }
+      }
     } catch (e) {
       loadError.value = e.toString().replaceFirst('Exception: ', '');
     } finally {

@@ -24,6 +24,7 @@ class EditProfileController extends GetxController {
   final RxBool isLoading = true.obs;
   final RxBool isSaving = false.obs;
   final RxBool isDeleting = false.obs;
+  final RxBool isResendingVerification = false.obs;
   final RxString emailVerified = ''.obs;
   String avatarUrl = '';
 
@@ -68,6 +69,23 @@ class EditProfileController extends GetxController {
           message: e.toString().replaceFirst('Exception: ', ''));
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  /// Resend the email-verification link (account email is read-only).
+  Future<void> resendVerification() async {
+    if (isResendingVerification.value) return;
+    isResendingVerification.value = true;
+    try {
+      await ApiService.verifyEmailRequest();
+      CustomSnackBar.showCustomSnackBar(
+          title: 'Verification sent',
+          message: 'Check your inbox for the verification link.');
+    } catch (e) {
+      CustomSnackBar.showCustomErrorToast(
+          message: e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      isResendingVerification.value = false;
     }
   }
 

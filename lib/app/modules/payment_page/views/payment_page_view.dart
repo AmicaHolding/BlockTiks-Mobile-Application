@@ -1,5 +1,4 @@
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../controllers/payment_page_controller.dart';
@@ -51,7 +50,7 @@ class PaymentPageView extends GetView<PaymentPageController> {
               child: PrimaryPillButton(
                 text: controller.fromPlaceBid
                     ? 'Place'
-                    : 'Pay ${formatCents(controller.estimatedTotalCents)}',
+                    : 'Pay ${controller.money(controller.estimatedTotalCents)}',
                 onTap: () => controller.checkout(),
               ),
             ),
@@ -156,8 +155,8 @@ class PaymentPageView extends GetView<PaymentPageController> {
                 ),
               )),
           Divider(height: 22, color: ColorConstant.dune),
-          _feeRow(
-              'Service fee (est.)', formatCents(controller.estimatedFeesCents)),
+          _feeRow('Service fee (est.)',
+              controller.money(controller.estimatedFeesCents)),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -167,7 +166,7 @@ class PaymentPageView extends GetView<PaymentPageController> {
                       size: 18,
                       weight: FontWeight.w700)),
               const Spacer(),
-              Text(formatCents(controller.estimatedTotalCents),
+              Text(controller.money(controller.estimatedTotalCents),
                   style: sahraText(
                       color: ColorConstant.gold,
                       size: 20,
@@ -255,21 +254,24 @@ class PaymentPageView extends GetView<PaymentPageController> {
         final price = (sel['priceCents'] as num?)?.toInt() ?? 0;
         final name =
             (sel['tierName'] ?? sel['sectionName'] ?? 'Ticket').toString();
-        lines.add(_OrderLine('$qty × $name', formatCents(price * qty)));
+        lines.add(_OrderLine('$qty × $name', controller.money(price * qty)));
       }
       return lines;
     }
     if (controller.listingCode != null) {
       lines.add(_OrderLine(
         '1 × ${controller.listingName ?? 'Resale ticket'}',
-        formatCents(controller.displaySubtotalCents),
+        controller.money(controller.displaySubtotalCents),
       ));
       return lines;
     }
     if (controller.sectionId != null) {
+      final seatSuffix = controller.seatLabels.isNotEmpty
+          ? ' · seats ${controller.seatLabels.join(', ')}'
+          : '';
       lines.add(_OrderLine(
-        '${controller.quantity} × ${controller.sectionName ?? 'Seated ticket'}',
-        formatCents(controller.displaySubtotalCents),
+        '${controller.quantity} × ${controller.sectionName ?? 'Seated ticket'}$seatSuffix',
+        controller.money(controller.displaySubtotalCents),
       ));
       return lines;
     }
@@ -279,10 +281,10 @@ class PaymentPageView extends GetView<PaymentPageController> {
         controller.bronze;
     if (legacyCount > 0) {
       lines.add(_OrderLine('$legacyCount × Ticket',
-          formatCents(controller.displaySubtotalCents)));
+          controller.money(controller.displaySubtotalCents)));
     } else {
       lines.add(_OrderLine('${controller.quantity} × Ticket',
-          formatCents(controller.displaySubtotalCents)));
+          controller.money(controller.displaySubtotalCents)));
     }
     return lines;
   }

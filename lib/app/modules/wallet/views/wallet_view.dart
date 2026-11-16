@@ -170,7 +170,8 @@ class WalletView extends GetView<WalletController> {
   Widget _listingTile(Map<String, dynamic> listing) {
     final status = listing['status']?.toString() ?? '';
     final cents = listing['priceCents'];
-    final price = cents is num ? formatCents(cents) : '';
+    final price =
+        cents is num ? formatMoney(cents, listing['currency']?.toString()) : '';
     final active = status == 'ACTIVE';
     return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -226,6 +227,7 @@ class WalletView extends GetView<WalletController> {
     final code = ticket['code']?.toString() ?? '';
     if (code.isEmpty) return;
     final priceController = TextEditingController();
+    final currency = (ticket['currency']?.toString() ?? 'usd').toUpperCase();
     Get.dialog(AlertDialog(
       backgroundColor: ColorConstant.nightSurface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -244,7 +246,7 @@ class WalletView extends GetView<WalletController> {
                     const TextInputType.numberWithOptions(decimal: true),
                 style: sahraText(),
                 decoration: InputDecoration(
-                    labelText: 'Your price (USD)',
+                    labelText: 'Your price ($currency)',
                     labelStyle: sahraText(color: ColorConstant.nightMuted),
                     enabledBorder: UnderlineInputBorder(
                         borderSide:

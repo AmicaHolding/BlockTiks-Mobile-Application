@@ -1,9 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/modules/profile_tab/controllers/profile_tab_controller.dart';
-
-import '../../../data/utils/api_utils.dart';
-import '../../../services/base_client.dart';
-import '../../notifications_page/models/notification_model.dart';
+import 'package:block_tix/app/services/api_service.dart';
 
 class UserDashboardController extends GetxController {
   //pages detail
@@ -16,9 +13,6 @@ class UserDashboardController extends GetxController {
   int currentPage = 1;
   int totalPages = 0;
 
-  // RxList<AdModel> adsList = <AdModel>[].obs;
-  // ReportTypeModel reportModel = ReportTypeModel();
-  Rx<NotificationsModel> notificationModelObj = NotificationsModel().obs;
   RxInt notificationUnreadCount = 0.obs;
 
   @override
@@ -32,43 +26,21 @@ class UserDashboardController extends GetxController {
       selectedIndex.value = data['index'];
       Future.delayed(200.milliseconds, () => changePage(selectedIndex.value));
     }
-    // fetchNotifications();
-    // getAdsListing();
-    // getReportTypes();
+    fetchNotificationCount();
   }
 
   void changePage(index) {
     pageController.jumpToPage(index);
   }
 
-  Future<dynamic> fetchNotifications() async {
-    int notificationCount = 0;
-    Utils.check().then((value) async {
-      if (value) {
-        await BaseClient.get(
-          ApiUtils.getNotifications,
-          onSuccess: (response) async {
-            print(response);
-            NotificationsModel model =
-                NotificationsModel.fromJson(response.data);
-            notificationModelObj.value = model;
-            for (var noti in notificationModelObj.value.data!.result!) {
-              if (noti.status == 'Sent') {
-                notificationCount = notificationCount + 1;
-              }
-            }
-            notificationUnreadCount.value = notificationCount;
-            return true;
-          },
-          onError: (error) {
-            BaseClient.handleApiError(error);
-            update();
-            return false;
-          },
-        );
-      } else {
-        Utils.showNoInternet();
-      }
-    });
+  /// Refresh the notification badge from the backend.
+  Future<void> fetchNotificationCount() async {
+    try {
+      final res = await ApiService.notifications();
+      notificationUnreadCount.value =
+          (res['unreadCount'] as num?)?.toInt() ?? 0;
+    } catch (_) {
+      // Badge is best-effort; the notifications page surfaces errors.
+    }
   }
 }

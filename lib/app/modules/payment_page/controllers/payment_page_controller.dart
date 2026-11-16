@@ -1,4 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/services/api_service.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
@@ -31,6 +32,8 @@ class PaymentPageController extends GetxController {
   String? imageUrl;
   int quantity = 1;
   String? promoCode;
+  String currency = 'usd';
+  List<String> seatLabels = [];
   List<Map<String, dynamic>> selections = [];
   int subtotalCents = 0;
 
@@ -89,6 +92,15 @@ class PaymentPageController extends GetxController {
       if (data['promoCode'] != null) {
         promoCode = data['promoCode'].toString();
       }
+      final cur = data['currency'];
+      if (cur != null && cur.toString().isNotEmpty) {
+        currency = cur.toString().toLowerCase();
+      }
+      final seats = data['seatLabels'];
+      if (seats is List) {
+        seatLabels =
+            seats.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+      }
       if (data['subtotalCents'] != null) {
         subtotalCents = _readInt(data['subtotalCents'], 0);
       }
@@ -135,6 +147,9 @@ class PaymentPageController extends GetxController {
   int get estimatedFeesCents => (displaySubtotalCents * 12 / 100).round();
 
   int get estimatedTotalCents => displaySubtotalCents + estimatedFeesCents;
+
+  /// Currency-aware money label for checkout totals.
+  String money(int cents) => formatMoney(cents, currency);
 
   int get ticketQuantity {
     if (listingCode != null) return 1;
@@ -193,6 +208,7 @@ class PaymentPageController extends GetxController {
           eventId: eventId!,
           sectionId: sectionId,
           quantity: quantity,
+          seats: seatLabels.isNotEmpty ? seatLabels : null,
         ));
       } else {
         results.add(await ApiService.createOrderIntent(

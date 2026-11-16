@@ -181,6 +181,24 @@ class EditProfileView extends GetView<EditProfileController> {
                       weight: FontWeight.w700))),
         ]),
       ),
+      Obx(() => controller.emailVerified.value.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: GestureDetector(
+                onTap: controller.isResendingVerification.value
+                    ? null
+                    : controller.resendVerification,
+                child: Text(
+                    controller.isResendingVerification.value
+                        ? 'Sending…'
+                        : 'Resend verification email',
+                    style: sahraText(
+                        color: ColorConstant.gold,
+                        size: 13,
+                        weight: FontWeight.w600)),
+              ),
+            )
+          : const SizedBox.shrink()),
     ]);
   }
 }

@@ -1,5 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:block_tix/app/data/widgets/sahra_ui.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/services/api_service.dart';
 import 'package:get/get.dart';
 
@@ -45,8 +45,8 @@ class TransactionsController extends GetxController {
 
   String amountLabel(Map<String, dynamic> t) {
     final cents = (t['amountCents'] as num?)?.toInt() ?? 0;
-    final amount = (cents / 100).toStringAsFixed(2);
-    return t['direction'] == 'in' ? '+AED $amount' : '-AED $amount';
+    final amount = formatMoney(cents, t['currency']?.toString());
+    return t['direction'] == 'in' ? '+$amount' : '-$amount';
   }
 
   Color amountColor(Map<String, dynamic> t) =>

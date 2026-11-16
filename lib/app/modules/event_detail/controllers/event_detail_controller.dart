@@ -51,6 +51,18 @@ class EventDetailController extends GetxController {
   final RxString selectedSectionId = ''.obs;
   final RxInt sectionCount = 0.obs;
 
+  // Exact-seat picking (backed by GET /events/:id/seats).
+  final RxList<Map<String, dynamic>> sectionSeats =
+      <Map<String, dynamic>>[].obs;
+  final RxBool seatsLoading = false.obs;
+  final Rxn<String> seatsError = Rxn<String>();
+  final RxList<String> selectedSeatLabels = <String>[].obs;
+
+  /// Effective seated quantity: exact picks win over the section stepper.
+  int get seatedQuantity => selectedSeatLabels.isNotEmpty
+      ? selectedSeatLabels.length
+      : sectionCount.value;
+
   List<Map<String, dynamic>> get venueSections {
     final v = event['venueSections'];
     if (v is! List) return const [];
@@ -80,34 +92,95 @@ class EventDetailController extends GetxController {
     if (selectedSectionId.value == id) {
       selectedSectionId.value = '';
       sectionCount.value = 0;
+      clearSeats();
+      sectionSeats.clear();
+      seatsError.value = null;
       return;
     }
-    selectedSectionId.value = id;
-    selectedListingCode.value = '';
-    final section = venueSections.firstWhere(
-      (s) => s['id']?.toString() == id,
-      orElse: () => const {},
-    );
-    final max = sectionRemaining(section);
-    sectionCount.value =
-        sectionCount.value == 0 && max > 0 ? 1 : sectionCount.value;
-    if (sectionCount.value > max) sectionCount.value = max.clamp(0, 8);
+    _selectSection(id, resetCount: false);
   }
 
   void chooseSection(String id) {
     if (selectedSectionId.value == id) return;
+    _selectSection(id, resetCount: true);
+  }
+
+  void _selectSection(String id, {required bool resetCount}) {
     selectedListingCode.value = '';
+    clearSeats();
+    sectionSeats.clear();
+    seatsError.value = null;
     selectedSectionId.value = id;
     final section = venueSections.firstWhere(
       (s) => s['id']?.toString() == id,
       orElse: () => const {},
     );
     final max = sectionRemaining(section);
-    sectionCount.value = max > 0 ? 1 : 0;
+    if (resetCount) {
+      sectionCount.value = max > 0 ? 1 : 0;
+    } else {
+      sectionCount.value =
+          sectionCount.value == 0 && max > 0 ? 1 : sectionCount.value;
+      if (sectionCount.value > max) sectionCount.value = max.clamp(0, 8);
+    }
+    loadSectionSeats(id);
+  }
+
+  /// Fetch exact seat availability for the selected section. Falls back to
+  /// section-level (quantity-only) checkout when seats can't be loaded.
+  Future<void> loadSectionSeats(String sectionId) async {
+    final id = eventId;
+    if (id == null || sectionId.isEmpty) return;
+    seatsLoading.value = true;
+    seatsError.value = null;
+    try {
+      final res = await ApiService.sectionSeats(id, sectionId);
+      final list = (res['seats'] as List?) ?? [];
+      sectionSeats.value = list
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } catch (e) {
+      sectionSeats.value = const [];
+      seatsError.value = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      seatsLoading.value = false;
+    }
+  }
+
+  bool seatSelectable(Map<String, dynamic> seat) {
+    if (seat['status']?.toString() != 'AVAILABLE') return false;
+    if (seat['permanentlyHeld'] == true) return false;
+    return true;
+  }
+
+  void toggleSeat(String label) {
+    final seat = sectionSeats.firstWhere(
+      (s) => s['seatLabel']?.toString() == label,
+      orElse: () => const {},
+    );
+    if (seat.isEmpty || !seatSelectable(seat)) return;
+    final section = selectedSection;
+    final max =
+        section == null ? 8 : sectionRemaining(section).clamp(0, 8).toInt();
+    if (selectedSeatLabels.contains(label)) {
+      selectedSeatLabels.remove(label);
+      return;
+    }
+    if (selectedSeatLabels.length >= max) return;
+    selectedSeatLabels.add(label);
+    // Keep the stepper/quantity in sync for the checkout summary.
+    sectionCount.value = selectedSeatLabels.length;
+  }
+
+  void clearSeats() {
+    selectedSeatLabels.clear();
   }
 
   void adjustSectionCount(int delta) {
     selectedListingCode.value = '';
+    // Changing the quantity invalidates exact-seat picks.
+    clearSeats();
     final section = selectedSection;
     if (section == null) return;
     final max = sectionRemaining(section).clamp(0, 8);
@@ -124,7 +197,7 @@ class EventDetailController extends GetxController {
           bronzeCount.value;
     }
     return isSeated
-        ? sectionCount.value
+        ? seatedQuantity
         : selectedTiers.fold(0, (sum, t) => sum + (t['quantity'] as int));
   }
 
@@ -142,7 +215,7 @@ class EventDetailController extends GetxController {
       final price = cents is num
           ? cents.toDouble()
           : ((s['price'] as num?)?.toDouble() ?? 0) * 100;
-      return price * sectionCount.value / 100;
+      return price * seatedQuantity / 100;
     }
     if (hasEvent) {
       var cents = 0;
@@ -264,6 +337,14 @@ class EventDetailController extends GetxController {
   String get categoryText => event['category']?.toString() ?? '';
   String get descriptionText => event['description']?.toString() ?? '';
   String get startsAtText => event['startsAt']?.toString() ?? '';
+  String get currency => event['currency']?.toString().isNotEmpty == true
+      ? event['currency'].toString().toLowerCase()
+      : 'usd';
+
+  /// Currency-aware price label for event-context money.
+  String moneyCents(num? cents) => formatMoney(cents, currency);
+  String moneyDollars(num? dollars) =>
+      formatMoney(dollars == null ? null : (dollars * 100).round(), currency);
   String get locationText {
     final loc = event['location']?.toString() ?? '';
     final addr = event['address']?.toString() ?? '';
@@ -298,7 +379,9 @@ class EventDetailController extends GetxController {
         'type': 'Seated',
         'sectionId': s['id']?.toString() ?? '',
         'sectionName': s['name']?.toString() ?? '',
-        'quantity': sectionCount.value,
+        'quantity': seatedQuantity,
+        'seatLabels': selectedSeatLabels.toList(),
+        'currency': currency,
         'subtotalCents': (subtotalDollars * 100).round(),
         'date': formattedDate,
         'venue': locationText,
@@ -311,6 +394,7 @@ class EventDetailController extends GetxController {
         'title': titleText,
         'type': categoryText.isNotEmpty ? categoryText : 'Event',
         'selections': selectedTiers,
+        'currency': currency,
         'subtotalCents': (subtotalDollars * 100).round(),
         'date': formattedDate,
         'venue': locationText,

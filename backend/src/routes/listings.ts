@@ -90,6 +90,7 @@ export async function listingRoutes(app: FastifyInstance) {
           eventLocation: t.eventLocation,
           tierName: t.tierName,
           sectionName: t.sectionName,
+          currency: t.currency,
         })),
     };
   });
