@@ -25,6 +25,10 @@ class PaymentPageController extends GetxController {
   String? sectionId; // seated events
   String? sectionName;
   String? listingCode; // resale purchases
+  String? listingName;
+  String? eventDate;
+  String? eventVenue;
+  String? imageUrl;
   int quantity = 1;
   String? promoCode;
   List<Map<String, dynamic>> selections = [];
@@ -76,6 +80,10 @@ class PaymentPageController extends GetxController {
       if (lc != null && lc.toString().isNotEmpty) {
         listingCode = lc.toString();
       }
+      listingName = data['listingName']?.toString();
+      eventDate = data['date']?.toString();
+      eventVenue = data['venue']?.toString();
+      imageUrl = data['imageUrl']?.toString();
       final qty = data['quantity'] ?? data['qty'];
       if (qty != null) quantity = _readInt(qty, 1);
       if (data['promoCode'] != null) {
@@ -114,6 +122,30 @@ class PaymentPageController extends GetxController {
       (eventId != null &&
           (selections.isNotEmpty ||
               ((tierId != null || sectionId != null) && quantity > 0)));
+
+  /// Display subtotal before backend fees. Falls back to legacy counters.
+  int get displaySubtotalCents {
+    if (subtotalCents > 0) return subtotalCents;
+    final legacyCount = platinum + gold + silver + bronze;
+    return legacyCount * 40500;
+  }
+
+  /// Mirrors the backend default platform fee until the intent response
+  /// returns the authoritative feesCents/totalCents.
+  int get estimatedFeesCents => (displaySubtotalCents * 12 / 100).round();
+
+  int get estimatedTotalCents => displaySubtotalCents + estimatedFeesCents;
+
+  int get ticketQuantity {
+    if (listingCode != null) return 1;
+    if (selections.isNotEmpty) {
+      return selections.fold<int>(
+          0, (sum, t) => sum + (_readInt(t['quantity'], 1)));
+    }
+    if (sectionId != null) return quantity;
+    final legacyCount = platinum + gold + silver + bronze;
+    return legacyCount > 0 ? legacyCount : quantity;
+  }
 
   /// Checkout entry point invoked from the Buy button (via the loader).
   /// Creates real order intents on the backend when we have event context;

@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/dummy_content.dart';
 import 'package:block_tix/app/data/utils/helper_functions.dart';
-import 'package:block_tix/app/modules/for_you/views/for_you_view.dart';
 
 import '../controllers/other_user_profile_controller.dart';
 
@@ -285,7 +284,7 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                                           color: ColorConstant.nightSurface,
                                           borderRadius:
                                               BorderRadius.circular(16)),
-                                      child: const Center(
+                                      child: Center(
                                           child: Icon(
                                               Icons.event_available_outlined,
                                               color: ColorConstant.gold))),
@@ -297,7 +296,7 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                                           color: ColorConstant.nightSurface,
                                           borderRadius:
                                               BorderRadius.circular(16)),
-                                      child: const Center(
+                                      child: Center(
                                           child: Icon(
                                               Icons.event_available_outlined,
                                               color: ColorConstant.gold))),
@@ -309,7 +308,7 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                                           color: ColorConstant.nightSurface,
                                           borderRadius:
                                               BorderRadius.circular(16)),
-                                      child: const Center(
+                                      child: Center(
                                           child: Icon(
                                               Icons.event_available_outlined,
                                               color: ColorConstant.gold))),
@@ -330,7 +329,7 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                                           color: ColorConstant.nightSurface,
                                           borderRadius:
                                               BorderRadius.circular(16)),
-                                      child: const Center(
+                                      child: Center(
                                           child: Icon(
                                               Icons.event_available_outlined,
                                               color: ColorConstant.gold))),
@@ -342,7 +341,7 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                                           color: ColorConstant.nightSurface,
                                           borderRadius:
                                               BorderRadius.circular(16)),
-                                      child: const Center(
+                                      child: Center(
                                           child: Icon(
                                               Icons.event_available_outlined,
                                               color: ColorConstant.gold))),
@@ -354,7 +353,7 @@ class OtherUserProfileView extends GetView<OtherUserProfileController> {
                                           color: ColorConstant.nightSurface,
                                           borderRadius:
                                               BorderRadius.circular(16)),
-                                      child: const Center(
+                                      child: Center(
                                           child: Icon(
                                               Icons.event_available_outlined,
                                               color: ColorConstant.gold))),

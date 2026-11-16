@@ -1,6 +1,7 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/api_utils.dart';
 import 'package:block_tix/app/modules/all_guests/controllers/all_guests_controller.dart';
+import 'package:block_tix/app/modules/profile_tab/controllers/profile_tab_controller.dart';
 import 'package:block_tix/app/modules/notifications_page/models/notification_model.dart';
 import 'package:block_tix/app/services/base_client.dart';
 import 'package:get/get.dart';
@@ -25,6 +26,9 @@ class CreatorDashboardController extends GetxController {
   void onInit() {
     super.onInit();
     // Door-mode tabs: Events, Guests, Account (Scan is a bar action).
+    if (!Get.isRegistered<ProfileTabController>()) {
+      Get.put(ProfileTabController());
+    }
     Get.put(AllGuestsController());
     var data = Get.arguments;
     if (data != null && data['index'] != null) {
@@ -49,7 +53,7 @@ class CreatorDashboardController extends GetxController {
           onSuccess: (response) async {
             print(response);
             NotificationsModel model =
-            NotificationsModel.fromJson(response.data);
+                NotificationsModel.fromJson(response.data);
             notificationModelObj.value = model;
             for (var noti in notificationModelObj.value.data!.result!) {
               if (noti.status == 'Sent') {

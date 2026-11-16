@@ -4,7 +4,6 @@ import 'package:block_tix/app/services/api_service.dart';
 import 'package:get/get.dart';
 
 class PurchasedTicketController extends GetxController {
-
   int tickets = 1;
   List<RxBool> rxBoolList = [false.obs];
   bool showBack = false;
@@ -63,7 +62,11 @@ class PurchasedTicketController extends GetxController {
     if (list is List) {
       ids.addAll(list.map((e) => e.toString()).where((e) => e.isNotEmpty));
     } else if (list != null && list.toString().isNotEmpty) {
-      ids.addAll(list.toString().split(',').map((e) => e.trim()).where((e) => e.isNotEmpty));
+      ids.addAll(list
+          .toString()
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty));
     }
     if (ids.isEmpty) {
       final single = data['orderId'];
@@ -124,12 +127,9 @@ class PurchasedTicketController extends GetxController {
     final eventTitle = event is Map
         ? (event['title']?.toString() ?? this.eventTitle)
         : this.eventTitle;
-    final startsAt = event is Map
-        ? (event['startsAt']?.toString() ?? '')
-        : '';
-    final location = event is Map
-        ? (event['location']?.toString() ?? venue)
-        : venue;
+    final startsAt = event is Map ? (event['startsAt']?.toString() ?? '') : '';
+    final location =
+        event is Map ? (event['location']?.toString() ?? venue) : venue;
     final status = order['status']?.toString() ?? '';
 
     final tickets = order['tickets'];
@@ -142,14 +142,14 @@ class PurchasedTicketController extends GetxController {
               ? t['eventTitle'].toString()
               : eventTitle,
           'tier': t['tierName']?.toString() ?? '',
-          'date': formatEventDate(
-              t['eventStartsAt']?.toString() ?? startsAt,
+          'date': formatEventDate(t['eventStartsAt']?.toString() ?? startsAt,
               includeTime: false),
-          'time': formatEventTime(
-              t['eventStartsAt']?.toString() ?? startsAt),
+          'time': formatEventTime(t['eventStartsAt']?.toString() ?? startsAt),
           'venue': t['eventLocation']?.toString().isNotEmpty == true
               ? t['eventLocation'].toString()
               : location,
+          'section': t['sectionName']?.toString() ?? '',
+          'seat': t['seatLabel']?.toString() ?? '',
           'status': t['status']?.toString() ?? status,
           'orderId': t['orderId']?.toString() ?? order['id']?.toString() ?? '',
         });
@@ -162,9 +162,8 @@ class PurchasedTicketController extends GetxController {
     if (items is List) {
       for (final item in items) {
         if (item is! Map) continue;
-        final qty = item['quantity'] is num
-            ? (item['quantity'] as num).toInt()
-            : 1;
+        final qty =
+            item['quantity'] is num ? (item['quantity'] as num).toInt() : 1;
         for (var i = 0; i < qty; i++) {
           rows.add({
             'code': '',
@@ -173,6 +172,8 @@ class PurchasedTicketController extends GetxController {
             'date': formatEventDate(startsAt, includeTime: false),
             'time': formatEventTime(startsAt),
             'venue': location,
+            'section': '',
+            'seat': '',
             'status': status,
             'orderId': order['id']?.toString() ?? '',
           });

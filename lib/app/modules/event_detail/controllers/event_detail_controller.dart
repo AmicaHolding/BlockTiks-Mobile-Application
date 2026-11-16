@@ -23,10 +23,7 @@ class EventDetailController extends GetxController {
   List<Map<String, dynamic>> get tiers {
     final t = event['tiers'];
     if (t is! List) return const [];
-    return t
-        .whereType<Map>()
-        .map((e) => Map<String, dynamic>.from(e))
-        .toList();
+    return t.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
   /// Selected tiers as [{tierId, tierName, quantity, priceCents}].
@@ -57,10 +54,7 @@ class EventDetailController extends GetxController {
   List<Map<String, dynamic>> get venueSections {
     final v = event['venueSections'];
     if (v is! List) return const [];
-    return v
-        .whereType<Map>()
-        .map((e) => Map<String, dynamic>.from(e))
-        .toList();
+    return v.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
   bool get isSeated => hasEvent && venueSections.isNotEmpty;
@@ -89,16 +83,19 @@ class EventDetailController extends GetxController {
       return;
     }
     selectedSectionId.value = id;
+    selectedListingCode.value = '';
     final section = venueSections.firstWhere(
       (s) => s['id']?.toString() == id,
       orElse: () => const {},
     );
     final max = sectionRemaining(section);
-    sectionCount.value = sectionCount.value == 0 && max > 0 ? 1 : sectionCount.value;
+    sectionCount.value =
+        sectionCount.value == 0 && max > 0 ? 1 : sectionCount.value;
     if (sectionCount.value > max) sectionCount.value = max.clamp(0, 8);
   }
 
   void adjustSectionCount(int delta) {
+    selectedListingCode.value = '';
     final section = selectedSection;
     if (section == null) return;
     final max = sectionRemaining(section).clamp(0, 8);
@@ -106,11 +103,26 @@ class EventDetailController extends GetxController {
     sectionCount.value = next;
   }
 
-  int get selectedCount =>
-      isSeated ? sectionCount.value : selectedTiers.fold(0, (sum, t) => sum + (t['quantity'] as int));
+  int get selectedCount {
+    if (selectedListingCode.value.isNotEmpty) return 1;
+    if (!hasEvent) {
+      return platinumCount.value +
+          goldCount.value +
+          silverCount.value +
+          bronzeCount.value;
+    }
+    return isSeated
+        ? sectionCount.value
+        : selectedTiers.fold(0, (sum, t) => sum + (t['quantity'] as int));
+  }
 
   /// Subtotal in dollars across all selected tiers (real or legacy counters).
   double get subtotalDollars {
+    final listing = selectedListing;
+    if (listing != null) {
+      final cents = listing['priceCents'];
+      return cents is num ? cents / 100 : 0;
+    }
     if (isSeated) {
       final s = selectedSection;
       if (s == null) return 0;
@@ -137,6 +149,28 @@ class EventDetailController extends GetxController {
   // Resale listings for this event (official + resale in one flow).
   final RxList<Map<String, dynamic>> resaleListings =
       <Map<String, dynamic>>[].obs;
+  final RxString selectedListingCode = ''.obs;
+  final RxBool isFavorite = false.obs;
+
+  void selectListing(String code) {
+    selectedListingCode.value = code;
+    selectedSectionId.value = '';
+    sectionCount.value = 0;
+    tierCounts.clear();
+  }
+
+  void clearListing() {
+    selectedListingCode.value = '';
+  }
+
+  Map<String, dynamic>? get selectedListing {
+    final code = selectedListingCode.value;
+    if (code.isEmpty) return null;
+    for (final listing in resaleListings) {
+      if (listing['ticketCode']?.toString() == code) return listing;
+    }
+    return null;
+  }
 
   @override
   void onInit() {
@@ -205,6 +239,7 @@ class EventDetailController extends GetxController {
   }
 
   void adjustTier(String tierId, int delta, int max) {
+    if (delta > 0) selectedListingCode.value = '';
     final current = tierCounts[tierId] ?? 0;
     final next = (current + delta).clamp(0, max > 10 ? 10 : max);
     tierCounts[tierId] = next;
@@ -228,6 +263,21 @@ class EventDetailController extends GetxController {
 
   /// Arguments forwarded to the payment/checkout screen.
   Map<String, dynamic> paymentArguments() {
+    final listing = selectedListing;
+    if (listing != null) {
+      return {
+        'eventId': eventId ?? event['id']?.toString() ?? '',
+        'title': titleText,
+        'type': 'Resale',
+        'listingCode': listing['ticketCode']?.toString() ?? '',
+        'listingName': listing['tierName']?.toString() ?? 'Resale ticket',
+        'quantity': 1,
+        'subtotalCents': (subtotalDollars * 100).round(),
+        'date': formattedDate,
+        'venue': locationText,
+        'imageUrl': event['imageUrl']?.toString() ?? '',
+      };
+    }
     if (hasEvent && isSeated) {
       final s = selectedSection ?? {};
       return {

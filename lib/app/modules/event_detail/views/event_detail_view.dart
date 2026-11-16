@@ -1,423 +1,258 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
-import 'package:block_tix/app/modules/payment_page/views/payment_page_view.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import '../controllers/event_detail_controller.dart';
 
 class EventDetailView extends GetView<EventDetailController> {
-  const EventDetailView({Key? key}) : super(key: key);
+  const EventDetailView({super.key});
 
   @override
   Widget build(BuildContext context) {
     return BaseViewPageScreen(
-      showLogo: true,
-      basicAppBar: false,
-      showBackBtn: true,
+      hideAppBar: true,
+      safeTopArea: false,
       sidePadding: false,
       bodyPadding: false,
-      showNotification: true,
-      bottomNavigationBar: Constants.isUserCreator ? const Offstage() : SafeArea(
-        child: Container(
-          color: ColorConstant.nightTabBar,
-          padding: getPadding(left: 20, right: 20, top: 14, bottom: 16),
-          child: Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: Obx(() {
-                final fromPrice = controller.isSeated
-                    ? controller.venueSections
-                        .map((s) => s['priceCents'])
-                        .whereType<num>()
-                        .fold<num?>(null, (min, p) =>
-                            min == null || p < min ? p : min)
-                    : controller.hasEvent
-                        ? controller.tiers
-                            .map((t) => t['priceCents'] ??
-                                (((t['price'] as num?) ?? 0) * 100).round())
-                            .whereType<num>()
-                            .fold<num?>(null, (min, p) =>
-                                min == null || p < min ? p : min)
-                        : null;
-                return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  MyText(
-                    title: controller.selectedCount > 0
-                        ? '${controller.selectedCount} ticket${controller.selectedCount == 1 ? '' : 's'}'
-                        : 'From',
-                    family: 'Inter',
-                    fontSize: 13,
-                    clr: ColorConstant.white60,
-                  ),
-                  SizedBox(height: getSize(2),),
-                  MyText(
-                    title: controller.selectedCount > 0
-                        ? formatDollars(controller.subtotalDollars)
-                        : (fromPrice != null
-                            ? formatCents(fromPrice.toInt())
-                            : '—'),
-                    family: 'Manrope',
-                    customWeight: FontWeight.w800,
-                    fontSize: 20,
-                    height: 1.1,
-                  ),
-                ],
-              );}),
-            ),
-            Expanded(
-              flex: 1,
-              child: Obx(() => PrimaryPillButton(
-                text: controller.isSeated ? "Choose seats" : "Get tickets",
-                onTap: () {
-                 final hasSelection = controller.hasEvent
-                     ? controller.selectedCount > 0
-                     : (controller.platinumCount.value +
-                             controller.goldCount.value +
-                             controller.silverCount.value +
-                             controller.bronzeCount.value) >
-                         0;
-                 if (hasSelection) {
-                   Get.toNamed(Routes.PAYMENT_PAGE,
-                       arguments: controller.paymentArguments());
-                 }else{
-                   CustomSnackBar.showCustomErrorToast(message: "Please select at least one ticket");
-                 }
-                },
-              )),
-            ),
-          ],
-          ),
-        ),
-      ),
+      backgroundColor: ColorConstant.night,
+      bottomNavigationBar: controller.isFromCreator ? null : _bottomBar(),
       child: Obx(() {
         if (controller.isLoading.value && !controller.hasEvent) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
+          return _page(child: const Center(child: CircularProgressIndicator()));
         }
         if (controller.loadError.value != null && !controller.hasEvent) {
-          return Center(
-            child: Padding(
-              padding: getPadding(all: 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  MyText(
-                    title: "Couldn't load event",
-                    family: 'Manrope',
-                    customWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                  const SizedBox(height: 8),
-                  MyText(
-                    title: controller.loadError.value ?? '',
-                    family: 'Inter',
-                    fontSize: 13,
-                    clr: ColorConstant.white60,
-                    center: true,
-                  ),
-                  const SizedBox(height: 16),
-                  PrimaryPillButton(
-                    text: 'Retry',
-                    onTap: () => controller.fetchEvent(),
-                  ),
-                ],
-              ),
+          return _page(
+            child: SahraEmptyState(
+              title: "Couldn't load event",
+              message: controller.loadError.value,
+              actionLabel: 'Retry',
+              onAction: controller.fetchEvent,
             ),
           );
         }
-        return SingleChildScrollView(
-        child: Column(
-          children: [
-            _EventHero(event: controller.hasEvent ? controller.event : null),
-            Padding(
-              padding: getPadding(all: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  MyText(
-                    title: controller.hasEvent
-                        ? (controller.categoryText.isNotEmpty
-                            ? controller.categoryText.toUpperCase()
-                            : 'EVENT')
-                        : 'MUSIC CONCERT',
-                    family: 'Inter',
-                    customWeight: FontWeight.w600,
-                    fontSize: 13,
-                    letterSpacing: 1.2,
-                    clr: ColorConstant.gold,
-                  ),
-                  const SizedBox(height: 6),
-                  MyText(
-                    title: controller.hasEvent
-                        ? controller.titleText
-                        : 'DJ Maksmellow Orignawa',
-                    family: 'Manrope',
-                    customWeight: FontWeight.w800,
-                    fontSize: 30,
-                    height: 1.1,
-                    clr: ColorConstant.whiteA700,
-                  ),
-                  SizedBox(
-                    height: getSize(20),
-                  ),
-                  controller.hasEvent
-                      ? const Offstage()
-                      : const MyText(
-                          title: 'Japan Night Festival 2021',
-                          family: 'Manrope',
-                          customWeight: FontWeight.w700,
-                          fontSize: 14,
-                          clr: Color(0xFFFFFFFF),
-                        ),
-                  SizedBox(
-                    height: getSize(20),
-                  ),
-                  _InfoRow(
-                    icon: Icons.calendar_month,
-                    title: controller.hasEvent
-                        ? controller.formattedDate
-                        : 'Sunday, 14 February 2021',
-                    subtitle: 'Add to calendar',
-                    onTap: () {},
-                  ),
-                  const SizedBox(height: 12),
-                  _InfoRow(
-                    icon: Icons.location_on_outlined,
-                    title: controller.hasEvent
-                        ? (controller.locationText.isNotEmpty
-                            ? controller.locationText
-                            : '—')
-                        : 'Japan, 〒604-8122 Kyoto, Nakagyo Ward',
-                    subtitle: 'Directions',
-                    onTap: () {
-                      Utils.openGoogleMapDirections(25.197525, 55.274288);
-                    },
-                  ),
-                  SizedBox(
-                    height: getSize(20),
-                  ),
-                  MyText(
-                    title: 'Event Details',
-                    family: 'Manrope',
-                    customWeight: FontWeight.w600,
-                    fontSize: 17,
-                  ),
-                  SizedBox(
-                    height: getSize(10),
-                  ),
-                  Text(
-                    controller.hasEvent
-                        ? controller.descriptionText
-                        : 'South Korean girl group Blackpink have embarked on two headlining concert tours. In July 2017, the group held their debut showcase in Japan.',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w400,
-                      fontSize: 14,
-                      height: 1.5,
-                      color: ColorConstant.white60,
-                    ),
-                  ),
-
-                  SizedBox(
-                    height: getSize(20),
-                  ),
-                  // Real ticket tiers from the backend when an event is
-                  // loaded; legacy fixed counters otherwise.
-                  const SizedBox(height: 8),
-                  MyText(
-                    title: 'Tickets',
-                    family: 'Manrope',
-                    customWeight: FontWeight.w700,
-                    fontSize: 18,
-                    clr: ColorConstant.whiteA700,
-                  ),
-                  const SizedBox(height: 12),
-                  if (controller.isSeated)
-                    _VenueSections()
-                  else if (controller.hasEvent)
-                    ...(controller.tiers.map((tier) {
-                      final tierId = tier['id']?.toString() ?? '';
-                      final price = tier['price'];
-                      final cents = tier['priceCents'];
-                      final priceLabel = price is num
-                          ? formatDollars(price)
-                          : (cents is num ? formatCents(cents) : '\$—');
-                      final remaining = controller.tierRemaining(tier);
-                      final maxCount = remaining < 10 ? remaining : 10;
-                      return controller.isFromCreator
-                          ? const Offstage()
-                          : Obx(() => TicketCounter(
-                                count: controller.tierCounts[tierId] ?? 0,
-                                title: tier['name']?.toString() ?? 'Ticket',
-                                priceLabel: priceLabel,
-                                remaining: remaining,
-                                onMinusTap: () => controller.adjustTier(
-                                    tierId, -1, maxCount),
-                                onPlusTap: () => controller.adjustTier(
-                                    tierId, 1, maxCount),
-                              ));
-                    }))
-                  else ...[
-                  controller.isFromCreator ? const Offstage() : Obx(() => TicketCounter(
-                    count: controller.platinumCount.value,
-                    title: "Platinum Ticket",
-                    onMinusTap: () {
-                      if (controller.platinumCount.value > 0) {
-                        controller.platinumCount.value =
-                            controller.platinumCount.value - 1;
-                      }
-                    },
-                    onPlusTap: () {
-                      if (controller.platinumCount.value < 10) {
-                        controller.platinumCount.value =
-                            controller.platinumCount.value + 1;
-                      }
-                    },
-                  )),
-                  controller.isFromCreator ? const Offstage() : Obx(() => TicketCounter(
-                    count: controller.goldCount.value,
-                    title: "Gold Ticket",
-                    onMinusTap: () {
-                      if (controller.goldCount.value > 0) {
-                        controller.goldCount.value =
-                            controller.goldCount.value - 1;
-                      }
-                    },
-                    onPlusTap: () {
-                      if (controller.goldCount.value < 10) {
-                        controller.goldCount.value =
-                            controller.goldCount.value + 1;
-                      }
-                    },
-                  )),
-                  controller.isFromCreator ? const Offstage() : Obx(() => TicketCounter(
-                    count: controller.silverCount.value,
-                    title: "Silver Ticket",
-                    onMinusTap: () {
-                      if (controller.silverCount.value > 0) {
-                        controller.silverCount.value =
-                            controller.silverCount.value - 1;
-                      }
-                    },
-                    onPlusTap: () {
-                      if (controller.silverCount.value < 10) {
-                        controller.silverCount.value =
-                            controller.silverCount.value + 1;
-                      }
-                    },
-                  )),
-                  controller.isFromCreator ? const Offstage() : Obx(() => TicketCounter(
-                    count: controller.bronzeCount.value,
-                    title: "Bronze Ticket",
-                    onMinusTap: () {
-                      if (controller.bronzeCount.value > 0) {
-                        controller.bronzeCount.value =
-                            controller.bronzeCount.value - 1;
-                      }
-                    },
-                    onPlusTap: () {
-                      if (controller.bronzeCount.value < 10) {
-                        controller.bronzeCount.value =
-                            controller.bronzeCount.value + 1;
-                      }
-                    },
-                  )),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-        );
+        return _page(child: _content());
       }),
     );
   }
-}
 
-/// Sahra event hero: cover photo (or brand-tinted placeholder) fading into
-/// the Night canvas.
-class _EventHero extends StatelessWidget {
-  const _EventHero({this.event});
+  Widget _page({required Widget child}) {
+    return Column(
+      children: [
+        _EventHero(event: controller.hasEvent ? controller.event : null),
+        Expanded(child: child),
+      ],
+    );
+  }
 
-  final Map<String, dynamic>? event;
-
-  @override
-  Widget build(BuildContext context) {
-    final url = event == null ? null : eventImageUrl(event!);
-    return SizedBox(
-      height: 320,
-      width: double.infinity,
-      child: Stack(
-        fit: StackFit.expand,
+  Widget _bottomBar() {
+    return Container(
+      color: ColorConstant.nightTabBar,
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+      child: Row(
         children: [
-          if (url != null)
-            CachedNetworkImage(
-              imageUrl: url,
-              fit: BoxFit.cover,
-              placeholder: (_, __) => Container(color: ColorConstant.nightElevated),
-              errorWidget: (_, __, ___) => _placeholder(),
-            )
-          else
-            _placeholder(),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  ColorConstant.night.withValues(alpha: 0.55),
-                  ColorConstant.night,
-                ],
-                stops: const [0.45, 0.8, 1.0],
-              ),
-            ),
+          Expanded(child: Obx(() => _priceSummary())),
+          const SizedBox(width: 14),
+          SizedBox(
+            width: 138,
+            child: Obx(() => SahraPillButton(
+                  label: controller.isSeated ? 'Choose seats' : 'Get tickets',
+                  enabled:
+                      !controller.isFromCreator && controller.selectedCount > 0,
+                  onTap: _continueToCheckout,
+                )),
           ),
         ],
       ),
     );
   }
 
-  Widget _placeholder() {
-    return Container(
-      color: ColorConstant.nightElevated,
-      child: Center(
-        child: CustomImageView(
-          imagePath: ImageConstant.stageCinema,
-          width: 200,
-          height: 120,
-          fit: BoxFit.contain,
-          color: ColorConstant.nightBorder,
-        ),
-      ),
+  Widget _priceSummary() {
+    final selected = controller.selectedCount > 0;
+    final label = selected
+        ? '${controller.selectedCount} ticket${controller.selectedCount == 1 ? '' : 's'}'
+        : 'From';
+    final price = selected
+        ? formatDollars(controller.subtotalDollars)
+        : _fromPriceLabel();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: sahraText(color: ColorConstant.nightMuted, size: 12)),
+        const SizedBox(height: 2),
+        Text(price, style: sahraText(size: 22, weight: FontWeight.w700)),
+      ],
     );
   }
-}
 
-/// Sahra info row: 40px night-surface icon tile, bold title, muted subtitle,
-/// gold chevron — used for date and venue on event details.
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.onTap,
-  });
+  String _fromPriceLabel() {
+    final centsValues = <num>[];
+    void consider(dynamic value) {
+      num? cents;
+      if (value is num) {
+        cents = value is int ? value : (value * 100).round();
+      }
+      if (cents != null) centsValues.add(cents);
+    }
 
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onTap;
+    if (controller.isSeated) {
+      for (final s in controller.venueSections) {
+        consider(
+            s['priceCents'] ?? ((s['price'] as num?)?.toDouble() ?? 0) * 100);
+      }
+    } else {
+      for (final t in controller.tiers) {
+        consider(
+            t['priceCents'] ?? ((t['price'] as num?)?.toDouble() ?? 0) * 100);
+      }
+    }
+    for (final l in controller.resaleListings) {
+      consider(l['priceCents']);
+    }
+    if (centsValues.isEmpty) return '—';
+    centsValues.sort();
+    return formatCents(centsValues.first);
+  }
 
-  @override
-  Widget build(BuildContext context) {
+  void _continueToCheckout() {
+    if (controller.selectedCount <= 0) {
+      CustomSnackBar.showCustomErrorToast(
+          message: 'Please select at least one ticket');
+      return;
+    }
+    Get.toNamed(Routes.PAYMENT_PAGE, arguments: controller.paymentArguments());
+  }
+
+  Widget _content() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      children: [
+        _titleBlock(),
+        const SizedBox(height: 18),
+        _dateRow(),
+        const SizedBox(height: 12),
+        _venueRow(),
+        if (controller.descriptionText.isNotEmpty) ...[
+          const SizedBox(height: 22),
+          Text('About this event',
+              style: sahraText(size: 17, weight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Text(controller.descriptionText,
+              style: sahraText(
+                  color: ColorConstant.nightMuted, size: 14, height: 1.55)),
+        ],
+        const SizedBox(height: 24),
+        if (!controller.isFromCreator) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 14, bottom: 6),
+            child: Text(
+              (controller.isSeated ? 'Choose seats' : 'Tickets').toUpperCase(),
+              style: sahraText(
+                color: ColorConstant.nightMuted,
+                size: 11,
+                weight: FontWeight.w600,
+                letterSpacing: 1.1,
+              ),
+            ),
+          ),
+          if (controller.isSeated)
+            _VenueSections()
+          else if (controller.hasEvent)
+            ...controller.tiers.map(_tierCard),
+          if (controller.resaleListings.isNotEmpty) ...[
+            if (controller.isSeated || controller.hasEvent)
+              const SizedBox(height: 8),
+            _resaleHeader(),
+            ..._sortedListings().map(_resaleCard),
+            const SizedBox(height: 10),
+            Text(
+              'Resale tickets are reissued to you with a new QR. Same entry, same guarantee.',
+              style: sahraText(
+                  color: ColorConstant.nightMuted, size: 12, height: 1.45),
+            ),
+          ],
+        ] else
+          SahraCard(
+            child: Text(
+              'Preview mode — ticket sales are managed in Sahra Studio.',
+              style: sahraText(color: ColorConstant.nightMuted, size: 13),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _titleBlock() {
+    final category = controller.categoryText.isNotEmpty
+        ? controller.categoryText.toUpperCase()
+        : 'EVENT';
+    final arabic = controller.event['titleAr']?.toString() ??
+        controller.event['arabicTitle']?.toString() ??
+        '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(category,
+            style: sahraText(
+                color: ColorConstant.gold,
+                size: 12,
+                weight: FontWeight.w600,
+                letterSpacing: 1.2)),
+        const SizedBox(height: 8),
+        Text(
+          controller.hasEvent ? controller.titleText : 'Event details',
+          style: sahraText(size: 30, weight: FontWeight.w700, height: 1.08),
+        ),
+        if (arabic.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(arabic,
+              style: sahraArabic(color: ColorConstant.nightMuted, size: 15)),
+        ],
+      ],
+    );
+  }
+
+  Widget _dateRow() {
+    final dt = DateTime.tryParse(controller.startsAtText)?.toLocal();
+    final month = dt == null ? '—' : DateFormat('MMM').format(dt);
+    final day = dt == null ? '—' : DateFormat('d').format(dt);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SahraDateBadge(month: month, day: day),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                controller.hasEvent && controller.formattedDate.isNotEmpty
+                    ? controller.formattedDate
+                    : 'Date to be announced',
+                style: sahraText(size: 15, weight: FontWeight.w600),
+              ),
+              const SizedBox(height: 3),
+              Text('Add to calendar',
+                  style: sahraText(color: ColorConstant.nightMuted, size: 12)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _venueRow() {
+    final location = controller.locationText.isNotEmpty
+        ? controller.locationText
+        : 'Venue to be announced';
     return GestureDetector(
-      onTap: onTap,
       behavior: HitTestBehavior.opaque,
+      onTap: () => _openDirections(location),
       child: Row(
         children: [
           Container(
@@ -427,162 +262,251 @@ class _InfoRow extends StatelessWidget {
               color: ColorConstant.nightSurface,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: ColorConstant.gold, size: 20),
+            child: Icon(Icons.location_on_outlined,
+                color: ColorConstant.gold, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: GoogleFonts.bricolageGrotesque(
-                    color: ColorConstant.whiteA700,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                Text(location,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: sahraText(size: 15, weight: FontWeight.w600)),
                 const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.bricolageGrotesque(
-                    color: ColorConstant.white60,
-                    fontSize: 13,
-                  ),
-                ),
+                Text('Directions',
+                    style:
+                        sahraText(color: ColorConstant.nightMuted, size: 12)),
               ],
             ),
           ),
-          Icon(Icons.chevron_right, color: ColorConstant.gold, size: 22),
+          Icon(Icons.chevron_right_rounded,
+              color: ColorConstant.gold, size: 22),
         ],
       ),
     );
   }
-}
 
-class TicketCounter extends StatelessWidget {
-  const TicketCounter({super.key,
-    required this.title,
-    required this.count,
-    this.priceLabel,
-    this.remaining,
-    this.onMinusTap,
-    this.onPlusTap});
-
-  final String title;
-  final int count;
-  final String? priceLabel;
-  final int? remaining;
-  final void Function()? onMinusTap;
-  final void Function()? onPlusTap;
-
-  int get _maxCount {
-    final rem = remaining;
-    if (rem != null && rem < 10) return rem < 0 ? 0 : rem;
-    return 10;
+  Future<void> _openDirections(String location) async {
+    final uri = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(location)}');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      CustomSnackBar.showCustomErrorToast(message: 'Could not open maps');
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final soldOut = remaining != null && remaining! <= 0;
-    final note = soldOut
-        ? 'Sold out'
-        : (remaining != null && remaining! <= 10
-            ? '${remaining} left'
-            : 'Official');
-    return Opacity(
-      opacity: soldOut ? 0.5 : 1,
-      child: Container(
-        margin: getMargin(bottom: 10, left: 4, right: 4),
-        padding: getPadding(all: 12),
-        decoration: BoxDecoration(
-          color: ColorConstant.nightSurface,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: MyText(
-                    title: title,
-                    family: 'Manrope',
-                    customWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
-                MyText(
-                  title: note,
-                  family: 'Inter',
-                  fontSize: 12,
-                  clr: soldOut ? ColorConstant.rumman : ColorConstant.white60,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    MyText(
-                      title: priceLabel ?? '\$405',
-                      family: 'Manrope',
-                      customWeight: FontWeight.w800,
-                      fontSize: 16,
-                      clr: ColorConstant.gold,
+  Widget _tierCard(Map<String, dynamic> tier) {
+    final id = tier['id']?.toString() ?? '';
+    final remaining = controller.tierRemaining(tier);
+    final maxCount = remaining < 10 ? remaining : 10;
+    final soldOut = remaining <= 0;
+    final priceLabel = _tierPriceLabel(tier);
+    return Obx(() {
+      final count = controller.tierCounts[id] ?? 0;
+      return Opacity(
+        opacity: soldOut ? .55 : 1,
+        child: SahraCard(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(tier['name']?.toString() ?? 'Ticket',
+                            style:
+                                sahraText(size: 16, weight: FontWeight.w700)),
+                        const SizedBox(height: 3),
+                        Text(
+                          soldOut
+                              ? 'Sold out'
+                              : remaining <= 10
+                                  ? '$remaining left'
+                                  : 'Official · plenty left',
+                          style: sahraText(
+                            color: soldOut
+                                ? ColorConstant.rumman
+                                : ColorConstant.nightMuted,
+                            size: 12,
+                          ),
+                        ),
+                      ],
                     ),
-                    MyText(
-                      title: 'Official',
-                      family: 'Inter',
-                      fontSize: 12,
-                      clr: ColorConstant.white60,
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                _stepperButton(
-                  icon: Icons.remove,
-                  enabled: count > 0 && !soldOut,
-                  filled: false,
-                  onTap: onMinusTap,
-                ),
-                Padding(
-                  padding: getPadding(left: 10, right: 10),
-                  child: MyText(
-                    title: count.toString(),
-                    family: 'Manrope',
-                    customWeight: FontWeight.w700,
-                    fontSize: 16,
-                    clr: ColorConstant.whiteA700,
                   ),
-                ),
-                _stepperButton(
-                  icon: Icons.add,
-                  enabled: count < _maxCount && !soldOut,
-                  filled: true,
-                  onTap: onPlusTap,
-                ),
-              ],
-            ),
-          ],
+                  Text(priceLabel,
+                      style: sahraText(
+                          color: ColorConstant.gold,
+                          size: 17,
+                          weight: FontWeight.w700)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Text('Official',
+                      style:
+                          sahraText(color: ColorConstant.nightMuted, size: 12)),
+                  const Spacer(),
+                  _stepButton(
+                    icon: Icons.remove_rounded,
+                    enabled: count > 0 && !soldOut,
+                    filled: false,
+                    onTap: () => controller.adjustTier(id, -1, maxCount),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Text('$count',
+                        style: sahraText(size: 16, weight: FontWeight.w700)),
+                  ),
+                  _stepButton(
+                    icon: Icons.add_rounded,
+                    enabled: count < maxCount && !soldOut,
+                    filled: true,
+                    onTap: () => controller.adjustTier(id, 1, maxCount),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
+      );
+    });
+  }
+
+  String _tierPriceLabel(Map<String, dynamic> tier) {
+    final price = tier['price'];
+    final cents = tier['priceCents'];
+    if (price is num) return formatDollars(price);
+    if (cents is num) return formatCents(cents);
+    return '—';
+  }
+
+  Widget _resaleHeader() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 8),
+      child: Row(
+        children: [
+          Text('Resale', style: sahraText(size: 15, weight: FontWeight.w700)),
+          const SizedBox(width: 8),
+          Text('cheapest first',
+              style: sahraText(color: ColorConstant.nightMuted, size: 12)),
+        ],
       ),
     );
   }
 
-  Widget _stepperButton({
+  List<Map<String, dynamic>> _sortedListings() {
+    final list = List<Map<String, dynamic>>.from(controller.resaleListings);
+    list.sort((a, b) {
+      final ap = (a['priceCents'] as num?)?.toInt() ?? 0;
+      final bp = (b['priceCents'] as num?)?.toInt() ?? 0;
+      return ap.compareTo(bp);
+    });
+    return list;
+  }
+
+  Widget _resaleCard(Map<String, dynamic> listing) {
+    final code = listing['ticketCode']?.toString() ?? '';
+    final cents = listing['priceCents'];
+    final price = cents is num ? formatCents(cents) : '—';
+    final tier = listing['tierName']?.toString() ?? 'Resale ticket';
+    return Obx(() {
+      final isSelected = controller.selectedListingCode.value == code;
+      return GestureDetector(
+        onTap: () => isSelected
+            ? controller.clearListing()
+            : controller.selectListing(code),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? ColorConstant.nightElevated
+                : ColorConstant.nightSurface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color:
+                  isSelected ? ColorConstant.gold : ColorConstant.nightBorder,
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(tier,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style:
+                                  sahraText(size: 15, weight: FontWeight.w700)),
+                        ),
+                        const SizedBox(width: 8),
+                        SahraStatusPill('Resale',
+                            color: ColorConstant.gold,
+                            background:
+                                ColorConstant.gold.withValues(alpha: .14)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text('1 ticket · instant transfer',
+                        style: sahraText(
+                            color: ColorConstant.nightMuted, size: 12)),
+                  ],
+                ),
+              ),
+              Text(price,
+                  style: sahraText(
+                      color: ColorConstant.gold,
+                      size: 16,
+                      weight: FontWeight.w700)),
+              const SizedBox(width: 12),
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected
+                        ? ColorConstant.gold
+                        : ColorConstant.nightBorder,
+                    width: 2,
+                  ),
+                  color: isSelected ? ColorConstant.gold : Colors.transparent,
+                ),
+                child: isSelected
+                    ? Icon(Icons.check, size: 13, color: ColorConstant.night)
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _stepButton({
     required IconData icon,
     required bool enabled,
     required bool filled,
-    void Function()? onTap,
+    VoidCallback? onTap,
   }) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: enabled ? onTap : null,
       child: Container(
-        width: 30,
-        height: 30,
+        width: 34,
+        height: 34,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: filled && enabled ? ColorConstant.gold : Colors.transparent,
@@ -595,7 +519,7 @@ class TicketCounter extends StatelessWidget {
         ),
         child: Icon(
           icon,
-          size: 14,
+          size: 18,
           color: filled && enabled
               ? ColorConstant.night
               : (enabled ? ColorConstant.whiteA700 : ColorConstant.white60),
@@ -603,163 +527,94 @@ class TicketCounter extends StatelessWidget {
       ),
     );
   }
-
 }
 
+class _EventHero extends StatelessWidget {
+  const _EventHero({this.event});
 
-class StageViewScreen extends StatelessWidget {
-  const StageViewScreen({super.key,this.height = 320,this.showCircles = true});
-
-  final double height;
-  final bool showCircles;
+  final Map<String, dynamic>? event;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-          gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                ColorConstant.canvas.withValues(alpha: 0.0),
-                ColorConstant.canvas.withValues(alpha: 0.6),
-              ])),
-      height: height,
+    final url = event == null ? null : eventImageUrl(event!);
+    final controller = Get.find<EventDetailController>();
+    return SizedBox(
+      height: 330,
+      width: double.infinity,
       child: Stack(
+        fit: StackFit.expand,
         children: [
-          Align(
-            alignment: Alignment.center,
-            child: Column(
-              children: [
-                SizedBox(height: getSize(20),),
-                CustomImageView(
-                  imagePath: ImageConstant.stageCinema,
-                  width: size.width,
-                  height: 120,
-                  fit: BoxFit.fill,
-                  // height: 70,
-                ),
-                SizedBox(height: getSize(20),),
-                CustomImageView(
-                  svgPath: ImageConstant.stageComplete,
-                  width: size.width,
-                  height: height - 160,
-                  fit: BoxFit.fill,
-                  // height: 70,
-                ),
-              ],
+          if (url != null)
+            CachedNetworkImage(
+              imageUrl: url,
+              fit: BoxFit.cover,
+              placeholder: (_, __) => _placeholder(),
+              errorWidget: (_, __, ___) => _placeholder(),
+            )
+          else
+            _placeholder(),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  ColorConstant.nightDeep.withValues(alpha: .55),
+                  Colors.transparent,
+                  ColorConstant.night.withValues(alpha: .35),
+                  ColorConstant.night,
+                ],
+                stops: const [0, .35, .72, 1],
+              ),
             ),
           ),
-          Column(
-            children: [
-              const SizedBox(height: 70,),
-             Expanded(
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Platinum
-                    const Positioned(
-                      top: 100,
-                      child: MyText(title:"Platinum",fontSize: 12,),
-                    ),
-                    // Gold
-                    const Positioned(
-                      top: 200,
-                      child: MyText(title:"Gold",fontSize: 12,),
-                    ),
-                    // Silver Left
-                    Positioned(
-                      top: 150,
-                      left: MediaQuery.of(context).size.width / 4 - 20,
-                      child: const MyText(title:"Silver",fontSize: 12,),
-                    ),
-                    // Silver Right
-                    Positioned(
-                      top: 150,
-                      right: MediaQuery.of(context).size.width / 4 - 28,
-                      child: const MyText(title:"Silver",fontSize: 12,),
-                    ),
-                    // Bronze
-                    const Positioned(
-                      bottom: 15,
-                      child: MyText(title:"Bronze",fontSize: 12,),
-                    ),
-
-
-                    // Platinum
-                    !showCircles ? Container() : Positioned(
-                      top: 60,
-                      // left: MediaQuery.of(context).size.width / 2 - 40,
-                      child: _buildTappableCircle(
-                          context, '1'),
-                    ),
-                    // Gold
-                    !showCircles ? Container() :Positioned(
-                      top: 150,
-                      // left: MediaQuery.of(context).size.width / 2 - 30,
-                      child:
-                      _buildTappableCircle(context, '3'),
-                    ),
-                    // Silver Left
-                    !showCircles ? Container() :Positioned(
-                      top: 110,
-                      left: MediaQuery.of(context).size.width / 4 - 20,
-                      child: _buildTappableCircle(
-                          context, '12',),
-                    ),
-                    // Silver Right
-                    !showCircles ? Container() : Positioned(
-                      top: 110,
-                      right: MediaQuery.of(context).size.width / 4 - 28,
-                      child: _buildTappableCircle(context, '54'),
-                    ),
-                    // Bronze
-                    !showCircles ? Container() : Positioned(
-                      bottom: 30,
-                      left: MediaQuery.of(context).size.width / 2 - 170,
-                      child: _buildTappableCircle(context, '54',),
-                    ),
-
-
-                  ],
-                ),
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Row(
+                children: [
+                  SahraIconAction(
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    onTap: Get.back,
+                  ),
+                  const Spacer(),
+                  Obx(() => SahraIconAction(
+                        icon: controller.isFavorite.value
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        color: controller.isFavorite.value
+                            ? ColorConstant.gold
+                            : ColorConstant.whiteA700,
+                        onTap: () => controller.isFavorite.value =
+                            !controller.isFavorite.value,
+                      )),
+                ],
               ),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTappableCircle(
-      BuildContext context, String number, {void Function()? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: ColorConstant.elevated,
-          shape: BoxShape.circle,
-          border: Border.all(color: ColorConstant.hairline, width: 1),
+  Widget _placeholder() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF2F4560), ColorConstant.nightSurface],
         ),
-        padding: getPadding(all: 10),
-        child: Center(
-          child: Text(
-            number,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
+      ),
+      child: Center(
+        child: Icon(Icons.music_note_rounded,
+            size: 72, color: ColorConstant.gold.withValues(alpha: .45)),
       ),
     );
   }
 }
 
-/// Seated-event section picker (Sahra screens 11/12 essence): venue preview
-/// header + one row per section with price, remaining seats and a quantity
-/// stepper for the selected section.
 class _VenueSections extends GetWidget<EventDetailController> {
   @override
   Widget build(BuildContext context) {
@@ -769,21 +624,12 @@ class _VenueSections extends GetWidget<EventDetailController> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Venue preview strip — stands in for the full venue map until the
-          // layout editor ships seat-level geometry.
-          Container(
-            width: double.infinity,
-            padding: getPadding(all: 18),
-            decoration: BoxDecoration(
-              color: ColorConstant.nightSurface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: ColorConstant.nightBorder),
-            ),
+          SahraCard(
             child: Row(
               children: [
                 Container(
-                  height: 44,
-                  width: 44,
+                  width: 42,
+                  height: 42,
                   decoration: BoxDecoration(
                     color: ColorConstant.nightElevated,
                     borderRadius: BorderRadius.circular(12),
@@ -791,159 +637,203 @@ class _VenueSections extends GetWidget<EventDetailController> {
                   child: Icon(Icons.map_outlined,
                       color: ColorConstant.gold, size: 22),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      MyText(
-                        title: 'Reserved seating',
-                        family: 'Manrope',
-                        customWeight: FontWeight.w700,
-                        fontSize: 15,
-                        clr: ColorConstant.whiteA700,
-                      ),
+                      Text('Reserved seating',
+                          style: sahraText(size: 15, weight: FontWeight.w700)),
                       const SizedBox(height: 2),
-                      MyText(
-                        title: 'Pick a section — seats are held at checkout',
-                        family: 'Inter',
-                        fontSize: 12,
-                        clr: ColorConstant.nightMuted,
-                      ),
+                      Text('Pick a section — seats are held at checkout',
+                          style: sahraText(
+                              color: ColorConstant.nightMuted, size: 12)),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 14),
-          ...sections.map((s) {
-            final id = s['id']?.toString() ?? '';
-            final selected = controller.selectedSectionId.value == id;
-            final remaining = controller.sectionRemaining(s);
-            final cents = s['priceCents'];
-            final priceLabel = cents is num
-                ? formatCents(cents)
-                : formatDollars((s['price'] as num?)?.toDouble());
-            return GestureDetector(
-              onTap: remaining > 0 ? () => controller.selectSection(id) : null,
-              child: Container(
-                margin: getMargin(bottom: 10),
-                padding: getPadding(left: 16, right: 16, top: 14, bottom: 14),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? ColorConstant.nightElevated
-                      : ColorConstant.nightSurface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: selected
-                        ? ColorConstant.gold
-                        : ColorConstant.nightBorder,
-                    width: selected ? 1.5 : 1,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              MyText(
-                                title: s['name']?.toString() ?? 'Section',
-                                family: 'Manrope',
-                                customWeight: FontWeight.w700,
-                                fontSize: 16,
-                                clr: remaining <= 0
-                                    ? ColorConstant.white60
-                                    : ColorConstant.whiteA700,
-                              ),
-                              const SizedBox(height: 3),
-                              MyText(
-                                title: remaining <= 0
-                                    ? 'Sold out'
-                                    : '$remaining seats left',
-                                family: 'Inter',
-                                fontSize: 12,
-                                clr: remaining <= 0
-                                    ? ColorConstant.errorRed
-                                    : ColorConstant.nightMuted,
-                              ),
-                            ],
-                          ),
-                        ),
-                        MyText(
-                          title: priceLabel,
-                          family: 'Manrope',
-                          customWeight: FontWeight.w800,
-                          fontSize: 17,
-                          clr: ColorConstant.gold,
-                        ),
-                        const SizedBox(width: 12),
-                        Container(
-                          height: 22,
-                          width: 22,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: selected
-                                  ? ColorConstant.gold
-                                  : ColorConstant.nightBorder,
-                              width: 2,
-                            ),
-                            color: selected ? ColorConstant.gold : null,
-                          ),
-                          child: selected
-                              ? Icon(Icons.check,
-                                  size: 14, color: ColorConstant.night)
-                              : null,
-                        ),
-                      ],
-                    ),
-                    if (selected) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          const Spacer(),
-                          _stepBtn(Icons.remove, () => controller.adjustSectionCount(-1)),
-                          Padding(
-                            padding: getPadding(left: 16, right: 16),
-                            child: MyText(
-                              title: '${controller.sectionCount.value}',
-                              family: 'Manrope',
-                              customWeight: FontWeight.w700,
-                              fontSize: 16,
-                              clr: ColorConstant.whiteA700,
-                            ),
-                          ),
-                          _stepBtn(Icons.add, () => controller.adjustSectionCount(1)),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            );
-          }),
+          const SizedBox(height: 12),
+          ...sections.map(_sectionCard),
         ],
       );
     });
   }
 
-  Widget _stepBtn(IconData icon, VoidCallback onTap) {
+  Widget _sectionCard(Map<String, dynamic> section) {
+    final id = section['id']?.toString() ?? '';
+    final selected = controller.selectedSectionId.value == id;
+    final remaining = controller.sectionRemaining(section);
+    final soldOut = remaining <= 0;
+    final price = section['priceCents'];
+    final priceLabel = price is num
+        ? formatCents(price)
+        : formatDollars((section['price'] as num?)?.toDouble());
+    return Obx(() {
+      final count = controller.sectionCount.value;
+      return Opacity(
+        opacity: soldOut ? .55 : 1,
+        child: GestureDetector(
+          onTap: soldOut ? null : () => controller.selectSection(id),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: selected
+                  ? ColorConstant.nightElevated
+                  : ColorConstant.nightSurface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color:
+                    selected ? ColorConstant.gold : ColorConstant.nightBorder,
+                width: selected ? 1.5 : 1,
+              ),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(section['name']?.toString() ?? 'Section',
+                              style:
+                                  sahraText(size: 16, weight: FontWeight.w700)),
+                          const SizedBox(height: 3),
+                          Text(
+                            soldOut ? 'Sold out' : '$remaining seats left',
+                            style: sahraText(
+                              color: soldOut
+                                  ? ColorConstant.rumman
+                                  : ColorConstant.nightMuted,
+                              size: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(priceLabel,
+                        style: sahraText(
+                            color: ColorConstant.gold,
+                            size: 16,
+                            weight: FontWeight.w700)),
+                    const SizedBox(width: 12),
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: selected
+                              ? ColorConstant.gold
+                              : ColorConstant.nightBorder,
+                          width: 2,
+                        ),
+                        color:
+                            selected ? ColorConstant.gold : Colors.transparent,
+                      ),
+                      child: selected
+                          ? Icon(Icons.check,
+                              size: 13, color: ColorConstant.night)
+                          : null,
+                    ),
+                  ],
+                ),
+                if (selected) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Text('Tickets',
+                          style: sahraText(
+                              color: ColorConstant.nightMuted, size: 12)),
+                      const Spacer(),
+                      _smallStep(Icons.remove_rounded,
+                          () => controller.adjustSectionCount(-1)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text('$count',
+                            style:
+                                sahraText(size: 16, weight: FontWeight.w700)),
+                      ),
+                      _smallStep(Icons.add_rounded,
+                          () => controller.adjustSectionCount(1)),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _smallStep(IconData icon, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 30,
-        width: 30,
+        width: 32,
+        height: 32,
         decoration: BoxDecoration(
-          color: ColorConstant.nightDeep,
           shape: BoxShape.circle,
+          color: ColorConstant.nightDeep,
           border: Border.all(color: ColorConstant.nightBorder),
         ),
-        child: Icon(icon, size: 16, color: ColorConstant.whiteA700),
+        child: Icon(icon, size: 17, color: ColorConstant.whiteA700),
+      ),
+    );
+  }
+}
+
+/// Minimal stage/seating preview reused by legacy bid/upcoming flows.
+class StageViewScreen extends StatelessWidget {
+  const StageViewScreen(
+      {super.key, this.height = 350, this.showCircles = true});
+
+  final double height;
+  final bool showCircles;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [const Color(0xFF22344D), ColorConstant.nightDeep],
+        ),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(Icons.music_note_rounded,
+              size: height * .22,
+              color: ColorConstant.gold.withValues(alpha: .5)),
+          if (showCircles)
+            Positioned(
+              bottom: 18,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  7,
+                  (i) => Container(
+                    width: 10,
+                    height: 10,
+                    margin: const EdgeInsets.symmetric(horizontal: 5),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: i.isEven
+                          ? ColorConstant.gold.withValues(alpha: .75)
+                          : ColorConstant.nightBorder,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

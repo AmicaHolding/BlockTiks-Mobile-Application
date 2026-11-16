@@ -1,4 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/modules/profile_tab/controllers/profile_tab_controller.dart';
 
 import '../../../data/utils/api_utils.dart';
 import '../../../services/base_client.dart';
@@ -23,10 +24,13 @@ class UserDashboardController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    if (!Get.isRegistered<ProfileTabController>()) {
+      Get.put(ProfileTabController());
+    }
     var data = Get.arguments;
-    if(data!= null && data['index'] != null){
+    if (data != null && data['index'] != null) {
       selectedIndex.value = data['index'];
-      Future.delayed(200.milliseconds, ()=> changePage(selectedIndex.value));
+      Future.delayed(200.milliseconds, () => changePage(selectedIndex.value));
     }
     // fetchNotifications();
     // getAdsListing();
