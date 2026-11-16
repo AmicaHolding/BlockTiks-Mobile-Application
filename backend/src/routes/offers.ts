@@ -5,8 +5,12 @@ import { cancelOffer, createOffer, listUserOffers, OfferError } from '../db';
 // marked for the buyer; checkout still goes through the normal resale flow.
 export async function offerRoutes(app: FastifyInstance) {
   app.get('/offers/mine', { preHandler: app.authenticate }, async (request) => {
-    const offers = await listUserOffers(request.user.sub);
-    return { offers };
+    const { cursor, limit } = request.query as { cursor?: string; limit?: string };
+    const result = await listUserOffers(request.user.sub, {
+      cursor,
+      limit: limit ? Math.min(parseInt(limit, 10) || 100, 200) : 200,
+    });
+    return { offers: result.items, nextCursor: result.nextCursor };
   });
 
   app.post(

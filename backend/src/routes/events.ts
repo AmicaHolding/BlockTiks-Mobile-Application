@@ -2,9 +2,12 @@ import type { FastifyInstance } from 'fastify';
 import {
     ConditionFailedError,
     createEventWithTiers,
+    ensureSectionSeats,
     getEvent,
+    getSection,
     listCreatorEvents,
     listPublishedEvents,
+    listSectionSeats,
     listSections,
     publishEvent,
     setVenueLayout,
@@ -12,20 +15,23 @@ import {
 } from '../db';
 
 export async function eventRoutes(app: FastifyInstance) {
-  // GET /events — published events, optional ?category= & ?q=
+  // GET /events — published events, optional ?category=, ?q=, ?cursor=, ?limit=
   app.get('/events', async (request) => {
-    const { category, q, limit } = request.query as {
+    const { category, q, limit, cursor } = request.query as {
       category?: string;
       q?: string;
       limit?: string;
+      cursor?: string;
     };
     const results = await listPublishedEvents({
       category,
       q,
       limit: limit ? Math.min(parseInt(limit, 10) || 50, 100) : 50,
+      cursor,
     });
     return {
-      events: results.map(({ event, tiers }) => ({
+      nextCursor: results.nextCursor,
+      events: results.items.map(({ event, tiers }) => ({
         ...event,
         tiers: tiers.map((t) => ({
           id: t.id,
@@ -124,6 +130,26 @@ export async function eventRoutes(app: FastifyInstance) {
     };
   });
 
+  // GET /events/:id/seats?sectionId= — seat-level availability for a venue
+  // section. Materializes seat rows lazily on first access.
+  app.get('/events/:id/seats', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { sectionId } = request.query as { sectionId?: string };
+    if (!sectionId) return reply.status(400).send({ message: 'sectionId is required' });
+    const result = await getEvent(id);
+    if (!result) return reply.status(404).send({ message: 'Event not found' });
+    if (result.event.status !== 'PUBLISHED') {
+      return reply.status(400).send({ message: 'Event is not on sale' });
+    }
+    const layoutSection = result.event.venueLayout?.sections.find((s) => s.id === sectionId);
+    if (!layoutSection) return reply.status(404).send({ message: 'Section not found' });
+    const section = await getSection(id, sectionId);
+    if (!section) return reply.status(404).send({ message: 'Section not found' });
+    await ensureSectionSeats(id, { ...layoutSection, priceCents: section.priceCents, capacity: section.capacity });
+    const seats = await listSectionSeats(id, sectionId);
+    return { sectionId, seats, currency: result.event.currency ?? 'usd' };
+  });
+
   // PATCH /events/:id — creator updates venue layout (seated events).
   app.patch(
     '/events/:id',
@@ -200,6 +226,7 @@ export async function eventRoutes(app: FastifyInstance) {
             location: { type: 'string' },
             address: { type: 'string' },
             imageUrl: { type: 'string' },
+            currency: { type: 'string', pattern: '^[a-zA-Z]{3}$' },
             tiers: {
               type: 'array',
               items: {
@@ -230,6 +257,7 @@ export async function eventRoutes(app: FastifyInstance) {
         location: string;
         address?: string;
         imageUrl?: string;
+        currency?: string;
         tiers?: { name: string; description?: string; priceCents: number; quantity: number }[];
       };
 
@@ -243,6 +271,7 @@ export async function eventRoutes(app: FastifyInstance) {
         location: body.location,
         address: body.address,
         imageUrl: body.imageUrl,
+        currency: body.currency,
         tiers: body.tiers ?? [],
       });
 

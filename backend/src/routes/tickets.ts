@@ -4,8 +4,12 @@ import { listUserTickets, transferTicket } from '../db';
 export async function ticketRoutes(app: FastifyInstance) {
   // GET /tickets — current user's tickets (wallet)
   app.get('/tickets', { preHandler: app.authenticate }, async (request) => {
-    const tickets = await listUserTickets(request.user.sub);
-    return { tickets };
+    const { cursor, limit } = request.query as { cursor?: string; limit?: string };
+    const result = await listUserTickets(request.user.sub, {
+      cursor,
+      limit: limit ? Math.min(parseInt(limit, 10) || 100, 200) : 200,
+    });
+    return { tickets: result.items, nextCursor: result.nextCursor };
   });
 
   // POST /tickets/:code/transfer — gift a VALID ticket to another user by email.

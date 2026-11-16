@@ -1,13 +1,20 @@
 import type { FastifyInstance } from 'fastify';
 import {
+  applyReferralCode,
+  createWithdrawal,
   getUserById,
   listBroadcastsForEvents,
   listSellerListings,
   listPromos,
   listUserOffers,
   listUserOrders,
+  listUserReferrals,
   listUserTickets,
+  listUserWithdrawals,
+  setUserStripeConnectAccount,
   setUserStripeCustomerId,
+  updateUserStripeConnectStatus,
+  updateWithdrawal,
 } from '../db';
 import { env } from '../env';
 import { getStripe } from '../stripe';
@@ -16,15 +23,65 @@ function itemSummary(parts: Array<string | undefined>): string {
   return parts.filter(Boolean).join(' · ');
 }
 
+async function earningsSummary(userId: string) {
+  const [listingsResult, withdrawals] = await Promise.all([
+    listSellerListings(userId, { limit: 100 }),
+    listUserWithdrawals(userId),
+  ]);
+  const listings = listingsResult.items;
+  const sold = listings.filter((listing) => listing.status === 'SOLD');
+  const nowMs = Date.now();
+  const ready = sold.filter((listing) => new Date(listing.eventStartsAt).getTime() <= nowMs);
+  const pending = sold.filter((listing) => new Date(listing.eventStartsAt).getTime() > nowMs);
+  const withdrawnCents = withdrawals
+    .filter((withdrawal) => withdrawal.status === 'PAID')
+    .reduce((sum, withdrawal) => sum + withdrawal.amountCents, 0);
+  const readyCents = ready.reduce((sum, listing) => sum + listing.priceCents, 0);
+  return {
+    readyCents,
+    pendingCents: pending.reduce((sum, listing) => sum + listing.priceCents, 0),
+    lifetimeCents: sold.reduce((sum, listing) => sum + listing.priceCents, 0),
+    withdrawnCents,
+    availableCents: Math.max(0, readyCents - withdrawnCents),
+    sales: sold
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 50)
+      .map((listing) => ({
+        id: listing.ticketCode,
+        title: listing.eventTitle,
+        subtitle: `${listing.tierName} · ${new Date(listing.eventStartsAt).toLocaleDateString()}${listing.currency && listing.currency !== 'usd' ? ` · ${listing.currency.toUpperCase()}` : ''}`,
+        amountCents: listing.priceCents,
+        currency: listing.currency ?? 'usd',
+        status: new Date(listing.eventStartsAt).getTime() > nowMs ? 'Pending' : 'Ready',
+        createdAt: listing.createdAt,
+      })),
+    withdrawals: withdrawals
+      .slice()
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 50)
+      .map((withdrawal) => ({
+        id: withdrawal.id,
+        amountCents: withdrawal.amountCents,
+        currency: withdrawal.currency,
+        status: withdrawal.status,
+        createdAt: withdrawal.createdAt,
+      })),
+  };
+}
+
 export async function accountRoutes(app: FastifyInstance) {
   app.get('/notifications', { preHandler: app.authenticate }, async (request) => {
     const userId = request.user.sub;
-    const [orders, tickets, listings, offers] = await Promise.all([
-      listUserOrders(userId),
-      listUserTickets(userId),
-      listSellerListings(userId),
-      listUserOffers(userId),
+    const [ordersResult, ticketsResult, listingsResult, offersResult] = await Promise.all([
+      listUserOrders(userId, { limit: 100 }),
+      listUserTickets(userId, { limit: 100 }),
+      listSellerListings(userId, { limit: 100 }),
+      listUserOffers(userId, { limit: 100 }),
     ]);
+    const orders = ordersResult.items;
+    const tickets = ticketsResult.items;
+    const listings = listingsResult.items;
+    const offers = offersResult.items;
     const eventIds = [
       ...new Set([
         ...tickets.map((ticket) => ticket.eventId),
@@ -89,10 +146,12 @@ export async function accountRoutes(app: FastifyInstance) {
   app.post('/notifications/read', { preHandler: app.authenticate }, async () => ({ ok: true }));
 
   app.get('/transactions', { preHandler: app.authenticate }, async (request) => {
-    const [orders, listings] = await Promise.all([
-      listUserOrders(request.user.sub),
-      listSellerListings(request.user.sub),
+    const [ordersResult, listingsResult] = await Promise.all([
+      listUserOrders(request.user.sub, { limit: 200 }),
+      listSellerListings(request.user.sub, { limit: 200 }),
     ]);
+    const orders = ordersResult.items;
+    const listings = listingsResult.items;
     const nowIso = new Date().toISOString();
     const rows = [
       ...orders
@@ -107,6 +166,7 @@ export async function accountRoutes(app: FastifyInstance) {
             order.promoCodeText ? `Promo ${order.promoCodeText}` : undefined,
           ]),
           amountCents: order.totalCents,
+          currency: order.currency ?? 'usd',
           direction: order.status === 'REFUNDED' ? 'in' : 'out',
           status: order.status === 'REFUNDED' ? 'Refunded' : 'Paid',
           createdAt: order.paidAt ?? order.createdAt,
@@ -120,6 +180,7 @@ export async function accountRoutes(app: FastifyInstance) {
           title: `Resale · ${listing.tierName}`,
           subtitle: itemSummary([listing.eventTitle, new Date(listing.eventStartsAt).toLocaleDateString()]),
           amountCents: listing.priceCents,
+          currency: listing.currency ?? 'usd',
           direction: 'in',
           status: listing.eventStartsAt > nowIso ? 'Pending' : 'Ready',
           createdAt: listing.createdAt,
@@ -131,32 +192,136 @@ export async function accountRoutes(app: FastifyInstance) {
   });
 
   app.get('/account/earnings', { preHandler: app.authenticate }, async (request) => {
-    const listings = await listSellerListings(request.user.sub);
-    const sold = listings.filter((listing) => listing.status === 'SOLD');
-    const nowMs = Date.now();
-    const pending = sold.filter((listing) => new Date(listing.eventStartsAt).getTime() > nowMs);
-    const ready = sold.filter((listing) => new Date(listing.eventStartsAt).getTime() <= nowMs);
+    return earningsSummary(request.user.sub);
+  });
+
+  // POST /account/payouts/onboarding-link — Stripe Express onboarding for the
+  // seller's payout account. Returns a hosted onboarding URL.
+  app.post('/account/payouts/onboarding-link', { preHandler: app.authenticate }, async (request, reply) => {
+    if (!env.stripeSecretKey) {
+      return reply.status(503).send({ message: 'Payments are not configured' });
+    }
+    const user = await getUserById(request.user.sub);
+    if (!user) return reply.status(404).send({ message: 'User not found' });
+    const stripe = getStripe();
+    let accountId = user.stripeConnectAccountId;
+    if (!accountId) {
+      const account = await stripe.accounts.create({
+        type: 'express',
+        capabilities: { transfers: { requested: true } },
+        business_profile: { name: `${user.firstName} ${user.lastName}`.trim() || user.email },
+        email: user.email,
+        metadata: { userId: user.id },
+      });
+      accountId = account.id;
+      await setUserStripeConnectAccount(user.id, accountId);
+    }
+    const link = await stripe.accountLinks.create({
+      account: accountId,
+      refresh_url: `${env.publicWebUrl}/account/earnings?onboarding=refresh`,
+      return_url: `${env.publicWebUrl}/account/earnings?onboarding=complete`,
+      type: 'account_onboarding',
+    });
+    return { url: link.url };
+  });
+
+  // GET /account/payouts — current Connect account status.
+  app.get('/account/payouts', { preHandler: app.authenticate }, async (request) => {
+    const user = await getUserById(request.user.sub);
+    if (!user?.stripeConnectAccountId || !env.stripeSecretKey) {
+      return { connected: false, onboardingRequired: true };
+    }
+    const account = await getStripe().accounts.retrieve(user.stripeConnectAccountId);
+    await updateUserStripeConnectStatus(user.id, {
+      detailsSubmitted: account.details_submitted ?? false,
+      chargesEnabled: account.charges_enabled ?? false,
+      payoutsEnabled: account.payouts_enabled ?? false,
+    });
     return {
-      readyCents: ready.reduce((sum, listing) => sum + listing.priceCents, 0),
-      pendingCents: pending.reduce((sum, listing) => sum + listing.priceCents, 0),
-      lifetimeCents: sold.reduce((sum, listing) => sum + listing.priceCents, 0),
-      sales: sold
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-        .slice(0, 50)
-        .map((listing) => ({
-          id: listing.ticketCode,
-          title: listing.eventTitle,
-          subtitle: `${listing.tierName} · ${new Date(listing.eventStartsAt).toLocaleDateString()}`,
-          amountCents: listing.priceCents,
-          status: new Date(listing.eventStartsAt).getTime() > nowMs ? 'Pending' : 'Ready',
-          createdAt: listing.createdAt,
-        })),
+      connected: true,
+      detailsSubmitted: account.details_submitted ?? false,
+      chargesEnabled: account.charges_enabled ?? false,
+      payoutsEnabled: account.payouts_enabled ?? false,
+      dashboardUrl: `https://connect.stripe.com/express/${account.id}`,
     };
   });
 
-  app.post('/account/withdraw', { preHandler: app.authenticate }, async (_request, reply) => {
-    return reply.status(501).send({ message: 'Payout accounts are not connected yet' });
+  // POST /account/payouts/refresh — re-check onboarding status after return.
+  app.post('/account/payouts/refresh', { preHandler: app.authenticate }, async (request) => {
+    const user = await getUserById(request.user.sub);
+    if (!user?.stripeConnectAccountId || !env.stripeSecretKey) {
+      return { connected: false };
+    }
+    const account = await getStripe().accounts.retrieve(user.stripeConnectAccountId);
+    await updateUserStripeConnectStatus(user.id, {
+      detailsSubmitted: account.details_submitted ?? false,
+      chargesEnabled: account.charges_enabled ?? false,
+      payoutsEnabled: account.payouts_enabled ?? false,
+    });
+    return {
+      connected: true,
+      detailsSubmitted: account.details_submitted ?? false,
+      chargesEnabled: account.charges_enabled ?? false,
+      payoutsEnabled: account.payouts_enabled ?? false,
+    };
   });
+
+  // POST /account/withdraw — transfer available earnings to the seller's
+  // connected Stripe account.
+  app.post(
+    '/account/withdraw',
+    {
+      preHandler: app.authenticate,
+      schema: {
+        body: {
+          type: 'object',
+          required: ['amountCents'],
+          properties: {
+            amountCents: { type: 'integer', minimum: 100 },
+            currency: { type: 'string', pattern: '^[a-zA-Z]{3}$' },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!env.stripeSecretKey) {
+        return reply.status(503).send({ message: 'Payments are not configured' });
+      }
+      const { amountCents, currency } = request.body as { amountCents: number; currency?: string };
+      const user = await getUserById(request.user.sub);
+      if (!user) return reply.status(404).send({ message: 'User not found' });
+      if (!user.stripeConnectAccountId || !user.stripeConnectPayoutsEnabled) {
+        return reply.status(400).send({ message: 'Payout account onboarding is not complete', payoutsEnabled: false });
+      }
+      const summary = await earningsSummary(user.id);
+      const normalizedCurrency = (currency ?? 'usd').toLowerCase();
+      if (summary.availableCents < amountCents) {
+        return reply.status(400).send({ message: 'Amount exceeds available earnings', availableCents: summary.availableCents });
+      }
+      const withdrawal = await createWithdrawal({
+        userId: user.id,
+        amountCents,
+        currency: normalizedCurrency,
+      });
+      try {
+        const transfer = await getStripe().transfers.create(
+          {
+            amount: amountCents,
+            currency: normalizedCurrency,
+            destination: user.stripeConnectAccountId,
+            metadata: { withdrawalId: withdrawal.id, userId: user.id },
+          },
+          { idempotencyKey: `withdraw-${withdrawal.id}` }
+        );
+        await updateWithdrawal(withdrawal.id, { status: 'PAID', stripePayoutId: transfer.id });
+        return { ok: true, withdrawalId: withdrawal.id, status: 'PAID' };
+      } catch (err) {
+        await updateWithdrawal(withdrawal.id, { status: 'FAILED' });
+        app.log.error(err, `withdrawal transfer failed for ${withdrawal.id}`);
+        return reply.status(502).send({ message: 'Payout transfer failed; please try again' });
+      }
+    }
+  );
 
   app.get('/account/payment-methods', { preHandler: app.authenticate }, async (request) => {
     if (!env.stripeSecretKey) return { paymentMethods: [], stripeReady: false };
@@ -222,7 +387,11 @@ export async function accountRoutes(app: FastifyInstance) {
   });
 
   app.get('/account/promos', { preHandler: app.authenticate }, async (request) => {
-    const [orders, promos] = await Promise.all([listUserOrders(request.user.sub), listPromos()]);
+    const [ordersResult, promos] = await Promise.all([
+      listUserOrders(request.user.sub, { limit: 200 }),
+      listPromos(),
+    ]);
+    const orders = ordersResult.items;
     const usedAt = new Map<string, string>();
     for (const order of orders) {
       if (order.promoCodeText && order.status === 'PAID') {
@@ -253,20 +422,46 @@ export async function accountRoutes(app: FastifyInstance) {
 
   app.get('/account/referrals', { preHandler: app.authenticate }, async (request) => {
     const user = await getUserById(request.user.sub);
-    const base = [user?.firstName, user?.lastName]
-      .filter(Boolean)
-      .join('')
-      .replace(/[^a-zA-Z0-9]/g, '')
-      .toUpperCase();
-    const code = (base || 'SAHRA').slice(0, 10) + '25';
+    if (!user) return { code: '', shareUrl: '', earnedCents: 0, friends: [], bonusCents: env.referralBonusCents };
+    const referrals = await listUserReferrals(user.id);
     return {
-      code,
-      shareUrl: `https://sahra.app/r/${code}`,
+      code: user.referralCode ?? '',
+      shareUrl: user.referralCode ? `${env.publicWebUrl}/r/${user.referralCode}` : '',
       earnedCents: 0,
-      friends: [],
-      note: 'Referral tracking is not connected yet; this code is reserved for the invite flow.',
+      bonusCents: env.referralBonusCents,
+      referredByCode: user.referredByCode,
+      friends: referrals.map((referral) => ({
+        id: referral.referredUserId,
+        joinedAt: referral.createdAt,
+      })),
+      friendCount: referrals.length,
     };
   });
+
+  // POST /account/referrals/apply — existing users can enter a referral code.
+  app.post(
+    '/account/referrals/apply',
+    {
+      preHandler: app.authenticate,
+      schema: {
+        body: {
+          type: 'object',
+          required: ['code'],
+          properties: { code: { type: 'string', minLength: 4, maxLength: 20 } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { code } = request.body as { code: string };
+      const user = await getUserById(request.user.sub);
+      if (!user) return reply.status(404).send({ message: 'User not found' });
+      const applied = await applyReferralCode(user.id, code.trim());
+      if (!applied) {
+        return reply.status(400).send({ message: 'Referral code is invalid or already used' });
+      }
+      return { ok: true };
+    }
+  );
 
   app.get('/faqs', async () => ({
     categories: [
@@ -281,7 +476,7 @@ export async function accountRoutes(app: FastifyInstance) {
         name: 'Resale',
         faqs: [
           { q: 'How do I sell a ticket I can’t use?', a: 'Open Tickets, tap the event, choose “I can’t go”, pick the tickets, set a price within the organizer’s cap, and list them on the event page.' },
-          { q: 'When do I get paid?', a: 'Resale proceeds are tracked in Earnings and release according to the organizer’s payout schedule once payout accounts are connected.' },
+          { q: 'When do I get paid?', a: 'Resale proceeds collect in Earnings once the event has passed. Withdraw them to your connected payout account.' },
           { q: 'What is “Set your price”?', a: 'It lets buyers offer to buy a sold-out ticket automatically if a seller lists at or below their price.' },
           { q: 'Can I cancel a listing?', a: 'Yes, while the listing is active you can cancel it from Tickets and the ticket becomes valid again for you.' },
         ],

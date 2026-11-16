@@ -52,6 +52,13 @@ export const env = {
       })()
     : {}),
   platformFeePercent: parseInt(process.env.PLATFORM_FEE_PERCENT ?? '12', 10),
+  // Transactional email (SES). Empty = log-only dev mode.
+  sesFromEmail: process.env.SES_FROM_EMAIL ?? '',
+  sesRegion: process.env.SES_REGION ?? process.env.AWS_REGION ?? 'us-east-1',
+  // Public base URL of the buyer web app (verification links, payout onboarding returns).
+  publicWebUrl: process.env.PUBLIC_WEB_URL ?? 'http://localhost:5174',
+  // Referral bonus paid to the referrer per successful referral (cents). 0 = tracking only.
+  referralBonusCents: parseInt(process.env.REFERRAL_BONUS_CENTS ?? '0', 10),
   // How long a PENDING order holds ticket inventory before the sweeper
   // releases it (covers abandoned Stripe checkout sheets).
   reservationTtlMinutes: parseInt(process.env.RESERVATION_TTL_MINUTES ?? '15', 10),
