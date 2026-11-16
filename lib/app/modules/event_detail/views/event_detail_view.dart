@@ -708,6 +708,89 @@ class _VenueSections extends GetWidget<EventDetailController> {
     });
   }
 
+  void _openSectionSheet(Map<String, dynamic> section) {
+    final id = section['id']?.toString() ?? '';
+    if (id.isNotEmpty) controller.chooseSection(id);
+    final name = section['name']?.toString() ?? 'Section';
+    final remaining = controller.sectionRemaining(section);
+    final price = section['priceCents'];
+    final priceLabel = price is num
+        ? formatCents(price)
+        : formatDollars((section['price'] as num?)?.toDouble());
+    Get.bottomSheet(
+      Container(
+        decoration: BoxDecoration(
+          color: ColorConstant.nightSurface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        child: SafeArea(
+          child: Obx(() {
+            final count = controller.sectionCount.value;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: ColorConstant.nightBorder,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(name, style: sahraText(size: 22, weight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Text('$priceLabel each · $remaining seats left',
+                    style:
+                        sahraText(color: ColorConstant.nightMuted, size: 13)),
+                const SizedBox(height: 6),
+                Text('View from this section · facing stage',
+                    style: sahraText(color: ColorConstant.gold, size: 12)),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Text('Tickets',
+                        style: sahraText(size: 15, weight: FontWeight.w600)),
+                    const Spacer(),
+                    _smallStep(Icons.remove_rounded,
+                        () => controller.adjustSectionCount(-1)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('$count',
+                          style: sahraText(size: 16, weight: FontWeight.w700)),
+                    ),
+                    _smallStep(Icons.add_rounded,
+                        () => controller.adjustSectionCount(1)),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Seat-level picks are not connected yet. Sahra assigns seats in this section at checkout.',
+                  style: sahraText(
+                      color: ColorConstant.nightMuted, size: 12, height: 1.45),
+                ),
+                const SizedBox(height: 18),
+                SahraPillButton(
+                  label: count > 0
+                      ? 'Select $count seat${count == 1 ? '' : 's'}'
+                      : 'Sold out',
+                  enabled: count > 0,
+                  onTap: Get.back,
+                ),
+              ],
+            );
+          }),
+        ),
+      ),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+    );
+  }
+
   Widget _mapPreview(List<Map<String, dynamic>> sections) {
     return SahraCard(
       padding: const EdgeInsets.all(14),
@@ -736,7 +819,12 @@ class _VenueSections extends GetWidget<EventDetailController> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: sections.map(_mapSectionChip).toList(),
+            children: sections
+                .map((section) => GestureDetector(
+                      onTap: () => _openSectionSheet(section),
+                      child: _mapSectionChip(section),
+                    ))
+                .toList(),
           ),
         ],
       ),
@@ -802,7 +890,7 @@ class _VenueSections extends GetWidget<EventDetailController> {
       return Opacity(
         opacity: soldOut ? .55 : 1,
         child: GestureDetector(
-          onTap: soldOut ? null : () => controller.selectSection(id),
+          onTap: soldOut ? null : () => _openSectionSheet(section),
           child: Container(
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(14),

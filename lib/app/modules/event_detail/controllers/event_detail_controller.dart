@@ -94,6 +94,18 @@ class EventDetailController extends GetxController {
     if (sectionCount.value > max) sectionCount.value = max.clamp(0, 8);
   }
 
+  void chooseSection(String id) {
+    if (selectedSectionId.value == id) return;
+    selectedListingCode.value = '';
+    selectedSectionId.value = id;
+    final section = venueSections.firstWhere(
+      (s) => s['id']?.toString() == id,
+      orElse: () => const {},
+    );
+    final max = sectionRemaining(section);
+    sectionCount.value = max > 0 ? 1 : 0;
+  }
+
   void adjustSectionCount(int delta) {
     selectedListingCode.value = '';
     final section = selectedSection;
