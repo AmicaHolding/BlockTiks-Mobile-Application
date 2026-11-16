@@ -219,6 +219,15 @@ export async function orderRoutes(app: FastifyInstance) {
       if (tier.sold + quantity > tier.quantity) {
         return reply.status(409).send({ message: 'Not enough tickets remaining' });
       }
+      // Enforce the tier's on-sale window (fields exist on tiers but were
+      // previously unchecked, allowing purchases outside the sale period).
+      const saleNow = Date.now();
+      if (tier.saleStartsAt && Date.parse(tier.saleStartsAt) > saleNow) {
+        return reply.status(400).send({ message: 'Ticket sales have not started yet' });
+      }
+      if (tier.saleEndsAt && Date.parse(tier.saleEndsAt) <= saleNow) {
+        return reply.status(400).send({ message: 'Ticket sales for this tier have ended' });
+      }
 
       // Server-side pricing — never trust client amounts.
       const subtotalCents = tier.priceCents * quantity;

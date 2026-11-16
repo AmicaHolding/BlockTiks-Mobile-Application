@@ -1,5 +1,7 @@
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
+import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 import { env } from './env';
 import { authPlugin } from './plugins/auth';
@@ -35,6 +37,13 @@ export function buildApp() {
     }
   );
 
+  void app.register(helmet);
+  void app.register(rateLimit, {
+    global: true,
+    // Generous global ceiling; sensitive auth routes tighten it below.
+    max: 300,
+    timeWindow: '1 minute',
+  });
   void app.register(cors, {
     origin: env.corsOrigin === '*' ? true : env.corsOrigin.split(','),
   });
@@ -54,8 +63,12 @@ export function buildApp() {
 
   app.setErrorHandler((error: { statusCode?: number; message?: string }, _request, reply) => {
     const statusCode = error.statusCode ?? 500;
-    if (statusCode >= 500) app.log.error(error);
-    reply.status(statusCode).send({ message: error.message ?? 'Internal server error' });
+    if (statusCode >= 500) {
+      // Never leak internals (stack traces, AWS/Stripe errors) to clients.
+      app.log.error(error);
+      return reply.status(statusCode).send({ message: 'Internal server error' });
+    }
+    reply.status(statusCode).send({ message: error.message ?? 'Request failed' });
   });
 
   return app;

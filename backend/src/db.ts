@@ -2026,6 +2026,20 @@ export async function deleteUser(id: string): Promise<boolean> {
       ],
     })
   );
+  // A deleted account must not keep sellable inventory or standing offers:
+  // cancel active resale listings and offers so nothing can be purchased on
+  // behalf of a deleted user.
+  const [listings, offers] = await Promise.all([listSellerListings(id), listUserOffers(id)]);
+  for (const listing of listings) {
+    if (listing.status === 'ACTIVE' || listing.status === 'CHECKOUT') {
+      await cancelListing(id, listing.ticketCode).catch(() => undefined);
+    }
+  }
+  for (const offer of offers) {
+    if (offer.status === 'ACTIVE') {
+      await cancelOffer(id, offer.id).catch(() => undefined);
+    }
+  }
   return true;
 }
 

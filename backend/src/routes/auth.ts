@@ -37,6 +37,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.post(
     '/auth/signup',
     {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
       schema: {
         body: {
           type: 'object',
@@ -94,6 +95,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.post(
     '/auth/login',
     {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
       schema: {
         body: {
           type: 'object',
@@ -148,7 +150,6 @@ export async function authRoutes(app: FastifyInstance) {
             city: { type: 'string' },
             interests: { type: 'array', items: { type: 'string' }, maxItems: 10 },
             dateOfBirth: { type: 'string' },
-            emailVerified: { type: 'boolean' },
             notificationPrefs: {
               type: 'object',
               properties: {
@@ -158,6 +159,8 @@ export async function authRoutes(app: FastifyInstance) {
               },
             },
             pushNotification: { type: 'boolean' },
+            // NOTE: emailVerified is intentionally NOT user-writable — it is
+            // reserved for a future server-side verification flow.
           },
         },
       },
@@ -172,7 +175,6 @@ export async function authRoutes(app: FastifyInstance) {
         city?: string;
         interests?: string[];
         dateOfBirth?: string;
-        emailVerified?: boolean;
         notificationPrefs?: { push?: boolean; email?: boolean; sms?: boolean };
         pushNotification?: boolean;
       };
@@ -187,7 +189,6 @@ export async function authRoutes(app: FastifyInstance) {
         city: body.city,
         interests: body.interests,
         dateOfBirth: body.dateOfBirth,
-        emailVerified: body.emailVerified,
         notificationPrefs: body.notificationPrefs ??
           (body.pushNotification !== undefined ? { push: body.pushNotification } : undefined),
       });
@@ -228,6 +229,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.post(
     '/auth/forgot-password',
     {
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
       schema: {
         body: {
           type: 'object',
@@ -251,6 +253,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.post(
     '/auth/verify-reset-code',
     {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
       schema: {
         body: {
           type: 'object',
@@ -270,6 +273,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.post(
     '/auth/reset-password',
     {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
       schema: {
         body: {
           type: 'object',

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { createPromo, deletePromo, listPromos, updatePromo, type PromoCode } from '../db';
+import { createPromo, deletePromo, getPromoByCode, listPromos, updatePromo, type PromoCode } from '../db';
 
 function promoDiscountFields(body: {
   kind?: 'PERCENT' | 'FIXED';
@@ -35,6 +35,14 @@ export async function promoRoutes(app: FastifyInstance) {
     if (discount.percentOff === undefined && discount.amountOffCents === undefined && body.percentOff === undefined && body.amountOffCents === undefined) {
       return reply.status(400).send({ message: 'Discount is required' });
     }
+    const percent = discount.percentOff ?? body.percentOff;
+    if (percent !== undefined && (percent <= 0 || percent > 100)) {
+      return reply.status(400).send({ message: 'Percent discount must be between 1 and 100' });
+    }
+    const amount = discount.amountOffCents ?? body.amountOffCents;
+    if (amount !== undefined && (!Number.isInteger(amount) || amount <= 0)) {
+      return reply.status(400).send({ message: 'Fixed discount must be a positive cent amount' });
+    }
     try {
       const promo = await createPromo({
         code: body.code,
@@ -68,7 +76,22 @@ export async function promoRoutes(app: FastifyInstance) {
     if (!canManage(request.user.role)) return reply.status(403).send({ message: 'Creator access required' });
     const { code } = request.params as { code: string };
     const body = request.body as Partial<PromoCode> & { value?: number };
+    // Ownership must be verified BEFORE writing — updating first would let any
+    // creator mutate another creator's promo even though the response is 403.
+    const existing = await getPromoByCode(code);
+    if (!existing) return reply.status(404).send({ message: 'Promo code not found' });
+    if (existing.creatorId && existing.creatorId !== request.user.sub && request.user.role !== 'ADMIN') {
+      return reply.status(403).send({ message: 'Not your promo code' });
+    }
     const discount = promoDiscountFields(body);
+    const percent = discount.percentOff ?? body.percentOff;
+    if (percent !== undefined && (percent <= 0 || percent > 100)) {
+      return reply.status(400).send({ message: 'Percent discount must be between 1 and 100' });
+    }
+    const amount = discount.amountOffCents ?? body.amountOffCents;
+    if (amount !== undefined && (!Number.isInteger(amount) || amount <= 0)) {
+      return reply.status(400).send({ message: 'Fixed discount must be a positive cent amount' });
+    }
     const promo = await updatePromo(code, {
       eventId: body.eventId,
       tierId: body.tierId,
@@ -86,9 +109,6 @@ export async function promoRoutes(app: FastifyInstance) {
       active: body.active,
     });
     if (!promo) return reply.status(404).send({ message: 'Promo code not found' });
-    if (promo.creatorId && promo.creatorId !== request.user.sub && request.user.role !== 'ADMIN') {
-      return reply.status(403).send({ message: 'Not your promo code' });
-    }
     return { promo };
   });
 

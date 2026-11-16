@@ -161,6 +161,9 @@ export async function eventRoutes(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
+      if (request.user.role !== 'CREATOR' && request.user.role !== 'ADMIN') {
+        return reply.status(403).send({ message: 'Creator access required' });
+      }
       const { id } = request.params as { id: string };
       const { venueLayout } = request.body as { venueLayout?: VenueLayout };
       if (!venueLayout) {
@@ -215,6 +218,9 @@ export async function eventRoutes(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
+      if (request.user.role !== 'CREATOR' && request.user.role !== 'ADMIN') {
+        return reply.status(403).send({ message: 'Creator access required' });
+      }
       const body = request.body as {
         title: string;
         description: string;
@@ -246,6 +252,9 @@ export async function eventRoutes(app: FastifyInstance) {
 
   // POST /events/:id/publish — creator publishes a draft event
   app.post('/events/:id/publish', { preHandler: app.authenticate }, async (request, reply) => {
+    if (request.user.role !== 'CREATOR' && request.user.role !== 'ADMIN') {
+      return reply.status(403).send({ message: 'Creator access required' });
+    }
     const { id } = request.params as { id: string };
     try {
       const event = await publishEvent(id, request.user.sub, request.user.role);
