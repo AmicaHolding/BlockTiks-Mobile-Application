@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#ece4d6;font-family:'Bricolage Grotesque',sans-serif;color:#241c14}a{color:#b8323a}a:hover{color:#16263b}
+@keyframes sahraLogo{0%{opacity:0;transform:translateY(12px) scale(.86)}19%{opacity:1;transform:translateY(-2px) scale(1.02)}26%,82%{opacity:1;transform:translateY(0) scale(1)}92%,100%{opacity:0;transform:translateY(0) scale(1)}}
+@keyframes sahraGlow{0%,9%{opacity:0;transform:scale(.5)}24%{opacity:.55;transform:scale(1.1)}34%,82%{opacity:.3;transform:scale(1)}92%,100%{opacity:0;transform:scale(1)}}
+@keyframes sahraUrl{0%,22%{opacity:0;transform:translateY(6px)}31%,82%{opacity:1;transform:translateY(0)}92%,100%{opacity:0}}</style>
+</helmet>
+<div style="display:flex;flex-direction:column;gap:96px;padding:80px">
+
+<div style="display:flex;flex-direction:column;gap:12px;max-width:900px">
+<div style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#b8323a;font-weight:600">Sahra · Product screens, part 2</div>
+<div style="font-weight:800;font-size:56px;letter-spacing:-.03em;line-height:1;color:#16263b">Entry, account & Studio tools</div>
+<div style="font-size:18px;line-height:1.55;opacity:.75;text-wrap:pretty">Screens 26–45. Numbering continues from <a href="Sahra Product Screens.dc.html">Product Screens</a>. Shown in English; production is RTL-first.</div>
+</div>
+
+<section data-screen-label="Entry & auth" style="display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;flex-direction:column;gap:8px;max-width:900px"><div style="font-weight:800;font-size:32px;letter-spacing:-.02em;color:#16263b">Entry & auth</div><div style="font-size:16px;line-height:1.55;opacity:.75;text-wrap:pretty">Splash under 1.5s. Sign in and sign up share one screen with tabs. The creator question comes after sign-up, on Personalize. Password reset uses a 6-digit email code until phone OTP ships.</div></div>
+<div style="display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start">
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">26 · Splash <span style="font-weight:400;opacity:.6">· looping preview</span></div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#16263b;color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;box-sizing:content-box">
+{{ splashGlow }}
+{{ splashLogo }}
+{{ splashUrl }}
+</div>
+<div style="width:390px;display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:1.45">
+<strong style="font-size:13px">Motion · 1.2s total</strong>
+<span style="opacity:.75">0–600ms: ticket rises 12px, scales 0.86 → 1, fades in (ease-out-back, slight overshoot).</span>
+<span style="opacity:.75">300–900ms: a soft gold glow blooms behind it and settles, like stage lights warming up.</span>
+<span style="opacity:.75">700–1000ms: “sahra.app” fades up. At 1.2s, cross-fade to For You. Skipped entirely when the app opens warm or Reduce Motion is on.</span>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">27 · Get started</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#16263b;color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#2a3b52"></span></div>
+<div style="padding:14px 20px 0;display:flex;justify-content:space-between;align-items:center"><img src="brand/png/sahra-logo-gold.png" alt="" style="width:56px"></img><div style="display:flex;background:#22344d;border-radius:99px;padding:3px;font-size:14px;font-weight:600"><span style="padding:6px 14px;border-radius:99px;background:#f2d9a0;color:#16263b">EN</span><span style="padding:6px 14px;font-family:'IBM Plex Sans Arabic',sans-serif">عربي</span></div></div>
+<div style="margin:22px 20px 0;height:340px;border-radius:24px;background:repeating-linear-gradient(135deg,#2f4560 0 14px,#2a3b52 14px 28px);display:flex;align-items:center;justify-content:center;font-size:11px;color:#9fb0c6;flex:none">crowd photo, warm stage light</div>
+<div style="padding:26px 24px 0;display:flex;flex-direction:column;gap:10px">
+<strong style="font-size:32px;letter-spacing:-.02em;line-height:1.08">Every night out, in one place</strong>
+<span style="font-size:16px;line-height:1.5;color:#c9d3df">Concerts, comedy and match days across the Gulf. Can’t go? Sell your ticket in two taps.</span>
+</div>
+<div style="padding:18px 24px 0;display:flex;gap:6px"><span style="width:22px;height:6px;border-radius:99px;background:#f2d9a0"></span><span style="width:6px;height:6px;border-radius:99px;background:#3a506c"></span><span style="width:6px;height:6px;border-radius:99px;background:#3a506c"></span></div>
+<div style="position:absolute;left:0;right:0;bottom:0;padding:0 20px 40px;display:flex;flex-direction:column;gap:10px">
+<div style="background:#f2d9a0;color:#16263b;font-weight:600;font-size:16px;padding:16px;border-radius:99px;text-align:center">Create account</div>
+<div style="border:1.5px solid #f2d9a0;color:#f2d9a0;font-weight:600;font-size:16px;padding:14.5px;border-radius:99px;text-align:center">I have an account</div>
+<span style="text-align:center;font-size:14px;color:#9fb0c6;padding-top:6px">Look around first</span>
+</div>
+</div></div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">28 · Sign in</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#16263b;color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#2a3b52"></span></div>
+<div style="padding:12px 20px 0;display:flex"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+<div style="padding:18px 24px 0;display:flex;flex-direction:column;gap:20px">
+<strong style="font-size:30px;letter-spacing:-.02em">Welcome back</strong>
+<div style="display:grid;grid-template-columns:1fr 1fr;background:#22344d;border-radius:99px;padding:4px;font-size:15px;font-weight:600;text-align:center"><span style="padding:10px;border-radius:99px;background:#f7f1e6;color:#16263b">Sign in</span><span style="padding:10px;color:#9fb0c6">Sign up</span></div>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#9fb0c6">Email or phone</span><div style="background:#22344d;border-radius:14px;padding:15px 16px;font-size:16px;border:1.5px solid #22344d">layla.alamin@gmail.com</div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#9fb0c6">Password</span><div style="background:#22344d;border-radius:14px;padding:15px 16px;font-size:16px;border:1.5px solid #f2d9a0;display:flex;justify-content:space-between"><span style="letter-spacing:.2em">••••••••</span><span style="font-size:14px;color:#f2d9a0;letter-spacing:0">Show</span></div></div>
+<span style="font-size:14px;color:#f2d9a0;align-self:flex-end;margin-top:-8px">Forgot password?</span>
+<div style="background:#f2d9a0;color:#16263b;font-weight:600;font-size:16px;padding:16px;border-radius:99px;text-align:center">Sign in</div>
+<div style="display:flex;align-items:center;gap:12px;font-size:13px;color:#9fb0c6"><span style="flex:1;height:1px;background:#2a3b52"></span>or<span style="flex:1;height:1px;background:#2a3b52"></span></div>
+<div style="display:flex;flex-direction:column;gap:10px"><div style="background:#f7f1e6;color:#0b1420;font-weight:600;font-size:16px;padding:15px;border-radius:99px;text-align:center">Continue with Apple</div><div style="border:1.5px solid #3a506c;font-weight:600;font-size:16px;padding:13.5px;border-radius:99px;text-align:center">Continue with Google</div></div>
+</div>
+</div></div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">29 · Sign up</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#16263b;color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#2a3b52"></span></div>
+<div style="padding:12px 20px 0;display:flex"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+<div style="padding:18px 24px 0;display:flex;flex-direction:column;gap:16px">
+<strong style="font-size:30px;letter-spacing:-.02em">Create your account</strong>
+<div style="display:grid;grid-template-columns:1fr 1fr;background:#22344d;border-radius:99px;padding:4px;font-size:15px;font-weight:600;text-align:center"><span style="padding:10px;color:#9fb0c6">Sign in</span><span style="padding:10px;border-radius:99px;background:#f7f1e6;color:#16263b">Sign up</span></div>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#9fb0c6">Full name</span><div style="background:#22344d;border-radius:14px;padding:15px 16px;font-size:16px">Layla Al-Amin</div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#9fb0c6">Email</span><div style="background:#22344d;border-radius:14px;padding:15px 16px;font-size:16px">layla.alamin@gmail.com</div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#9fb0c6">Mobile <span style="opacity:.7">· for ticket transfers</span></span><div style="background:#22344d;border-radius:14px;padding:15px 16px;font-size:16px;display:flex;gap:12px"><span style="color:#f2d9a0">+971 ▾</span><span>50 412 8890</span></div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#9fb0c6">Password</span><div style="background:#22344d;border-radius:14px;padding:15px 16px;font-size:16px;border:1.5px solid #f2d9a0;display:flex;justify-content:space-between"><span style="letter-spacing:.2em">••••••••••</span><span style="font-size:14px;color:#f2d9a0;letter-spacing:0">Show</span></div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:4px"><span style="height:4px;border-radius:99px;background:#f2d9a0"></span><span style="height:4px;border-radius:99px;background:#f2d9a0"></span><span style="height:4px;border-radius:99px;background:#f2d9a0"></span><span style="height:4px;border-radius:99px;background:#3a506c"></span></div><span style="font-size:12px;color:#9fb0c6">Good. Add a symbol to make it strong.</span></div>
+<div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.45;color:#c9d3df"><span style="width:20px;height:20px;border-radius:6px;background:#f2d9a0;color:#16263b;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex:none">✓</span><span>I agree to the <span style="color:#f2d9a0">Terms</span> and <span style="color:#f2d9a0">Resale policy</span></span></div>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;padding:0 24px 40px"><div style="background:#f2d9a0;color:#16263b;font-weight:600;font-size:16px;padding:16px;border-radius:99px;text-align:center">Create account</div></div>
+</div></div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">30 · Personalize</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#16263b;color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#2a3b52"></span></div>
+<div style="padding:12px 20px 0;display:flex;justify-content:space-between;align-items:center;font-size:14px;color:#9fb0c6"><span style="display:flex;gap:4px"><span style="width:22px;height:4px;border-radius:99px;background:#f2d9a0"></span><span style="width:22px;height:4px;border-radius:99px;background:#f2d9a0"></span></span><span>Skip</span></div>
+<div style="padding:18px 24px 0;display:flex;flex-direction:column;gap:6px"><strong style="font-size:28px;letter-spacing:-.02em;line-height:1.1">Make it yours, Layla</strong><span style="font-size:15px;color:#c9d3df">This shapes what you see on For You.</span></div>
+<div style="padding:20px 24px 0;font-size:14px;font-weight:600">Your city</div>
+<div style="padding:10px 24px 0;display:flex;flex-wrap:wrap;gap:8px">
+<sc-for list="{{ cities }}" as="c" hint-placeholder-count="8"><span style="padding:8px 14px;border-radius:99px;font-size:14px;font-weight:500;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</span></sc-for>
+</div>
+<div style="padding:22px 24px 0;display:flex;justify-content:space-between;font-size:14px"><strong>Pick 3 things you love</strong><span style="color:#f2d9a0">3 of 3</span></div>
+<div style="padding:10px 24px 0;display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+<sc-for list="{{ interests }}" as="i" hint-placeholder-count="9"><div style="height:74px;border-radius:14px;background:{{ i.bg }};border:1.5px solid {{ i.bd }};padding:10px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;font-size:13px;font-weight:600;color:{{ i.fg }}"><span style="align-self:flex-end;font-size:12px">{{ i.tick }}</span>{{ i.n }}</div></sc-for>
+</div>
+<div style="margin:18px 24px 0;padding:14px 16px;border-radius:14px;border:1.5px dashed #3a506c;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px"><span style="display:flex;flex-direction:column;gap:2px"><strong>Hosting events?</strong><span style="font-size:13px;color:#9fb0c6">Set up Sahra Studio for your team</span></span><span style="color:#f2d9a0;font-weight:600;white-space:nowrap">Set up</span></div>
+<div style="position:absolute;left:0;right:0;bottom:0;padding:0 24px 40px"><div style="background:#f2d9a0;color:#16263b;font-weight:600;font-size:16px;padding:16px;border-radius:99px;text-align:center">Show me what’s on</div></div>
+</div></div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">31 · Forgot password</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#16263b;color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#2a3b52"></span></div>
+<div style="padding:12px 20px 0;display:flex"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+<div style="padding:18px 24px 0;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;flex-direction:column;gap:8px"><strong style="font-size:30px;letter-spacing:-.02em;line-height:1.1">Forgot your password?</strong><span style="font-size:15px;line-height:1.5;color:#c9d3df">Enter the email on your account. We’ll send a 6-digit code to reset it.</span></div>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#9fb0c6">Email</span><div style="background:#22344d;border-radius:14px;padding:15px 16px;font-size:16px;border:1.5px solid #f2d9a0">layla.alamin@gmail.com</div></div>
+<div style="background:#f2d9a0;color:#16263b;font-weight:600;font-size:16px;padding:16px;border-radius:99px;text-align:center">Send code</div>
+<span style="font-size:14px;color:#9fb0c6;text-align:center">Remembered it? <span style="color:#f2d9a0">Sign in</span></span>
+</div>
+</div></div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">32 · Enter code (OTP)</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#16263b;color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#2a3b52"></span></div>
+<div style="padding:12px 20px 0;display:flex"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+<div style="padding:18px 24px 0;display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:8px"><strong style="font-size:30px;letter-spacing:-.02em">Check your email</strong><span style="font-size:15px;line-height:1.5;color:#c9d3df">We sent a code to <strong style="color:#f7f1e6">l•••••n@gmail.com</strong>. It expires in 10 minutes.</span></div>
+<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">
+<sc-for list="{{ otp }}" as="o" hint-placeholder-count="6"><div style="height:58px;border-radius:12px;background:#22344d;border:1.5px solid {{ o.bd }};display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:600">{{ o.d }}</div></sc-for>
+</div>
+<span style="font-size:14px;color:#9fb0c6">Didn’t get it? Resend in <strong style="color:#f7f1e6">0:42</strong> · check spam</span>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;padding:0 24px 40px;display:flex;flex-direction:column;gap:10px"><div style="background:#2a3b52;color:#6f84a0;font-weight:600;font-size:16px;padding:16px;border-radius:99px;text-align:center">Verify</div><span style="font-size:13px;color:#9fb0c6;text-align:center">Verifies on its own once all 6 digits are in</span></div>
+</div></div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">33 · Reset password</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#16263b;color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#2a3b52"></span></div>
+<div style="padding:12px 20px 0;display:flex"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+<div style="padding:18px 24px 0;display:flex;flex-direction:column;gap:18px">
+<strong style="font-size:30px;letter-spacing:-.02em">Set a new password</strong>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#9fb0c6">New password</span><div style="background:#22344d;border-radius:14px;padding:15px 16px;font-size:16px;display:flex;justify-content:space-between"><span style="letter-spacing:.2em">••••••••••</span><span style="font-size:14px;color:#f2d9a0">Show</span></div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:#9fb0c6">Confirm password</span><div style="background:#22344d;border-radius:14px;padding:15px 16px;font-size:16px;border:1.5px solid #f2d9a0;letter-spacing:.2em">•••••••</div></div>
+<div style="display:flex;flex-direction:column;gap:8px;font-size:14px">
+<sc-for list="{{ pwRules }}" as="r" hint-placeholder-count="3"><div style="display:flex;gap:10px;align-items:center;color:{{ r.c }}"><span style="width:18px;height:18px;border-radius:50%;background:{{ r.bg }};color:#16263b;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">{{ r.i }}</span>{{ r.n }}</div></sc-for>
+</div>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;padding:0 24px 40px;display:flex;flex-direction:column;gap:10px"><div style="background:#f2d9a0;color:#16263b;font-weight:600;font-size:16px;padding:16px;border-radius:99px;text-align:center">Save and sign in</div><span style="font-size:13px;color:#9fb0c6;text-align:center">Other devices will be signed out</span></div>
+</div></div>
+
+</div>
+</section>
+
+<section data-screen-label="Profile & settings" style="display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;flex-direction:column;gap:8px;max-width:900px"><div style="font-weight:800;font-size:32px;letter-spacing:-.02em;color:#16263b">Profile & settings</div><div style="font-size:16px;line-height:1.55;opacity:.75;text-wrap:pretty">Forms sit on Sand (light) so long typing is comfortable. Everything you browse stays on Night. Earnings appears in Profile only once you’ve resold a ticket.</div></div>
+<div style="display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start">
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">34 · Edit profile</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#f7f1e6;color:#241c14;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#d8cdb9"></span></div>
+<div style="padding:12px 20px 0;display:flex;justify-content:space-between;align-items:center;color:#16263b"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg><strong style="font-size:17px">Edit profile</strong><strong style="font-size:16px;color:#b8323a">Save</strong></div>
+<div style="padding:22px 0 0;display:flex;flex-direction:column;align-items:center;gap:10px"><div style="width:96px;height:96px;border-radius:50%;background:#16263b;color:#f2d9a0;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800">LA</div><span style="font-size:14px;font-weight:600;color:#16263b;text-decoration:underline;text-underline-offset:4px">Change photo</span></div>
+<div style="padding:18px 24px 0;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Full name<span style="padding:13px 14px;border-radius:12px;border:1.5px solid #16263b;background:#fff9ef;font-weight:400;font-size:16px">Layla Al-Amin</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Name in Arabic<span dir="rtl" style="padding:13px 14px;border-radius:12px;border:1.5px solid #d8cdb9;background:#fff9ef;font-weight:400;font-size:16px;font-family:'IBM Plex Sans Arabic',sans-serif">ليلى الأمين</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Email<span style="padding:13px 14px;border-radius:12px;border:1.5px solid #d8cdb9;background:#fff9ef;font-weight:400;font-size:16px;display:flex;justify-content:space-between">layla.alamin@gmail.com<span style="font-size:12px;font-weight:600;color:#2f7a4f">Verified</span></span></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Mobile<span style="padding:13px 14px;border-radius:12px;border:1.5px solid #d8cdb9;background:#fff9ef;font-weight:400;font-size:16px">+971 50 412 8890</span></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">City<span style="padding:13px 14px;border-radius:12px;border:1.5px solid #d8cdb9;background:#fff9ef;font-weight:400;font-size:16px">Dubai ▾</span></div><div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Date of birth<span style="padding:13px 14px;border-radius:12px;border:1.5px solid #d8cdb9;background:#fff9ef;font-weight:400;font-size:16px">14 Mar 1996</span></div></div>
+<span style="font-size:12px;opacity:.6;margin-top:-6px">Date of birth is used for 18+ events only. Never shown.</span>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:40px;text-align:center;font-size:14px;font-weight:600;color:#b8323a">Delete account</div>
+</div></div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">35 · Change password</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#f7f1e6;color:#241c14;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#d8cdb9"></span></div>
+<div style="padding:12px 20px 0;display:flex;justify-content:space-between;align-items:center;color:#16263b"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg><strong style="font-size:17px">Change password</strong><span style="width:24px"></span></div>
+<div style="padding:28px 24px 0;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Current password<span style="padding:13px 14px;border-radius:12px;border:1.5px solid #d8cdb9;background:#fff9ef;font-weight:400;font-size:16px;letter-spacing:.2em">•••••••••</span><span style="font-weight:400;color:#b8323a;align-self:flex-end">Forgot it?</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">New password<span style="padding:13px 14px;border-radius:12px;border:1.5px solid #16263b;background:#fff9ef;font-weight:400;font-size:16px;display:flex;justify-content:space-between"><span style="letter-spacing:.2em">•••••••••••</span><span style="font-size:14px;font-weight:600;color:#16263b">Show</span></span></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Confirm new password<span style="padding:13px 14px;border-radius:12px;border:1.5px solid #d8cdb9;background:#fff9ef;font-weight:400;font-size:16px;letter-spacing:.2em">•••••••••••</span></div>
+<div style="display:flex;flex-direction:column;gap:8px;font-size:14px;padding-top:4px">
+<sc-for list="{{ pwRulesLight }}" as="r" hint-placeholder-count="3"><div style="display:flex;gap:10px;align-items:center"><span style="width:18px;height:18px;border-radius:50%;background:{{ r.bg }};color:#f7f1e6;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">{{ r.i }}</span>{{ r.n }}</div></sc-for>
+</div>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;padding:0 24px 40px;display:flex;flex-direction:column;gap:10px"><div style="background:#16263b;color:#f2d9a0;font-weight:600;font-size:16px;padding:16px;border-radius:99px;text-align:center">Update password</div><span style="font-size:13px;opacity:.6;text-align:center">You’ll stay signed in here. Other devices sign out.</span></div>
+</div></div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">36 · Notifications</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#16263b;color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#2a3b52"></span></div>
+<div style="padding:12px 20px 0;display:flex;justify-content:space-between;align-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg><span style="font-size:14px;color:#f2d9a0">Mark all read</span></div>
+<div style="padding:14px 20px 0;font-weight:800;font-size:28px;letter-spacing:-.02em">Notifications</div>
+<sc-for list="{{ notifGroups }}" as="g" hint-placeholder-count="2"><div style="padding:18px 20px 0;display:flex;flex-direction:column">
+<span style="font-size:13px;color:#9fb0c6;padding-bottom:4px">{{ g.h }}</span>
+<sc-for list="{{ g.items }}" as="n" hint-placeholder-count="3"><div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #22344d;align-items:flex-start"><span style="width:40px;height:40px;border-radius:12px;background:{{ n.bg }};color:{{ n.fg }};display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;flex:none">{{ n.i }}</span><span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0"><strong style="font-size:15px;line-height:1.3">{{ n.t }}</strong><span style="font-size:13px;color:#9fb0c6;line-height:1.4">{{ n.s }}</span></span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none"><span style="font-size:12px;color:#9fb0c6">{{ n.w }}</span><span style="width:8px;height:8px;border-radius:50%;background:{{ n.dot }}"></span></span></div></sc-for>
+</div></sc-for>
+</div></div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">37 · Transactions</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#16263b;color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#2a3b52"></span></div>
+<div style="padding:12px 20px 0;display:flex;justify-content:space-between;align-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg><span style="font-size:14px;color:#f2d9a0">Export</span></div>
+<div style="padding:14px 20px 0;font-weight:800;font-size:28px;letter-spacing:-.02em">Transactions</div>
+<div style="padding:14px 20px 0;display:flex;gap:8px;font-size:13px;font-weight:500">
+<sc-for list="{{ txTabs }}" as="t" hint-placeholder-count="4"><span style="padding:7px 12px;border-radius:99px;background:{{ t.bg }};color:{{ t.fg }}">{{ t.n }}</span></sc-for>
+</div>
+<sc-for list="{{ txGroups }}" as="g" hint-placeholder-count="2"><div style="padding:18px 20px 0;display:flex;flex-direction:column">
+<span style="font-size:13px;color:#9fb0c6;padding-bottom:2px">{{ g.h }}</span>
+<sc-for list="{{ g.items }}" as="x" hint-placeholder-count="3"><div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #22344d;align-items:center"><span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0"><strong style="font-size:15px">{{ x.t }}</strong><span style="font-size:13px;color:#9fb0c6">{{ x.s }}</span></span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:none"><strong style="font-size:15px;color:{{ x.c }}">{{ x.a }}</strong><span style="font-size:12px;color:#9fb0c6">{{ x.st }}</span></span></div></sc-for>
+</div></sc-for>
+</div></div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">38 · Earnings</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#16263b;color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#2a3b52"></span></div>
+<div style="padding:12px 20px 0;display:flex"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+<div style="padding:14px 20px 0;font-weight:800;font-size:28px;letter-spacing:-.02em">Earnings</div>
+<div style="margin:16px 20px 0;border-radius:20px;background:#f2d9a0;color:#16263b;padding:20px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px">Ready to withdraw</span><strong style="font-size:36px;letter-spacing:-.02em">AED 1,240</strong></div>
+<div style="display:flex;justify-content:space-between;font-size:14px;padding-top:12px;border-top:1px solid #16263b33"><span>Pending · releases after the event</span><strong>AED 790</strong></div>
+<div style="background:#16263b;color:#f2d9a0;font-weight:600;font-size:16px;padding:15px;border-radius:99px;text-align:center">Withdraw to bank</div>
+</div>
+<div style="padding:14px 20px 0;font-size:13px;color:#9fb0c6">Lifetime: AED 3,420 from 9 resold tickets</div>
+<div style="padding:18px 20px 4px;font-weight:600;font-size:17px">Sales</div>
+<div style="padding:0 20px;display:flex;flex-direction:column">
+<sc-for list="{{ sales }}" as="s" hint-placeholder-count="4"><div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #22344d;align-items:center"><span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0"><strong style="font-size:15px">{{ s.t }}</strong><span style="font-size:13px;color:#9fb0c6">{{ s.s }}</span></span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none"><strong style="font-size:15px">{{ s.a }}</strong><span style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:99px;background:{{ s.bg }};color:{{ s.fg }}">{{ s.st }}</span></span></div></sc-for>
+</div>
+</div></div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">39 · Payment options</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#16263b;color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#2a3b52"></span></div>
+<div style="padding:12px 20px 0;display:flex"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+<div style="padding:14px 20px 0;font-weight:800;font-size:28px;letter-spacing:-.02em">Payment options</div>
+<div style="padding:20px 20px 8px;display:flex;justify-content:space-between;font-size:14px"><strong>Paying for tickets</strong><span style="color:#9fb0c6">Same list as checkout</span></div>
+<div style="padding:0 20px;display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ payMethods }}" as="p" hint-placeholder-count="3"><div style="display:flex;gap:14px;align-items:center;background:#22344d;border-radius:14px;padding:14px 16px;border:1.5px solid {{ p.bd }}"><span style="width:46px;height:30px;border-radius:6px;background:{{ p.lbg }};color:{{ p.lfg }};font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">{{ p.l }}</span><span style="display:flex;flex-direction:column;gap:2px;flex:1"><strong style="font-size:15px">{{ p.n }}</strong><span style="font-size:13px;color:#9fb0c6">{{ p.s }}</span></span><span style="font-size:12px;font-weight:600;color:#f2d9a0">{{ p.tag }}</span></div></sc-for>
+<div style="border:1.5px dashed #3a506c;border-radius:14px;padding:14px 16px;font-size:15px;font-weight:600;color:#f2d9a0;display:flex;gap:8px;align-items:center"><span style="font-size:20px;line-height:1">+</span>Add a card</div>
+</div>
+<div style="padding:24px 20px 8px;display:flex;justify-content:space-between;font-size:14px"><strong>Getting paid for resales</strong></div>
+<div style="margin:0 20px;display:flex;gap:14px;align-items:center;background:#22344d;border-radius:14px;padding:14px 16px"><span style="width:46px;height:30px;border-radius:6px;background:#3a506c;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">IBAN</span><span style="display:flex;flex-direction:column;gap:2px;flex:1"><strong style="font-size:15px">Emirates NBD ··3021</strong><span style="font-size:13px;color:#9fb0c6">Layla Al-Amin · verified</span></span><span style="font-size:14px;color:#f2d9a0">Edit</span></div>
+<div style="margin:16px 20px 0;font-size:13px;line-height:1.5;color:#9fb0c6">Card details are stored by our payment provider, never on Sahra.</div>
+</div></div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">40 · Promo codes</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#16263b;color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#2a3b52"></span></div>
+<div style="padding:12px 20px 0;display:flex"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+<div style="padding:14px 20px 0;font-weight:800;font-size:28px;letter-spacing:-.02em">Promo codes</div>
+<div style="margin:16px 20px 0;display:flex;gap:8px"><div style="flex:1;background:#22344d;border-radius:14px;padding:14px 16px;font-size:15px;color:#9fb0c6;letter-spacing:.06em">ENTER A CODE</div><div style="background:#f2d9a0;color:#16263b;font-weight:600;font-size:15px;padding:14px 20px;border-radius:99px">Add</div></div>
+<div style="padding:22px 20px 8px;font-size:14px;font-weight:600">Ready to use · 2</div>
+<div style="padding:0 20px;display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ promosValid }}" as="p" hint-placeholder-count="2"><div style="display:flex;background:#f2d9a0;color:#16263b;border-radius:14px;overflow:hidden"><div style="width:92px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:2px dashed #16263b55;padding:14px 0"><strong style="font-size:24px;letter-spacing:-.02em">{{ p.v }}</strong><span style="font-size:11px">{{ p.u }}</span></div><div style="padding:14px;display:flex;flex-direction:column;gap:3px;flex:1;min-width:0"><strong style="font-size:15px;letter-spacing:.06em">{{ p.c }}</strong><span style="font-size:13px">{{ p.d }}</span><span style="font-size:12px;opacity:.7">{{ p.e }}</span></div></div></sc-for>
+</div>
+<div style="padding:22px 20px 8px;font-size:14px;font-weight:600;color:#9fb0c6">Used or expired</div>
+<div style="padding:0 20px;display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ promosUsed }}" as="p" hint-placeholder-count="2"><div style="display:flex;background:#22344d;color:#9fb0c6;border-radius:14px;overflow:hidden"><div style="width:92px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:2px dashed #3a506c;padding:14px 0"><strong style="font-size:24px">{{ p.v }}</strong><span style="font-size:11px">{{ p.u }}</span></div><div style="padding:14px;display:flex;flex-direction:column;gap:3px;flex:1;min-width:0"><strong style="font-size:15px;letter-spacing:.06em;text-decoration:line-through">{{ p.c }}</strong><span style="font-size:13px">{{ p.d }}</span><span style="font-size:12px">{{ p.e }}</span></div></div></sc-for>
+</div>
+</div></div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">41 · Referrals</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#16263b;color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#2a3b52"></span></div>
+<div style="padding:12px 20px 0;display:flex"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+<div style="padding:14px 24px 0;display:flex;flex-direction:column;gap:8px"><strong style="font-size:30px;letter-spacing:-.02em;line-height:1.08">Bring a friend.<br><span style="color:#f2d9a0">You both get AED 25.</span></strong><span style="font-size:15px;line-height:1.5;color:#c9d3df">They get it on sign-up. You get yours when they buy their first ticket.</span></div>
+<div style="margin:20px 20px 0;background:#22344d;border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;justify-content:space-between;align-items:center"><span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;color:#9fb0c6">Your code</span><strong style="font-size:24px;letter-spacing:.08em">LAYLA25</strong></span><span style="font-size:14px;font-weight:600;color:#f2d9a0">Copy</span></div>
+<div style="background:#f2d9a0;color:#16263b;font-weight:600;font-size:16px;padding:15px;border-radius:99px;text-align:center">Share invite</div>
+</div>
+<div style="padding:22px 20px 4px;display:flex;justify-content:space-between;align-items:baseline"><strong style="font-size:17px">Your friends</strong><span style="font-size:14px;color:#f2d9a0">AED 50 earned</span></div>
+<div style="padding:0 20px;display:flex;flex-direction:column">
+<sc-for list="{{ friends }}" as="f" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #22344d"><span style="width:38px;height:38px;border-radius:50%;background:#22344d;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex:none">{{ f.i }}</span><span style="display:flex;flex-direction:column;gap:2px;flex:1"><strong style="font-size:15px">{{ f.n }}</strong><span style="font-size:13px;color:#9fb0c6">{{ f.s }}</span></span><strong style="font-size:14px;color:{{ f.c }}">{{ f.a }}</strong></div></sc-for>
+</div>
+</div></div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">42 · FAQs</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#16263b;color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#2a3b52"></span></div>
+<div style="padding:12px 20px 0;display:flex"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+<div style="padding:14px 20px 0;font-weight:800;font-size:28px;letter-spacing:-.02em">Help</div>
+<div style="margin:14px 20px 0;background:#22344d;border-radius:14px;padding:14px 16px;font-size:15px;color:#9fb0c6;display:flex;gap:10px;align-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9fb0c6" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>Search questions</div>
+<div style="padding:12px 20px 0;display:flex;gap:8px;font-size:13px;font-weight:500">
+<sc-for list="{{ faqTabs }}" as="t" hint-placeholder-count="4"><span style="padding:7px 12px;border-radius:99px;background:{{ t.bg }};color:{{ t.fg }}">{{ t.n }}</span></sc-for>
+</div>
+<div style="padding:10px 20px 0;display:flex;flex-direction:column">
+<sc-for list="{{ faqs }}" as="q" hint-placeholder-count="5"><div style="padding:15px 0;border-bottom:1px solid #22344d;display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;gap:12px;font-size:15px;font-weight:600"><span>{{ q.q }}</span><span style="color:#f2d9a0;flex:none">{{ q.i }}</span></div><sc-if value="{{ q.open }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;line-height:1.55;color:#c9d3df">{{ q.a }}</span></sc-if></div></sc-for>
+</div>
+<div style="position:absolute;left:20px;right:20px;bottom:34px;padding:16px;border-radius:16px;background:#22344d;display:flex;justify-content:space-between;align-items:center;font-size:14px"><span style="display:flex;flex-direction:column;gap:2px"><strong>Still stuck?</strong><span style="color:#9fb0c6;font-size:13px">We reply in Arabic or English</span></span><span style="background:#f2d9a0;color:#16263b;font-weight:600;padding:10px 16px;border-radius:99px">Chat with us</span></div>
+</div></div>
+
+</div>
+</section>
+
+<section data-screen-label="Creator mobile: broadcast" style="display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;flex-direction:column;gap:8px;max-width:900px"><div style="font-weight:800;font-size:32px;letter-spacing:-.02em;color:#16263b">Creator app · broadcast message</div><div style="font-size:16px;line-height:1.55;opacity:.75;text-wrap:pretty">Opened from “Message attendees” on the event snapshot (15). Built for door-day updates: gate changes, delays, parking. Audience presets match the guest list filters.</div></div>
+<div style="display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start">
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">43 · Compose broadcast</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:#16263b;color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;position:relative;box-sizing:content-box">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:#2a3b52"></span></div>
+<div style="padding:12px 20px 0;display:flex;justify-content:space-between;align-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg><span style="font-size:14px;color:#9fb0c6">Nour Haddad Live</span><span style="width:24px"></span></div>
+<div style="padding:12px 20px 0;font-weight:800;font-size:26px;letter-spacing:-.02em">Message attendees</div>
+<div style="padding:16px 20px 8px;font-size:13px;color:#9fb0c6">Send to</div>
+<div style="padding:0 20px;display:flex;flex-wrap:wrap;gap:8px">
+<sc-for list="{{ audiences }}" as="a" hint-placeholder-count="4"><span style="padding:8px 12px;border-radius:99px;font-size:13px;font-weight:500;background:{{ a.bg }};color:{{ a.fg }}">{{ a.n }}</span></sc-for>
+</div>
+<div style="padding:16px 20px 8px;font-size:13px;color:#9fb0c6;display:flex;justify-content:space-between"><span>Message</span><span>EN · <span style="color:#f2d9a0">add Arabic</span></span></div>
+<div style="margin:0 20px;background:#22344d;border-radius:14px;padding:14px 16px;border:1.5px solid #f2d9a0;display:flex;flex-direction:column;gap:10px">
+<span style="font-size:15px;line-height:1.5">Gate A is closed for crowd control. Please use Gate B on Sheikh Mohammed bin Rashid Blvd. Doors still open until 9:00 PM.</span>
+<span style="font-size:12px;color:#9fb0c6;align-self:flex-end">118 / 160</span>
+</div>
+<div style="padding:16px 20px 0;display:flex;flex-direction:column">
+<sc-for list="{{ channels }}" as="c" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #22344d"><span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:15px">{{ c.n }}</span><span style="font-size:12px;color:#9fb0c6">{{ c.s }}</span></span><span style="width:46px;height:28px;border-radius:99px;background:{{ c.tbg }};display:flex;align-items:center;padding:3px;box-sizing:border-box;justify-content:{{ c.jc }}"><span style="width:22px;height:22px;border-radius:50%;background:#f7f1e6"></span></span></div></sc-for>
+</div>
+<div style="padding:10px 20px 0;font-size:13px;color:#9fb0c6">Last sent 6:30 PM · “Parking at P3 is full…”</div>
+<div style="position:absolute;left:0;right:0;bottom:0;padding:16px 20px 34px;background:#0f1c2d;display:flex;flex-direction:column;gap:8px"><div style="background:#f2d9a0;color:#16263b;font-weight:600;font-size:16px;padding:16px;border-radius:99px;text-align:center">Send to 408 people</div><span style="font-size:12px;color:#9fb0c6;text-align:center">Max 3 broadcasts per event day, so they get read</span></div>
+</div></div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">43b · What attendees see</div>
+<div style="width:390px;height:844px;border-radius:52px;border:10px solid #0b1420;background:repeating-linear-gradient(135deg,#2f4560 0 14px,#2a3b52 14px 28px);color:#f7f1e6;overflow:hidden;display:flex;flex-direction:column;align-items:center;position:relative;box-sizing:content-box">
+<div style="padding-top:110px;font-size:80px;font-weight:300;letter-spacing:-.02em">7:52</div>
+<div style="font-size:17px;color:#f7f1e6cc">Thursday, 20 November</div>
+<div style="margin:40px 14px 0;align-self:stretch;background:#f7f1e6ee;color:#241c14;border-radius:22px;padding:14px 16px;display:flex;gap:12px">
+<img src="brand/png/sahra-app-icon-1024.png" alt="" style="width:38px;height:38px;border-radius:9px;flex:none"></img>
+<div style="display:flex;flex-direction:column;gap:2px;min-width:0"><div style="display:flex;justify-content:space-between;font-size:13px"><strong>Nour Haddad Live</strong><span style="opacity:.6">now</span></div><span style="font-size:14px;line-height:1.4">Gate A is closed for crowd control. Please use Gate B on Sheikh Mohammed bin Rashid Blvd…</span></div>
+</div>
+</div></div>
+
+</div>
+</section>
+
+<section data-screen-label="Studio web: promo codes & venue layout" style="display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;flex-direction:column;gap:8px;max-width:960px"><div style="font-weight:800;font-size:32px;letter-spacing:-.02em;color:#16263b">Studio (web) · promo codes & venue layout</div><div style="font-size:16px;line-height:1.55;opacity:.75;text-wrap:pretty">Both get a place in the Studio sidebar. Venue layouts belong to the venue, not the event, so one map serves every show there. The editor collapses the sidebar to an icon rail to give the canvas room. Tier colours here are what fans see on the map preview (11) and section picker (12).</div></div>
+<div style="display:flex;flex-direction:column;gap:48px">
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">44 · Promo codes</div>
+<div style="width:1280px;height:800px;border-radius:16px;overflow:hidden;display:flex;background:#f7f1e6;box-shadow:0 24px 60px #16263b22">
+<div style="width:232px;background:#16263b;color:#f7f1e6;padding:24px 16px;display:flex;flex-direction:column;gap:28px;flex:none">
+<div style="display:flex;align-items:center;gap:10px"><img src="brand/png/sahra-logo-gold.png" alt="" style="width:56px"></img><span style="font-size:12px;letter-spacing:.12em;color:#f2d9a0">STUDIO</span></div>
+<div style="display:flex;flex-direction:column;gap:4px;font-size:15px">
+<sc-for list="{{ navPromo }}" as="n" hint-placeholder-count="8"><div style="padding:10px 12px;border-radius:10px;background:{{ n.bg }};color:{{ n.fg }}">{{ n.n }}</div></sc-for>
+</div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;min-width:0">
+<div style="padding:24px 40px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ece4d6"><div style="display:flex;flex-direction:column;gap:2px"><strong style="font-size:24px;color:#16263b">Promo codes</strong><span style="font-size:13px;opacity:.6">AED 64,210 in sales came through codes this month</span></div><span style="display:flex;align-items:center;gap:8px;padding:12px 20px;border-radius:99px;background:#16263b;color:#f2d9a0;font-weight:600;font-size:14px;white-space:nowrap">+ New code</span></div>
+<div style="flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0">
+<div style="padding:24px 32px 24px 40px;display:flex;flex-direction:column;gap:16px;min-width:0">
+<div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;gap:8px;font-size:14px;font-weight:500"><span style="padding:8px 14px;border-radius:99px;background:#16263b;color:#f2d9a0">Active 5</span><span style="padding:8px 14px;border-radius:99px;background:#ece4d6">Scheduled 1</span><span style="padding:8px 14px;border-radius:99px;background:#ece4d6">Ended</span></div><span style="padding:10px 14px;border-radius:10px;border:1.5px solid #d8cdb9;font-size:14px;opacity:.7;width:200px">Search codes</span></div>
+<div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;display:flex;flex-direction:column">
+<div style="display:grid;grid-template-columns:1.1fr .8fr 1.4fr 1.3fr 1fr;gap:16px;padding:12px 20px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.55"><span>Code</span><span>Discount</span><span>Applies to</span><span>Uses</span><span>Sales</span></div>
+<sc-for list="{{ studioPromos }}" as="p" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:1.1fr .8fr 1.4fr 1.3fr 1fr;gap:16px;align-items:center;padding:14px 20px;border-top:1px solid #ece4d6;font-size:14px;background:{{ p.rowbg }}"><span style="display:flex;flex-direction:column;gap:3px"><strong style="letter-spacing:.06em;color:#16263b">{{ p.c }}</strong><span style="font-size:12px;opacity:.6">{{ p.e }}</span></span><span>{{ p.d }}</span><span style="opacity:.8">{{ p.a }}</span><span style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px">{{ p.u }}</span><span style="height:6px;border-radius:99px;background:#ece4d6;display:flex"><span style="width:{{ p.pct }};background:{{ p.bar }};border-radius:99px"></span></span></span><span>{{ p.r }}</span></div></sc-for>
+</div>
+</div>
+<div style="border-left:1px solid #ece4d6;background:#fff9ef;padding:24px;display:flex;flex-direction:column;gap:14px;overflow:hidden">
+<div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:18px;color:#16263b">New code</strong><span style="font-size:20px;opacity:.5">×</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Code<span style="padding:12px 14px;border-radius:10px;border:1.5px solid #16263b;background:#f7f1e6;font-weight:600;font-size:15px;letter-spacing:.08em;display:flex;justify-content:space-between">RAMADAN26<span style="font-weight:400;letter-spacing:0;font-size:13px;opacity:.6">Generate</span></span></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Discount<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div style="display:grid;grid-template-columns:1fr 1fr;background:#ece4d6;border-radius:10px;padding:3px;text-align:center;font-size:14px"><span style="padding:8px;border-radius:8px;background:#16263b;color:#f2d9a0">%</span><span style="padding:8px;font-weight:400">AED</span></div><span style="padding:11px 14px;border-radius:10px;border:1.5px solid #d8cdb9;background:#f7f1e6;font-weight:400;font-size:15px">15</span></div></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Applies to<span style="padding:12px 14px;border-radius:10px;border:1.5px solid #d8cdb9;background:#f7f1e6;font-weight:400;font-size:14px">All events · all tiers ▾</span></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Total uses<span style="padding:12px 14px;border-radius:10px;border:1.5px solid #d8cdb9;background:#f7f1e6;font-weight:400;font-size:14px">500</span></div><div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Per person<span style="padding:12px 14px;border-radius:10px;border:1.5px solid #d8cdb9;background:#f7f1e6;font-weight:400;font-size:14px">1</span></div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Starts<span style="padding:12px 14px;border-radius:10px;border:1.5px solid #d8cdb9;background:#f7f1e6;font-weight:400;font-size:14px">18 Feb 2027</span></div><div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Ends<span style="padding:12px 14px;border-radius:10px;border:1.5px solid #d8cdb9;background:#f7f1e6;font-weight:400;font-size:14px">19 Mar 2027</span></div></div>
+<div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.45"><span style="width:18px;height:18px;border-radius:5px;border:1.5px solid #16263b;flex:none"></span><span>Also valid on resale tickets <span style="opacity:.6">(you cover the discount)</span></span></div>
+<div style="margin-top:auto;background:#16263b;color:#f2d9a0;font-weight:600;font-size:15px;padding:14px;border-radius:99px;text-align:center">Create code</div>
+</div>
+</div>
+</div>
+</div></div>
+
+<div style="display:flex;flex-direction:column;gap:14px"><div style="font-size:14px;font-weight:600">45 · Venue layout editor</div>
+<div style="width:1280px;height:800px;border-radius:16px;overflow:hidden;display:flex;background:#f7f1e6;box-shadow:0 24px 60px #16263b22">
+<div style="width:64px;background:#16263b;color:#c9d3df;padding:20px 0;display:flex;flex-direction:column;align-items:center;gap:22px;flex:none">
+<img src="brand/png/sahra-app-icon-1024.png" alt="" style="width:36px;height:36px;border-radius:9px"></img>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l8-6 8 6v10h-5v-6H9v6H4z"></path></svg>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+<span style="width:40px;height:40px;border-radius:10px;background:#22344d;color:#f2d9a0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18M5 20V9l7-5 7 5v11M9 20v-6h6v6"></path></svg></span>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"></path></svg>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;min-width:0">
+<div style="padding:16px 28px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ece4d6"><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;opacity:.55">Venues / Opera House</span><strong style="font-size:22px;color:#16263b">Main hall · seating</strong></div><div style="display:flex;gap:10px;align-items:center"><span style="font-size:13px;opacity:.6">Used by 3 events · saved 2 min ago</span><span style="padding:11px 18px;border-radius:99px;border:1.5px solid #16263b;font-weight:600;font-size:14px;color:#16263b">Preview as fan</span><span style="padding:11px 18px;border-radius:99px;background:#16263b;color:#f2d9a0;font-weight:600;font-size:14px">Publish layout</span></div></div>
+<div style="flex:1;display:grid;grid-template-columns:232px minmax(0,1fr) 288px;min-height:0">
+<div style="border-right:1px solid #ece4d6;padding:20px;display:flex;flex-direction:column;gap:18px;overflow:hidden">
+<div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.55">Start from</span><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;font-weight:600;text-align:center"><span style="padding:9px 6px;border-radius:10px;border:1.5px solid #d8cdb9">Upload map</span><span style="padding:9px 6px;border-radius:10px;border:1.5px solid #d8cdb9">Template</span></div></div>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.55;padding-bottom:4px">Sections</span>
+<sc-for list="{{ vSections }}" as="s" hint-placeholder-count="6"><div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;background:{{ s.rowbg }};font-size:14px"><span style="width:12px;height:12px;border-radius:3px;background:{{ s.c }};border:1px solid #16263b33;flex:none"></span><span style="flex:1;font-weight:{{ s.w }}">{{ s.n }}</span><span style="font-size:12px;opacity:.6">{{ s.count }}</span></div></sc-for>
+<span style="font-size:13px;font-weight:600;color:#16263b;padding:8px 10px">+ Add section</span>
+</div>
+<div style="margin-top:auto;padding:14px;border-radius:12px;background:#ece4d6;display:flex;flex-direction:column;gap:4px;font-size:13px"><strong style="font-size:20px;color:#16263b">{{ vCapacity }}</strong><span style="opacity:.7">capacity · 4 accessible · 6 held</span></div>
+</div>
+<div style="display:flex;flex-direction:column;min-width:0;background:#efe7d9">
+<div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2d8c6;background:#f7f1e6"><div style="display:flex;gap:4px;font-size:13px;font-weight:600"><sc-for list="{{ tools }}" as="t" hint-placeholder-count="5"><span style="padding:7px 12px;border-radius:8px;background:{{ t.bg }};color:{{ t.fg }}">{{ t.n }}</span></sc-for></div><div style="display:flex;gap:12px;font-size:13px;opacity:.7"><span>↶ ↷</span><span>− 100% +</span></div></div>
+<div style="flex:1;position:relative;overflow:hidden;background-image:radial-gradient(#d8cdb9 1px,transparent 1px);background-size:16px 16px">
+<div style="position:absolute;left:200px;top:24px;width:300px;height:34px;border-radius:0 0 80px 80px;background:#16263b;color:#f2d9a0;font-size:12px;font-weight:600;letter-spacing:.14em;display:flex;align-items:center;justify-content:center">STAGE</div>
+<div style="position:absolute;left:230px;top:72px;width:240px;height:64px;border-radius:10px;background:repeating-linear-gradient(135deg,#f2d9a0 0 8px,#ead09a 8px 16px);border:1.5px solid #c9ad6e;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;color:#16263b"><strong>Golden Circle</strong>Standing · 500</div>
+<sc-for list="{{ vBlocks }}" as="b" hint-placeholder-count="4"><div style="position:absolute;left:{{ b.l }};top:{{ b.t }};width:{{ b.w }};padding:8px;box-sizing:border-box;border-radius:10px;outline:{{ b.ol }};outline-offset:3px;background:#f7f1e6aa;display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;font-weight:600;color:#16263b;text-align:center">{{ b.n }}</span><div style="display:grid;grid-template-columns:repeat({{ b.cols }},1fr);gap:3px"><sc-for list="{{ b.seats }}" as="d" hint-placeholder-count="20"><span style="aspect-ratio:1;border-radius:50%;background:{{ d.bg }};border:1.5px solid {{ d.bd }};box-sizing:border-box"></span></sc-for></div></div></sc-for>
+<span style="position:absolute;left:224px;top:178px;width:9px;height:9px;background:#f7f1e6;border:1.5px solid #16263b"></span><span style="position:absolute;left:467px;top:178px;width:9px;height:9px;background:#f7f1e6;border:1.5px solid #16263b"></span>
+<div style="position:absolute;left:16px;bottom:16px;display:flex;gap:14px;font-size:12px;background:#f7f1e6;padding:8px 12px;border-radius:10px;border:1px solid #e2d8c6"><span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;border-radius:50%;background:#2f4560"></span>Stalls · AED 295</span><span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;border-radius:50%;background:#b8323a"></span>Balcony · AED 450</span><span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;border-radius:50%;border:1.5px solid #2f7a4f;box-sizing:border-box"></span>Accessible</span><span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;border-radius:50%;background:#d8cdb9"></span>Held</span></div>
+</div>
+</div>
+<div style="border-left:1px solid #ece4d6;background:#fff9ef;padding:20px;display:flex;flex-direction:column;gap:14px;overflow:hidden">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><strong style="font-size:17px;color:#16263b">Stalls B</strong><span style="font-size:13px;opacity:.6">168 seats</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Ticket tier<span style="padding:11px 12px;border-radius:10px;border:1.5px solid #d8cdb9;background:#f7f1e6;font-weight:400;font-size:14px;display:flex;align-items:center;gap:8px"><span style="width:12px;height:12px;border-radius:3px;background:#2f4560"></span>Stalls · AED 295 ▾</span></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Rows<span style="padding:11px 12px;border-radius:10px;border:1.5px solid #d8cdb9;background:#f7f1e6;font-weight:400;font-size:14px">12 · A–L</span></div><div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Seats / row<span style="padding:11px 12px;border-radius:10px;border:1.5px solid #d8cdb9;background:#f7f1e6;font-weight:400;font-size:14px">14</span></div></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Seat numbers<div style="display:grid;grid-template-columns:1fr 1fr;background:#ece4d6;border-radius:10px;padding:3px;text-align:center;font-size:13px"><span style="padding:7px;border-radius:8px;background:#16263b;color:#f2d9a0">1 → 14</span><span style="padding:7px;font-weight:400">Odd / even</span></div></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Mark seats<div style="display:flex;flex-direction:column;gap:6px;font-weight:400;font-size:13px"><span style="display:flex;justify-content:space-between;padding:9px 12px;border-radius:10px;background:#ece4d6"><span>Accessible</span><strong>Row L, 1–4</strong></span><span style="display:flex;justify-content:space-between;padding:9px 12px;border-radius:10px;background:#ece4d6"><span>Held (artist guests)</span><strong>Row A, 6–11</strong></span></div></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">View from this section<div style="height:96px;border-radius:10px;border:1.5px dashed #c9bda6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-weight:400;font-size:12px;opacity:.75"><strong style="font-size:13px">Drop a photo</strong>Fans see it in the section picker</div></div>
+<div style="margin-top:auto;display:flex;gap:8px;font-size:13px;font-weight:600"><span style="flex:1;padding:10px;border-radius:99px;border:1.5px solid #d8cdb9;text-align:center">Duplicate</span><span style="flex:1;padding:10px;border-radius:99px;border:1.5px solid #d8cdb9;text-align:center;color:#b8323a">Delete</span></div>
+</div>
+</div>
+</div>
+</div></div>
+
+</div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const on = { bg: '#f2d9a0', fg: '#16263b' }, off = { bg: '#22344d', fg: '#f7f1e6' };
+    const chips = (arr, a) => arr.map((n, i) => ({ n, ...(i === a ? on : off) }));
+    const picked = ['Arabic pop', 'Stand-up', 'Football'];
+    const navNames = ['Overview', 'Events', 'Orders', 'Promo codes', 'Venues', 'Analytics', 'Payouts', 'Settings'];
+    const seats = (rows, cols, mark) => Array.from({ length: rows * cols }, (_, k) => {
+      const r = Math.floor(k / cols), c = k % cols, m = mark(r, c);
+      return m === 'acc' ? { bg: 'transparent', bd: '#2f7a4f' } : m === 'held' ? { bg: '#d8cdb9', bd: '#d8cdb9' } : m;
+    });
+    const stall = { bg: '#2f4560', bd: '#2f4560' }, balc = { bg: '#b8323a', bd: '#b8323a' };
+    const blocks = [
+      { n: 'Stalls A', l: '24px', t: '170px', w: '180px', rows: 12, cols: 10, f: (r, c) => stall },
+      { n: 'Stalls B', l: '228px', t: '170px', w: '244px', rows: 12, cols: 14, sel: true, f: (r, c) => r === 0 && c >= 5 && c <= 10 ? 'held' : r === 11 && c < 4 ? 'acc' : stall },
+      { n: 'Stalls C', l: '496px', t: '170px', w: '180px', rows: 12, cols: 10, f: (r, c) => stall },
+      { n: 'Balcony', l: '40px', t: '418px', w: '620px', rows: 6, cols: 36, f: (r, c) => balc }
+    ].map(b => ({ ...b, seats: seats(b.rows, b.cols, b.f), ol: b.sel ? '2px solid #16263b' : 'none' }));
+    const seated = blocks.reduce((a, b) => a + b.rows * b.cols, 0);
+    const loop = '3.2s infinite';
+    return {
+      splashGlow: React.createElement('div', { style: { position: 'absolute', width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle,#f2d9a0 0%,#f2d9a000 65%)', animation: 'sahraGlow ' + loop + ' ease-out', opacity: 0 } }),
+      splashLogo: React.createElement('img', { src: 'brand/png/sahra-logo-gold.png', alt: 'Sahra', style: { width: 150, position: 'relative', animation: 'sahraLogo ' + loop + ' cubic-bezier(.34,1.56,.64,1)' } }),
+      splashUrl: React.createElement('span', { style: { position: 'absolute', bottom: 48, fontSize: 13, color: '#9fb0c6', letterSpacing: '.08em', animation: 'sahraUrl ' + loop + ' ease-out' } }, 'sahra.app'),
+      cities: chips(['Dubai', 'Abu Dhabi', 'Sharjah', 'Riyadh', 'Jeddah', 'Doha', 'Kuwait City', 'Manama'], 0),
+      interests: ['Arabic pop', 'Khaleeji', 'Stand-up', 'Football', 'Theatre', 'Electronic', 'Jazz', 'Family', 'Festivals'].map(n => picked.includes(n)
+        ? { n, bg: '#f2d9a0', fg: '#16263b', bd: '#f2d9a0', tick: '✓' } : { n, bg: '#22344d', fg: '#f7f1e6', bd: '#22344d', tick: '' }),
+      otp: ['4', '8', '2', '1', '', ''].map((d, i) => ({ d, bd: i === 4 ? '#f2d9a0' : '#22344d' })),
+      pwRules: [['8+ characters', 1], ['A number', 1], ['Passwords match', 0]].map(([n, ok]) => ({ n, i: ok ? '✓' : '', bg: ok ? '#f2d9a0' : '#3a506c', c: ok ? '#f7f1e6' : '#9fb0c6' })),
+      pwRulesLight: [['8+ characters', 1], ['A number', 1], ['Different from your current one', 1]].map(([n, ok]) => ({ n, i: ok ? '✓' : '', bg: ok ? '#2f7a4f' : '#d8cdb9' })),
+      notifGroups: [
+        { h: 'Today', items: [
+          { i: '✓', bg: '#f2d9a0', fg: '#16263b', t: '2 resale tickets sold', s: 'Nour Haddad Live · AED 790 releases after the show', w: '2m', dot: '#f2d9a0' },
+          { i: '◷', bg: '#22344d', fg: '#f2d9a0', t: 'Doors open in 2 hours', s: 'Nour Haddad Live · Gate B · tap for your tickets', w: '5:00 PM', dot: '#f2d9a0' },
+          { i: '↘', bg: '#22344d', fg: '#f2d9a0', t: 'Your price was matched', s: '2 × General for Derby Night bought at AED 60 each', w: '11:20 AM', dot: 'transparent' }
+        ] },
+        { h: 'Earlier', items: [
+          { i: '→', bg: '#22344d', fg: '#f2d9a0', t: 'Omar sent you 1 ticket', s: 'Late Laughs Vol. 4 · now in Tickets', w: 'Mon', dot: 'transparent' },
+          { i: '!', bg: '#b8323a', fg: '#f7f1e6', t: 'Time change', s: 'Derby Night kicks off at 8:30 PM, not 8:00', w: 'Sun', dot: 'transparent' }
+        ] }
+      ],
+      txTabs: chips(['All', 'Purchases', 'Sales', 'Payouts'], 0),
+      txGroups: [
+        { h: 'November 2026', items: [
+          { t: 'Resale · 2 × Golden Circle', s: 'Nour Haddad Live · 16 Nov', a: '+ AED 790', c: '#f2d9a0', st: 'Pending' },
+          { t: '2 × General', s: 'Derby Night · Set your price · 16 Nov', a: '− AED 132', c: '#f7f1e6', st: 'Apple Pay' },
+          { t: 'Withdrawal', s: 'Emirates NBD ··3021 · 10 Nov', a: '− AED 860', c: '#f7f1e6', st: 'Paid' }
+        ] },
+        { h: 'October 2026', items: [
+          { t: '4 × Golden Circle', s: 'Nour Haddad Live · 28 Oct', a: '− AED 1,741.96', c: '#f7f1e6', st: 'Visa ··4242' },
+          { t: 'Refund · 1 × General', s: 'Late Laughs Vol. 2 · cancelled', a: '+ AED 120', c: '#f2d9a0', st: 'To Visa ··4242' }
+        ] }
+      ],
+      sales: [
+        { t: 'Nour Haddad Live', s: '2 × Golden Circle · AED 395 each', a: 'AED 790', st: 'Pending', bg: '#22344d', fg: '#f2d9a0' },
+        { t: 'Late Laughs Vol. 3', s: '2 × General · AED 120 each', a: 'AED 240', st: 'Ready', bg: '#f2d9a0', fg: '#16263b' },
+        { t: 'Derby Night: Classico', s: '4 × East Stand · AED 250 each', a: 'AED 1,000', st: 'Ready', bg: '#f2d9a0', fg: '#16263b' },
+        { t: 'Amr Diab · Etihad Arena', s: '1 × Floor · AED 860', a: 'AED 860', st: 'Withdrawn', bg: '#22344d', fg: '#9fb0c6' }
+      ],
+      payMethods: [
+        { l: 'Pay', lbg: '#f7f1e6', lfg: '#0b1420', n: 'Apple Pay', s: 'Fastest at checkout', tag: 'Default', bd: '#f2d9a0' },
+        { l: 'VISA', lbg: '#3a506c', lfg: '#f7f1e6', n: 'Visa ··4242', s: 'Expires 08/28', tag: '', bd: '#22344d' },
+        { l: 'mada', lbg: '#3a506c', lfg: '#f7f1e6', n: 'mada ··1180', s: 'Expires 02/27', tag: '', bd: '#22344d' }
+      ],
+      promosValid: [
+        { v: '20%', u: 'off', c: 'LATELAUGHS20', d: 'Late Laughs Vol. 4, any tier', e: 'Until 19 Dec' },
+        { v: '25', u: 'AED', c: 'WELCOME25', d: 'Your first ticket, any event', e: 'Until 31 Dec · from referral' }
+      ],
+      promosUsed: [
+        { v: '10%', u: 'off', c: 'NOURVIP10', d: 'Used on Nour Haddad Live', e: '28 Oct' },
+        { v: '50', u: 'AED', c: 'DERBY50', d: 'Expired', e: '1 Nov' }
+      ],
+      friends: [
+        { i: 'OK', n: 'Omar Khalil', s: 'Bought a ticket · 12 Nov', a: '+ AED 25', c: '#f2d9a0' },
+        { i: 'RS', n: 'Rania Saeed', s: 'Bought a ticket · 3 Nov', a: '+ AED 25', c: '#f2d9a0' },
+        { i: 'YA', n: 'Yousef Al-Hashimi', s: 'Joined · no ticket yet', a: 'Waiting', c: '#9fb0c6' },
+        { i: 'MN', n: 'Mariam Nasser', s: 'Invite sent', a: 'Remind', c: '#f2d9a0' }
+      ],
+      faqTabs: chips(['Tickets', 'Resale', 'Payments', 'Account'], 1),
+      faqs: [
+        { q: 'How do I sell a ticket I can’t use?', i: '−', open: true, a: 'Open Tickets, tap the event, then “I can’t go”. Pick the tickets, set a price up to the organizer’s cap, and we list them on the event page.' },
+        { q: 'When do I get paid?', i: '+', open: false },
+        { q: 'What is “Set your price”?', i: '+', open: false },
+        { q: 'Is a resale ticket guaranteed?', i: '+', open: false },
+        { q: 'Can I cancel a listing?', i: '+', open: false }
+      ],
+      audiences: chips(['Everyone 1,612', 'Not checked in 408', 'Golden Circle 402', 'Balcony 170'], 1),
+      channels: [
+        { n: 'Push notification', s: '1,390 have the app', tbg: '#f2d9a0', jc: 'flex-end' },
+        { n: 'Email', s: 'Everyone in the audience', tbg: '#f2d9a0', jc: 'flex-end' },
+        { n: 'SMS', s: 'AED 0.12 each · urgent only', tbg: '#3a506c', jc: 'flex-start' }
+      ],
+      navPromo: navNames.map(n => ({ n, bg: n === 'Promo codes' ? '#22344d' : 'transparent', fg: n === 'Promo codes' ? '#f2d9a0' : '#c9d3df' })),
+      studioPromos: [
+        { c: 'NOURVIP10', e: 'Ends 20 Nov', d: '10%', a: 'Nour Haddad Live · Golden Circle', u: '212 / 300', pct: '71%', bar: '#16263b', r: 'AED 75,366', rowbg: 'transparent' },
+        { c: 'LATELAUGHS20', e: 'Ends 19 Dec', d: '20%', a: 'Late Laughs Vol. 4', u: '48 / 100', pct: '48%', bar: '#16263b', r: 'AED 4,608', rowbg: 'transparent' },
+        { c: 'DERBY50', e: 'Ended 1 Nov', d: 'AED 50', a: 'Derby Night · East Stand', u: '150 / 150', pct: '100%', bar: '#b8323a', r: 'AED 30,000', rowbg: 'transparent' },
+        { c: 'MAWJACREW', e: 'No end date', d: '100%', a: 'All events · 2 per person', u: '36 / 60', pct: '60%', bar: '#16263b', r: 'Comps', rowbg: 'transparent' },
+        { c: 'RAMADAN26', e: 'Starts 18 Feb', d: '15%', a: 'All events', u: '— / 500', pct: '0%', bar: '#16263b', r: '—', rowbg: '#ece4d6' }
+      ],
+      vSections: [
+        { n: 'Golden Circle', c: '#f2d9a0', count: '500', w: 400, rowbg: 'transparent' },
+        { n: 'Stalls A', c: '#2f4560', count: '120', w: 400, rowbg: 'transparent' },
+        { n: 'Stalls B', c: '#2f4560', count: '168', w: 600, rowbg: '#ece4d6' },
+        { n: 'Stalls C', c: '#2f4560', count: '120', w: 400, rowbg: 'transparent' },
+        { n: 'Balcony', c: '#b8323a', count: '216', w: 400, rowbg: 'transparent' }
+      ],
+      vCapacity: (seated + 500).toLocaleString('en-US'),
+      vBlocks: blocks,
+      tools: ['Select', 'Seated section', 'Standing area', 'Stage', 'Label'].map((n, i) => ({ n, bg: i ? 'transparent' : '#16263b', fg: i ? '#241c14' : '#f2d9a0' }))
+    };
+  }
+}
+</script>
+</body>
+</html>

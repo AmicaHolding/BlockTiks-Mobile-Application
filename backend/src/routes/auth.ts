@@ -1,11 +1,15 @@
 import type { FastifyInstance } from 'fastify';
 import {
+    consumePasswordReset,
+    createPasswordReset,
     createUser,
+    deleteUser,
     EmailExistsError,
     getUserByEmail,
     getUserById,
     updateUser,
     updateUserPassword,
+    verifyPasswordReset,
     type User
 } from '../db';
 import { env } from '../env';
@@ -19,6 +23,11 @@ export function publicUser(u: User) {
     lastName: u.lastName,
     phone: u.phone,
     avatarUrl: u.avatarUrl,
+    firstNameAr: u.firstNameAr,
+    city: u.city,
+    dateOfBirth: u.dateOfBirth,
+    emailVerified: u.emailVerified,
+    notificationPrefs: u.notificationPrefs,
     role: u.role.toLowerCase(),
   };
 }
@@ -132,8 +141,20 @@ export async function authRoutes(app: FastifyInstance) {
           properties: {
             firstName: { type: 'string' },
             lastName: { type: 'string' },
+            firstNameAr: { type: 'string' },
             phone: { type: 'string' },
             avatarUrl: { type: 'string' },
+            city: { type: 'string' },
+            dateOfBirth: { type: 'string' },
+            emailVerified: { type: 'boolean' },
+            notificationPrefs: {
+              type: 'object',
+              properties: {
+                push: { type: 'boolean' },
+                email: { type: 'boolean' },
+                sms: { type: 'boolean' },
+              },
+            },
             pushNotification: { type: 'boolean' },
           },
         },
@@ -143,17 +164,28 @@ export async function authRoutes(app: FastifyInstance) {
       const body = request.body as {
         firstName?: string;
         lastName?: string;
+        firstNameAr?: string;
         phone?: string;
         avatarUrl?: string;
+        city?: string;
+        dateOfBirth?: string;
+        emailVerified?: boolean;
+        notificationPrefs?: { push?: boolean; email?: boolean; sms?: boolean };
         pushNotification?: boolean;
       };
-      // pushNotification isn't persisted server-side yet; accept and ignore it
-      // so the app's notification toggle doesn't error.
+      // pushNotification is the legacy mobile toggle; notificationPrefs is the
+      // persisted shape used by the account settings screens.
       const user = await updateUser(request.user.sub, {
         firstName: body.firstName,
         lastName: body.lastName,
+        firstNameAr: body.firstNameAr,
         phone: body.phone,
         avatarUrl: body.avatarUrl,
+        city: body.city,
+        dateOfBirth: body.dateOfBirth,
+        emailVerified: body.emailVerified,
+        notificationPrefs: body.notificationPrefs ??
+          (body.pushNotification !== undefined ? { push: body.pushNotification } : undefined),
       });
       if (!user) return reply.status(404).send({ message: 'User not found' });
       return { user: publicUser(user) };
@@ -188,6 +220,85 @@ export async function authRoutes(app: FastifyInstance) {
       return { ok: true };
     }
   );
+
+  app.post(
+    '/auth/forgot-password',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['email'],
+          properties: { email: { type: 'string', format: 'email' } },
+        },
+      },
+    },
+    async (request) => {
+      const { email } = request.body as { email: string };
+      const user = await getUserByEmail(email);
+      const reset = user && !user.deletedAt ? await createPasswordReset(email) : null;
+      return {
+        ok: true,
+        // Email delivery is not wired yet; expose the code only in local dev.
+        ...(env.nodeEnv === 'development' && reset ? { devCode: reset.code, expiresAt: reset.expiresAt } : {}),
+      };
+    }
+  );
+
+  app.post(
+    '/auth/verify-reset-code',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['email', 'code'],
+          properties: { email: { type: 'string', format: 'email' }, code: { type: 'string' } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { email, code } = request.body as { email: string; code: string };
+      const ok = await verifyPasswordReset(email, code);
+      if (!ok) return reply.status(400).send({ message: 'Invalid or expired code' });
+      return { ok: true };
+    }
+  );
+
+  app.post(
+    '/auth/reset-password',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['email', 'code', 'newPassword'],
+          properties: {
+            email: { type: 'string', format: 'email' },
+            code: { type: 'string' },
+            newPassword: { type: 'string', minLength: 8 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { email, code, newPassword } = request.body as {
+        email: string;
+        code: string;
+        newPassword: string;
+      };
+      if (!(await consumePasswordReset(email, code))) {
+        return reply.status(400).send({ message: 'Invalid or expired code' });
+      }
+      const user = await getUserByEmail(email);
+      if (!user) return reply.status(404).send({ message: 'User not found' });
+      await updateUserPassword(user.id, hashPassword(newPassword));
+      return { ok: true };
+    }
+  );
+
+  app.delete('/auth/me', { preHandler: app.authenticate }, async (request, reply) => {
+    const deleted = await deleteUser(request.user.sub);
+    if (!deleted) return reply.status(404).send({ message: 'User not found' });
+    return { ok: true };
+  });
 
   app.post('/auth/logout', { preHandler: app.authenticate }, async () => ({ ok: true }));
 }

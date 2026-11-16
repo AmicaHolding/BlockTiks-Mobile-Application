@@ -35,7 +35,7 @@ import {
     UpdateCommand,
     type TransactWriteCommandInput
 } from '@aws-sdk/lib-dynamodb';
-import { randomUUID } from 'crypto';
+import { createHash, randomInt, randomUUID } from 'crypto';
 import { docClient } from './aws';
 import { env } from './env';
 
@@ -77,6 +77,12 @@ export interface User {
   avatarUrl?: string;
   role: 'FAN' | 'CREATOR' | 'ADMIN';
   stripeCustomerId?: string;
+  firstNameAr?: string;
+  city?: string;
+  dateOfBirth?: string;
+  emailVerified?: boolean;
+  notificationPrefs?: { push?: boolean; email?: boolean; sms?: boolean };
+  deletedAt?: string;
   createdAt: string;
 }
 
@@ -122,13 +128,25 @@ export interface EventItem {
 
 export interface PromoCode {
   code: string;
+  creatorId?: string;
   eventId?: string;
+  tierId?: string;
+  tierName?: string;
+  scope?: 'ALL' | 'EVENT' | 'TIER';
+  kind?: 'PERCENT' | 'FIXED';
+  value?: number; // percent for PERCENT, cents for FIXED
   percentOff?: number;
   amountOffCents?: number;
   maxUses?: number;
-  usedCount: number;
+  maxUsesPerUser?: number;
+  startsAt?: string;
   expiresAt?: string;
+  endsAt?: string;
+  validOnResale?: boolean;
+  usedCount: number;
   active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface OrderItem {
@@ -276,22 +294,32 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 
 export async function updateUser(
   id: string,
-  fields: Partial<Pick<User, 'firstName' | 'lastName' | 'phone' | 'avatarUrl'>>
+  fields: Partial<
+    Pick<
+      User,
+      | 'firstName'
+      | 'lastName'
+      | 'phone'
+      | 'avatarUrl'
+      | 'firstNameAr'
+      | 'city'
+      | 'dateOfBirth'
+      | 'emailVerified'
+      | 'notificationPrefs'
+    >
+  >
 ): Promise<User | null> {
-  const names: Record<string, string> = {
-    firstName: '#firstName',
-    lastName: '#lastName',
-    phone: '#phone',
-    avatarUrl: '#avatarUrl',
-  };
+  const names: Record<string, string> = {};
   const values: Record<string, unknown> = {};
   const sets: string[] = [];
   let i = 0;
   for (const [key, value] of Object.entries(fields)) {
     if (value === undefined) continue;
-    const placeholder = `:v${i++}`;
-    sets.push(`${names[key]} = ${placeholder}`);
-    values[placeholder] = value;
+    const name = `#f${i}`;
+    names[name] = key;
+    sets.push(`${name} = :v${i}`);
+    values[`:v${i}`] = value;
+    i++;
   }
   if (sets.length === 0) return getUserById(id);
   await docClient.send(
@@ -299,12 +327,7 @@ export async function updateUser(
       TableName: T(),
       Key: { pk: userPk(id), sk: 'PROFILE' },
       UpdateExpression: `SET ${sets.join(', ')}`,
-      ExpressionAttributeNames: {
-        '#firstName': 'firstName',
-        '#lastName': 'lastName',
-        '#phone': 'phone',
-        '#avatarUrl': 'avatarUrl',
-      },
+      ExpressionAttributeNames: names,
       ExpressionAttributeValues: values,
       ConditionExpression: 'attribute_exists(pk)',
     })
@@ -863,6 +886,57 @@ export async function listUserOrders(userId: string): Promise<
   );
 }
 
+export interface EventOrder extends Order {
+  items: OrderItem[];
+  buyerName: string;
+  buyerEmail: string;
+}
+
+// Creator-facing order feed for one event. There is no event-order GSI yet, so
+// this derives paid orders from the EVENTTIX ticket feed and hydrates each
+// order's line items + buyer profile. Pending/failed checkouts have no issued
+// tickets and therefore do not appear here.
+export async function listEventOrders(eventId: string): Promise<EventOrder[]> {
+  const tickets = await listEventTickets(eventId);
+  const orderIds = [...new Set(tickets.map((ticket) => ticket.orderId).filter(Boolean))];
+  if (orderIds.length === 0) return [];
+
+  const orderRows = await batchGet<Record<string, unknown>>(
+    orderIds.map((id) => ({ pk: orderPk(id), sk: 'METADATA' }))
+  );
+  const orders = orderRows
+    .map((item) => {
+      const { pk, sk, gsi2pk, gsi2sk, ...rest } = item;
+      return rest as unknown as Order;
+    })
+    .filter((order) => order.eventId === eventId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  if (orders.length === 0) return [];
+
+  const userIds = [...new Set(orders.map((order) => order.userId))];
+  const [itemsByOrder, users] = await Promise.all([
+    Promise.all(
+      orders.map(async (order) => [order.id, await getOrderItems(order.id)] as const)
+    ),
+    batchGet<{ id: string; firstName?: string; lastName?: string; email?: string }>(
+      userIds.map((id) => ({ pk: userPk(id), sk: 'PROFILE' }))
+    ),
+  ]);
+  const itemsMap = new Map(itemsByOrder);
+  const userMap = new Map(users.map((user) => [user.id, user]));
+
+  return orders.map((order) => {
+    const user = userMap.get(order.userId);
+    const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+    return {
+      ...order,
+      items: itemsMap.get(order.id) ?? [],
+      buyerName: name || user?.email || 'Guest',
+      buyerEmail: user?.email ?? '',
+    };
+  });
+}
+
 export async function getOrder(orderId: string): Promise<
   | (Order & {
       items: OrderItem[];
@@ -1408,6 +1482,10 @@ export async function setVenueLayout(
   if (event.creatorId !== actorId && actorRole !== 'ADMIN') {
     throw new ConditionFailedError('Not the event creator');
   }
+
+  const existing = await listSections(eventId);
+  const existingById = new Map(existing.map((section) => [section.sectionId, section]));
+  const nextIds = new Set(layout.sections.map((section) => section.id));
   const transactItems: TransactWriteCommandInput['TransactItems'] = [
     {
       Update: {
@@ -1417,22 +1495,66 @@ export async function setVenueLayout(
         ExpressionAttributeValues: { ':layout': layout },
       },
     },
-    ...layout.sections.map((s) => ({
+  ];
+
+  for (const section of layout.sections) {
+    const previous = existingById.get(section.id);
+    let sold = 0;
+    let available = section.capacity;
+    if (previous) {
+      sold = previous.sold ?? 0;
+      const previousAvailable =
+        previous.available ?? Math.max(0, previous.capacity - sold);
+      const reserved = Math.max(
+        0,
+        previous.capacity - sold - previousAvailable
+      );
+      const minimumCapacity = sold + reserved;
+      if (section.capacity < minimumCapacity) {
+        throw new ConditionFailedError(
+          `Section ${section.name || section.id} capacity cannot be below ${minimumCapacity} sold/reserved seats`
+        );
+      }
+      available = Math.max(
+        0,
+        previousAvailable + (section.capacity - previous.capacity)
+      );
+    }
+    transactItems.push({
       Put: {
         TableName: T(),
         Item: {
           pk: eventPk(eventId),
-          sk: `SECTION#${s.id}`,
-          sectionId: s.id,
-          name: s.name,
-          priceCents: s.priceCents,
-          capacity: s.capacity,
-          sold: 0,
-          available: s.capacity,
+          sk: `SECTION#${section.id}`,
+          sectionId: section.id,
+          name: section.name,
+          priceCents: section.priceCents,
+          capacity: section.capacity,
+          sold,
+          available,
         },
       },
-    })),
-  ];
+    });
+  }
+
+  for (const previous of existing) {
+    if (nextIds.has(previous.sectionId)) continue;
+    const sold = previous.sold ?? 0;
+    const available = previous.available ?? Math.max(0, previous.capacity - sold);
+    const reserved = Math.max(0, previous.capacity - sold - available);
+    if (sold > 0 || reserved > 0) {
+      throw new ConditionFailedError(
+        `Cannot remove ${previous.name || previous.sectionId}; it has sold or reserved seats`
+      );
+    }
+    transactItems.push({
+      Delete: {
+        TableName: T(),
+        Key: { pk: eventPk(eventId), sk: `SECTION#${previous.sectionId}` },
+      },
+    });
+  }
+
   await docClient.send(new TransactWriteCommand({ TransactItems: transactItems }));
   return { ...event, venueLayout: layout };
 }
@@ -1542,4 +1664,259 @@ async function fulfillSeatedOrder(
     if (isConditionalCheck(e)) return 'already';
     throw e;
   }
+}
+
+// ---------- account lifecycle ----------
+
+const resetPk = (email: string) => `RESET#${email.toLowerCase()}`;
+
+function resetCodeHash(code: string): string {
+  return createHash('sha256').update(code).digest('hex');
+}
+
+export async function createPasswordReset(email: string): Promise<{ code: string; expiresAt: string }> {
+  const code = String(randomInt(100000, 1000000));
+  const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: resetPk(email),
+        sk: 'CODE',
+        codeHash: resetCodeHash(code),
+        expiresAt,
+        createdAt: now(),
+      },
+    })
+  );
+  return { code, expiresAt };
+}
+
+async function passwordResetMatches(email: string, code: string): Promise<boolean> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: resetPk(email), sk: 'CODE' } })
+  );
+  const item = res.Item as { codeHash?: string; expiresAt?: string } | undefined;
+  return Boolean(
+    item?.codeHash === resetCodeHash(code) && item.expiresAt && new Date(item.expiresAt) > new Date()
+  );
+}
+
+export async function verifyPasswordReset(email: string, code: string): Promise<boolean> {
+  return passwordResetMatches(email, code);
+}
+
+export async function consumePasswordReset(email: string, code: string): Promise<boolean> {
+  if (!(await passwordResetMatches(email, code))) return false;
+  await docClient.send(
+    new DeleteCommand({ TableName: T(), Key: { pk: resetPk(email), sk: 'CODE' } })
+  );
+  return true;
+}
+
+export async function deleteUser(id: string): Promise<boolean> {
+  const user = await getUserById(id);
+  if (!user || user.deletedAt) return false;
+  const deletedAt = now();
+  await docClient.send(
+    new TransactWriteCommand({
+      TransactItems: [
+        {
+          Delete: {
+            TableName: T(),
+            Key: { pk: emailPk(user.email), sk: 'ID' },
+          },
+        },
+        {
+          Update: {
+            TableName: T(),
+            Key: { pk: userPk(id), sk: 'PROFILE' },
+            UpdateExpression:
+              'SET deletedAt = :deletedAt, firstName = :firstName, lastName = :lastName, passwordHash = :passwordHash REMOVE phone, avatarUrl, firstNameAr, city, dateOfBirth, notificationPrefs, stripeCustomerId',
+            ExpressionAttributeValues: {
+              ':deletedAt': deletedAt,
+              ':firstName': 'Deleted',
+              ':lastName': 'User',
+              ':passwordHash': '!deleted',
+            },
+            ConditionExpression: 'attribute_exists(pk)',
+          },
+        },
+      ],
+    })
+  );
+  return true;
+}
+
+// ---------- promo CRUD ----------
+
+const PROMOS_GSI_PK = 'PROMOS#ALL';
+
+export async function createPromo(input: PromoCode & { creatorId: string }): Promise<PromoCode> {
+  const code = input.code.trim().toUpperCase();
+  const timestamp = now();
+  const promo: PromoCode = {
+    ...input,
+    code,
+    usedCount: input.usedCount ?? 0,
+    active: input.active ?? true,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: promoPk(code),
+        sk: 'METADATA',
+        ...promo,
+        gsi1pk: PROMOS_GSI_PK,
+        gsi1sk: createdSk(timestamp, code),
+      },
+      ConditionExpression: 'attribute_not_exists(pk)',
+    })
+  );
+  return promo;
+}
+
+export async function listPromos(creatorId?: string): Promise<PromoCode[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi1',
+      KeyConditionExpression: 'gsi1pk = :pk',
+      ExpressionAttributeValues: { ':pk': PROMOS_GSI_PK },
+      ScanIndexForward: false,
+      Limit: 200,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[])
+    .map((item) => stripKeys(item) as unknown as PromoCode)
+    .filter((promo) => !creatorId || promo.creatorId === creatorId);
+}
+
+export async function updatePromo(
+  code: string,
+  fields: Partial<Omit<PromoCode, 'code' | 'usedCount'>>
+): Promise<PromoCode | null> {
+  const key = promoPk(code);
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: key, sk: 'METADATA' } })
+  );
+  if (!res.Item) return null;
+  const next = {
+    ...(res.Item as Record<string, unknown>),
+    ...fields,
+    code: code.toUpperCase(),
+    updatedAt: now(),
+  };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        ...next,
+        pk: key,
+        sk: 'METADATA',
+        gsi1pk: PROMOS_GSI_PK,
+        gsi1sk: (res.Item as { gsi1sk?: string }).gsi1sk ?? createdSk(now(), code.toUpperCase()),
+      },
+    })
+  );
+  return stripKeys(next) as unknown as PromoCode;
+}
+
+export async function deletePromo(code: string): Promise<boolean> {
+  try {
+    await docClient.send(
+      new DeleteCommand({ TableName: T(), Key: { pk: promoPk(code), sk: 'METADATA' } })
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function incrementPromoUsage(code: string): Promise<void> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: promoPk(code), sk: 'METADATA' },
+        UpdateExpression: 'ADD usedCount :one SET updatedAt = :now',
+        ExpressionAttributeValues: { ':one': 1, ':now': now() },
+        ConditionExpression: 'attribute_exists(pk)',
+      })
+    );
+  } catch (e) {
+    if (!isConditionalCheck(e)) throw e;
+  }
+}
+
+// ---------- creator broadcasts ----------
+
+export interface Broadcast {
+  id: string;
+  eventId: string;
+  creatorId: string;
+  audience: string;
+  audienceFilter?: { tierName?: string; sectionName?: string; checkedIn?: boolean };
+  message: string;
+  channels: { push: boolean; email: boolean; sms: boolean };
+  recipientCount: number;
+  createdAt: string;
+}
+
+const broadcastPk = (eventId: string) => `BROADCAST#${eventId}`;
+const broadcastsGsiPk = (eventId: string) => `BROADCASTS#${eventId}`;
+
+export async function createBroadcast(input: Omit<Broadcast, 'id' | 'createdAt'>): Promise<Broadcast> {
+  const id = randomUUID();
+  const createdAt = now();
+  const broadcast: Broadcast = { ...input, id, createdAt };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: broadcastPk(input.eventId),
+        sk: createdSk(createdAt, id),
+        ...broadcast,
+        gsi1pk: broadcastsGsiPk(input.eventId),
+        gsi1sk: createdAt,
+      },
+    })
+  );
+  return broadcast;
+}
+
+export async function listEventBroadcasts(eventId: string): Promise<Broadcast[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi1',
+      KeyConditionExpression: 'gsi1pk = :pk',
+      ExpressionAttributeValues: { ':pk': broadcastsGsiPk(eventId) },
+      ScanIndexForward: false,
+      Limit: 20,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[]).map(
+    (item) => stripKeys(item) as unknown as Broadcast
+  );
+}
+
+export async function listBroadcastsForEvents(eventIds: string[]): Promise<Broadcast[]> {
+  const feeds = await Promise.all(eventIds.map((eventId) => listEventBroadcasts(eventId)));
+  return feeds.flat().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 50);
+}
+
+export async function setUserStripeCustomerId(id: string, stripeCustomerId: string): Promise<void> {
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: userPk(id), sk: 'PROFILE' },
+      UpdateExpression: 'SET stripeCustomerId = :id',
+      ExpressionAttributeValues: { ':id': stripeCustomerId },
+      ConditionExpression: 'attribute_exists(pk)',
+    })
+  );
 }

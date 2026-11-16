@@ -42,10 +42,48 @@ export async function eventRoutes(app: FastifyInstance) {
     };
   });
 
-  // GET /events/mine — events created by the current user (any status)
+  // GET /events/mine — events created by the current user (any status),
+  // enriched with tiers so Studio can compute sales without N+1 detail calls.
   app.get('/events/mine', { preHandler: app.authenticate }, async (request) => {
     const events = await listCreatorEvents(request.user.sub);
-    return { events };
+    const detailed = await Promise.all(
+      events.map(async (event) => {
+        const result = await getEvent(event.id);
+        if (!result) return null;
+        const sections = result.event.venueLayout ? await listSections(event.id) : [];
+        return { result, sections };
+      })
+    );
+    return {
+      events: detailed
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+        .map(({ result, sections }) => {
+          const sectionById = new Map(sections.map((section) => [section.sectionId, section]));
+          return {
+            ...result.event,
+            tiers: result.tiers.map((t) => ({
+              id: t.id,
+              name: t.name,
+              description: t.description,
+              priceCents: t.priceCents,
+              price: t.priceCents / 100,
+              quantity: t.quantity,
+              sold: t.sold,
+              available: t.available ?? t.quantity - t.sold,
+              remaining: Math.max(0, t.available ?? t.quantity - t.sold),
+            })),
+            venueSections: (result.event.venueLayout?.sections ?? []).map((section) => {
+              const inventory = sectionById.get(section.id);
+              return {
+                ...section,
+                sold: inventory?.sold ?? 0,
+                available: inventory?.available ?? section.capacity,
+                remaining: Math.max(0, inventory?.available ?? section.capacity),
+              };
+            }),
+          };
+        }),
+    };
   });
 
   // GET /events/:id — event detail with tiers (+ venue sections when the

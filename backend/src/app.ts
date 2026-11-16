@@ -3,12 +3,14 @@ import jwt from '@fastify/jwt';
 import Fastify from 'fastify';
 import { env } from './env';
 import { authPlugin } from './plugins/auth';
+import { accountRoutes } from './routes/account';
 import { authRoutes } from './routes/auth';
 import { doorRoutes } from './routes/door';
 import { eventRoutes } from './routes/events';
 import { healthRoutes } from './routes/health';
 import { listingRoutes } from './routes/listings';
 import { orderRoutes } from './routes/orders';
+import { promoRoutes } from './routes/promos';
 import { ticketRoutes } from './routes/tickets';
 
 // Builds the Fastify app without listening — shared by the local dev server
@@ -40,6 +42,8 @@ export function buildApp() {
 
   void app.register(healthRoutes);
   void app.register(authRoutes);
+  void app.register(accountRoutes);
+  void app.register(promoRoutes);
   void app.register(eventRoutes);
   void app.register(orderRoutes);
   void app.register(ticketRoutes);
