@@ -6,29 +6,32 @@ No blockchain — regular database, Stripe PaymentIntents, JWT auth.
 
 ## Local dev
 
-You need AWS credentials (`aws login` / `aws configure`) and the table.
+Fastest path — DynamoDB Local in Docker, no AWS account:
 
 ```bash
 cd backend
-cp .env.example .env        # fill in JWT_SECRET, STRIPE_SECRET_KEY, etc.
 npm install
-
-# Create the DynamoDB table (once) — same shape as template.yaml:
-aws dynamodb create-table \
-  --table-name blocktiks \
-  --attribute-definitions \
-    AttributeName=pk,AttributeType=S AttributeName=sk,AttributeType=S \
-    AttributeName=gsi1pk,AttributeType=S AttributeName=gsi1sk,AttributeType=S \
-    AttributeName=gsi2pk,AttributeType=S AttributeName=gsi2sk,AttributeType=S \
-  --key-schema AttributeName=pk,KeyType=HASH AttributeName=sk,KeyType=RANGE \
-  --global-secondary-indexes \
-    "[{\"IndexName\":\"gsi1\",\"KeySchema\":[{\"AttributeName\":\"gsi1pk\",\"KeyType\":\"HASH\"},{\"AttributeName\":\"gsi1sk\",\"KeyType\":\"RANGE\"}],\"Projection\":{\"ProjectionType\":\"ALL\"}},{\"IndexName\":\"gsi2\",\"KeySchema\":[{\"AttributeName\":\"gsi2pk\",\"KeyType\":\"HASH\"},{\"AttributeName\":\"gsi2sk\",\"KeyType\":\"RANGE\"}],\"Projection\":{\"ProjectionType\":\"ALL\"}}]" \
-  --billing-mode PAY_PER_REQUEST
-
-npm run dev                 # http://localhost:4000 (uses your AWS creds/region)
+npm run db:up        # DynamoDB Local on :8000 (docker compose)
+npm run db:seed      # creates the table + demo data (skips if already seeded)
+npm run dev:local    # http://localhost:4000 against DynamoDB Local
 ```
 
-Or point `DYNAMODB_ENDPOINT` at DynamoDB Local instead of real AWS.
+Or from the repo root: `./dev.sh --local --seed`.
+
+| Script | What it does |
+|--------|--------------|
+| `db:up` / `db:down` | Start / stop DynamoDB Local (`db:down -- -v` also deletes its data) |
+| `db:create` | Create the `blocktiks` table if missing |
+| `db:seed` | Seed demo users, events, tickets, listing, offer, promo, referral |
+| `db:reset` | Delete every item, then seed |
+| `db:seed:remote` | Seed a real AWS table (`TABLE_NAME`, `AWS_REGION`, your AWS creds) |
+
+The seed (`scripts/seed.ts`) writes through `src/db.ts`, so seeded rows have exactly the
+shape the API writes. It refuses to touch a remote table unless `SEED_ALLOW_REMOTE=1`, and
+a remote reset also needs `RESET_CONFIRM=<table name>`. Never seed prod.
+
+Against a real AWS table instead (needs `aws configure`): `cp .env.example .env`, create the
+table once with `npx tsx scripts/create-table.ts`, then `npm run dev`.
 
 ## Stripe test flow
 
@@ -40,15 +43,18 @@ Then `npm run dev` in another shell. Card `4242 4242 4242 4242` works in test mo
 
 ## Deploy to AWS (SAM)
 
+Each stage (`dev`, `staging`, `prod`) is its own CloudFormation stack with its own table
+(see `samconfig.toml`). Secrets live in gitignored `.env.deploy.<stage>` files:
+
 ```bash
-sam build
-sam deploy --guided \
-  --parameter-overrides \
-    JwtSecret="$(openssl rand -hex 32)" \
-    StripeSecretKey="sk_test_..." \
-    StripeWebhookSecret="whsec_..." \
-    AllowedOrigins="*"
+cp .env.deploy.example .env.deploy.staging   # fill JWT_SECRET, STRIPE_SECRET_KEY, ...
+scripts/deploy.sh staging                    # sam build + deploy, prints ApiUrl + table
+TABLE_NAME=<table> AWS_REGION=<region> npm run db:seed:remote   # demo data for testers
 ```
+
+The Lambda runs with `NODE_ENV=production` and refuses to boot without a webhook
+secret, so the first dev/staging deploy uses a placeholder; set the real one (below)
+and redeploy. `prod` requires the webhook secret and explicit `ALLOWED_ORIGINS`.
 
 `template.yaml` creates: DynamoDB table (on-demand, 2 GSIs), Lambda (nodejs22.x/arm64,
 esbuild bundle via Makefile), API Gateway HTTP API with CORS, and least-privilege
@@ -57,7 +63,7 @@ DynamoDB IAM. Output `ApiUrl` is your backend base URL.
 Then in Stripe Dashboard → Developers → Webhooks, add
 `https://<api-id>.execute-api.<region>.amazonaws.com/<stage>/webhooks/stripe`
 (listen for `payment_intent.succeeded` + `payment_intent.payment_failed`) and put
-the signing secret into `StripeWebhookSecret`.
+the signing secret into `STRIPE_WEBHOOK_SECRET` in `.env.deploy.<stage>`, then redeploy.
 
 ## API surface
 

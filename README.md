@@ -2,28 +2,61 @@
 
 Flutter mobile app, Fastify + DynamoDB backend, and Studio/buyer web apps.
 
-## Run the mobile app against the local backend
+## Environments
 
-1. Start the backend and seed demo events:
+| Stage | Backend | Data | Used for |
+|-------|---------|------|----------|
+| `local` | `./dev.sh --local` on `localhost:4000` | DynamoDB Local in Docker + seed script | Day-to-day development, offline, no AWS account |
+| `staging` | SAM stack `blocktiks-staging` | Its own DynamoDB table, seeded demo data, Stripe test mode | Testers, TestFlight / internal builds |
+| `prod` | SAM stack `blocktiks-prod` | Real data only, never seeded | Store builds |
 
-   ```bash
-   ./dev.sh --seed
-   ```
+Every stage runs the same backend code against DynamoDB, so what works locally works on AWS.
 
-   The API listens on `http://localhost:4000`.
+## Run everything locally (no AWS needed)
 
-2. Run the Flutter app:
+Needs Docker and Node 22.
 
-   ```bash
-   flutter run
-   ```
+```bash
+./dev.sh --local --seed      # DynamoDB Local + backend + demo data + flutter run
+./dev.sh --local --no-app    # backend only (for Studio / buyer web)
+```
 
-   - iOS simulator/macOS use `http://localhost:4000` automatically.
-   - Android emulator uses `http://10.0.2.2:4000` automatically.
-   - For a physical device, pass your machine's LAN IP:
+Demo accounts (password `password123`): `creator@test.com`, `layla@test.com` (creators),
+`fan@test.com`, `noor@test.com` (fans). The seed creates 5 events (one draft, one with
+seated sections), paid orders and tickets, a resale listing, a set-your-price offer, the
+`WELCOME10` promo and a referral. Event dates are relative to today, so they never go stale.
 
-     ```bash
-     flutter run --dart-define=API_BASE_URL=http://192.168.1.10:4000
-     ```
+Reset to a clean dataset at any time:
 
-If the app says it cannot reach the backend, start `./dev.sh --seed` first. If events are missing, publish events in Studio or reseed with `./dev.sh --seed`.
+```bash
+cd backend && npm run db:reset
+```
+
+Data survives restarts (Docker volume). `npm run db:down -- -v` deletes it entirely.
+
+Without `--local`, `./dev.sh` uses your AWS credentials and the real `blocktiks` table in
+your configured region.
+
+## Point the app at a stage
+
+```bash
+flutter run --dart-define-from-file=config/env/local.json     # localhost / 10.0.2.2
+flutter run --dart-define-from-file=config/env/staging.json
+flutter build ipa --dart-define-from-file=config/env/prod.json
+```
+
+Fill `API_BASE_URL` in `config/env/staging.json` / `prod.json` with the `ApiUrl` printed by
+the deploy. Optional `STRIPE_PUBLISHABLE_KEY` in the same file overrides the test key.
+For a physical device on local, use your machine's LAN IP:
+`--dart-define=API_BASE_URL=http://192.168.1.10:4000`.
+
+Web apps: `npm run dev` (local), `npm run dev:staging` / `npm run build:staging` (reads
+`.env.staging`, see `.env.staging.example`), `npm run build` (reads `.env.production`).
+
+## Deploy a stage
+
+See [backend/README.md](backend/README.md#deploy-to-aws-sam):
+
+```bash
+cd backend && scripts/deploy.sh staging
+```

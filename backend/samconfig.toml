@@ -1,13 +1,47 @@
-version: 1.0
-
-# First deploy is guided — secrets are passed as parameter overrides, never
-# committed here:
-#   sam deploy --guided \
-#     --parameter-overrides \
-#       JwtSecret="$(openssl rand -hex 32)" \
-#       StripeSecretKey="sk_test_..." \
-#       StripeWebhookSecret="whsec_..." \
-#       AllowedOrigins="*"
+# SAM deploy environments. One CloudFormation stack (and its own DynamoDB
+# table) per stage. Secrets are NOT stored here — use scripts/deploy.sh, which
+# reads them from the gitignored .env.deploy.<stage> file:
 #
-# Later deploys:
-#   sam deploy
+#   scripts/deploy.sh dev | staging | prod
+#
+# Region comes from your AWS profile (aws configure get region).
+version = 0.1
+
+[default.global.parameters]
+stack_name = "blocktiks-dev"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+resolve_s3 = true
+parameter_overrides = "StageName=\"dev\""
+
+[staging.global.parameters]
+stack_name = "blocktiks-staging"
+
+[staging.build.parameters]
+cached = true
+parallel = true
+
+[staging.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+resolve_s3 = true
+parameter_overrides = "StageName=\"staging\""
+
+[prod.global.parameters]
+stack_name = "blocktiks-prod"
+
+[prod.build.parameters]
+cached = true
+parallel = true
+
+[prod.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+parameter_overrides = "StageName=\"prod\""

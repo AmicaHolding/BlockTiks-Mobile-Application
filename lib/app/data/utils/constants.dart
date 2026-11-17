@@ -39,8 +39,11 @@ class Constants {
 
   /// Stripe TEST-mode publishable key (safe to ship — publishable keys are
   /// public by design). Swap for the live key at go-live.
-  static const String stripePublishableKey =
-      'pk_test_51OQcYMKDQ9FNyAvcuMnJVFcHo5JBiPVpnVjlPFldhCQaR5hIP5kp7iKQf1GoXAbAbiF0KaQnIHduLKa5eOGRYJgA00z1BysV1J';
+  /// Override per build with --dart-define(-from-file) STRIPE_PUBLISHABLE_KEY.
+  static const String stripePublishableKey = String.fromEnvironment(
+      'STRIPE_PUBLISHABLE_KEY',
+      defaultValue:
+          'pk_test_51OQcYMKDQ9FNyAvcuMnJVFcHo5JBiPVpnVjlPFldhCQaR5hIP5kp7iKQf1GoXAbAbiF0KaQnIHduLKa5eOGRYJgA00z1BysV1J');
   static const int MAX_IMAGE_SIZE = 3; // in Mbs
 
   static bool showToast = true;

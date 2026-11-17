@@ -3,7 +3,8 @@
 #
 # Usage:
 #   ./dev.sh                # backend + flutter run (asks for device)
-#   ./dev.sh --seed         # also seed demo creator + published events
+#   ./dev.sh --local        # use DynamoDB Local in Docker (no AWS account needed)
+#   ./dev.sh --seed         # also seed demo users, events, tickets, listings (see backend/scripts/seed.ts)
 #   ./dev.sh --no-app       # backend only
 #   ./dev.sh -d <device>    # extra args are passed to `flutter run`
 #
@@ -17,11 +18,13 @@ BACKEND_DIR="${BACKEND_DIR:-$(cd "$(dirname "$0")" && pwd)/backend}"
 API_PORT="${API_PORT:-4000}"
 API_URL="http://localhost:${API_PORT}"
 SEED=false
+LOCAL=false
 APP_ARGS=()
 
 for arg in "$@"; do
   case "$arg" in
     --seed) SEED=true ;;
+    --local) LOCAL=true ;;
     --no-app) APP_ARGS=("--no-app") ;;
     *) APP_ARGS+=("$arg") ;;
   esac
@@ -54,24 +57,35 @@ fi
 [ -d node_modules ] || npm install
 
 # --- DynamoDB table ---------------------------------------------------------
-if command -v aws >/dev/null 2>&1; then
-  REGION="$(aws configure get region 2>/dev/null || echo me-central-1)"
-  if ! aws dynamodb describe-table --table-name blocktiks --region "$REGION" >/dev/null 2>&1; then
-    echo "==> Creating DynamoDB table 'blocktiks' in $REGION"
-    aws dynamodb create-table \
-      --table-name blocktiks --region "$REGION" --billing-mode PAY_PER_REQUEST \
-      --attribute-definitions \
-        AttributeName=pk,AttributeType=S AttributeName=sk,AttributeType=S \
-        AttributeName=gsi1pk,AttributeType=S AttributeName=gsi1sk,AttributeType=S \
-        AttributeName=gsi2pk,AttributeType=S AttributeName=gsi2sk,AttributeType=S \
-      --key-schema AttributeName=pk,KeyType=HASH AttributeName=sk,KeyType=RANGE \
-      --global-secondary-indexes \
-        '[{"IndexName":"gsi1","KeySchema":[{"AttributeName":"gsi1pk","KeyType":"HASH"},{"AttributeName":"gsi1sk","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}},{"IndexName":"gsi2","KeySchema":[{"AttributeName":"gsi2pk","KeyType":"HASH"},{"AttributeName":"gsi2sk","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}]' \
-      >/dev/null
-    aws dynamodb wait table-exists --table-name blocktiks --region "$REGION"
-  fi
+if $LOCAL; then
+  command -v docker >/dev/null 2>&1 || { echo "!! --local needs Docker"; exit 1; }
+  echo "==> Starting DynamoDB Local (docker compose)"
+  docker compose up -d dynamodb >/dev/null
+  for i in $(seq 1 30); do
+    curl -s -o /dev/null http://localhost:8000 && break
+    sleep 1
+  done
+  npm run --silent db:create
 else
-  echo "!! aws CLI not found — backend needs DynamoDB access. Continuing anyway."
+  if command -v aws >/dev/null 2>&1; then
+    REGION="$(aws configure get region 2>/dev/null || echo me-central-1)"
+    if ! aws dynamodb describe-table --table-name blocktiks --region "$REGION" >/dev/null 2>&1; then
+      echo "==> Creating DynamoDB table 'blocktiks' in $REGION"
+      aws dynamodb create-table \
+        --table-name blocktiks --region "$REGION" --billing-mode PAY_PER_REQUEST \
+        --attribute-definitions \
+          AttributeName=pk,AttributeType=S AttributeName=sk,AttributeType=S \
+          AttributeName=gsi1pk,AttributeType=S AttributeName=gsi1sk,AttributeType=S \
+          AttributeName=gsi2pk,AttributeType=S AttributeName=gsi2sk,AttributeType=S \
+        --key-schema AttributeName=pk,KeyType=HASH AttributeName=sk,KeyType=RANGE \
+        --global-secondary-indexes \
+          '[{"IndexName":"gsi1","KeySchema":[{"AttributeName":"gsi1pk","KeyType":"HASH"},{"AttributeName":"gsi1sk","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}},{"IndexName":"gsi2","KeySchema":[{"AttributeName":"gsi2pk","KeyType":"HASH"},{"AttributeName":"gsi2sk","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}]' \
+        >/dev/null
+      aws dynamodb wait table-exists --table-name blocktiks --region "$REGION"
+    fi
+  else
+    echo "!! aws CLI not found — backend needs DynamoDB access. Continuing anyway."
+  fi
 fi
 
 BACKEND_PID=""
@@ -82,7 +96,8 @@ if curl -sf "$API_URL/health" >/dev/null 2>&1; then
   echo "==> Backend already running on $API_URL"
 else
   echo "==> Starting backend on $API_URL"
-  npm run dev > /tmp/blocktiks-backend.log 2>&1 &
+  if $LOCAL; then DEV_SCRIPT=dev:local; else DEV_SCRIPT=dev; fi
+  npm run "$DEV_SCRIPT" > /tmp/blocktiks-backend.log 2>&1 &
   BACKEND_PID=$!
   STARTED_BACKEND=true
   trap 'kill ${BACKEND_PID:-} ${STRIPE_PID:-} 2>/dev/null || true' EXIT
@@ -113,48 +128,11 @@ fi
 # --- seed --------------------------------------------------------------------
 if $SEED; then
   echo "==> Seeding demo data"
-  node - "$API_URL" <<'NODE'
-const base = process.argv[2];
-const j = (r) => r.json();
-const post = (p, body, token) =>
-  fetch(base + p, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
-    body: JSON.stringify(body),
-  }).then(j);
-
-const run = async () => {
-  let res = await post('/auth/login', { email: 'creator@test.com', password: 'password123' });
-  if (!res.token) res = await post('/auth/signup', { firstName: 'Demo', lastName: 'Creator', email: 'creator@test.com', password: 'password123', role: 'creator' });
-  const token = res.token;
-  const events = await fetch(base + '/events/mine', { headers: { authorization: `Bearer ${token}` } }).then(j);
-  if ((events.events || []).length === 0) {
-    const e1 = await post('/events', {
-      title: 'Neon Nights Festival',
-      description: 'An all-night electronic music festival featuring live sets and immersive visuals.',
-      category: 'Music', startsAt: '2026-12-05T20:00:00.000Z',
-      location: 'Riverside Arena', address: '123 Harbor St',
-      tiers: [
-        { name: 'General Admission', priceCents: 4500, quantity: 200 },
-        { name: 'VIP', priceCents: 12000, quantity: 50 },
-      ],
-    }, token);
-    await post(`/events/${e1.event.id}/publish`, {}, token);
-    const e2 = await post('/events', {
-      title: 'Rooftop Sessions',
-      description: 'Intimate live music sessions on the rooftop every Friday.',
-      category: 'Concerts', startsAt: '2026-11-28T19:00:00.000Z',
-      location: 'Skyline Lounge',
-      tiers: [{ name: 'Entry', priceCents: 2500, quantity: 80 }],
-    }, token);
-    await post(`/events/${e2.event.id}/publish`, {}, token);
-    console.log('    seeded 2 events');
-  } else {
-    console.log('    demo events already exist');
-  }
-};
-run().catch((e) => { console.error(e); process.exit(1); });
-NODE
+  if $LOCAL; then
+    npm run --silent db:seed
+  else
+    AWS_REGION="${REGION:-us-east-1}" npm run --silent db:seed:remote
+  fi
 fi
 
 # --- flutter ------------------------------------------------------------------
@@ -171,4 +149,4 @@ fi
 
 cd "$(dirname "$0")"
 echo "==> Starting Flutter app ($API_URL)"
-exec flutter pub get && flutter run "${APP_ARGS[@]}"
+flutter pub get && exec flutter run "${APP_ARGS[@]}"
