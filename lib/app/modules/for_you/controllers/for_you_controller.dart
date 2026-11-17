@@ -20,10 +20,23 @@ class ForYouController extends GetxController {
     isLoading.value = true;
     loadError.value = null;
     try {
-      events.value = (await ApiService.events(limit: 100))
-          .where((e) =>
-              isAvailable(e['startsAt']?.toString(), e['endsAt']?.toString()))
-          .toList();
+      final collected = <Map<String, dynamic>>[];
+      String? cursor;
+      for (var page = 0; page < 3 && collected.length < 100; page++) {
+        final res = await ApiService.eventsPage(cursor: cursor, limit: 100);
+        final items = ((res['items'] as List?) ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+        collected.addAll(items.where((e) =>
+            isAvailable(e['startsAt']?.toString(), e['endsAt']?.toString())));
+        final next = res['nextCursor'];
+        if (next is String && next.isNotEmpty) {
+          cursor = next;
+        } else {
+          break;
+        }
+      }
+      events.value = collected.take(100).toList();
       if (currentImage.value >= events.length && events.isNotEmpty) {
         currentImage.value = 0;
       }

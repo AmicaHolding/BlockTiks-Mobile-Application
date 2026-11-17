@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api, type SahraEvent } from '../lib/api';
-import { isAvailable, isThisWeekendDate, parseIso } from '../lib/format';
+import type { SahraEvent } from '../lib/api';
+import { isThisWeekendDate, parseIso } from '../lib/format';
+import { fetchAvailableEvents } from '../lib/events';
 import EventCard, { lowestPrice } from '../components/EventCard';
 import { Badge, Button, Card, EmptyState, Input, Spinner } from '../components/ui';
 
@@ -46,10 +47,9 @@ export default function ExplorePage() {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    api
-      .events({ limit: 100 })
-      .then((res) => {
-        if (active) setEvents(res.events.filter(isAvailable));
+    fetchAvailableEvents({ limit: 100 })
+      .then((events) => {
+        if (active) setEvents(events);
       })
       .catch((e) => {
         if (active) setError(e instanceof Error ? e.message : 'Failed to load events');

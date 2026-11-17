@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api, type SahraEvent } from '../lib/api';
-import { formatCents, formatShortDateTime, isAvailable } from '../lib/format';
+import type { SahraEvent } from '../lib/api';
+import { formatCents, formatShortDateTime } from '../lib/format';
+import { fetchAvailableEvents } from '../lib/events';
 import { Badge, Card, EmptyState, Input, Spinner } from '../components/ui';
 import { SearchIcon } from '../components/icons';
 import EventCard, { EVENT_MEDIA_GRADIENT, lowestPrice } from '../components/EventCard';
@@ -37,10 +38,9 @@ export default function SearchPage() {
     let active = true;
     setBrowseLoading(true);
     setBrowseError(null);
-    api
-      .events({ limit: 100 })
-      .then((res) => {
-        if (active) setBrowseEvents(res.events.filter(isAvailable).slice(0, 8));
+    fetchAvailableEvents({ limit: 100 })
+      .then((events) => {
+        if (active) setBrowseEvents(events.slice(0, 8));
       })
       .catch((e) => {
         if (active) {
@@ -63,10 +63,9 @@ export default function SearchPage() {
     }
     let active = true;
     setLoading(true);
-    api
-      .events({ q: q.trim(), limit: 100 })
-      .then((res) => {
-        if (active) setEvents(res.events.filter(isAvailable));
+    fetchAvailableEvents({ q: q.trim(), limit: 100 })
+      .then((events) => {
+        if (active) setEvents(events);
       })
       .catch(() => {
         if (active) setEvents([]);

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, type SahraEvent } from '../lib/api';
-import { formatCents, formatEventDate, isAvailable, isThisWeekend } from '../lib/format';
+import type { SahraEvent } from '../lib/api';
+import { formatCents, formatEventDate, isThisWeekend } from '../lib/format';
+import { fetchAvailableEvents } from '../lib/events';
 import EventCard, { EVENT_MEDIA_GRADIENT, EventCardRow, isSellingFast, lowestPrice } from '../components/EventCard';
 import { Badge, Button, Spinner } from '../components/ui';
 import { CalendarIcon, FireIcon, MapIcon, TicketIcon } from '../components/icons';
@@ -15,10 +16,9 @@ export default function HomePage() {
 
   useEffect(() => {
     let active = true;
-    api
-      .events({ limit: 100 })
-      .then((res) => {
-        if (active) setEvents(res.events.filter(isAvailable));
+    fetchAvailableEvents({ limit: 100 })
+      .then((events) => {
+        if (active) setEvents(events);
       })
       .catch((e) => {
         if (active) setError(e instanceof Error ? e.message : 'Failed to load events');
