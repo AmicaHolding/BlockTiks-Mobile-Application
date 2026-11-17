@@ -17,7 +17,7 @@ export function isSellingFast(event: SahraEvent): boolean {
   const tiers = event.tiers ?? [];
   const total = tiers.reduce((sum, t) => sum + (t.quantity || 0), 0);
   const remaining = tiers.reduce((sum, t) => sum + Math.max(0, t.remaining ?? (t.quantity - t.sold)), 0);
-  return total > 0 && remaining / total < 0.25;
+  return total > 0 && remaining > 0 && remaining / total < 0.25;
 }
 
 export default function EventCard({ event, compact = false }: { event: SahraEvent; compact?: boolean }) {

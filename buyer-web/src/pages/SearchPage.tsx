@@ -28,6 +28,7 @@ export default function SearchPage() {
   const [recent, setRecent] = useState<string[]>(loadRecent);
   const [browseEvents, setBrowseEvents] = useState<SahraEvent[]>([]);
   const [browseLoading, setBrowseLoading] = useState(false);
+  const [browseError, setBrowseError] = useState<string | null>(null);
 
   useEffect(() => setInput(q), [q]);
 
@@ -35,13 +36,17 @@ export default function SearchPage() {
     if (q.trim()) return;
     let active = true;
     setBrowseLoading(true);
+    setBrowseError(null);
     api
       .events({ limit: 8 })
       .then((res) => {
         if (active) setBrowseEvents(res.events);
       })
-      .catch(() => {
-        if (active) setBrowseEvents([]);
+      .catch((e) => {
+        if (active) {
+          setBrowseEvents([]);
+          setBrowseError(e instanceof Error ? e.message : 'Failed to load events');
+        }
       })
       .finally(() => {
         if (active) setBrowseLoading(false);
@@ -231,6 +236,8 @@ export default function SearchPage() {
               <div className="mt-4 flex min-h-[20vh] items-center justify-center">
                 <Spinner />
               </div>
+            ) : browseError ? (
+              <EmptyState title="Couldn't load events">{browseError}</EmptyState>
             ) : browseEvents.length > 0 ? (
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 {browseEvents.map((event) => (
