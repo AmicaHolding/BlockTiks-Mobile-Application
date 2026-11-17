@@ -1,5 +1,4 @@
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:block_tix/app/modules/profile_tab/controllers/profile_tab_controller.dart';
 import 'package:block_tix/app/services/api_service.dart';
 
 class UserDashboardController extends GetxController {
@@ -18,15 +17,18 @@ class UserDashboardController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    if (!Get.isRegistered<ProfileTabController>()) {
-      Get.put(ProfileTabController());
-    }
     var data = Get.arguments;
     if (data != null && data['index'] != null) {
       selectedIndex.value = data['index'];
       Future.delayed(200.milliseconds, () => changePage(selectedIndex.value));
     }
     fetchNotificationCount();
+  }
+
+  @override
+  void onClose() {
+    pageController.dispose();
+    super.onClose();
   }
 
   void changePage(index) {

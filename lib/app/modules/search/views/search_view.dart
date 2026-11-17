@@ -10,7 +10,7 @@ class SearchView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(MySearchController());
+    final controller = Get.find<MySearchController>();
     final content = SafeArea(
       bottom: false,
       child: Column(children: [

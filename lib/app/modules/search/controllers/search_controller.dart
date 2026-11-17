@@ -96,15 +96,15 @@ class MySearchController extends GetxController
   @override
   void onInit() {
     super.onInit();
-    tabController = Get.put(
-      TabController(vsync: this, length: 2),
-    );
+    tabController = TabController(vsync: this, length: 2);
     fetchRecentEvents();
   }
 
   @override
   void onClose() {
     _debounce?.cancel();
+    searchController.dispose();
+    tabController.dispose();
     super.onClose();
   }
 

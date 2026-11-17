@@ -23,26 +23,8 @@ class ProfileTabView extends GetView<ProfileTabController> {
               child: Text('Your next events will appear here.',
                   style: TextStyle(color: ColorConstant.nightMuted))),
           const SahraSmallLabel('Account'),
-          _settingRow('Edit profile & settings',
+          _settingRow('Settings',
               onTap: () => Get.toNamed(Routes.PROFILE_SETTINGS)),
-          _settingRow('Edit profile',
-              onTap: () => Get.toNamed(Routes.EDIT_PROFILE)),
-          _settingRow('Change password',
-              onTap: () => Get.toNamed(Routes.CHANGE_PASSWORD)),
-          _settingRow('Notifications',
-              onTap: () => Get.toNamed(Routes.NOTIFICATIONS_PAGE)),
-          _settingRow('Transactions',
-              onTap: () => Get.toNamed(Routes.TRANSACTIONS)),
-          _settingRow('Earnings & payouts',
-              onTap: () => Get.toNamed(Routes.WITHDRAW)),
-          _settingRow('Payment methods',
-              onTap: () => Get.toNamed(Routes.PAYMENT_OPTIONS)),
-          _settingRow('Promo codes',
-              onTap: () => Get.toNamed(Routes.PROMO_CODES)),
-          const SahraSmallLabel('Support'),
-          _settingRow('Help & FAQs', onTap: () => Get.toNamed(Routes.FAQS)),
-          _settingRow('Invite friends',
-              onTap: () => Get.toNamed(Routes.REFERRALS)),
           const SizedBox(height: 28),
           Center(
               child: GestureDetector(
@@ -104,7 +86,7 @@ class ProfileTabView extends GetView<ProfileTabController> {
                 ])),
             SahraIconAction(
                 icon: Icons.edit_outlined,
-                onTap: () => Get.toNamed(Routes.PROFILE_SETTINGS)),
+                onTap: () => Get.toNamed(Routes.EDIT_PROFILE)),
           ]));
     });
   }
