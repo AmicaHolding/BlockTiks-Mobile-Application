@@ -94,7 +94,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: "ic_launcher_adaptive_fore"
   ios: true
-  image_path: "assets/images/mini.png"
+  image_path: "assets/images/brand/sahra-app-icon-1024.png"
   min_sdk_android: 21 # android min sdk min:16, default 21
   remove_alpha_ios: true
 

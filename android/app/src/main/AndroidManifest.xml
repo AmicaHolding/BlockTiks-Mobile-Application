@@ -11,8 +11,8 @@
         android:name="${applicationName}"
         android:allowBackup="false"
         android:fullBackupContent="false"
-        android:icon="@mipmap/ic_launcher"
-        android:label="Block Tix"
+        android:icon="@mipmap/ic_launcher_adaptive_fore"
+        android:label="Sahra"
         android:requestLegacyExternalStorage="true">
 
         <activity

@@ -62,29 +62,32 @@ class SearchView extends StatelessWidget {
   }
 
   Widget _filters(MySearchController c) {
-    final cats = <String>{'All'};
-    for (final e in c.recentEvents) {
-      final cat = e['category']?.toString().trim() ?? '';
-      if (cat.isNotEmpty) cats.add(cat);
-    }
     return SizedBox(
         height: 42,
-        child: Obx(() => ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: cats.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (_, i) {
-                final cat = cats.elementAt(i);
-                final selected = c.selectedCategory.value == cat ||
-                    (cat == 'All' && c.selectedCategory.value == null);
-                return SahraChip(
-                    label: cat,
-                    selected: selected,
-                    onTap: () =>
-                        c.selectedCategory.value = cat == 'All' ? null : cat);
-              },
-            )));
+        child: Obx(() {
+          final cats = <String>{'All'};
+          for (final e in c.recentEvents) {
+            final cat = e['category']?.toString().trim() ?? '';
+            if (cat.isNotEmpty) cats.add(cat);
+          }
+          final selectedCategory = c.selectedCategory.value;
+          return ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: cats.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final cat = cats.elementAt(i);
+              final selected = selectedCategory == cat ||
+                  (cat == 'All' && selectedCategory == null);
+              return SahraChip(
+                  label: cat,
+                  selected: selected,
+                  onTap: () =>
+                      c.selectedCategory.value = cat == 'All' ? null : cat);
+            },
+          );
+        }));
   }
 
   List<Map<String, dynamic>> _filtered(
