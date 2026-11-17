@@ -391,8 +391,10 @@ export async function orderRoutes(app: FastifyInstance) {
   // Configure in Stripe Dashboard (or `stripe listen` locally) to point here.
   app.post('/webhooks/stripe', async (request, reply) => {
     const signature = request.headers['stripe-signature'] as string | undefined;
-    if (!signature || !env.stripeWebhookSecret) {
-      return reply.status(400).send({ message: 'Missing signature or webhook secret' });
+    // deploy.sh uses a public placeholder until the real whsec_ is configured;
+    // never accept events signed with it.
+    if (!signature || !env.stripeWebhookSecret || env.stripeWebhookSecret.startsWith('whsec_placeholder')) {
+      return reply.status(503).send({ message: 'Webhook secret not configured' });
     }
 
     let event;
