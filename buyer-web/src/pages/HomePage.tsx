@@ -1,21 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type SahraEvent } from '../lib/api';
-import { formatCents, formatEventDate } from '../lib/format';
-import EventCard, { EventCardRow, isSellingFast, lowestPrice } from '../components/EventCard';
+import { formatCents, formatEventDate, isThisWeekend } from '../lib/format';
+import EventCard, { EVENT_MEDIA_GRADIENT, EventCardRow, isSellingFast, lowestPrice } from '../components/EventCard';
 import { Badge, Button, Spinner } from '../components/ui';
 import { CalendarIcon, FireIcon, MapIcon, TicketIcon } from '../components/icons';
 
 const CATEGORIES = ['All', 'Concerts', 'Comedy', 'Football', 'Theatre', 'Family', 'Nightlife', 'Arts'];
-
-function isThisWeekend(startsAt: string): boolean {
-  const d = new Date(startsAt);
-  if (Number.isNaN(d.getTime())) return false;
-  const now = new Date();
-  const day = d.getDay();
-  const diff = (day - now.getDay() + 7) % 7;
-  return diff <= 2 && d.getTime() > now.getTime();
-}
 
 export default function HomePage() {
   const [events, setEvents] = useState<SahraEvent[]>([]);
@@ -41,8 +32,15 @@ export default function HomePage() {
   }, []);
 
   const featured = events[0];
-  const weekend = useMemo(() => events.filter((e) => isThisWeekend(e.startsAt)), [events]);
-  const rest = useMemo(() => events.filter((e) => e.id !== featured?.id), [events]);
+  const weekend = useMemo(
+    () => events.filter((e) => e.id !== featured?.id && isThisWeekend(e.startsAt)),
+    [events, featured]
+  );
+  const weekendIds = useMemo(() => new Set(weekend.map((e) => e.id)), [weekend]);
+  const rest = useMemo(
+    () => events.filter((e) => e.id !== featured?.id && !weekendIds.has(e.id)),
+    [events, featured, weekendIds]
+  );
 
   if (loading) {
     return (
@@ -91,16 +89,20 @@ export default function HomePage() {
         ))}
       </div>
 
-      <EventCardRow title="This weekend" events={weekend.length > 0 ? weekend : events.slice(0, 6)} to="/explore" />
+      {weekend.length > 0 ? (
+        <EventCardRow title="This weekend" events={weekend} to="/explore?date=This%20weekend" />
+      ) : null}
 
-      <section className="flex flex-col gap-4">
-        <h2 className="font-display text-2xl font-extrabold text-sand">Everything coming up</h2>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {rest.map((event) => (
-            <EventCard key={event.id} event={event} />
-          ))}
-        </div>
-      </section>
+      {rest.length > 0 ? (
+        <section className="flex flex-col gap-4">
+          <h2 className="font-display text-2xl font-extrabold text-sand">Everything coming up</h2>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {rest.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -108,7 +110,7 @@ export default function HomePage() {
 function Hero({ event }: { event: SahraEvent }) {
   const price = lowestPrice(event.tiers);
   const fast = isSellingFast(event);
-  const gradient = 'from-indigo-600/50 via-purple-800/40 to-night';
+  const gradient = EVENT_MEDIA_GRADIENT;
 
   return (
     <section className="relative overflow-hidden rounded-3xl border border-night-border/60 bg-night-surface">

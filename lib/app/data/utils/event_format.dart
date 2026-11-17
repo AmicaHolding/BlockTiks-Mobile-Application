@@ -9,6 +9,24 @@ DateTime? _parseIso(String? iso) {
   return DateTime.tryParse(iso)?.toLocal();
 }
 
+/// Whether an event falls in the current local weekend (Saturday 00:00
+/// through Monday 00:00). Once Monday arrives, the next weekend is used.
+bool isThisWeekend(String? iso) {
+  final event = _parseIso(iso);
+  if (event == null) return false;
+
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final daysSinceSaturday = (now.weekday + 1) % 7;
+  var saturday = today.subtract(Duration(days: daysSinceSaturday));
+  var monday = saturday.add(const Duration(days: 3));
+  if (!now.isBefore(monday)) {
+    saturday = saturday.add(const Duration(days: 7));
+    monday = monday.add(const Duration(days: 7));
+  }
+  return !event.isBefore(saturday) && event.isBefore(monday);
+}
+
 /// e.g. "Sat, Apr 20 · 8:00 PM"
 String formatEventDate(String? iso, {bool includeTime = true}) {
   final dt = _parseIso(iso);
