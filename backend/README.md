@@ -12,7 +12,7 @@ Fastest path — DynamoDB Local in Docker, no AWS account:
 cd backend
 npm install
 npm run db:up        # DynamoDB Local on :8000 (docker compose)
-npm run db:seed      # creates the table + demo data (skips if already seeded)
+npm run db:seed      # creates the table + demo data (skips if already seeded; if a seed run was interrupted, use `npm run db:reset`)
 npm run dev:local    # http://localhost:4000 against DynamoDB Local
 ```
 

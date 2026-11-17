@@ -7,14 +7,14 @@
 # Region comes from your AWS profile (aws configure get region).
 version = 0.1
 
-[default.global.parameters]
+[dev.global.parameters]
 stack_name = "blocktiks-dev"
 
-[default.build.parameters]
+[dev.build.parameters]
 cached = true
 parallel = true
 
-[default.deploy.parameters]
+[dev.deploy.parameters]
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
 resolve_s3 = true

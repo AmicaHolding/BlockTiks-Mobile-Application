@@ -37,13 +37,27 @@ class Constants {
   static const int MAX_INPUT_LIMIT = 30;
   static const int refreshDelay = 800;
 
-  /// Stripe TEST-mode publishable key (safe to ship — publishable keys are
-  /// public by design). Swap for the live key at go-live.
-  /// Override per build with --dart-define(-from-file) STRIPE_PUBLISHABLE_KEY.
+  /// Stripe publishable key. Defaults to the TEST-mode key for dev/staging;
+  /// release builds for prod must provide the live key via config/env/prod.json
+  /// (assertStripeKeyConfigured fails fast otherwise).
   static const String stripePublishableKey = String.fromEnvironment(
-      'STRIPE_PUBLISHABLE_KEY',
-      defaultValue:
-          'pk_test_51OQcYMKDQ9FNyAvcuMnJVFcHo5JBiPVpnVjlPFldhCQaR5hIP5kp7iKQf1GoXAbAbiF0KaQnIHduLKa5eOGRYJgA00z1BysV1J');
+    'STRIPE_PUBLISHABLE_KEY',
+    defaultValue: kReleaseMode ? '' :
+        'pk_test_51OQcYMKDQ9FNyAvcuMnJVFcHo5JBiPVpnVjlPFldhCQaR5hIP5kp7iKQf1GoXAbAbiF0KaQnIHduLKa5eOGRYJgA00z1BysV1J',
+  );
+
+  // APP_ENV comes from config/env/*.json via --dart-define-from-file.
+  static const String appEnv =
+      String.fromEnvironment('APP_ENV', defaultValue: 'local');
+
+  static void assertStripeKeyConfigured() {
+    if (kReleaseMode && appEnv == 'prod' && stripePublishableKey.isEmpty) {
+      throw StateError(
+        'STRIPE_PUBLISHABLE_KEY is required for production builds (config/env/prod.json)',
+      );
+    }
+  }
+
   static const int MAX_IMAGE_SIZE = 3; // in Mbs
 
   static bool showToast = true;

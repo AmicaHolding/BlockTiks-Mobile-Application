@@ -224,6 +224,13 @@ export async function seed(): Promise<{ skipped: boolean }> {
 
 async function main() {
   const reset = process.argv.includes('--reset');
+  // Never seed production data with public demo credentials.
+  if (!isLocal()) {
+    const hint = `${process.env.AWS_PROFILE ?? ''} ${process.env.TABLE_NAME ?? ''}`.toLowerCase();
+    if (/prod|production/.test(hint) || env.tableName.toLowerCase().includes('prod')) {
+      throw new Error('Refusing to seed a production table.');
+    }
+  }
   if (!isLocal() && process.env.SEED_ALLOW_REMOTE !== '1') {
     throw new Error(
       `Refusing to seed ${target()} — set DYNAMODB_ENDPOINT for local, or SEED_ALLOW_REMOTE=1 for a remote dev/staging table.`
@@ -239,7 +246,7 @@ async function main() {
 
   const { skipped } = await seed();
   if (skipped) {
-    console.log('    already seeded (run `npm run db:reset` to start fresh)');
+    console.log('    already seeded (run `npm run db:reset` to wipe and reseed)');
     return;
   }
   console.log('    seeded 4 users, 5 events (1 draft, 1 seated), 7 tickets, 1 resale listing, 1 offer, 1 promo');

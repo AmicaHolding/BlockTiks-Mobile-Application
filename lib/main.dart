@@ -33,6 +33,7 @@ Future<void> main() async {
   ]);
 
   /// Stripe ............................
+  Constants.assertStripeKeyConfigured();
   Stripe.publishableKey = Constants.stripePublishableKey;
   await Stripe.instance.applySettings();
 

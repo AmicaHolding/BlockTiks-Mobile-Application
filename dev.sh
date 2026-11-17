@@ -92,25 +92,46 @@ BACKEND_PID=""
 STARTED_BACKEND=false
 
 # --- start backend ----------------------------------------------------------
-if curl -sf "$API_URL/health" >/dev/null 2>&1; then
+# In --local mode we only reuse a backend whose /health reports dbLocal=true;
+# a server already on the port may be an AWS-backed one (different data).
+HEALTH_URL="$API_URL/health"
+LOCAL_MARKER='"dbLocal":true'
+ALREADY=false
+if $LOCAL; then
+  HEALTH=$(curl -s --max-time 2 "$HEALTH_URL" || true)
+  if echo "$HEALTH" | grep -q "$LOCAL_MARKER"; then
+    ALREADY=true
+    echo "==> Backend already running on $API_URL"
+  elif echo "$HEALTH" | grep -q '"status":"ok"'; then
+    echo "!! Port $API_PORT is used by an AWS-backed backend. Stop it or run with API_PORT=<free port>."
+    exit 1
+  elif curl -s -o /dev/null --max-time 1 "$API_URL/health"; then
+    echo "!! Port $API_PORT is used by something that is not the Sahra backend."
+    exit 1
+  fi
+elif curl -s --max-time 2 "$HEALTH_URL" | grep -q '"status":"ok"'; then
+  ALREADY=true
   echo "==> Backend already running on $API_URL"
-else
+fi
+if ! $ALREADY; then
   echo "==> Starting backend on $API_URL"
   if $LOCAL; then DEV_SCRIPT=dev:local; else DEV_SCRIPT=dev; fi
   npm run "$DEV_SCRIPT" > /tmp/blocktiks-backend.log 2>&1 &
   BACKEND_PID=$!
   STARTED_BACKEND=true
   trap 'kill ${BACKEND_PID:-} ${STRIPE_PID:-} 2>/dev/null || true' EXIT
+  WAIT_MARKER='"status":"ok"'
+  $LOCAL && WAIT_MARKER="$LOCAL_MARKER"
   for i in $(seq 1 30); do
-    curl -sf "$API_URL/health" >/dev/null 2>&1 && break
+    curl -s "$HEALTH_URL" | grep -q "$WAIT_MARKER" && break
     sleep 1
   done
-  curl -sf "$API_URL/health" >/dev/null || { echo "!! Backend failed to start — see /tmp/blocktiks-backend.log"; exit 1; }
+  curl -s "$HEALTH_URL" | grep -q "$WAIT_MARKER" || { echo "!! Backend failed to start — see /tmp/blocktiks-backend.log"; exit 1; }
 fi
 
-HEALTH=$(curl -s "$API_URL/health")
-echo "    health: $HEALTH"
-echo "$HEALTH" | grep -q '"stripe":"missing"' && \
+API_HEALTH=$(curl -s "$API_URL/health")
+echo "    health: $API_HEALTH"
+echo "$API_HEALTH" | grep -q '"stripe":"missing"' && \
   echo "!! STRIPE_SECRET_KEY not set — checkout will fail until you add a sk_test_ key to backend/.env"
 
 # --- stripe webhook forwarder -------------------------------------------------
