@@ -143,6 +143,9 @@ class ApiService {
     final data = e.response?.data;
     if (data is Map && data['message'] != null)
       return data['message'].toString();
+    if (e.response == null) {
+      return 'Cannot reach the Sahra backend at $baseUrl. Start it with ./dev.sh --seed.';
+    }
     return e.message ?? 'Request failed';
   }
 

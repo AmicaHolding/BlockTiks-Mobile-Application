@@ -66,8 +66,11 @@ class BaseviewScreen extends StatelessWidget {
   final bool showLogo;
 
   final Responsive responsive = Responsive();
-  UserDashboardController userDashboardController =
-      Get.put(UserDashboardController());
+
+  UserDashboardController get userDashboardController =>
+      Get.isRegistered<UserDashboardController>()
+          ? Get.find<UserDashboardController>()
+          : Get.put(UserDashboardController());
 
   @override
   Widget build(BuildContext context) {

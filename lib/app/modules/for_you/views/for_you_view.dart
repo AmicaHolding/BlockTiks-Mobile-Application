@@ -14,8 +14,7 @@ class ForYouView extends StatefulWidget {
 }
 
 class _ForYouViewState extends State<ForYouView> {
-  final ForYouController controller = Get.put(ForYouController());
-  final UserDashboardController dashboard = Get.put(UserDashboardController());
+  final ForYouController controller = Get.find<ForYouController>();
   String selectedCategory = 'All';
 
   List<Map<String, dynamic>> get visibleEvents {
@@ -26,8 +25,13 @@ class _ForYouViewState extends State<ForYouView> {
   }
 
   void openSearch() {
-    dashboard.selectedIndex.value = 1;
-    dashboard.changePage(1);
+    if (Get.isRegistered<UserDashboardController>()) {
+      final dashboard = Get.find<UserDashboardController>();
+      dashboard.selectedIndex.value = 1;
+      dashboard.changePage(1);
+    } else {
+      Get.toNamed(Routes.USER_DASHBOARD, arguments: {'index': 1});
+    }
   }
 
   @override

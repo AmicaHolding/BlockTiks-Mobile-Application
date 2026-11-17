@@ -13,7 +13,10 @@ class CustomBottomBar extends StatelessWidget {
   final Color _selectedColor = ColorConstant.gold;
   final Color _unselectedColor = ColorConstant.nightMuted;
 
-  final UserDashboardController controller = Get.put(UserDashboardController());
+  UserDashboardController get controller =>
+      Get.isRegistered<UserDashboardController>()
+          ? Get.find<UserDashboardController>()
+          : Get.put(UserDashboardController());
 
   final Function()? onChanged;
 

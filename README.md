@@ -1,16 +1,29 @@
-# block_tix
+# BlockTiks / Sahra
 
-A new Flutter project.
+Flutter mobile app, Fastify + DynamoDB backend, and Studio/buyer web apps.
 
-## Getting Started
+## Run the mobile app against the local backend
 
-This project is a starting point for a Flutter application.
+1. Start the backend and seed demo events:
 
-A few resources to get you started if this is your first Flutter project:
+   ```bash
+   ./dev.sh --seed
+   ```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+   The API listens on `http://localhost:4000`.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+2. Run the Flutter app:
+
+   ```bash
+   flutter run
+   ```
+
+   - iOS simulator/macOS use `http://localhost:4000` automatically.
+   - Android emulator uses `http://10.0.2.2:4000` automatically.
+   - For a physical device, pass your machine's LAN IP:
+
+     ```bash
+     flutter run --dart-define=API_BASE_URL=http://192.168.1.10:4000
+     ```
+
+If the app says it cannot reach the backend, start `./dev.sh --seed` first. If events are missing, publish events in Studio or reseed with `./dev.sh --seed`.
