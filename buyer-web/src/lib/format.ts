@@ -47,6 +47,11 @@ export function isThisWeekend(iso: string | null | undefined): boolean {
   return d ? isThisWeekendDate(d) : false;
 }
 
+export function isAvailable(event: { startsAt?: string | null; endsAt?: string | null }): boolean {
+  const end = parseIso(event.endsAt) ?? parseIso(event.startsAt);
+  return end ? end.getTime() >= Date.now() : false;
+}
+
 export function formatEventDate(iso: string | null | undefined): string {
   const d = parseIso(iso);
   if (!d) return '';

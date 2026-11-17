@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/services/api_service.dart';
 
 class MySearchController extends GetxController {
@@ -34,7 +35,10 @@ class MySearchController extends GetxController {
     searchLoading.value = true;
     searchError.value = null;
     try {
-      searchResults.value = await ApiService.events(q: q);
+      searchResults.value = (await ApiService.events(q: q, limit: 100))
+          .where((e) =>
+              isAvailable(e['startsAt']?.toString(), e['endsAt']?.toString()))
+          .toList();
     } catch (e) {
       searchError.value = e.toString().replaceFirst('Exception: ', '');
       searchResults.clear();
@@ -45,7 +49,10 @@ class MySearchController extends GetxController {
 
   Future<void> fetchRecentEvents() async {
     try {
-      recentEvents.value = await ApiService.events();
+      recentEvents.value = (await ApiService.events(limit: 100))
+          .where((e) =>
+              isAvailable(e['startsAt']?.toString(), e['endsAt']?.toString()))
+          .toList();
     } catch (_) {
       // Recent events are best-effort — leave the list empty on failure.
     }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, type SahraEvent } from '../lib/api';
-import { formatCents, formatShortDateTime } from '../lib/format';
+import { formatCents, formatShortDateTime, isAvailable } from '../lib/format';
 import { Badge, Card, EmptyState, Input, Spinner } from '../components/ui';
 import { SearchIcon } from '../components/icons';
 import EventCard, { EVENT_MEDIA_GRADIENT, lowestPrice } from '../components/EventCard';
@@ -38,9 +38,9 @@ export default function SearchPage() {
     setBrowseLoading(true);
     setBrowseError(null);
     api
-      .events({ limit: 8 })
+      .events({ limit: 100 })
       .then((res) => {
-        if (active) setBrowseEvents(res.events);
+        if (active) setBrowseEvents(res.events.filter(isAvailable).slice(0, 8));
       })
       .catch((e) => {
         if (active) {
@@ -64,9 +64,9 @@ export default function SearchPage() {
     let active = true;
     setLoading(true);
     api
-      .events({ q: q.trim(), limit: 50 })
+      .events({ q: q.trim(), limit: 100 })
       .then((res) => {
-        if (active) setEvents(res.events);
+        if (active) setEvents(res.events.filter(isAvailable));
       })
       .catch(() => {
         if (active) setEvents([]);
@@ -231,7 +231,7 @@ export default function SearchPage() {
             <p className="mt-3 text-night-muted">Search artists, venues and events.</p>
           )}
           <div className="mt-8">
-            <h2 className="font-display text-xl font-extrabold text-sand">Coming up</h2>
+            <h2 className="font-display text-xl font-extrabold text-sand">Available now</h2>
             {browseLoading ? (
               <div className="mt-4 flex min-h-[20vh] items-center justify-center">
                 <Spinner />
@@ -245,7 +245,7 @@ export default function SearchPage() {
                 ))}
               </div>
             ) : (
-              <p className="mt-2 text-sm text-night-muted">No events published yet.</p>
+              <p className="mt-2 text-sm text-night-muted">No available events right now.</p>
             )}
           </div>
         </div>

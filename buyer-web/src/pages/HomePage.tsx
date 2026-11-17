@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type SahraEvent } from '../lib/api';
-import { formatCents, formatEventDate, isThisWeekend } from '../lib/format';
+import { formatCents, formatEventDate, isAvailable, isThisWeekend } from '../lib/format';
 import EventCard, { EVENT_MEDIA_GRADIENT, EventCardRow, isSellingFast, lowestPrice } from '../components/EventCard';
 import { Badge, Button, Spinner } from '../components/ui';
 import { CalendarIcon, FireIcon, MapIcon, TicketIcon } from '../components/icons';
@@ -16,9 +16,9 @@ export default function HomePage() {
   useEffect(() => {
     let active = true;
     api
-      .events({ limit: 50 })
+      .events({ limit: 100 })
       .then((res) => {
-        if (active) setEvents(res.events);
+        if (active) setEvents(res.events.filter(isAvailable));
       })
       .catch((e) => {
         if (active) setError(e instanceof Error ? e.message : 'Failed to load events');
@@ -95,7 +95,7 @@ export default function HomePage() {
 
       {rest.length > 0 ? (
         <section className="flex flex-col gap-4">
-          <h2 className="font-display text-2xl font-extrabold text-sand">Everything coming up</h2>
+          <h2 className="font-display text-2xl font-extrabold text-sand">Everything available</h2>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {rest.map((event) => (
               <EventCard key={event.id} event={event} />

@@ -27,6 +27,13 @@ bool isThisWeekend(String? iso) {
   return !event.isBefore(saturday) && event.isBefore(monday);
 }
 
+/// Whether an event is still available to browse/buy: its end time (or start
+/// time when no end is set) has not passed yet.
+bool isAvailable(String? startsAt, [String? endsAt]) {
+  final end = _parseIso(endsAt) ?? _parseIso(startsAt);
+  return end != null && !end.isBefore(DateTime.now());
+}
+
 /// e.g. "Sat, Apr 20 · 8:00 PM"
 String formatEventDate(String? iso, {bool includeTime = true}) {
   final dt = _parseIso(iso);

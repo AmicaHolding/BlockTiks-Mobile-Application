@@ -81,7 +81,7 @@ class _ForYouViewState extends State<ForYouView> {
                   delegate: SliverChildListDelegate([
                 _featured(hero),
                 SahraSectionLabel(
-                    weekend.isNotEmpty ? 'This weekend' : 'Coming up',
+                    weekend.isNotEmpty ? 'This weekend' : 'Available now',
                     trailing: GestureDetector(
                         onTap: openSearch,
                         child: Text('See all',

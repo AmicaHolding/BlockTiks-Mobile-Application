@@ -1,4 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/services/api_service.dart';
 import 'package:get/get.dart';
 
@@ -19,7 +20,10 @@ class ForYouController extends GetxController {
     isLoading.value = true;
     loadError.value = null;
     try {
-      events.value = await ApiService.events();
+      events.value = (await ApiService.events(limit: 100))
+          .where((e) =>
+              isAvailable(e['startsAt']?.toString(), e['endsAt']?.toString()))
+          .toList();
       if (currentImage.value >= events.length && events.isNotEmpty) {
         currentImage.value = 0;
       }
