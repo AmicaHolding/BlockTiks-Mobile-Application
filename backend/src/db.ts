@@ -497,7 +497,6 @@ export async function listPublishedEvents(opts: {
   cursor?: string;
 }): Promise<{ items: { event: EventItem; tiers: TicketTier[] }[]; nextCursor?: string }> {
   const target = Math.max(1, opts.limit ?? 50);
-  const pageSize = Math.max(1, Math.min(target, 50));
   const nowMs = Date.now();
   const availabilityMs = (event: EventItem) => {
     const endMs = Date.parse(event.endsAt ?? '');
@@ -514,6 +513,8 @@ export async function listPublishedEvents(opts: {
   // The feed is sorted soonest-first, so ended events cluster at the front.
   // Keep scanning pages until the response is filled with available events.
   while (matches.length < target) {
+    const remaining = target - matches.length;
+    const limit = Math.max(1, Math.min(remaining, 50));
     const res = await docClient.send(
       new QueryCommand({
         TableName: T(),
@@ -521,7 +522,7 @@ export async function listPublishedEvents(opts: {
         KeyConditionExpression: 'gsi1pk = :pk',
         ExpressionAttributeValues: { ':pk': EVENT_FEED_PK },
         ScanIndexForward: true,
-        Limit: pageSize,
+        Limit: limit,
         ExclusiveStartKey: exclusiveStartKey as never,
       })
     );
