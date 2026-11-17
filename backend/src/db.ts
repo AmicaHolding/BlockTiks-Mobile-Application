@@ -500,8 +500,11 @@ export async function listPublishedEvents(opts: {
     new QueryCommand({
       TableName: T(),
       IndexName: 'gsi1',
-      KeyConditionExpression: 'gsi1pk = :pk',
-      ExpressionAttributeValues: { ':pk': EVENT_FEED_PK },
+      KeyConditionExpression: 'gsi1pk = :pk AND gsi1sk >= :feedSk',
+      ExpressionAttributeValues: {
+        ':pk': EVENT_FEED_PK,
+        ':feedSk': eventFeedSk(now()),
+      },
       ScanIndexForward: true, // soonest first
       Limit: opts.limit ?? 50,
       ExclusiveStartKey: decodeCursor(opts.cursor) as never,
