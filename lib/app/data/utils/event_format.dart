@@ -18,11 +18,11 @@ bool isThisWeekend(String? iso) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   final daysSinceSaturday = (now.weekday + 1) % 7;
-  var saturday = today.subtract(Duration(days: daysSinceSaturday));
-  var monday = saturday.add(const Duration(days: 3));
+  var saturday = DateTime(today.year, today.month, today.day - daysSinceSaturday);
+  var monday = DateTime(saturday.year, saturday.month, saturday.day + 2);
   if (!now.isBefore(monday)) {
-    saturday = saturday.add(const Duration(days: 7));
-    monday = monday.add(const Duration(days: 7));
+    saturday = DateTime(saturday.year, saturday.month, saturday.day + 7);
+    monday = DateTime(saturday.year, saturday.month, saturday.day + 2);
   }
   return !event.isBefore(saturday) && event.isBefore(monday);
 }

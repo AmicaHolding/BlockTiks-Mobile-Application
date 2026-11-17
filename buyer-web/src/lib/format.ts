@@ -33,7 +33,7 @@ export function isThisWeekendDate(date: Date): boolean {
   const saturday = new Date(startOfToday);
   saturday.setDate(saturday.getDate() - daysSinceSaturday);
   const monday = new Date(saturday);
-  monday.setDate(monday.getDate() + 3);
+  monday.setDate(monday.getDate() + 2);
   if (now.getTime() >= monday.getTime()) {
     saturday.setDate(saturday.getDate() + 7);
     monday.setDate(monday.getDate() + 7);
