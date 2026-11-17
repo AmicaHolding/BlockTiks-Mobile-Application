@@ -224,12 +224,14 @@ export async function seed(): Promise<{ skipped: boolean }> {
 
 async function main() {
   const reset = process.argv.includes('--reset');
-  // Never seed production data with public demo credentials. Match 'prod' as
-  // a separate word so profiles/tables like 'nonprod' don't false-positive.
+  // Never seed production data with public demo credentials. Table names get
+  // a plain substring check (destructive resets must not slip through names
+  // like 'prodblue'); profiles only match 'prod' as a separate word so
+  // 'nonprod' doesn't false-positive.
   if (!isLocal()) {
     const isProdWord = (v: string) => /(^|[^a-z])(prod|production)([^a-z]|$)/i.test(v);
     const profile = process.env.AWS_PROFILE ?? '';
-    if (isProdWord(env.tableName) || (profile && isProdWord(profile))) {
+    if (env.tableName.toLowerCase().includes('prod') || (profile && isProdWord(profile))) {
       throw new Error('Refusing to seed a production table.');
     }
   }
