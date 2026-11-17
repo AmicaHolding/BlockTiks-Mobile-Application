@@ -10,10 +10,15 @@ export async function fetchAvailableEvents(
   let cursor: string | undefined;
 
   for (let page = 0; page < maxPages && events.length < limit; page += 1) {
-    const res = await api.events({ ...params, limit, cursor });
-    events.push(...res.events.filter(isAvailable));
-    cursor = res.nextCursor;
-    if (!cursor) break;
+    try {
+      const res = await api.events({ ...params, limit, cursor });
+      events.push(...res.events.filter(isAvailable));
+      cursor = res.nextCursor;
+      if (!cursor) break;
+    } catch (e) {
+      if (events.length === 0) throw e;
+      break;
+    }
   }
 
   return events.slice(0, limit);

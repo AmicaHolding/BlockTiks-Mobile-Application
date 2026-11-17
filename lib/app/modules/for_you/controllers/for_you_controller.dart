@@ -23,7 +23,13 @@ class ForYouController extends GetxController {
       final collected = <Map<String, dynamic>>[];
       String? cursor;
       for (var page = 0; page < 3 && collected.length < 100; page++) {
-        final res = await ApiService.eventsPage(cursor: cursor, limit: 100);
+        final Map<String, dynamic> res;
+        try {
+          res = await ApiService.eventsPage(cursor: cursor, limit: 100);
+        } catch (_) {
+          if (collected.isEmpty) rethrow;
+          break;
+        }
         final items = ((res['items'] as List?) ?? [])
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
