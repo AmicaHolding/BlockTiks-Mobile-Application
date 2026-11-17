@@ -498,6 +498,8 @@ export async function listPublishedEvents(opts: {
 }): Promise<{ items: { event: EventItem; tiers: TicketTier[] }[]; nextCursor?: string }> {
   const target = Math.max(1, opts.limit ?? 50);
   const nowMs = Date.now();
+  const maxScanPages = 20;
+  let scanPages = 0;
   const availabilityMs = (event: EventItem) => {
     const endMs = Date.parse(event.endsAt ?? '');
     const startMs = Date.parse(event.startsAt);
@@ -511,8 +513,10 @@ export async function listPublishedEvents(opts: {
   let lastEvaluatedKey: Record<string, unknown> | undefined;
 
   // The feed is sorted soonest-first, so ended events cluster at the front.
-  // Keep scanning pages until the response is filled with available events.
-  while (matches.length < target) {
+  // Scan until filled with available events, but cap pages so misses do not
+  // read the entire catalog; nextCursor lets callers continue scanning.
+  while (matches.length < target && scanPages < maxScanPages) {
+    scanPages += 1;
     const remaining = target - matches.length;
     const limit = Math.max(1, Math.min(remaining, 50));
     const res = await docClient.send(
