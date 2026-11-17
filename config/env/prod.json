@@ -1,0 +1,5 @@
+{
+  "APP_ENV": "prod",
+  "API_BASE_URL": "https://REPLACE_WITH_PROD_ApiUrl",
+  "STRIPE_PUBLISHABLE_KEY": "pk_live_REPLACE_WITH_LIVE_KEY"
+}

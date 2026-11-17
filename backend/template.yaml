@@ -41,7 +41,6 @@ Globals:
       Variables:
         TABLE_NAME: !Ref BlockTiksTable
         NODE_ENV: production
-        AWS_REGION: !Ref AWS::Region
         CORS_ORIGIN: !Ref AllowedOrigins
         PLATFORM_FEE_PERCENT: !Ref PlatformFeePercent
         RESERVATION_TTL_MINUTES: !Ref ReservationTtlMinutes

@@ -2,15 +2,23 @@
   "name": "blocktiks-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "BlockTiks MVP backend — auth, events, ticketing, Stripe payments on Lambda + DynamoDB",
+  "description": "BlockTiks MVP backend \u2014 auth, events, ticketing, Stripe payments on Lambda + DynamoDB",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:local": "DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT:-http://localhost:8000} AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "build:lambda": "esbuild src/lambda.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/lambda.js --external:@aws-sdk/*",
     "build:sweeper": "esbuild src/sweeper.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/sweeper.js --external:@aws-sdk/*",
     "typecheck": "tsc --noEmit",
-    "stripe:listen": "stripe listen --forward-to localhost:4000/webhooks/stripe"
+    "typecheck:scripts": "tsc -p scripts",
+    "stripe:listen": "stripe listen --forward-to localhost:4000/webhooks/stripe",
+    "db:up": "docker compose up -d dynamodb",
+    "db:down": "docker compose down",
+    "db:create": "DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT:-http://localhost:8000} AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local tsx scripts/create-table.ts",
+    "db:seed": "DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT:-http://localhost:8000} AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local tsx scripts/seed.ts",
+    "db:reset": "DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT:-http://localhost:8000} AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local tsx scripts/seed.ts --reset",
+    "db:seed:remote": "SEED_ALLOW_REMOTE=1 tsx scripts/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.0.0",
