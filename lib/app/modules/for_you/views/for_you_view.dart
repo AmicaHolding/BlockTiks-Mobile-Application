@@ -69,10 +69,19 @@ class _ForYouViewState extends State<ForYouView> {
                     child: SahraEmptyState(
                         title: 'Nothing here yet',
                         message: 'Your next sahra is waiting.'));
+              final hero = events.first;
+              final rest = events.skip(1).toList();
+              final weekend = rest
+                  .where((e) => isThisWeekend(e['startsAt']?.toString()))
+                  .take(6)
+                  .toList();
+              final sectionEvents =
+                  weekend.isNotEmpty ? weekend : rest.take(6).toList();
               return SliverList(
                   delegate: SliverChildListDelegate([
-                _featured(events.first),
-                SahraSectionLabel('This weekend',
+                _featured(hero),
+                SahraSectionLabel(
+                    weekend.isNotEmpty ? 'This weekend' : 'Available now',
                     trailing: GestureDetector(
                         onTap: openSearch,
                         child: Text('See all',
@@ -80,7 +89,7 @@ class _ForYouViewState extends State<ForYouView> {
                                 color: ColorConstant.gold,
                                 size: 14,
                                 weight: FontWeight.w500)))),
-                ...events.take(6).map(_eventRow),
+                ...sectionEvents.map(_eventRow),
                 const SizedBox(height: 28),
               ]));
             }),
@@ -209,7 +218,7 @@ class _ForYouViewState extends State<ForYouView> {
                               style: sahraText(
                                   size: 20, weight: FontWeight.w600))),
                       const SizedBox(width: 10),
-                      const SahraStatusPill('Featured'),
+                      const SahraStatusPill('Next up'),
                     ]),
                     const SizedBox(height: 4),
                     Text(

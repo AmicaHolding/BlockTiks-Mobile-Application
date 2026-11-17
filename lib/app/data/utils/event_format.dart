@@ -9,6 +9,31 @@ DateTime? _parseIso(String? iso) {
   return DateTime.tryParse(iso)?.toLocal();
 }
 
+/// Whether an event falls in the current local weekend (Saturday 00:00
+/// through Monday 00:00). Once Monday arrives, the next weekend is used.
+bool isThisWeekend(String? iso) {
+  final event = _parseIso(iso);
+  if (event == null) return false;
+
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final daysSinceSaturday = (now.weekday + 1) % 7;
+  var saturday = DateTime(today.year, today.month, today.day - daysSinceSaturday);
+  var monday = DateTime(saturday.year, saturday.month, saturday.day + 2);
+  if (!now.isBefore(monday)) {
+    saturday = DateTime(saturday.year, saturday.month, saturday.day + 7);
+    monday = DateTime(saturday.year, saturday.month, saturday.day + 2);
+  }
+  return !event.isBefore(saturday) && event.isBefore(monday);
+}
+
+/// Whether an event is still available to browse/buy: its end time (or start
+/// time when no end is set) has not passed yet.
+bool isAvailable(String? startsAt, [String? endsAt]) {
+  final end = _parseIso(endsAt) ?? _parseIso(startsAt);
+  return end != null && !end.isBefore(DateTime.now());
+}
+
 /// e.g. "Sat, Apr 20 · 8:00 PM"
 String formatEventDate(String? iso, {bool includeTime = true}) {
   final dt = _parseIso(iso);

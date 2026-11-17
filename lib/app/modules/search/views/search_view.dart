@@ -102,7 +102,7 @@ class SearchView extends StatelessWidget {
       if (c.isEmpty.value) {
         final recent = _filtered(c.recentEvents, c);
         return ListView(children: [
-          const SahraSmallLabel('Popular right now'),
+          const SahraSmallLabel('Available now'),
           ...recent.take(8).map((e) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: SahraEventTile(

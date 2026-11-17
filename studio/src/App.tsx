@@ -12,7 +12,7 @@ import OrdersPage from './pages/OrdersPage';
 import PromoCodesPage from './pages/PromoCodesPage';
 import PayoutsPage from './pages/PayoutsPage';
 import VenueLayoutPage from './pages/VenueLayoutPage';
-import PlaceholderPage from './pages/PlaceholderPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -75,7 +75,7 @@ export default function App() {
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/promos" element={<PromoCodesPage />} />
           <Route path="/payouts" element={<PayoutsPage />} />
-          <Route path="*" element={<PlaceholderPage title="Not found" />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </StudioLayout>
     </BrowserRouter>

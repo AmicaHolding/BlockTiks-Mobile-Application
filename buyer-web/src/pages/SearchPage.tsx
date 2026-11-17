@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api, type SahraEvent } from '../lib/api';
+import type { SahraEvent } from '../lib/api';
 import { formatCents, formatShortDateTime } from '../lib/format';
+import { fetchAvailableEvents } from '../lib/events';
 import { Badge, Card, EmptyState, Input, Spinner } from '../components/ui';
-import { SearchIcon, TicketIcon } from '../components/icons';
-import { lowestPrice } from '../components/EventCard';
+import { SearchIcon } from '../components/icons';
+import EventCard, { EVENT_MEDIA_GRADIENT, lowestPrice } from '../components/EventCard';
 import { Link } from 'react-router-dom';
 
 const RECENT_KEY = 'sahra_recent_searches';
@@ -26,8 +27,34 @@ export default function SearchPage() {
   const [events, setEvents] = useState<SahraEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [recent, setRecent] = useState<string[]>(loadRecent);
+  const [browseEvents, setBrowseEvents] = useState<SahraEvent[]>([]);
+  const [browseLoading, setBrowseLoading] = useState(false);
+  const [browseError, setBrowseError] = useState<string | null>(null);
 
   useEffect(() => setInput(q), [q]);
+
+  useEffect(() => {
+    if (q.trim()) return;
+    let active = true;
+    setBrowseLoading(true);
+    setBrowseError(null);
+    fetchAvailableEvents({ limit: 100 })
+      .then((events) => {
+        if (active) setBrowseEvents(events.slice(0, 8));
+      })
+      .catch((e) => {
+        if (active) {
+          setBrowseEvents([]);
+          setBrowseError(e instanceof Error ? e.message : 'Failed to load events');
+        }
+      })
+      .finally(() => {
+        if (active) setBrowseLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [q]);
 
   useEffect(() => {
     if (!q.trim()) {
@@ -36,10 +63,9 @@ export default function SearchPage() {
     }
     let active = true;
     setLoading(true);
-    api
-      .events({ q: q.trim(), limit: 50 })
-      .then((res) => {
-        if (active) setEvents(res.events);
+    fetchAvailableEvents({ q: q.trim(), limit: 100 })
+      .then((events) => {
+        if (active) setEvents(events);
       })
       .catch(() => {
         if (active) setEvents([]);
@@ -128,7 +154,7 @@ export default function SearchPage() {
                         to={`/events/${event.id}`}
                         className="group flex items-center gap-5 rounded-2xl border border-night-border/60 bg-night-surface p-4 transition hover:border-gold/50"
                       >
-                        <div className="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-indigo-500/40 via-purple-700/30 to-night">
+                        <div className={`flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br ${EVENT_MEDIA_GRADIENT}`}>
                           {event.imageUrl ? (
                             <img src={event.imageUrl} alt="" className="h-full w-full object-cover" />
                           ) : (
@@ -204,8 +230,22 @@ export default function SearchPage() {
             <p className="mt-3 text-night-muted">Search artists, venues and events.</p>
           )}
           <div className="mt-8">
-            <TicketIcon size={28} className="text-gold" />
-            <p className="mt-2 text-sm text-night-muted">Popular right now</p>
+            <h2 className="font-display text-xl font-extrabold text-sand">Available now</h2>
+            {browseLoading ? (
+              <div className="mt-4 flex min-h-[20vh] items-center justify-center">
+                <Spinner />
+              </div>
+            ) : browseError ? (
+              <EmptyState title="Couldn't load events">{browseError}</EmptyState>
+            ) : browseEvents.length > 0 ? (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                {browseEvents.map((event) => (
+                  <EventCard key={event.id} event={event} />
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-night-muted">No available events right now.</p>
+            )}
           </div>
         </div>
       )}

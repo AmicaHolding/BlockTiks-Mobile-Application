@@ -1,5 +1,4 @@
 export 'package:block_tix/app/data/core/app_export.dart';
-export 'package:block_tix/app/data/theme/app_style.dart';
 export 'package:block_tix/app/data/utils/color_constant.dart';
 export 'package:block_tix/app/data/utils/constants.dart';
 export 'package:block_tix/app/data/utils/image_constant.dart';

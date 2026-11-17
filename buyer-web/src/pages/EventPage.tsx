@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, type Listing, type SahraEvent, type Tier } from '../lib/api';
 import { formatCents, formatEventDateTime, parseIso } from '../lib/format';
 import { Badge, Button, Card, EmptyState, Spinner } from '../components/ui';
+import { EVENT_MEDIA_GRADIENT } from '../components/EventCard';
 import {
   ArrowLeftIcon,
   BookmarkIcon,
@@ -187,7 +188,7 @@ export default function EventPage() {
       <div className="mx-auto grid max-w-[1440px] gap-10 px-6 pt-8 lg:grid-cols-[1fr_420px] lg:px-12">
         {/* Left column */}
         <div className="flex flex-col gap-8">
-          <div className="relative h-72 overflow-hidden rounded-3xl border border-night-border/60 bg-gradient-to-br from-indigo-600/50 via-purple-800/40 to-night lg:h-[420px]">
+          <div className={`relative h-72 overflow-hidden rounded-3xl border border-night-border/60 bg-gradient-to-br ${EVENT_MEDIA_GRADIENT} lg:h-[420px]`}>
             {event.imageUrl ? (
               <img src={event.imageUrl} alt={event.title} className="h-full w-full object-cover" />
             ) : (

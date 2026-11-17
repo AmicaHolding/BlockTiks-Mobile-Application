@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api, type SahraEvent } from '../lib/api';
-import { parseIso } from '../lib/format';
+import type { SahraEvent } from '../lib/api';
+import { isThisWeekendDate, parseIso } from '../lib/format';
+import { fetchAvailableEvents } from '../lib/events';
 import EventCard, { lowestPrice } from '../components/EventCard';
 import { Badge, Button, Card, EmptyState, Input, Spinner } from '../components/ui';
 
@@ -17,13 +18,8 @@ function inPreset(startsAt: string, preset: string): boolean {
   switch (preset) {
     case 'Today':
       return d >= startOfToday && d <= endOfToday;
-    case 'This weekend': {
-      const day = now.getDay();
-      const daysUntilSaturday = (6 - day + 7) % 7;
-      const saturday = new Date(startOfToday.getTime() + daysUntilSaturday * 24 * 3_600_000);
-      const monday = new Date(saturday.getTime() + 2 * 24 * 3_600_000);
-      return d >= saturday && d < monday;
-    }
+    case 'This weekend':
+      return isThisWeekendDate(d);
     case 'Next 30 days': {
       const limit = new Date(now.getTime() + 30 * 24 * 3_600_000);
       return d >= now && d <= limit;
@@ -51,10 +47,9 @@ export default function ExplorePage() {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    api
-      .events({ limit: 100 })
-      .then((res) => {
-        if (active) setEvents(res.events);
+    fetchAvailableEvents({ limit: 100 })
+      .then((events) => {
+        if (active) setEvents(events);
       })
       .catch((e) => {
         if (active) setError(e instanceof Error ? e.message : 'Failed to load events');

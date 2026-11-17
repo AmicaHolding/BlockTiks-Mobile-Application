@@ -26,6 +26,32 @@ export function parseIso(iso: string | null | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+export function isThisWeekendDate(date: Date): boolean {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const daysSinceSaturday = (now.getDay() + 1) % 7;
+  const saturday = new Date(startOfToday);
+  saturday.setDate(saturday.getDate() - daysSinceSaturday);
+  const monday = new Date(saturday);
+  monday.setDate(monday.getDate() + 2);
+  if (now.getTime() >= monday.getTime()) {
+    saturday.setDate(saturday.getDate() + 7);
+    monday.setDate(monday.getDate() + 7);
+  }
+  const time = date.getTime();
+  return time >= saturday.getTime() && time < monday.getTime();
+}
+
+export function isThisWeekend(iso: string | null | undefined): boolean {
+  const d = parseIso(iso);
+  return d ? isThisWeekendDate(d) : false;
+}
+
+export function isAvailable(event: { startsAt?: string | null; endsAt?: string | null }): boolean {
+  const end = parseIso(event.endsAt) ?? parseIso(event.startsAt);
+  return end ? end.getTime() >= Date.now() : false;
+}
+
 export function formatEventDate(iso: string | null | undefined): string {
   const d = parseIso(iso);
   if (!d) return '';

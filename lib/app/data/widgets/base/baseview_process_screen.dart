@@ -1,6 +1,7 @@
 import 'package:block_tix/app/data/utils/helper_functions.dart';
 import 'package:block_tix/app/data/utils/internet_connection_widgets/widget.dart';
 import 'package:block_tix/app/data/widgets/custom_bottom_bar_creator.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:block_tix/app/modules/user_dashboard/controllers/user_dashboard_controller.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -197,8 +198,11 @@ class BaseviewScreen extends StatelessWidget {
                                                         child: Center(
                                                           child: Text(
                                                             "${userDashboardController.notificationUnreadCount.value > 9 ? "9+" : userDashboardController.notificationUnreadCount.value}",
-                                                            style: AppStyle
-                                                                .txtAgeoMedium10BlackA500,
+                                                            style: sahraText(
+                                                                size: 10,
+                                                                weight: FontWeight.w700,
+                                                                color: ColorConstant.ink,
+                                                                height: 1.0),
                                                             textAlign: TextAlign
                                                                 .center,
                                                           ),
@@ -304,8 +308,11 @@ class BaseviewScreen extends StatelessWidget {
                                                         child: Center(
                                                           child: Text(
                                                             "${userDashboardController.notificationUnreadCount.value > 9 ? "9+" : userDashboardController.notificationUnreadCount.value}",
-                                                            style: AppStyle
-                                                                .txtAgeoMedium10BlackA500,
+                                                            style: sahraText(
+                                                                size: 10,
+                                                                weight: FontWeight.w700,
+                                                                color: ColorConstant.ink,
+                                                                height: 1.0),
                                                             textAlign: TextAlign
                                                                 .center,
                                                           ),

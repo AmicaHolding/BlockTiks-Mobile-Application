@@ -496,44 +496,80 @@ export async function listPublishedEvents(opts: {
   limit?: number;
   cursor?: string;
 }): Promise<{ items: { event: EventItem; tiers: TicketTier[] }[]; nextCursor?: string }> {
-  const res = await docClient.send(
-    new QueryCommand({
-      TableName: T(),
-      IndexName: 'gsi1',
-      KeyConditionExpression: 'gsi1pk = :pk',
-      ExpressionAttributeValues: { ':pk': EVENT_FEED_PK },
-      ScanIndexForward: true, // soonest first
-      Limit: opts.limit ?? 50,
-      ExclusiveStartKey: decodeCursor(opts.cursor) as never,
-    })
-  );
-  let events = ((res.Items ?? []) as Record<string, unknown>[]).map((item) => {
-    const { pk, sk, gsi1pk, gsi1sk, gsi2pk, gsi2sk, ...rest } = item;
-    return rest as unknown as EventItem;
-  });
-  if (opts.category) {
-    events = events.filter((e) => e.category.toLowerCase() === opts.category!.toLowerCase());
-  }
-  if (opts.q) {
-    const needle = opts.q.toLowerCase();
-    events = events.filter(
-      (e) =>
-        e.title.toLowerCase().includes(needle) ||
-        e.location.toLowerCase().includes(needle)
+  const target = Math.max(1, opts.limit ?? 50);
+  const nowMs = Date.now();
+  const maxScanPages = 20;
+  let scanPages = 0;
+  const availabilityMs = (event: EventItem) => {
+    const endMs = Date.parse(event.endsAt ?? '');
+    const startMs = Date.parse(event.startsAt);
+    return Number.isNaN(endMs) ? startMs : endMs;
+  };
+
+  const matches: EventItem[] = [];
+  let exclusiveStartKey = decodeCursor(opts.cursor) as
+    | Record<string, unknown>
+    | undefined;
+  let lastEvaluatedKey: Record<string, unknown> | undefined;
+
+  // The feed is sorted soonest-first, so ended events cluster at the front.
+  // Scan until filled with available events, but cap pages so misses do not
+  // read the entire catalog; nextCursor lets callers continue scanning.
+  while (matches.length < target && scanPages < maxScanPages) {
+    scanPages += 1;
+    const remaining = target - matches.length;
+    const limit = Math.max(1, Math.min(remaining, 50));
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: T(),
+        IndexName: 'gsi1',
+        KeyConditionExpression: 'gsi1pk = :pk',
+        ExpressionAttributeValues: { ':pk': EVENT_FEED_PK },
+        ScanIndexForward: true,
+        Limit: limit,
+        ExclusiveStartKey: exclusiveStartKey as never,
+      })
     );
+
+    let events = ((res.Items ?? []) as Record<string, unknown>[]).map((item) => {
+      const { pk, sk, gsi1pk, gsi1sk, gsi2pk, gsi2sk, ...rest } = item;
+      return rest as unknown as EventItem;
+    });
+    events = events.filter((event) => {
+      if (opts.category && event.category.toLowerCase() !== opts.category!.toLowerCase()) {
+        return false;
+      }
+      if (opts.q) {
+        const needle = opts.q.toLowerCase();
+        const matchesQuery =
+          event.title.toLowerCase().includes(needle) ||
+          event.location.toLowerCase().includes(needle);
+        if (!matchesQuery) return false;
+      }
+      const availableAt = availabilityMs(event);
+      return !Number.isNaN(availableAt) && availableAt >= nowMs;
+    });
+    matches.push(...events);
+
+    lastEvaluatedKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+    if (!lastEvaluatedKey) break;
+    exclusiveStartKey = lastEvaluatedKey;
   }
 
-  // Fetch tiers for all events in parallel — bounded by Limit (<=50).
+  // Fetch tiers for all matched events in parallel.
   // (Tiers live under each EVENT#<id> partition; a batch tier-index could be
   // added later if this ever becomes hot.)
   const tiersByEvent = new Map<string, TicketTier[]>();
   await Promise.all(
-    events.map(async (e) => {
-      tiersByEvent.set(e.id, await getTiersForEvent(e.id));
+    matches.map(async (event) => {
+      tiersByEvent.set(event.id, await getTiersForEvent(event.id));
     })
   );
-  const items = events.map((event) => ({ event, tiers: tiersByEvent.get(event.id) ?? [] }));
-  return { items, nextCursor: encodeCursor(res.LastEvaluatedKey as Record<string, unknown> | undefined) };
+  const items = matches.map((event) => ({
+    event,
+    tiers: tiersByEvent.get(event.id) ?? [],
+  }));
+  return { items, nextCursor: encodeCursor(lastEvaluatedKey) };
 }
 
 export async function listCreatorEvents(creatorId: string): Promise<EventItem[]> {
