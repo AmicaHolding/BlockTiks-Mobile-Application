@@ -162,7 +162,7 @@ export default function StudioLayout({ onLogout }: { onLogout: () => void }) {
 
         <main className="flex-1 px-8 py-8">
           {role === 'gate' ? (
-            <GateScreen name={user.firstName} />
+            <GateScreen name={user.firstName ?? user.name ?? ""} />
           ) : (
             <Outlet context={{ refreshOrg: refresh }} />
           )}

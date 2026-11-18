@@ -24,6 +24,7 @@ import PayoutsPage from './pages/PayoutsPage';
 import TeamPage from './pages/TeamPage';
 import VenuesPage from './pages/VenuesPage';
 import SettingsPage from './pages/SettingsPage';
+import MoveInvitePage from './pages/MoveInvitePage';
 import NotFoundPage from './pages/NotFoundPage';
 
 function AdminRoute({ children }: { children: JSX.Element }) {
@@ -65,6 +66,9 @@ function AuthedApp({ user, onLogout }: { user: User; onLogout: () => void }) {
         <Route path="events" element={<EventsPage />} />
         <Route path="events/new" element={<CreateEventPage />} />
         <Route path="events/:id" element={<ManageEventPage />} />
+        {/* I7: invite → paid event conversion lands on the draft's manage page */}
+        <Route path="events/:id/edit" element={<ManageEventPage />} />
+        <Route path="move-invite/:inviteId" element={<MoveInvitePage />} />
         {/* legacy route → venues tab for the event's venue */}
         <Route path="events/:id/venue" element={<VenueRedirect />} />
         <Route path="orders" element={<OrdersPage />} />

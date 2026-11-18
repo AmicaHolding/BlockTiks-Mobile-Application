@@ -7,7 +7,7 @@ const CITIES = ['Dubai', 'Abu Dhabi', 'Riyadh', 'Doha'];
 const TYPES = ['Promoter', 'Venue', 'Artist', 'Community'];
 
 export default function OrgSetupPage({
-  user,
+  user: _user,
   hasOrgs,
   onCreated,
 }: {
@@ -21,21 +21,15 @@ export default function OrgSetupPage({
   const [type, setType] = useState('Promoter');
   const [error, setError] = useState('');
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
       setError('Give your organisation a name.');
       return;
     }
-    const res = api.createOrg({
-      ownerUserId: user.id,
-      ownerEmail: user.email,
-      ownerName: `${user.firstName} ${user.lastName ?? ''}`.trim(),
-      name: name.trim(),
-      type,
-      city,
-    });
-    if ('error' in res) {
+    try {
+      await api.createOrg({ name: name.trim(), type, city });
+    } catch {
       setError(`You're already in an organisation called ${name.trim()}.`);
       return;
     }

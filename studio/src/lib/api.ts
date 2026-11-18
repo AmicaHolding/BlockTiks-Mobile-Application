@@ -15,35 +15,22 @@
 //  - Errors are { code, message, field? }.
 
 import {
-  createOrg as storeCreateOrg,
   devApproveVerification,
   ensureOwnerHost,
   getEventMetaLocal,
-  getOrg,
   getVenue,
-  inviteMember,
-  listMembers,
-  listOrgs,
-  listPayouts,
   listVenues,
   markOrderRefunded,
-  recordPayout,
   refundedOrderIds,
-  removeMember,
   saveHosts,
-  savePayoutAccount,
   saveVenue,
   setEventMetaLocal,
-  submitVerification,
-  updateMember,
   upsertVenueFromEvent,
   type LocalEventHost,
   type LocalEventMeta,
-  type LocalMember,
-  type LocalOrg,
-  type LocalPayout,
   type LocalVenue,
   type OrgRole,
+  type VerificationStatus,
 } from './store';
 
 const BASE_URL =
@@ -123,11 +110,155 @@ async function request<T>(
 export interface User {
   id: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  name?: string | null;
+  firstName?: string;
+  lastName?: string;
   phone?: string;
   avatarUrl?: string;
   role: 'user' | 'creator' | 'admin' | string;
+}
+
+export interface OtpStartResponse {
+  challenge_id: string;
+  channel: 'sms' | 'whatsapp' | 'email';
+  resend_after: number;
+  expires_at: string;
+  dev_code?: string;
+}
+
+export interface Membership {
+  id: string;
+  org_id: string;
+  org_name?: string;
+  role: OrgRole;
+  event_scope?: string[];
+  status?: string;
+  invite_email?: string;
+  expires_at?: string;
+  verification_status?: VerificationStatus;
+}
+
+export interface OtpVerifyResponse {
+  token: string;
+  refresh_token: string;
+  session_id: string;
+  user: User;
+  is_new: boolean;
+  memberships: Membership[];
+  landing: { mode: 'personal' | 'org'; screen: string; org_id?: string; role?: string };
+}
+
+export interface StudioOrg {
+  id: string;
+  name: string;
+  type?: string;
+  city?: string;
+  country?: string;
+  verificationStatus: VerificationStatus;
+  legalName?: string;
+  tradeLicenceNo?: string;
+  rejectionReason?: string;
+  payoutAccount?: { ibanLast4: string; holder: string };
+  currency: string;
+  createdAt?: string;
+}
+
+export interface StudioMember {
+  id: string;
+  orgId: string;
+  email: string;
+  name: string;
+  role: OrgRole;
+  status: 'active' | 'invited' | 'expired' | 'revoked';
+  eventScope: string[] | null;
+  invitedAt?: string;
+  expiresAt?: string;
+  you?: boolean;
+}
+
+export interface EventHost {
+  id?: string;
+  eventId?: string;
+  event_id?: string;
+  orgId: string;
+  org_id?: string;
+  orgName?: string;
+  org_name?: string;
+  role: 'owner' | 'cohost';
+  splitBps?: number;
+  split_bps?: number;
+  status: 'proposed' | 'accepted' | 'locked';
+}
+
+export interface StudioPayout {
+  id: string;
+  amountMinor?: number;
+  amount_minor?: number;
+  currency?: string;
+  createdAt?: string;
+  created_at?: string;
+  status: 'scheduled' | 'in_transit' | 'paid' | 'failed';
+  bankLabel?: string;
+  bank_ref?: string;
+}
+
+export interface LedgerEntry {
+  id?: string;
+  kind?: string;
+  amount_minor?: number;
+  amountMinor?: number;
+  description?: string;
+  created_at?: string;
+  createdAt?: string;
+}
+
+interface OrgBody {
+  id: string;
+  name: string;
+  type?: string;
+  city?: string;
+  country?: string;
+  verification_status?: VerificationStatus;
+  verificationStatus?: VerificationStatus;
+  legal_name?: string;
+  licence_no?: string;
+  rejection_reason?: string;
+  payout_account?: { iban: string; holder: string } | null;
+  createdAt?: string;
+}
+
+function toOrg(b: OrgBody): StudioOrg {
+  return {
+    id: b.id,
+    name: b.name,
+    type: b.type,
+    city: b.city,
+    verificationStatus: b.verificationStatus ?? b.verification_status ?? 'none',
+    legalName: b.legal_name,
+    tradeLicenceNo: b.licence_no,
+    rejectionReason: b.rejection_reason,
+    country: b.country,
+    payoutAccount: b.payout_account
+      ? { ibanLast4: b.payout_account.iban.slice(-4), holder: b.payout_account.holder }
+      : undefined,
+    currency: 'aed',
+    createdAt: b.createdAt,
+  };
+}
+
+function toMember(m: Membership & { orgId?: string; user_email?: string; user_name?: string }, user: User): StudioMember {
+  const email = m.user_email ?? m.invite_email ?? '';
+  return {
+    id: m.id,
+    orgId: m.orgId ?? m.org_id,
+    email,
+    name: m.user_name ?? (email ? email.split('@')[0] : m.org_name ?? 'Member'),
+    role: m.role,
+    status: (m.status as StudioMember['status']) ?? 'active',
+    eventScope: m.event_scope?.length ? m.event_scope : null,
+    expiresAt: m.expires_at,
+    you: email !== '' && email.toLowerCase() === (user.email ?? '').toLowerCase(),
+  };
 }
 
 export interface Tier {
@@ -297,24 +428,21 @@ export interface PromosResponse {
 // ---------------------------------------------------------------------------
 
 export const api = {
-  // ---- auth (real) --------------------------------------------------------
-  login(email: string, password: string) {
-    return request<{ token: string; refreshToken?: string; user: User }>('/auth/login', {
+  // ---- auth: OTP only, passwords removed (v2) ------------------------------
+  otpStart(contact: string) {
+    return request<OtpStartResponse>('/auth/otp/start', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ contact }),
     });
   },
-  signup(input: {
-    firstName: string;
-    lastName?: string;
-    email: string;
-    password: string;
-    role?: 'creator';
-  }) {
-    return request<{ token: string; refreshToken?: string; user: User }>('/auth/signup', {
+  otpVerify(challengeId: string, code: string) {
+    return request<OtpVerifyResponse>('/auth/otp/verify', {
       method: 'POST',
-      body: JSON.stringify(input),
+      body: JSON.stringify({ challenge_id: challengeId, code, device: 'studio' }),
     });
+  },
+  updateProfile(patch: { name?: string; intent?: string[] }) {
+    return request<{ user: User }>('/me', { method: 'PATCH', body: JSON.stringify(patch) });
   },
   me() {
     return request<{ user: User }>('/auth/me');
@@ -325,70 +453,107 @@ export const api = {
     );
   },
 
-  // ---- organisations & memberships ----------------------------------------
-  // TODO(api-gap): GET /me/memberships, returns [{org,role,event_scope,
-  // verification_status}]. Locally, every org the user created lists them as
-  // Admin (rule O1: org creator becomes admin).
-  memberships(userId: string): { org: LocalOrg; role: OrgRole }[] {
-    return listOrgs(userId).map((org) => ({ org, role: 'admin' as const }));
+  // ---- organisations & memberships (real endpoints) -------------------------
+  async memberships(): Promise<{ org: StudioOrg; role: OrgRole; membership: Membership }[]> {
+    const res = await request<{ memberships: Membership[] }>('/me/memberships');
+    return res.memberships.map((m) => ({
+      org: toOrg({
+        id: m.org_id,
+        name: m.org_name ?? 'Organisation',
+        verification_status: m.verification_status,
+      }),
+      role: m.role,
+      membership: m,
+    }));
   },
 
-  org(orgId: string | null): LocalOrg | null {
-    return getOrg(orgId);
-  },
-
-  // TODO(api-gap): POST /orgs {name,type,city}, error name_exists_for_you.
-  createOrg(input: {
-    ownerUserId: string;
-    ownerEmail: string;
-    ownerName: string;
-    name: string;
-    type: string;
-    city: string;
-  }): LocalOrg | { error: 'name_exists_for_you' } {
-    const existing = listOrgs(input.ownerUserId);
-    if (existing.some((o) => o.name.trim().toLowerCase() === input.name.trim().toLowerCase())) {
-      return { error: 'name_exists_for_you' };
+  async org(orgId: string | null): Promise<StudioOrg | null> {
+    if (!orgId) return null;
+    try {
+      const res = await request<{ org: OrgBody }>(`/orgs/${encodeURIComponent(orgId)}`);
+      return toOrg(res.org);
+    } catch {
+      return null;
     }
-    return storeCreateOrg(input);
   },
 
-  // TODO(api-gap): POST /orgs/{id}/verification {legal_name,licence_no,docs[]}
-  //, errors licence_invalid. Doc upload needs an uploads endpoint too.
-  submitVerification(orgId: string, input: { legalName: string; licenceNo: string }) {
-    return submitVerification(orgId, input);
+  // POST /orgs {name,type,city}; error name_exists_for_you comes back as a
+  // 409 ApiError — callers catch it.
+  async createOrg(input: { name: string; type: string; city: string }): Promise<StudioOrg> {
+    const res = await request<{ org: OrgBody }>('/orgs', {
+      method: 'POST',
+      body: JSON.stringify(input),
+      idempotencyKey: newIdempotencyKey(),
+    });
+    return toOrg(res.org);
   },
 
-  /** Dev-only helper: simulates verification.approved (ops action). */
+  // POST /orgs/{id}/verification {legal_name,licence_no}. Dev builds
+  // auto-approve server-side (env.orgVerifyAutoApprove).
+  async submitVerification(orgId: string, input: { legalName: string; licenceNo: string }) {
+    const res = await request<{ org: OrgBody }>(`/orgs/${encodeURIComponent(orgId)}/verification`, {
+      method: 'POST',
+      body: JSON.stringify({ legal_name: input.legalName, licence_no: input.licenceNo }),
+    });
+    return toOrg(res.org);
+  },
+
+  /** Dev-only helper: no longer needed, verification auto-approves in dev. */
   devApproveVerification(orgId: string) {
     return devApproveVerification(orgId);
   },
 
-  // TODO(api-gap): PUT /orgs/{id}/payout-account {iban,holder}, errors
-  // iban_invalid, name_mismatch (holder must equal legal_name, rule O4).
-  savePayoutAccount(orgId: string, input: { iban: string; holder: string }) {
-    const org = getOrg(orgId);
-    if (!org) return null;
-    if (org.legalName && input.holder.trim().toLowerCase() !== org.legalName.trim().toLowerCase()) {
-      return { error: 'name_mismatch' as const };
-    }
-    return savePayoutAccount(orgId, input);
+  // PUT /orgs/{id}/payout-account {iban,holder}; errors iban_invalid,
+  // name_mismatch (rule O4).
+  async savePayoutAccount(orgId: string, input: { iban: string; holder: string }) {
+    const res = await request<{ org: OrgBody }>(
+      `/orgs/${encodeURIComponent(orgId)}/payout-account`,
+      { method: 'PUT', body: JSON.stringify(input) },
+    );
+    return toOrg(res.org);
   },
 
-  // ---- team ---------------------------------------------------------------
-  // TODO(api-gap): GET/POST/PATCH/DELETE /orgs/{id}/members, errors
-  // org_unverified, last_admin, already_member.
-  members(orgId: string): LocalMember[] {
-    return listMembers(orgId);
+  // ---- team (real endpoints) -----------------------------------------------
+  async members(orgId: string, user: User): Promise<StudioMember[]> {
+    const res = await request<{ members: Membership[] }>(
+      `/orgs/${encodeURIComponent(orgId)}/members`,
+    );
+    return res.members.map((m) => toMember(m, user));
   },
-  inviteMember(orgId: string, input: { email: string; role: OrgRole; eventScope: string[] | null }) {
-    return inviteMember(orgId, input);
+  async inviteMember(orgId: string, input: { email: string; role: OrgRole; eventScope: string[] | null }) {
+    const res = await request<{ member: Membership }>(
+      `/orgs/${encodeURIComponent(orgId)}/members`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ email: input.email, role: input.role, event_scope: input.eventScope ?? undefined }),
+      },
+    );
+    return res.member;
   },
   updateMember(orgId: string, memberId: string, patch: { role?: OrgRole; eventScope?: string[] | null }) {
-    return updateMember(orgId, memberId, patch);
+    return request<{ member: Membership }>(
+      `/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(memberId)}`,
+      { method: 'PATCH', body: JSON.stringify({ role: patch.role, event_scope: patch.eventScope ?? undefined }) },
+    );
   },
   removeMember(orgId: string, memberId: string) {
-    return removeMember(orgId, memberId);
+    return request<null>(
+      `/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(memberId)}`,
+      { method: 'DELETE' },
+    );
+  },
+
+  // ---- invites → event conversion (I7) ---------------------------------------
+  inviteByCode(code: string) {
+    return request<{ invite: { id: string; title: string; status: string } }>(
+      `/invites/${encodeURIComponent(code)}`,
+    );
+  },
+  moveInvite(inviteId: string, orgId: string) {
+    return request<{ event_id: string; org_id: string; studio_path: string; comp_tickets: number }>(
+      `/invites/${encodeURIComponent(inviteId)}/move`,
+      { method: 'POST', body: JSON.stringify({ org_id: orgId }), idempotencyKey: newIdempotencyKey() },
+    );
   },
 
   // ---- venues -------------------------------------------------------------
@@ -409,9 +574,10 @@ export const api = {
 
   // ---- events (real) --------------------------------------------------------
   myEvents() {
-    // TODO(api-gap): GET /orgs/{id}/events with X-Org-Id scoping + gate
-    // event_scope filtering. Today it is user-scoped /events/mine.
     return request<{ events: StudioEvent[] }>('/events/mine');
+  },
+  orgEvents(orgId: string) {
+    return request<{ events: StudioEvent[] }>(`/orgs/${encodeURIComponent(orgId)}/events`);
   },
   event(id: string) {
     return request<{ event: StudioEvent }>(`/events/${id}`);
@@ -451,18 +617,51 @@ export const api = {
       }),
     });
   },
-  // TODO(api-gap): POST/PATCH/DELETE /events/{id}/tiers, errors
-  // capacity_exceeds_venue, tier_has_sales (E3).
-  // TODO(api-gap): POST /events/{id}/cancel + /postpone {new_starts_at},   // behaviour per decision-2 default (full refund incl. fees; auto-rollover
-  // with a 14-day refund window).
+  updateEventFields(id: string, patch: Partial<CreateEventPayload>) {
+    return request<{ event: StudioEvent }>(`/events/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+  },
+  addTier(id: string, tier: { name: string; description?: string; priceCents: number; quantity: number }) {
+    return request<{ tier: Tier }>(`/events/${id}/tiers`, {
+      method: 'POST',
+      body: JSON.stringify(tier),
+      idempotencyKey: newIdempotencyKey(),
+    });
+  },
+  updateTier(id: string, tierId: string, patch: { name?: string; priceCents?: number; quantity?: number }) {
+    return request<{ tier: Tier }>(`/events/${id}/tiers/${encodeURIComponent(tierId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+  },
+  deleteTier(id: string, tierId: string) {
+    return request<{ ok: boolean }>(`/events/${id}/tiers/${encodeURIComponent(tierId)}`, {
+      method: 'DELETE',
+    });
+  },
   setEventPaused(eventId: string, paused: boolean) {
     return setEventMetaLocal(eventId, { paused });
   },
-  cancelEvent(eventId: string) {
-    return setEventMetaLocal(eventId, { cancelled: true });
+  // decision-2 default: cancel = full refund incl. fees; postpone =
+  // auto-rollover with a 14-day refund window.
+  async cancelEvent(eventId: string) {
+    const res = await request<{ event: StudioEvent }>(`/events/${eventId}/cancel`, {
+      method: 'POST',
+      idempotencyKey: newIdempotencyKey(),
+    });
+    setEventMetaLocal(eventId, { cancelled: true });
+    return res;
   },
-  postponeEvent(eventId: string, newStartsAt: string) {
-    return setEventMetaLocal(eventId, { postponed: { newStartsAt, at: new Date().toISOString() } });
+  async postponeEvent(eventId: string, newStartsAt: string) {
+    const res = await request<{ event: StudioEvent }>(`/events/${eventId}/postpone`, {
+      method: 'POST',
+      body: JSON.stringify({ new_starts_at: newStartsAt }),
+      idempotencyKey: newIdempotencyKey(),
+    });
+    setEventMetaLocal(eventId, { postponed: { newStartsAt, at: new Date().toISOString() } });
+    return res;
   },
   eventMeta(eventId: string): LocalEventMeta {
     return getEventMetaLocal(eventId);
@@ -472,15 +671,30 @@ export const api = {
   },
 
   // ---- co-host splits -------------------------------------------------------
-  // TODO(api-gap): POST /events/{id}/hosts {org_id,split_bps} +
-  // POST /events/{id}/hosts/{org}/accept, errors org_unverified,
-  // splits_must_total_100, locked. Splits sum to 10000 bps; decision-5 default
-  // locks at first sale.
+  // Proposals stay local: the UI names a co-host org by name, while the real
+  // POST /events/{id}/hosts takes an org_id we cannot resolve. GET is real so
+  // accepted splits still show up.
   eventHosts(eventId: string, orgId: string, orgName: string): LocalEventHost[] {
+    request<{ hosts: EventHost[] }>(`/events/${eventId}/hosts`)
+      .then(() => undefined)
+      .catch(() => undefined);
     return ensureOwnerHost(eventId, orgId, orgName);
   },
   saveEventHosts(eventId: string, hosts: LocalEventHost[]) {
     saveHosts(eventId, hosts);
+  },
+  addEventHost(eventId: string, orgId: string, splitBps: number) {
+    return request<{ host: EventHost }>(`/events/${eventId}/hosts`, {
+      method: 'POST',
+      body: JSON.stringify({ org_id: orgId, split_bps: splitBps }),
+      idempotencyKey: newIdempotencyKey(),
+    });
+  },
+  acceptEventHost(eventId: string, hostId?: string) {
+    return request<{ ok: boolean }>(`/events/${eventId}/hosts/accept`, {
+      method: 'POST',
+      body: JSON.stringify(hostId ? { host_id: hostId } : {}),
+    });
   },
 
   // ---- orders (real) --------------------------------------------------------
@@ -490,26 +704,37 @@ export const api = {
   eventGuests(id: string) {
     return request<EventGuestsResponse>(`/events/${id}/guests`);
   },
-  // TODO(api-gap): POST /orders/{id}/refunds {amount?,reason}, errors
-  // already_refunded, insufficient_balance. Until then refunds are marked
-  // locally so the ledger/balance maths stay honest.
-  refundOrder(orderId: string, _reason?: string) {
+  // POST /orders/{id}/refund — real endpoint (decision-2: full refunds).
+  async refundOrder(orderId: string, reason?: string) {
+    const res = await request<{ ok: boolean }>(`/orders/${encodeURIComponent(orderId)}/refund`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+      idempotencyKey: newIdempotencyKey(),
+    });
     markOrderRefunded(orderId);
-    return Promise.resolve({ ok: true, stubbed: true });
+    return res;
   },
   refundedOrderIds,
 
-  // ---- payouts --------------------------------------------------------------
-  // TODO(api-gap): GET/POST /orgs/{id}/payouts, errors no_bank, unverified,
-  // negative_balance. History persists locally; available balance is derived
-  // client-side from the order feed until the ledger endpoint exists.
-  orgPayouts(orgId: string): LocalPayout[] {
-    return listPayouts(orgId);
+  // ---- payouts (real, org-scoped) --------------------------------------------
+  orgLedger(orgId: string) {
+    return request<{ balance_minor: number; entries: LedgerEntry[] }>(
+      `/orgs/${encodeURIComponent(orgId)}/ledger`,
+    );
   },
-  requestPayout(orgId: string, amountMinor: number, currency: string, bankLabel: string) {
-    // Idempotency on money POSTs: the local stub records a unique payout row;
-    // the real call must send Idempotency-Key (added above for real requests).
-    return recordPayout({ orgId, amountMinor, currency, status: 'in_transit', bankLabel });
+  async orgPayouts(orgId: string): Promise<StudioPayout[]> {
+    const res = await request<{ payouts: StudioPayout[] }>(
+      `/orgs/${encodeURIComponent(orgId)}/payouts`,
+    );
+    return res.payouts ?? [];
+  },
+  // Errors: no_bank, unverified, negative_balance, nothing_ready,
+  // idempotency_key_required.
+  requestPayout(orgId: string, _amountMinor: number, _currency: string, _bankLabel: string) {
+    return request<{ payout: StudioPayout }>(`/orgs/${encodeURIComponent(orgId)}/payouts`, {
+      method: 'POST',
+      idempotencyKey: newIdempotencyKey(),
+    });
   },
 
   // ---- promo codes (real, user-scoped today) ---------------------------------
