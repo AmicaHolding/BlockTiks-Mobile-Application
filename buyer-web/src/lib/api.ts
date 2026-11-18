@@ -720,7 +720,7 @@ export const api = {
   moveInvite(inviteId: string, org_id: string) {
     return request<{ event_id: string }>(`/invites/${encodeURIComponent(inviteId)}/move`, {
       method: 'POST',
-      headers: idempotencyHeaders(),
+      headers: { ...idempotencyHeaders(), 'X-Org-Id': org_id },
       body: JSON.stringify({ org_id }),
     });
   },
