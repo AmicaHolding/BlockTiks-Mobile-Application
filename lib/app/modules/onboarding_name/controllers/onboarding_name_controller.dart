@@ -8,6 +8,8 @@ class OnboardingNameController extends GetxController {
   final TextEditingController nameController = TextEditingController();
   final RxBool isSaving = false.obs;
   final RxString intent = ''.obs;
+  final String comingFrom =
+      Get.arguments is Map ? Get.arguments['comingFrom']?.toString() ?? '' : '';
 
   /// what-brings-you-here options (A3). Empty = skipped.
   static const intents = ['going_out', 'hosting_friends', 'running_events'];
@@ -25,7 +27,13 @@ class OnboardingNameController extends GetxController {
         'name': name,
         if (intent.value.isNotEmpty) 'intent': [intent.value],
       });
-      Get.offAllNamed(Routes.PERSONALIZE);
+      // A2: a gated action skips optional onboarding and resumes the
+      // action's screen (still on the stack behind sign-in).
+      if (comingFrom.isNotEmpty) {
+        Get.back();
+      } else {
+        Get.offAllNamed(Routes.PERSONALIZE);
+      }
     } catch (e) {
       CustomSnackBar.showCustomErrorToast(
           message: e.toString().replaceFirst('Exception: ', ''));

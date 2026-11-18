@@ -540,18 +540,21 @@ export async function inviteRoutes(app: FastifyInstance) {
       // Comp tier for existing Going guests; the organiser adds paid tiers in Studio.
       tiers: [{ name: 'Guest list', description: 'Free spots kept from the invite', priceCents: 0, quantity: Math.max(compSeats, 1) }],
     });
-    if (!(await setInviteStatus(invite.id, 'moved', { movedToEventId: event.id, movedToOrgId: orgId }))) {
-      const fresh = await getInvite(invite.id);
-      return specError(reply, 409, 'already_moved', 'Already moved', undefined, { event_id: fresh?.movedToEventId });
-    }
     await linkEventToOrg(event.id, orgId);
     await setEventHost({ eventId: event.id, orgId, role: 'owner', splitBps: 10000 });
+    // Issue comp tickets BEFORE marking the invite moved: if issuance fails,
+    // the invite stays active and the move can be retried instead of stranding
+    // guests under `already_moved`.
     const comp = await issueCompTickets(
       event,
       tiers[0],
       going.map((r) => ({ userId: r.userId, qty: rsvpSeats(r) })),
       invite.id
     );
+    if (!(await setInviteStatus(invite.id, 'moved', { movedToEventId: event.id, movedToOrgId: orgId }))) {
+      const fresh = await getInvite(invite.id);
+      return specError(reply, 409, 'already_moved', 'Already moved', undefined, { event_id: fresh?.movedToEventId });
+    }
     for (const r of going) {
       await notifyUser(r.userId, {
         type: 'invite.moved',

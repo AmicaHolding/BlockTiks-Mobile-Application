@@ -5,8 +5,8 @@ import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:block_tix/app/services/api_service.dart';
 import '../controllers/invite_controller.dart';
 
-/// Who's-it-for / create-invite form (I1–I4): name, when, where, note,
-/// plus-ones and guest-limit toggles. Submits POST /invites and lands on
+/// Who's-it-for / create-invite form (I1–I4): title, when, place_text, note,
+/// plus-ones and guest-list toggles. Submits POST /invites and lands on
 /// the host's `/i/{code}` view to share the link.
 class InviteCreateView extends GetView<InviteController> {
   InviteCreateView({Key? key}) : super(key: key);
@@ -66,18 +66,33 @@ class InviteCreateView extends GetView<InviteController> {
 
   Future<void> _create() async {
     if (name.text.trim().isEmpty) {
-      CustomSnackBar.showCustomErrorToast(message: 'Give the invite a name');
+      CustomSnackBar.showCustomErrorToast(message: 'Give it a name');
+      return;
+    }
+    if (where.text.trim().isEmpty) {
+      CustomSnackBar.showCustomErrorToast(message: 'Add a place');
       return;
     }
     isSaving.value = true;
     try {
+      // Backend contract: title + place_text required; starts_at must be a
+      // parseable ISO timestamp when given.
+      final parsedWhen =
+          DateTime.tryParse(when.text.trim());
+      if (when.text.trim().isNotEmpty && parsedWhen == null) {
+        CustomSnackBar.showCustomErrorToast(
+            message: 'Pick a valid date and time (e.g. 2026-11-28 20:00)');
+        isSaving.value = false;
+        return;
+      }
       final res = await ApiService.createInvite({
-        'name': name.text.trim(),
-        if (when.text.trim().isNotEmpty) 'when': when.text.trim(),
-        if (where.text.trim().isNotEmpty) 'where': where.text.trim(),
+        'title': name.text.trim(),
+        'place_text': where.text.trim(),
+        if (parsedWhen != null)
+          'starts_at': parsedWhen.toIso8601String(),
         if (note.text.trim().isNotEmpty) 'note': note.text.trim(),
-        'plus_ones': allowPlusOnes.value,
-        'show_guests': showGuests.value,
+        'allow_plus_ones': allowPlusOnes.value,
+        'show_guest_list': showGuests.value,
       });
       final invite = res['invite'] is Map ? res['invite'] as Map : res;
       final code = invite['code']?.toString() ?? '';

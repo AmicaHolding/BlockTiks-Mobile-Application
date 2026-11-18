@@ -475,9 +475,12 @@ export async function updateUserContact(
               ExpressionAttributeValues: {
                 ':v': contact.value,
                 ':at': verifiedAt,
+                ':oldv': old ?? null,
                 ...(contact.kind === 'email' ? { ':t': true } : {}),
               },
-              ConditionExpression: 'attribute_exists(pk)',
+              // A7: fails when a concurrent change already moved the contact,
+              // so a stale writer can't leave a hidden login behind.
+              ConditionExpression: 'attribute_exists(pk) AND #f = :oldv',
             },
           },
         ],
@@ -6173,19 +6176,28 @@ export async function touchSession(id: string): Promise<void> {
 }
 
 export async function listUserSessions(userId: string): Promise<Session[]> {
-  const res = await docClient.send(
-    new QueryCommand({
-      TableName: T(),
-      IndexName: 'gsi2',
-      KeyConditionExpression: 'gsi2pk = :pk',
-      ExpressionAttributeValues: { ':pk': `USER#${userId}#SESSIONS` },
-      ScanIndexForward: false,
-      Limit: 100,
-    })
-  );
-  return (res.Items ?? [])
-    .map((item) => stripItem<Session>(item))
-    .filter((s) => !s.revokedAt);
+  // Paginate: revoking must reach every session, not just the newest 100.
+  const sessions: Session[] = [];
+  let lastKey: Record<string, unknown> | undefined;
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: T(),
+        IndexName: 'gsi2',
+        KeyConditionExpression: 'gsi2pk = :pk',
+        ExpressionAttributeValues: { ':pk': `USER#${userId}#SESSIONS` },
+        ScanIndexForward: false,
+        Limit: 100,
+        ExclusiveStartKey: lastKey,
+      })
+    );
+    for (const item of res.Items ?? []) {
+      const s = stripItem<Session>(item);
+      if (!s.revokedAt) sessions.push(s);
+    }
+    lastKey = res.LastEvaluatedKey;
+  } while (lastKey);
+  return sessions;
 }
 
 export async function revokeSession(userId: string, id: string): Promise<boolean> {

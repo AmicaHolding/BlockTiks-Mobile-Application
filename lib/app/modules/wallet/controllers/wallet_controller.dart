@@ -44,8 +44,10 @@ class WalletController extends GetxController {
       listings.value = results[1];
       offers.value = results[2];
       try {
-        final m = await ApiService.meMemberships();
-        final pending = (m['invites'] as List? ?? [])
+        // Plans 'waiting on you' = unanswered personal invites (I10), not
+        // org membership invites from /me/memberships.
+        final plans = await ApiService.mePlansFull();
+        final pending = (plans['waiting_on_you'] as List? ?? [])
             .whereType<Map>()
             .map((e) => Map<String, dynamic>.from(e))
             .toList();

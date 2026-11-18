@@ -33,10 +33,10 @@ class InviteController extends GetxController {
       invite.value = res['invite'] is Map
           ? Map<String, dynamic>.from(res['invite'] as Map)
           : res;
-      isHost.value = invite['is_host'] == true ||
-          invite['viewer']?.toString() == 'host';
+      isHost.value = invite['is_host'] == true;
+      final mine = res['my_rsvp'];
       myResponse.value =
-          invite['my_response']?.toString() ?? '';
+          mine is Map ? mine['status']?.toString() ?? '' : '';
       if (isHost.value && invite['id'] != null) {
         guests.value =
             await ApiService.inviteGuests(invite['id'].toString());
@@ -50,17 +50,23 @@ class InviteController extends GetxController {
   }
 
   /// Guest reply — signed-out guests hit the A2/A8 gate and come back.
-  Future<void> respond(String response) async {
+  /// `status` is going|maybe|no; the server may downgrade going→requested
+  /// when the host approves guests (I3).
+  Future<void> respond(String status) async {
     if (!await ApiService.requireAuth(comingFrom: 'invite')) return;
     isResponding.value = true;
     try {
-      await ApiService.respondToInvite(code, response,
+      final res = await ApiService.respondToInvite(code, status,
           plusOnes: plusOnes.value);
-      myResponse.value = response;
+      final rsvp = res['rsvp'];
+      myResponse.value =
+          rsvp is Map ? rsvp['status']?.toString() ?? status : status;
       CustomSnackBar.showCustomToast(
-          message: response == 'yes'
+          message: myResponse.value == 'going'
               ? "You're in. See you there."
-              : 'Reply sent to the host.');
+              : myResponse.value == 'requested'
+                  ? 'Requested — the host will approve you.'
+                  : 'Reply sent to the host.');
     } catch (e) {
       CustomSnackBar.showCustomErrorToast(
           message: e.toString().replaceFirst('Exception: ', ''));

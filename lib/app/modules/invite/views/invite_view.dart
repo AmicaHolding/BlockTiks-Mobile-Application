@@ -31,20 +31,28 @@ class InviteView extends GetView<InviteController> {
                   style: sahraText(
                       color: ColorConstant.gold, size: 13, weight: FontWeight.w600)),
               const SizedBox(height: 6),
-              Text(inv['name']?.toString() ?? 'An invite',
+              Text(inv['title']?.toString() ?? inv['name']?.toString() ?? 'An invite',
                   style: sahraText(size: 28, weight: FontWeight.w800, height: 1.1)),
               const SizedBox(height: 16),
               SahraCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _row('Host', inv['host_name']?.toString() ?? ''),
-                    if (inv['when'] != null || inv['starts_at'] != null)
+                    _row('Host',
+                        inv['host_name']?.toString() ??
+                            (inv['host'] is Map
+                                ? inv['host']['name']?.toString() ?? ''
+                                : '')),
+                    if (inv['starts_at'] != null || inv['when'] != null)
                       _row('When',
-                          (inv['when'] ?? inv['starts_at'])?.toString() ?? ''),
-                    if (inv['where'] != null || inv['venue'] != null)
+                          (inv['starts_at'] ?? inv['when'])?.toString() ?? ''),
+                    if (inv['place_text'] != null || inv['where'] != null || inv['place_hidden'] == true)
                       _row('Where',
-                          (inv['where'] ?? inv['venue'])?.toString() ?? ''),
+                          inv['place_hidden'] == true
+                              ? 'Hidden until you say Going'
+                              : (inv['place_text'] ?? inv['where'])
+                                  ?.toString() ??
+                                  ''),
                     if (inv['note'] != null)
                       _row('Note', inv['note']?.toString() ?? ''),
                   ],
@@ -90,7 +98,9 @@ class InviteView extends GetView<InviteController> {
 
   Widget _respond() {
     final inv = controller.invite;
-    final allowsPlusOnes = inv['plus_ones'] == true || inv['plus_ones'] == 1;
+    final allowsPlusOnes = inv['allow_plus_ones'] == true ||
+        inv['plus_ones'] == true ||
+        inv['plus_ones'] == 1;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (allowsPlusOnes)
         Row(children: [
@@ -109,10 +119,13 @@ class InviteView extends GetView<InviteController> {
         ]),
       const SizedBox(height: 16),
       SahraPillButton(
-          label: 'Count me in',
+          label: controller.myResponse.value == 'requested'
+              ? 'Requested'
+              : 'Count me in',
           enabled: !controller.isResponding.value &&
-              controller.myResponse.value != 'yes',
-          onTap: () => controller.respond('yes')),
+              controller.myResponse.value != 'going' &&
+              controller.myResponse.value != 'requested',
+          onTap: () => controller.respond('going')),
       const SizedBox(height: 10),
       Row(children: [
         Expanded(
@@ -120,6 +133,7 @@ class InviteView extends GetView<InviteController> {
           onPressed: controller.myResponse.value == 'no'
               ? null
               : () => controller.respond('no'),
+          // `maybe` is a first-class RSVP state too.
           style: OutlinedButton.styleFrom(
             foregroundColor: ColorConstant.whiteA700,
             side: BorderSide(color: ColorConstant.nightBorder),
@@ -127,6 +141,21 @@ class InviteView extends GetView<InviteController> {
             shape: const StadiumBorder(),
           ),
           child: Text("Can't make it",
+              style: sahraText(color: ColorConstant.whiteA700, size: 15)),
+        )),
+        const SizedBox(width: 8),
+        Expanded(
+            child: OutlinedButton(
+          onPressed: controller.myResponse.value == 'maybe'
+              ? null
+              : () => controller.respond('maybe'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: ColorConstant.whiteA700,
+            side: BorderSide(color: ColorConstant.nightBorder),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: const StadiumBorder(),
+          ),
+          child: Text('Maybe',
               style: sahraText(color: ColorConstant.whiteA700, size: 15)),
         )),
       ]),

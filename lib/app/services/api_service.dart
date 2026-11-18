@@ -278,12 +278,11 @@ class ApiService {
     }
   }
 
-  /// GET /me/plans -> { plans: [tickets, rsvps, invites, price_watches] }.
-  static Future<List<Map<String, dynamic>>> mePlans() async {
+  /// GET /me/plans -> { waiting_on_you, upcoming, waiting, past } (I10).
+  static Future<Map<String, dynamic>> mePlansFull() async {
     try {
       final res = await _dio.get('/me/plans', options: _authOptions);
-      final list = (res.data['plans'] as List?) ?? [];
-      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      return Map<String, dynamic>.from(res.data as Map);
     } on DioException catch (e) {
       _throw(e);
     }
@@ -326,22 +325,29 @@ class ApiService {
     }
   }
 
-  /// GET /invites/:code — public guest read of an invite.
+  /// GET /invites/:code — guest read. Sends the bearer token when one
+  /// exists so the server recognizes hosts and Going guests (hidden place).
   static Future<Map<String, dynamic>> inviteByCode(String code) async {
     try {
-      final res = await _dio.get('/invites/$code');
+      final res =
+          await _dio.get('/invites/$code', options: _authOptions);
       return Map<String, dynamic>.from(res.data as Map);
     } on DioException catch (e) {
       _throw(e);
     }
   }
 
-  /// POST /invites/:code/respond {response,plus_ones?} — guest reply.
+  /// POST /invites/:id/rsvp {status,plus_ones?} — guest reply. Status is
+  /// `going|maybe|no`; the invite may turn Going into `requested` when the
+  /// host approves guests (I3). Plus-ones only while going.
   static Future<Map<String, dynamic>> respondToInvite(
-      String code, String response, {int plusOnes = 0}) async {
+      String code, String status, {int plusOnes = 0}) async {
     try {
-      final res = await _dio.post('/invites/$code/respond',
-          data: {'response': response, 'plus_ones': plusOnes},
+      final res = await _dio.post('/invites/$code/rsvp',
+          data: {
+            'status': status,
+            if (plusOnes > 0) 'plus_ones': plusOnes,
+          },
           options: _authOptions);
       return Map<String, dynamic>.from(res.data as Map);
     } on DioException catch (e) {

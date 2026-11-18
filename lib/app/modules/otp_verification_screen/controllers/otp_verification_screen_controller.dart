@@ -67,7 +67,7 @@ class OtpVerificationScreenController extends GetxController {
           challengeId: challengeId, code: code);
       btnController.stop();
       await ApiService.saveSession(res);
-      await SignInController.afterAuth(res);
+      await SignInController.afterAuth(res, comingFrom: comingFrom);
     } catch (e) {
       btnController.error();
       btnController.stop();

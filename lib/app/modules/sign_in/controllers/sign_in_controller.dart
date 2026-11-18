@@ -65,17 +65,37 @@ class SignInController extends GetxController {
         message: 'Apple sign-in is not enabled in this build yet');
   }
 
-  /// Shared post-auth landing (A2/A4). New accounts collect a name first.
-  static Future<void> afterAuth(Map<String, dynamic> res) async {
+  /// Shared post-auth landing (A2/A4). `comingFrom` names the gated action
+  /// that triggered sign-in (checkout, invite, tab); A2 resumes it instead
+  /// of dumping the user on the dashboard. New accounts collect a name
+  /// first, then resume.
+  static Future<void> afterAuth(Map<String, dynamic> res,
+      {String comingFrom = ''}) async {
     final isNew = res['is_new'] == true;
-    final landing = res['landing'] as Map?;
     if (isNew) {
-      Get.offAllNamed(Routes.ONBOARDING_NAME);
+      Get.offAllNamed(Routes.ONBOARDING_NAME,
+          arguments: {'comingFrom': comingFrom});
       return;
     }
+    _land(res, comingFrom);
+  }
+
+  /// Landing after auth — used by verify, Apple, and the name step once
+  /// onboarding is done. Org membership keeps door-mode access even when
+  /// the user lands in personal mode.
+  static void _land(Map<String, dynamic> res, String comingFrom) {
+    final landing = res['landing'] as Map?;
     final mode = landing?['mode']?.toString() ?? 'personal';
     final screen = landing?['screen']?.toString() ?? 'home';
-    Constants.isUserCreator = mode == 'org';
+    final memberships = res['memberships'];
+    Constants.isUserCreator = mode == 'org' ||
+        (memberships is List && memberships.isNotEmpty);
+    // A2: a gated action (checkout / invite / gated tab) returns to the
+    // screen that asked for sign-in — it's still on the stack.
+    if (comingFrom.isNotEmpty) {
+      Get.back();
+      return;
+    }
     if (mode == 'org' && screen == 'door_scan') {
       Get.offAllNamed(Routes.MY_SCANNER);
     } else if (mode == 'org' && screen == 'door_events') {
@@ -84,4 +104,9 @@ class SignInController extends GetxController {
       Get.offAllNamed(Routes.USER_DASHBOARD);
     }
   }
+
+  /// The name step calls this once the profile is saved.
+  static void finishOnboarding(Map<String, dynamic> res,
+      {String comingFrom = ''}) =>
+      _land(res, comingFrom);
 }
