@@ -7,6 +7,8 @@ import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'widgets/auth_pill_button.dart';
 import '../controllers/sign_in_controller.dart';
 
+/// v2 merged sign-in: one phone-or-email field → OTP. Apple on iOS.
+/// No password fields, no forgot/reset links (passwords are gone).
 class SignInView extends GetView<SignInController> {
   SignInView({Key? key}) : super(key: key);
 
@@ -16,79 +18,43 @@ class SignInView extends GetView<SignInController> {
   Widget build(BuildContext context) {
     return SahraAuthScaffold(
       title: 'Welcome back',
-      subtitle: 'Sign in to your Sahra account.',
+      subtitle: 'One code, no password.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SahraAuthTabs(isSignUp: false),
-          const SizedBox(height: 24),
           Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SahraAuthField(
-                  controller: controller.emailController,
+                  controller: controller.contactController,
                   label: 'Email or phone',
-                  hint: 'you@example.com',
+                  hint: 'you@example.com or +9715…',
                   keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
+                  textInputAction: TextInputAction.done,
                   validator: (value) =>
                       HelperFunction.validateEmailOrPhone(value!),
                 ),
-                const SizedBox(height: 16),
-                Obx(
-                  () => SahraAuthField(
-                    controller: controller.passwordController,
-                    label: 'Password',
-                    obscure: controller.isShowPassword.value,
-                    textInputAction: TextInputAction.done,
-                    validator: (value) => HelperFunction.passwordValidate(
-                        value!,
-                        isCurrentPassword: true),
-                    suffix: IconButton(
-                      onPressed: () => controller.isShowPassword.value =
-                          !controller.isShowPassword.value,
-                      icon: Icon(
-                        controller.isShowPassword.value
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        color: ColorConstant.gold,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => Get.toNamed(Routes.FORGET_PASSWORD),
-                    child: Text('Forgot password?',
-                        style: sahraText(
-                            color: ColorConstant.gold,
-                            size: 14,
-                            weight: FontWeight.w600)),
-                  ),
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 24),
                 AuthPillButton(
                   controller: controller.btnController,
-                  text: 'Sign in',
-                  onTap: _onTapSignIn,
+                  text: 'Send code',
+                  onTap: _onTapSendCode,
                 ),
                 const SizedBox(height: 18),
-                Row(children: [
-                  Expanded(child: Divider(color: ColorConstant.nightBorder)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text('or',
-                        style: sahraText(
-                            color: ColorConstant.nightMuted, size: 13)),
-                  ),
-                  Expanded(child: Divider(color: ColorConstant.nightBorder)),
-                ]),
-                const SizedBox(height: 14),
-                if (Platform.isIOS)
+                if (Platform.isIOS) ...[
+                  Row(children: [
+                    Expanded(child: Divider(color: ColorConstant.nightBorder)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text('or',
+                          style: sahraText(
+                              color: ColorConstant.nightMuted, size: 13)),
+                    ),
+                    Expanded(child: Divider(color: ColorConstant.nightBorder)),
+                  ]),
+                  const SizedBox(height: 14),
                   AuthPillButton(
                     text: 'Continue with Apple',
                     variant: AuthPillButtonVariant.secondary,
@@ -99,15 +65,7 @@ class SignInView extends GetView<SignInController> {
                     margin: const EdgeInsets.only(bottom: 10),
                     onTap: () => controller.loginApple(context),
                   ),
-                AuthPillButton(
-                  text: 'Continue with Google',
-                  variant: AuthPillButtonVariant.secondary,
-                  prefix: CustomImageView(
-                      imagePath: ImageConstant.imgGoogle,
-                      height: 20,
-                      width: 20),
-                  onTap: () => controller.loginGoogle(context),
-                ),
+                ],
               ],
             ),
           ),
@@ -116,7 +74,7 @@ class SignInView extends GetView<SignInController> {
     );
   }
 
-  void _onTapSignIn() {
-    if (_formKey.currentState!.validate()) controller.loginAPI();
+  void _onTapSendCode() {
+    if (_formKey.currentState!.validate()) controller.sendCode();
   }
 }

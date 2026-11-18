@@ -36,6 +36,10 @@ class ProfileTabView extends GetView<ProfileTabController> {
           _row('Invite friends',
               value: 'Get AED 25', onTap: () => Get.toNamed(Routes.REFERRALS)),
           _section('Hosting'),
+          // v2 I-rules: personal invites — a private get-together people
+          // reply to; separate from hosting ticketed events in Studio.
+          _row('Host a personal invite',
+              value: 'Free', onTap: () => Get.toNamed(Routes.INVITE_NEW)),
           _hostingRow(),
           _section('Support'),
           _row('Help & FAQs', onTap: () => Get.toNamed(Routes.FAQS)),

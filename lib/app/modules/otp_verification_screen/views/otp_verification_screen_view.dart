@@ -13,21 +13,21 @@ class OtpVerificationScreenView
   @override
   Widget build(BuildContext context) {
     return SahraAuthScaffold(
-      title: 'Check your email',
+      title: 'Check your ${controller.channel.value == 'email' ? 'email' : 'phone'}',
       subtitle:
-          'We sent a code to ${HelperFunction.maskString(controller.email.value)}. It expires in 10 minutes.',
+          'We sent a code to ${HelperFunction.maskString(controller.contact.value)}. It expires in 10 minutes.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           OtpTextField(
             controller: controller.otpController,
             onChanged: (v) {},
-            onComplete: (String v) {},
+            onComplete: (String v) => controller.verifyOtp(),
           ),
           const SizedBox(height: 12),
           Obx(
             () => Text(
-              'Resend in ${controller.min.value}:${controller.sec.value.toString().padLeft(2, '0')}',
+              'Resend in 0:${controller.sec.value.toString().padLeft(2, '0')}',
               style: sahraText(color: ColorConstant.nightMuted, size: 13),
             ),
           ),
@@ -46,7 +46,7 @@ class OtpVerificationScreenView
           const SizedBox(height: 8),
           Center(
             child: TextButton(
-              onPressed: controller.resendForgotPassword,
+              onPressed: controller.resendOtp,
               child: Text('Send a new code',
                   style: sahraText(
                       color: ColorConstant.gold,
