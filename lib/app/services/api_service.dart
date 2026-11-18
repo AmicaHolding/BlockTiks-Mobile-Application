@@ -346,7 +346,9 @@ class ApiService {
       final res = await _dio.post('/invites/$code/rsvp',
           data: {
             'status': status,
-            if (plusOnes > 0) 'plus_ones': plusOnes,
+            // I5: plus-ones are only valid while going — sending them with
+            // maybe/no makes the server reject the whole reply.
+            if (status == 'going' && plusOnes > 0) 'plus_ones': plusOnes,
           },
           options: _authOptions);
       return Map<String, dynamic>.from(res.data as Map);

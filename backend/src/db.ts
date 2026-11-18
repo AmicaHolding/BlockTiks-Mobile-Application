@@ -480,7 +480,9 @@ export async function updateUserContact(
               },
               // A7: fails when a concurrent change already moved the contact,
               // so a stale writer can't leave a hidden login behind.
-              ConditionExpression: 'attribute_exists(pk) AND #f = :oldv',
+              // attribute_not_exists covers adding a first email/phone.
+              ConditionExpression:
+                'attribute_exists(pk) AND (#f = :oldv OR attribute_not_exists(#f))',
             },
           },
         ],
@@ -6681,6 +6683,51 @@ export async function updateInviteFields(
 }
 
 // active -> cancelled | moved. Leaves the GSI1 reminder feed.
+// I7: claims an invite for the ticketed-event move so only one mover
+// proceeds — the loser gets `already_moved` before creating duplicates.
+export async function claimInviteMove(id: string): Promise<boolean> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: invitePk(id), sk: 'METADATA' },
+        UpdateExpression: 'SET #status = :moving, updatedAt = :at',
+        ConditionExpression: '#status = :active',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':moving': 'moving',
+          ':active': 'active',
+          ':at': now(),
+        },
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+}
+
+// Rolls a failed move back to `active` so the host can retry it.
+export async function releaseInviteMove(id: string): Promise<void> {
+  await docClient
+    .send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: invitePk(id), sk: 'METADATA' },
+        UpdateExpression: 'SET #status = :active, updatedAt = :at',
+        ConditionExpression: '#status = :moving',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':active': 'active',
+          ':moving': 'moving',
+          ':at': now(),
+        },
+      })
+    )
+    .catch(() => undefined);
+}
+
 export async function setInviteStatus(
   id: string,
   to: 'cancelled' | 'moved',
@@ -6694,13 +6741,15 @@ export async function setInviteStatus(
         Key: { pk: invitePk(id), sk: 'METADATA' },
         UpdateExpression:
           `SET #status = :to, updatedAt = :at${to === 'cancelled' ? ', cancelledAt = :at' : ', movedToEventId = :eid, movedToOrgId = :oid'} REMOVE gsi1pk, gsi1sk`,
-        ConditionExpression: '#status = :active',
+        // 'moved' only finalizes a claim; 'cancelled' only from active.
+        ConditionExpression: to === 'moved' ? '#status = :moving' : '#status = :active',
         ExpressionAttributeNames: { '#status': 'status' },
         ExpressionAttributeValues: {
           ':to': to,
           ':at': at,
-          ':active': 'active',
-          ...(to === 'moved' ? { ':eid': extra.movedToEventId, ':oid': extra.movedToOrgId } : {}),
+          ...(to === 'moved'
+            ? { ':moving': 'moving', ':eid': extra.movedToEventId, ':oid': extra.movedToOrgId }
+            : { ':active': 'active' }),
         },
       })
     );

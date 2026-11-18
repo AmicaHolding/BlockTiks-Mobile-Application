@@ -76,7 +76,8 @@ class InviteCreateView extends GetView<InviteController> {
     isSaving.value = true;
     try {
       // Backend contract: title + place_text required; starts_at must be a
-      // parseable ISO timestamp when given.
+      // parseable ISO timestamp when given. Parsed input is local time —
+      // send it as UTC so the backend doesn't re-interpret the wall time.
       final parsedWhen =
           DateTime.tryParse(when.text.trim());
       if (when.text.trim().isNotEmpty && parsedWhen == null) {
@@ -89,7 +90,7 @@ class InviteCreateView extends GetView<InviteController> {
         'title': name.text.trim(),
         'place_text': where.text.trim(),
         if (parsedWhen != null)
-          'starts_at': parsedWhen.toIso8601String(),
+          'starts_at': parsedWhen.toUtc().toIso8601String(),
         if (note.text.trim().isNotEmpty) 'note': note.text.trim(),
         'allow_plus_ones': allowPlusOnes.value,
         'show_guest_list': showGuests.value,

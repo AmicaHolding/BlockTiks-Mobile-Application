@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import {
   bumpDailyCounter,
+  claimInviteMove,
   createEventWithTiers,
   createInvite,
   createInviteReport,
@@ -20,6 +21,7 @@ import {
   listUserRsvps,
   markInviteSeen,
   putInviteRsvp,
+  releaseInviteMove,
   resolveInvite,
   rsvpSeats,
   setEventHost,
@@ -523,6 +525,16 @@ export async function inviteRoutes(app: FastifyInstance) {
     }
     if (!invite.startsAt) return specError(reply, 400, 'starts_at_required', 'Set a date before selling tickets', 'starts_at');
 
+    // Claim the move before creating anything — a concurrent mover gets
+    // `already_moved` instead of minting a second event and comp tickets.
+    if (!(await claimInviteMove(invite.id))) {
+      const fresh = await getInvite(invite.id);
+      return specError(reply, 409, 'already_moved', 'Already moved', undefined, {
+        event_id: fresh?.movedToEventId,
+        studio_path: fresh?.movedToEventId ? `/events/${fresh.movedToEventId}` : undefined,
+      });
+    }
+
     const going = (await listInviteRsvps(invite.id)).filter((r) => r.status === 'going');
     const compSeats = going.reduce((n, r) => n + rsvpSeats(r), 0);
     const { event, tiers } = await createEventWithTiers({
@@ -540,20 +552,24 @@ export async function inviteRoutes(app: FastifyInstance) {
       // Comp tier for existing Going guests; the organiser adds paid tiers in Studio.
       tiers: [{ name: 'Guest list', description: 'Free spots kept from the invite', priceCents: 0, quantity: Math.max(compSeats, 1) }],
     });
-    await linkEventToOrg(event.id, orgId);
-    await setEventHost({ eventId: event.id, orgId, role: 'owner', splitBps: 10000 });
-    // Issue comp tickets BEFORE marking the invite moved: if issuance fails,
-    // the invite stays active and the move can be retried instead of stranding
-    // guests under `already_moved`.
-    const comp = await issueCompTickets(
-      event,
-      tiers[0],
-      going.map((r) => ({ userId: r.userId, qty: rsvpSeats(r) })),
-      invite.id
-    );
-    if (!(await setInviteStatus(invite.id, 'moved', { movedToEventId: event.id, movedToOrgId: orgId }))) {
-      const fresh = await getInvite(invite.id);
-      return specError(reply, 409, 'already_moved', 'Already moved', undefined, { event_id: fresh?.movedToEventId });
+    let compTickets: Awaited<ReturnType<typeof issueCompTickets>>;
+    try {
+      await linkEventToOrg(event.id, orgId);
+      await setEventHost({ eventId: event.id, orgId, role: 'owner', splitBps: 10000 });
+      // Issue comp tickets BEFORE marking moved: on failure releaseInviteMove
+      // rolls the claim back to `active` so the host can retry.
+      compTickets = await issueCompTickets(
+        event,
+        tiers[0],
+        going.map((r) => ({ userId: r.userId, qty: rsvpSeats(r) })),
+        invite.id
+      );
+      if (!(await setInviteStatus(invite.id, 'moved', { movedToEventId: event.id, movedToOrgId: orgId }))) {
+        throw new InviteError('conflict', 'Invite state changed mid-move');
+      }
+    } catch (e) {
+      await releaseInviteMove(invite.id);
+      throw e;
     }
     for (const r of going) {
       await notifyUser(r.userId, {
@@ -567,7 +583,7 @@ export async function inviteRoutes(app: FastifyInstance) {
       event_id: event.id,
       org_id: orgId,
       studio_path: `/events/${event.id}`,
-      comp_tickets: comp,
+      comp_tickets: compTickets,
     });
   };
   app.post('/invites/:id/move', moveOpts, moveHandler);
