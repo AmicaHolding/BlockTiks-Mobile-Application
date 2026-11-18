@@ -1,0 +1,19 @@
+appId: com.amicaholding.blocktix
+---
+# W2: open an event from the feed, verify detail screen
+- launchApp
+- extendedWaitUntil:
+    visible:
+      text: 'More coming up'
+    timeout: 20000
+- tapOn: '[\s\S]*Desert Sessions[\s\S]*'
+- extendedWaitUntil:
+    visible:
+      text: 'About this event'
+    timeout: 10000
+- takeScreenshot: w2-event-detail
+- assertVisible: '[\s\S]*Desert Sessions[\s\S]*'
+- assertVisible: '[\s\S]*Get tickets[\s\S]*'
+- swipe:
+    direction: UP
+- takeScreenshot: w2-detail-scrolled

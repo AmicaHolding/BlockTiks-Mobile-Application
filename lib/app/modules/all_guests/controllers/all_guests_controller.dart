@@ -111,7 +111,7 @@ class AllGuestsController extends GetxController {
     }
   }
 
-  /// Manual check-in fallback for when scanning fails — same endpoint.
+  /// Manual check-in fallback for when scanning fails, same endpoint.
   Future<void> checkIn(String code) async {
     if (checkingInCode.value.isNotEmpty) return;
     checkingInCode.value = code;
@@ -127,6 +127,22 @@ class AllGuestsController extends GetxController {
       if (kind == 'OK') await fetchGuests();
     } catch (e) {
       checkInMessage.value = 'Check-in failed';
+    } finally {
+      checkingInCode.value = '';
+    }
+  }
+
+  /// Undo a manual check-in (spec 56, mistakes at the door are fixable).
+  Future<void> undoCheckIn(String code) async {
+    if (checkingInCode.value.isNotEmpty) return;
+    checkingInCode.value = code;
+    checkInMessage.value = null;
+    try {
+      await ApiService.undoCheckIn(code);
+      checkInMessage.value = 'Check-in undone';
+      await fetchGuests();
+    } catch (e) {
+      checkInMessage.value = 'Undo failed';
     } finally {
       checkingInCode.value = '';
     }

@@ -1,0 +1,15 @@
+appId: com.amicaholding.blocktix
+---
+# W9: profile -> Door mode (fan account) -> event list/scanner entry
+- launchApp
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*For You[\s\S]*'
+    timeout: 20000
+- tapOn: '[\s\S]*Profile[\s\S]*'
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*(Door mode|Sign out)[\s\S]*'
+    timeout: 10000
+- tapOn: '[\s\S]*Door mode[\s\S]*'
+- takeScreenshot: w9-door-mode

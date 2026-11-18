@@ -76,7 +76,7 @@ export async function promoRoutes(app: FastifyInstance) {
     if (!canManage(request.user.role)) return reply.status(403).send({ message: 'Creator access required' });
     const { code } = request.params as { code: string };
     const body = request.body as Partial<PromoCode> & { value?: number };
-    // Ownership must be verified BEFORE writing — updating first would let any
+    // Ownership must be verified BEFORE writing, updating first would let any
     // creator mutate another creator's promo even though the response is 403.
     const existing = await getPromoByCode(code);
     if (!existing) return reply.status(404).send({ message: 'Promo code not found' });

@@ -1,13 +1,42 @@
 import 'package:intl/intl.dart';
 
 /// Small formatting helpers for BlockTiks MVP API payloads (events, orders,
-/// tickets). All functions are defensive — they return '' / null rather than
+/// tickets). All functions are defensive, they return '' / null rather than
 /// throwing when backend fields are missing or malformed.
 
-DateTime? _parseIso(String? iso) {
+/// Fixed UTC offsets (minutes) for the IANA venue zones of supported
+/// regions. The Gulf/Arabian zones below do not observe daylight saving,
+/// so a fixed offset is exact year-round. Zones not listed fall back to
+/// the device's local time.
+const Map<String, int> _venueZoneOffsets = {
+  'Asia/Dubai': 240,
+  'Asia/Muscat': 240,
+  'Asia/Riyadh': 180,
+  'Asia/Qatar': 180,
+  'Asia/Kuwait': 180,
+  'Asia/Bahrain': 180,
+  'Asia/Baghdad': 180,
+  'Asia/Aden': 180,
+};
+
+/// Parses an ISO timestamp for DISPLAY: when [tz] is a known venue IANA
+/// zone the result is shifted to venue wall-clock time, otherwise the
+/// device's local time is used. Note: a venue-shifted result is only for
+/// formatting, it is not a real instant, never compare it to DateTime.now().
+DateTime? _parseIso(String? iso, [String? tz]) {
   if (iso == null || iso.isEmpty) return null;
-  return DateTime.tryParse(iso)?.toLocal();
+  final parsed = DateTime.tryParse(iso);
+  if (parsed == null) return null;
+  final offset = _venueZoneOffsets[tz];
+  if (offset != null) {
+    return parsed.toUtc().add(Duration(minutes: offset));
+  }
+  return parsed.toLocal();
 }
+
+/// Public form of [_parseIso] for call sites that need a display DateTime
+/// (e.g. date badges). Display-only, see [_parseIso].
+DateTime? parseEventDateTime(String? iso, [String? tz]) => _parseIso(iso, tz);
 
 /// Whether an event falls in the current local weekend (Saturday 00:00
 /// through Monday 00:00). Once Monday arrives, the next weekend is used.
@@ -34,41 +63,44 @@ bool isAvailable(String? startsAt, [String? endsAt]) {
   return end != null && !end.isBefore(DateTime.now());
 }
 
-/// e.g. "Sat, Apr 20 · 8:00 PM"
-String formatEventDate(String? iso, {bool includeTime = true}) {
-  final dt = _parseIso(iso);
+/// e.g. "Sat, March 24, 2026 · 8:00 PM" (with time) or "March 24, 2026".
+/// Pass the event's `venueTimezone` (IANA name) as [tz] when available so
+/// times read in venue time.
+String formatEventDate(String? iso,
+    {bool includeTime = true, String? tz}) {
+  final dt = _parseIso(iso, tz);
   if (dt == null) return '';
   return includeTime
-      ? DateFormat('EEE, MMM d · h:mm a').format(dt)
-      : DateFormat('EEE, MMM d').format(dt);
+      ? DateFormat('EEE, MMMM d, yyyy · h:mm a').format(dt)
+      : DateFormat('MMMM d, yyyy').format(dt);
 }
 
 /// e.g. "8:00 PM"
-String formatEventTime(String? iso) {
-  final dt = _parseIso(iso);
+String formatEventTime(String? iso, {String? tz}) {
+  final dt = _parseIso(iso, tz);
   if (dt == null) return '';
   return DateFormat('h:mm a').format(dt);
 }
 
-/// e.g. "Apr 20"
-String formatEventDayMonth(String? iso) {
-  final dt = _parseIso(iso);
+/// e.g. "March 24"
+String formatEventDayMonth(String? iso, {String? tz}) {
+  final dt = _parseIso(iso, tz);
   if (dt == null) return '';
-  return DateFormat('MMM d').format(dt);
+  return DateFormat('MMMM d').format(dt);
 }
 
-/// e.g. "04/20" — used on small card badges.
-String formatEventShortDate(String? iso) {
-  final dt = _parseIso(iso);
+/// e.g. "04/20", used on small card badges.
+String formatEventShortDate(String? iso, {String? tz}) {
+  final dt = _parseIso(iso, tz);
   if (dt == null) return '';
   return DateFormat('MM/dd').format(dt);
 }
 
-/// Order timestamp, e.g. "09:51 PM, Apr 20"
-String formatOrderDate(String? iso) {
-  final dt = _parseIso(iso);
+/// Order timestamp, e.g. "March 24, 2026 · 9:51 PM"
+String formatOrderDate(String? iso, {String? tz}) {
+  final dt = _parseIso(iso, tz);
   if (dt == null) return '';
-  return DateFormat('hh:mm:ss a, MMM d').format(dt);
+  return DateFormat('MMMM d, yyyy · h:mm a').format(dt);
 }
 
 /// Whole-dollar-ish price label from a `price` (dollars) field.
@@ -133,7 +165,7 @@ String? eventImageUrl(Map<String, dynamic> event) {
   return url;
 }
 
-/// First character of the event title, uppercased — used as image fallback.
+/// First character of the event title, uppercased, used as image fallback.
 String eventInitial(Map<String, dynamic> event) {
   final title = event['title']?.toString().trim() ?? '';
   if (title.isEmpty) return 'B';

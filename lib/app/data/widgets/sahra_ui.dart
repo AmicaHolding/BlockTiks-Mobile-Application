@@ -1,4 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -221,7 +222,8 @@ class SahraEventTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = event['title']?.toString() ?? 'Event';
     final category = event['category']?.toString() ?? 'Event';
-    final date = event['startsAt']?.toString() ?? '';
+    final date = formatEventDate(event['startsAt']?.toString(),
+        tz: event['venueTimezone']?.toString());
     final location = event['location']?.toString() ?? '';
     final image = event['imageUrl']?.toString() ?? '';
     final tiers = event['tiers'];
@@ -348,6 +350,238 @@ class SahraIconAction extends StatelessWidget {
             color: ColorConstant.night.withValues(alpha: .8),
             shape: BoxShape.circle),
         child: Icon(icon, color: color ?? ColorConstant.whiteA700, size: 20),
+      ),
+    );
+  }
+}
+
+/// Circular −/+ stepper row used by the Send, Sell and Set-your-price flows
+/// (matches the prototype: outline minus, gold filled plus).
+class SahraStepper extends StatelessWidget {
+  const SahraStepper(
+      {super.key,
+      required this.value,
+      required this.onDecrement,
+      required this.onIncrement,
+      this.onDark = true});
+  final String value;
+  final VoidCallback onDecrement;
+  final VoidCallback onIncrement;
+  final bool onDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      _circle(Icons.remove_rounded, onDecrement, false),
+      Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(value,
+              style: sahraText(
+                  color: onDark ? ColorConstant.whiteA700 : ColorConstant.ink,
+                  size: 15,
+                  weight: FontWeight.w700))),
+      _circle(Icons.add_rounded, onIncrement, true),
+    ]);
+  }
+
+  Widget _circle(IconData icon, VoidCallback onTap, bool filled) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: filled
+              ? ColorConstant.gold
+              : Colors.transparent,
+          border: Border.all(
+              color: filled
+                  ? ColorConstant.gold
+                  : (onDark ? ColorConstant.nightBorder : ColorConstant.dune),
+              width: 1.5),
+        ),
+        child: Icon(icon,
+            color: filled
+                ? ColorConstant.night
+                : (onDark ? ColorConstant.whiteA700 : ColorConstant.ink),
+            size: 18),
+      ),
+    );
+  }
+}
+
+/// Back chevron + 17px title header used on pushed screens.
+class SahraBackHeader extends StatelessWidget {
+  const SahraBackHeader({super.key, required this.title, this.trailing});
+  final String title;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
+      child: Row(children: [
+        IconButton(
+          onPressed: Get.back,
+          icon: Icon(Icons.arrow_back_ios_new_rounded,
+              color: ColorConstant.whiteA700, size: 20),
+        ),
+        Expanded(
+          child: Text(title,
+              style: sahraText(size: 17, weight: FontWeight.w700)),
+        ),
+        if (trailing != null) trailing!,
+      ]),
+    );
+  }
+}
+
+/// Settings-style row: label on the left, muted "value ›" on the right.
+class SahraRowLink extends StatelessWidget {
+  const SahraRowLink(
+      {super.key, required this.label, this.value, this.onTap, this.danger = false});
+  final String label;
+  final String? value;
+  final VoidCallback? onTap;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: ColorConstant.nightBorder, width: 1),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label,
+                style: sahraText(
+                    size: 15,
+                    color: danger
+                        ? const Color(0xFFE0626A)
+                        : ColorConstant.whiteA700)),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              if (value != null && value!.isNotEmpty)
+                Text(value!,
+                    style:
+                        sahraText(color: ColorConstant.nightMuted, size: 14)),
+              Text(' ›',
+                  style:
+                      sahraText(color: ColorConstant.nightMuted, size: 14)),
+            ]),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Prototype-style confirmation bottom sheet, `ask(title, body, ok, fn, danger)`.
+/// Returns a Future that resolves true when the user confirms.
+Future<bool> showSahraConfirm({
+  required String title,
+  required String body,
+  String okLabel = 'Confirm',
+  bool danger = false,
+}) async {
+  final result = await Get.bottomSheet<bool>(
+    Container(
+      decoration: BoxDecoration(
+        color: ColorConstant.night,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(22, 22, 22, 34),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: sahraText(size: 20, weight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Text(body,
+                style: sahraText(
+                    color: ColorConstant.nightMuted, size: 14, height: 1.5)),
+            const SizedBox(height: 20),
+            GestureDetector(
+              onTap: () => Get.back(result: true),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                decoration: BoxDecoration(
+                  color: danger
+                      ? ColorConstant.rumman
+                      : ColorConstant.gold,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(okLabel,
+                    textAlign: TextAlign.center,
+                    style: sahraText(
+                        color: danger
+                            ? ColorConstant.whiteA700
+                            : ColorConstant.night,
+                        size: 16,
+                        weight: FontWeight.w600)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () => Get.back(result: false),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                alignment: Alignment.center,
+                child: Text('Not now',
+                    style: sahraText(
+                        color: ColorConstant.nightMuted,
+                        size: 15,
+                        weight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+    isScrollControlled: true,
+  );
+  return result == true;
+}
+
+/// Generic bottom-sheet scaffold used by pickers and detail sheets.
+class SahraSheetBody extends StatelessWidget {
+  const SahraSheetBody({super.key, required this.title, required this.child});
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: ColorConstant.night,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 34),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(title,
+                  style: sahraText(size: 18, weight: FontWeight.w700)),
+            ),
+            Flexible(child: child),
+          ],
+        ),
       ),
     );
   }

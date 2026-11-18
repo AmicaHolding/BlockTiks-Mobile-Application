@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, type SahraEvent, type Seat, type VenueSection } from '../lib/api';
+import { MAX_PER_ORDER } from '../lib/config';
 import { formatMoney, formatShortDateTime } from '../lib/format';
 import type { CheckoutSelection } from './EventPage';
 import { Badge, Button, Card, EmptyState, Spinner } from '../components/ui';
@@ -12,11 +13,13 @@ function remaining(section: VenueSection): number {
 
 export default function SeatsPage() {
   const { id } = useParams<{ id: string }>();
+  const [params] = useSearchParams();
+  const preferredSection = params.get('section');
   const navigate = useNavigate();
   const [event, setEvent] = useState<SahraEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sectionId, setSectionId] = useState<string | null>(null);
+  const [sectionId, setSectionId] = useState<string | null>(preferredSection);
   const [quantity, setQuantity] = useState(1);
   const [seats, setSeats] = useState<Seat[] | null>(null);
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
@@ -44,6 +47,7 @@ export default function SeatsPage() {
 
   const sections = useMemo(() => event?.venueSections ?? [], [event]);
   const selected = sections.find((s) => s.id === sectionId) ?? null;
+  const preferred = preferredSection ? sections.find((s) => s.id === preferredSection) ?? null : null;
 
   // Load exact seat availability when a section is chosen.
   useEffect(() => {
@@ -85,11 +89,17 @@ export default function SeatsPage() {
   }, [sections]);
 
   useEffect(() => {
-    if (!sectionId && bestAvailable) {
+    // Honor ?section= when it's in stock; otherwise fall back to best available.
+    if (!sectionId) {
+      const target = preferred && remaining(preferred) > 0 ? preferred : bestAvailable;
+      if (target) {
+        setSectionId(target.id);
+        setQuantity((q) => Math.min(q, remaining(target)));
+      }
+    } else if (preferred && sectionId === preferred.id && remaining(preferred) <= 0 && bestAvailable) {
       setSectionId(bestAvailable.id);
-      setQuantity((q) => Math.min(q, remaining(bestAvailable)));
     }
-  }, [bestAvailable, sectionId]);
+  }, [bestAvailable, preferred, preferredSection, sectionId, sections]);
 
   if (loading) {
     return (
@@ -120,12 +130,12 @@ export default function SeatsPage() {
     );
   }
 
-  const maxQty = selected ? Math.min(8, remaining(selected)) : 1;
+  const maxQty = selected ? Math.min(MAX_PER_ORDER, remaining(selected)) : 1;
 
   function pickBest() {
     if (!bestAvailable) return;
     setSectionId(bestAvailable.id);
-    setQuantity((q) => Math.min(q, remaining(bestAvailable), 8));
+    setQuantity((q) => Math.min(q, remaining(bestAvailable), MAX_PER_ORDER));
   }
 
   function continueToCheckout() {
@@ -200,7 +210,7 @@ export default function SeatsPage() {
                   disabled={soldOut}
                   onClick={() => {
                     setSectionId(section.id);
-                    setQuantity((q) => Math.min(q, left, 8));
+                    setQuantity((q) => Math.min(q, left, MAX_PER_ORDER));
                   }}
                   className={`relative flex flex-col items-center gap-1 rounded-2xl border-2 px-3 py-4 transition ${
                     active
@@ -275,7 +285,10 @@ export default function SeatsPage() {
                   Continue to checkout
                 </Button>
                 <p className="mt-3 text-center text-[11px] leading-relaxed text-night-muted">
-                  Seats are held for 15 minutes once you start checkout.
+                  Seats are held while you check out, pay before the countdown ends.
+                </p>
+                <p className="mt-1 text-center text-[11px] text-night-muted/70">
+                  Max {MAX_PER_ORDER} tickets per order
                 </p>
               </div>
               {/* Exact seat picker */}
@@ -317,7 +330,7 @@ export default function SeatsPage() {
                   </div>
                 ) : (
                   <p className="rounded-xl bg-night/60 px-4 py-3 text-xs text-night-muted">
-                    Seat-level inventory isn’t available for this section yet — seats will be assigned at checkout.
+                    Seat-level inventory isn’t available for this section yet, seats will be assigned at checkout.
                   </p>
                 )}
                 {selectedSeats.length > 0 ? (

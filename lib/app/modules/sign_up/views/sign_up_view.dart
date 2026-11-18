@@ -14,12 +14,31 @@ class SignUpView extends GetView<SignUpController> {
   Widget build(BuildContext context) {
     return SahraAuthScaffold(
       title: 'Create your account',
-      subtitle: 'Tickets, resale and creator tools in one place.',
+      subtitle: 'One account for tickets and hosting.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SahraAuthTabs(isSignUp: true),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
+          // Host intent picker, hosting adds an organisation on the same
+          // account (it is never a second login).
+          Obx(() => Column(children: [
+                _intentCard(
+                  title: 'Go to events',
+                  subtitle: 'Buy, sell and send tickets.',
+                  selected: !controller.hostIntent.value,
+                  onTap: () => controller.hostIntent.value = false,
+                ),
+                const SizedBox(height: 10),
+                _intentCard(
+                  title: 'Go to events and host them',
+                  subtitle:
+                      'Everything above, plus an organisation to sell tickets and run the door. You’ll name it next.',
+                  selected: controller.hostIntent.value,
+                  onTap: () => controller.hostIntent.value = true,
+                ),
+              ])),
+          const SizedBox(height: 20),
           Form(
             key: _formKey,
             child: Column(
@@ -152,6 +171,72 @@ class SignUpView extends GetView<SignUpController> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _intentCard({
+    required String title,
+    required String subtitle,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: ColorConstant.nightSurface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? ColorConstant.gold : ColorConstant.nightBorder,
+            width: 1.5,
+          ),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style:
+                          sahraText(size: 15, weight: FontWeight.w700)),
+                  const SizedBox(height: 3),
+                  Text(subtitle,
+                      style: sahraText(
+                          color: ColorConstant.nightMuted,
+                          size: 13,
+                          height: 1.4)),
+                ]),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            width: 20,
+            height: 20,
+            margin: const EdgeInsets.only(top: 2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                  color: selected
+                      ? ColorConstant.gold
+                      : ColorConstant.nightBorder,
+                  width: 2),
+              color: Colors.transparent,
+            ),
+            child: selected
+                ? Center(
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: ColorConstant.gold),
+                    ),
+                  )
+                : null,
+          ),
+        ]),
       ),
     );
   }

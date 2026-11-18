@@ -1,7 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/services/api_service.dart';
-import 'package:get/get.dart';
 
 class TransactionsController extends GetxController {
   RxInt selectedTab = 0.obs;
@@ -52,10 +51,7 @@ class TransactionsController extends GetxController {
   Color amountColor(Map<String, dynamic> t) =>
       t['direction'] == 'in' ? ColorConstant.gold : ColorConstant.whiteA700;
 
-  String dateLabel(String? iso) {
-    final dt = DateTime.tryParse(iso ?? '');
-    if (dt == null) return '';
-    final local = dt.toLocal();
-    return '${local.day}/${local.month}/${local.year}';
-  }
+  /// e.g. "March 24, 2026"
+  String dateLabel(String? iso) =>
+      formatEventDate(iso, includeTime: false);
 }

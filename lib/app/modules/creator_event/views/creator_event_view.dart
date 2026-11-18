@@ -2,9 +2,7 @@ import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:block_tix/app/data/widgets/web_handoff_sheet.dart';
-import 'package:flutter/material.dart';
 
-import 'package:get/get.dart';
 
 import '../controllers/creator_event_controller.dart';
 
@@ -259,8 +257,7 @@ class CreatorEventView extends GetView<CreatorEventController> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Tiers', style: sahraText(size: 18, weight: FontWeight.w700)),
-          const SizedBox(height: 10),
-          ...controller.tiers.map(_tierRow),
+          const SizedBox(height: 10), ...controller.tiers.map(_tierRow),
         ],
       );
     });

@@ -1,7 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/services/api_service.dart';
-import 'package:get/get.dart';
 
 class BroadcastMessageController extends GetxController {
   final TextEditingController messageController = TextEditingController();

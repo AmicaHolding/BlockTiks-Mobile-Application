@@ -1,7 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/services/api_service.dart';
-import 'package:get/get.dart';
 
 class PromoCodesController extends GetxController {
   final RxList<Map<String, dynamic>> ready = <Map<String, dynamic>>[].obs;
@@ -75,6 +74,6 @@ class PromoCodesController extends GetxController {
     final dt = DateTime.tryParse(raw?.toString() ?? '');
     if (dt == null)
       return promo['state']?.toString() == 'used' ? 'Used' : 'No expiry';
-    return 'Ends ${dt.toLocal().day}/${dt.toLocal().month}/${dt.toLocal().year}';
+    return 'Ends ${formatEventDate(raw?.toString(), includeTime: false)}';
   }
 }

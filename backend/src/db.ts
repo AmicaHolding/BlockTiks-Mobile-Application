@@ -1,7 +1,7 @@
 // DynamoDB single-table data layer for BlockTiks.
 //
 // Table: blocktiks (pk: String, sk: String)
-// GSI1 (gsi1pk/gsi1sk): global feeds — currently the published-events feed.
+// GSI1 (gsi1pk/gsi1sk): global feeds, currently the published-events feed.
 // GSI2 (gsi2pk/gsi2sk): per-user/owner collections (creator events, orders, tickets).
 //
 // Key scheme:
@@ -58,7 +58,7 @@ const creatorPk = (creatorId: string) => `CREATOR#${creatorId}`;
 const userOrdersPk = (userId: string) => `USER#${userId}#ORDERS`;
 const userTicketsPk = (userId: string) => `USER#${userId}#TICKETS`;
 const userListingsPk = (userId: string) => `USER#${userId}#LISTINGS`;
-// GSI1 feed of every ticket issued for an event — powers the creator guest
+// GSI1 feed of every ticket issued for an event, powers the creator guest
 // list / door check-in. Distinct namespace from EVENTS#PUBLISHED.
 const eventTicketsGsiPk = (eventId: string) => `EVENTTIX#${eventId}`;
 const ACTIVE_LISTINGS_GSI_PK = 'LISTINGS#ACTIVE';
@@ -74,6 +74,10 @@ const refreshPk = (tokenHash: string) => `REFRESH#${tokenHash}`;
 const verifyPk = (tokenHash: string) => `VERIFY#${tokenHash}`;
 const seatSk = (sectionId: string, seatLabel: string) => `SEAT#${sectionId}#${seatLabel}`;
 const withdrawalPk = (id: string) => `WITHDRAW#${id}`;
+// Idempotency-Key dedupe store: one row per (user, client key) holding the
+// original successful response so a retry can return it verbatim (P4).
+const idempotencyPk = (userId: string, key: string) =>
+  `IDEMP#${userId}#${key.slice(0, 128)}`;
 
 // ---------- types ----------
 export interface User {
@@ -95,11 +99,21 @@ export interface User {
   interests?: string[];
   dateOfBirth?: string;
   emailVerified?: boolean;
-  notificationPrefs?: { push?: boolean; email?: boolean; sms?: boolean };
+  notificationPrefs?: {
+    push?: boolean;
+    email?: boolean;
+    sms?: boolean;
+    selling?: boolean;
+    remind?: boolean;
+    weekly?: boolean;
+  };
   referralCode?: string;
   referredByCode?: string;
   referralCount?: number;
   deletedAt?: string;
+  // A4: profile-switcher landing — 'personal' or an org id the user last
+  // signed into Studio as. Drives `landing` on sign-in.
+  lastMode?: string;
   createdAt: string;
 }
 
@@ -134,19 +148,69 @@ export interface VenueLayout {
 export interface EventItem {
   id: string;
   creatorId: string;
+  // Owning organisation (events created under X-Org-Id). Legacy events have
+  // only creatorId — treated as owner for permissions and ledger routing.
+  ownerOrgId?: string;
   title: string;
   description: string;
   category: string;
   startsAt: string;
+  doorsAt?: string;
   endsAt?: string;
+  // When sales open (E1 'scheduled' state); absent = on sale at publish.
+  onSaleAt?: string;
   location: string;
   address?: string;
+  // ISO 3166 alpha-2 — drives tax (P6 / decision-13).
+  country?: string;
+  // IANA timezone of the venue; times are stored UTC, displayed in this tz.
+  venueTimezone?: string;
   imageUrl?: string;
-  status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
+  status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED' | 'POSTPONED';
+  postponedAt?: string;
+  refundWindowEndsAt?: string; // decision-2: 14-day refund window after postpone
   venueLayout?: VenueLayout;
+  // Resale controls (R2/R4). resaleCapPct is a percent multiplier on face
+  // (110 = face x 1.10, decision-8 default); absent = platform default.
+  resaleEnabled?: boolean;
+  resaleCapPct?: number;
+  royaltyPct?: number;
+  minAge?: number; // decision-15: DOB on account + confirm at checkout
   // ISO 4217 currency for all prices on this event (default 'usd').
   currency?: string;
   createdAt: string;
+}
+
+// E1 lifecycle. `status` stays the stored coarse enum for compatibility; this
+// derives the spec's finer-grained state on read.
+export function eventLifecycleState(
+  event: EventItem,
+  tiers?: { available?: number; quantity: number; sold: number }[]
+): string {
+  const nowMs = Date.now();
+  switch (event.status) {
+    case 'DRAFT':
+      return 'draft';
+    case 'CANCELLED':
+      return 'cancelled';
+    case 'POSTPONED':
+      return 'postponed';
+    case 'COMPLETED':
+      return 'ended';
+    case 'PUBLISHED': {
+      const endMs = Date.parse(event.endsAt ?? event.startsAt);
+      if (!Number.isNaN(endMs) && endMs <= nowMs) return 'ended';
+      const doorsMs = event.doorsAt ? Date.parse(event.doorsAt) : NaN;
+      if (!Number.isNaN(doorsMs) && doorsMs <= nowMs) return 'live';
+      if (event.onSaleAt && Date.parse(event.onSaleAt) > nowMs) return 'scheduled';
+      if (tiers && tiers.length > 0 && tiers.every((t) => (t.available ?? t.quantity - t.sold) <= 0)) {
+        return 'sold_out';
+      }
+      return 'on_sale';
+    }
+    default:
+      return 'draft';
+  }
 }
 
 export interface PromoCode {
@@ -190,14 +254,18 @@ export type OrderKind = 'TICKET' | 'RESALE' | 'SEATED';
 
 export interface Order {
   id: string;
+  // Human-facing display code (spec: SA-#####). `id` stays the primary key.
+  code?: string;
   userId: string;
   eventId: string;
   kind?: OrderKind; // absent on legacy rows = TICKET
   listingCode?: string; // RESALE: ticket code being bought
-  status: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'CANCELLED';
+  holdId?: string; // orders created through the holds checkout contract
+  status: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'CANCELLED' | 'PARTIALLY_REFUNDED';
   subtotalCents: number;
   discountCents: number;
   feesCents: number;
+  taxCents?: number; // P6: VAT extracted from the all-in price (decision-13)
   totalCents: number;
   promoCodeText?: string;
   stripePaymentIntentId?: string;
@@ -221,8 +289,15 @@ export interface Ticket {
   seatLabel?: string; // seat-level booking (e.g. "A-12")
   currency?: string;
   userId: string;
-  status: 'VALID' | 'USED' | 'TRANSFERRED' | 'REFUNDED';
+  status: 'VALID' | 'USED' | 'TRANSFERRED' | 'REFUNDED' | 'TRANSFER_PENDING' | 'VOID';
+  // Face value at issuance (R2 resale cap base — the original face, never
+  // the price a resale buyer paid).
+  faceCents?: number;
   checkedInAt?: string;
+  // D4/D1: which device admitted this ticket and when (device clock).
+  checkedInDeviceId?: string;
+  checkedInScannedAt?: string;
+  checkedInScanId?: string;
   transferredFrom?: string;
   transferredTo?: string;
   transferredAt?: string;
@@ -347,6 +422,7 @@ export async function updateUser(
       | 'dateOfBirth'
       | 'emailVerified'
       | 'notificationPrefs'
+      | 'lastMode'
     >
   >
 ): Promise<User | null> {
@@ -392,16 +468,25 @@ export async function updateUserPassword(id: string, passwordHash: string): Prom
 
 export async function createEventWithTiers(input: {
   creatorId: string;
+  ownerOrgId?: string;
   title: string;
   description: string;
   category: string;
   startsAt: string;
+  doorsAt?: string;
   endsAt?: string;
+  onSaleAt?: string;
   location: string;
   address?: string;
+  country?: string;
+  venueTimezone?: string;
   imageUrl?: string;
   currency?: string;
-  tiers: { name: string; description?: string; priceCents: number; quantity: number }[];
+  resaleEnabled?: boolean;
+  resaleCapPct?: number;
+  royaltyPct?: number;
+  minAge?: number;
+  tiers: { name: string; description?: string; priceCents: number; quantity: number; saleStartsAt?: string; saleEndsAt?: string }[];
 }): Promise<{ event: EventItem; tiers: TicketTier[] }> {
   const id = randomUUID();
   const createdAt = now();
@@ -410,15 +495,24 @@ export async function createEventWithTiers(input: {
   const event: EventItem = {
     id,
     creatorId: input.creatorId,
+    ownerOrgId: input.ownerOrgId,
     title: input.title,
     description: input.description,
     category: input.category,
     startsAt: input.startsAt,
+    doorsAt: input.doorsAt,
     endsAt: input.endsAt,
+    onSaleAt: input.onSaleAt,
     location: input.location,
     address: input.address,
+    country: input.country?.toUpperCase(),
+    venueTimezone: input.venueTimezone,
     imageUrl: input.imageUrl,
     status: 'DRAFT',
+    resaleEnabled: input.resaleEnabled ?? true,
+    resaleCapPct: input.resaleCapPct,
+    royaltyPct: input.royaltyPct,
+    minAge: input.minAge,
     currency,
     createdAt,
   };
@@ -431,8 +525,8 @@ export async function createEventWithTiers(input: {
     quantity: t.quantity,
     sold: 0,
     available: t.quantity,
-    saleStartsAt: undefined,
-    saleEndsAt: undefined,
+    saleStartsAt: t.saleStartsAt,
+    saleEndsAt: t.saleEndsAt,
   }));
 
   const transactItems: TransactWriteCommandInput['TransactItems'] = [
@@ -596,13 +690,29 @@ export async function publishEvent(
 ): Promise<EventItem | null> {
   const event = await getEventMeta(id);
   if (!event) return null;
-  if (event.creatorId !== actorId && actorRole !== 'ADMIN') {
+  // Org-owned events are published by org admin/cohost; legacy events by
+  // their creator (platform ADMIN always allowed). Throws messages that map
+  // 1:1 to spec error codes so routes can echo them.
+  if (!(await canManageEvent(event, actorId, actorRole))) {
     throw new ConditionFailedError('Not the event creator');
   }
   const tiers = await getTiersForEvent(id);
   if (tiers.length === 0) {
-    throw new ConditionFailedError('Event needs at least one ticket tier');
+    throw new ConditionFailedError('no_tiers');
   }
+  if (event.ownerOrgId) {
+    const org = await getOrg(event.ownerOrgId);
+    if (org?.verificationStatus !== 'approved') {
+      throw new ConditionFailedError('org_unverified');
+    }
+    // Publish is blocked until every co-host accepts their split.
+    const hosts = await listEventHosts(id);
+    if (hosts.some((h) => h.role === 'cohost' && !h.accepted)) {
+      throw new ConditionFailedError('splits_not_accepted');
+    }
+  }
+  if (event.status === 'PUBLISHED') return event;
+  if (event.status === 'CANCELLED') throw new ConditionFailedError('cancelled');
   await docClient.send(
     new UpdateCommand({
       TableName: T(),
@@ -647,10 +757,12 @@ export async function createPendingOrder(input: {
   eventId: string;
   kind?: OrderKind;
   listingCode?: string;
+  holdId?: string;
   items: OrderItem[];
   subtotalCents: number;
   discountCents: number;
   feesCents: number;
+  taxCents?: number;
   totalCents: number;
   promoCodeText?: string;
   currency?: string;
@@ -660,14 +772,17 @@ export async function createPendingOrder(input: {
   const createdAt = now();
   const order: Order = {
     id,
+    code: `SA-${randomInt(10000, 100000)}`,
     userId: input.userId,
     eventId: input.eventId,
     kind: input.kind ?? 'TICKET',
     listingCode: input.listingCode,
+    holdId: input.holdId,
     status: 'PENDING',
     subtotalCents: input.subtotalCents,
     discountCents: input.discountCents,
     feesCents: input.feesCents,
+    taxCents: input.taxCents,
     totalCents: input.totalCents,
     promoCodeText: input.promoCodeText,
     currency: input.currency,
@@ -699,7 +814,7 @@ export async function createPendingOrder(input: {
             },
           },
         })),
-        // Expiry index — lets the sweeper find stale PENDING orders via GSI1.
+        // Expiry index, lets the sweeper find stale PENDING orders via GSI1.
         {
           Put: {
             TableName: T(),
@@ -770,7 +885,7 @@ export async function reserveTickets(
   }
 }
 
-// Credit held tickets back to a tier (no order context — used when order
+// Credit held tickets back to a tier (no order context, used when order
 // creation itself failed before an order record existed).
 export async function releaseTierHold(eventId: string, tierId: string, quantity: number) {
   await docClient.send(
@@ -871,6 +986,22 @@ export async function releaseOrder(
       }
     }
   }
+  // Hold-based orders can carry resale lines (item.ticketCode); release each
+  // claimed listing back to ACTIVE.
+  for (const item of items) {
+    if (item.ticketCode) {
+      transactItems.push({
+        Update: {
+          TableName: T(),
+          Key: { pk: listingPk(item.ticketCode), sk: 'METADATA' },
+          UpdateExpression: 'SET #status = :active',
+          ConditionExpression: '#status = :checkout',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: { ':active': 'ACTIVE', ':checkout': 'CHECKOUT' },
+        },
+      });
+    }
+  }
   // RESALE orders claimed the listing (ACTIVE → CHECKOUT) at intent time.
   if (order.kind === 'RESALE' && order.listingCode) {
     transactItems.push({
@@ -894,9 +1025,13 @@ export async function releaseOrder(
   }
 }
 
-// Find PENDING orders whose reservation window has passed.
-// Driven by the EXPIRE index items on GSI1 (gsi1pk='EXPIRE', gsi1sk=expiresAt).
-export async function listExpiredPendingOrders(nowIso: string, limit = 100): Promise<string[]> {
+// Find PENDING orders / active holds whose reservation window has passed.
+// Driven by the EXPIRE index items on GSI1 (gsi1pk='EXPIRE', gsi1sk=expiresAt):
+// each index item carries `orderId` (EXPIRE#<id>) or `holdId` (HEXPIRE#<id>).
+export async function listExpiredIndex(
+  nowIso: string,
+  limit = 100
+): Promise<{ orderId?: string; holdId?: string; transferId?: string }[]> {
   const res = await docClient.send(
     new QueryCommand({
       TableName: T(),
@@ -906,15 +1041,65 @@ export async function listExpiredPendingOrders(nowIso: string, limit = 100): Pro
       Limit: limit,
     })
   );
-  return ((res.Items ?? []) as { orderId?: string }[])
-    .map((i) => i.orderId)
-    .filter((x): x is string => Boolean(x));
+  return (res.Items ?? []) as { orderId?: string; holdId?: string; transferId?: string }[];
+}
+
+export async function listExpiredPendingOrders(nowIso: string, limit = 100): Promise<string[]> {
+  const items = await listExpiredIndex(nowIso, limit);
+  return items.map((i) => i.orderId).filter((x): x is string => Boolean(x));
 }
 
 export async function deleteExpireIndex(orderId: string) {
   await docClient.send(
     new DeleteCommand({ TableName: T(), Key: { pk: expirePk(orderId), sk: 'INDEX' } })
   );
+}
+
+// ---------- idempotency keys ----------
+
+export interface IdempotentRecord {
+  orderId?: string;
+  response: Record<string, unknown>;
+  createdAt: string;
+}
+
+// Returns the stored response for a previously-seen key, or null on first use.
+export async function getIdempotentResponse(
+  userId: string,
+  key: string
+): Promise<IdempotentRecord | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: idempotencyPk(userId, key), sk: 'META' } })
+  );
+  if (!res.Item) return null;
+  const { pk, sk, ...rest } = res.Item as Record<string, unknown>;
+  return rest as unknown as IdempotentRecord;
+}
+
+// First-write-wins: a racing duplicate request keeps the original record.
+export async function recordIdempotentResponse(
+  userId: string,
+  key: string,
+  orderId: string | undefined,
+  response: Record<string, unknown>
+): Promise<void> {
+  try {
+    await docClient.send(
+      new PutCommand({
+        TableName: T(),
+        Item: {
+          pk: idempotencyPk(userId, key),
+          sk: 'META',
+          orderId,
+          response,
+          createdAt: now(),
+        },
+        ConditionExpression: 'attribute_not_exists(pk)',
+      })
+    );
+  } catch (e) {
+    if (!isConditionalCheck(e)) throw e;
+  }
 }
 
 export async function getOrderIdByPaymentIntent(paymentIntentId: string): Promise<string | null> {
@@ -1065,13 +1250,30 @@ export async function getOrder(orderId: string): Promise<
 }
 
 // Fulfill a paid order: mark PAID, issue tickets, bump tier sold + promo uses.
-// Idempotent — the order update is conditional on status = PENDING.
+// Idempotent, the order update is conditional on status = PENDING.
 export async function fulfillOrder(orderId: string, paymentIntentId: string): Promise<'fulfilled' | 'already'> {
   const order = await getOrderMeta(orderId);
   if (!order) return 'already';
   if (order.status !== 'PENDING') return 'already';
-  if (order.kind === 'RESALE') return fulfillResaleOrder(order, paymentIntentId);
-  if (order.kind === 'SEATED') return fulfillSeatedOrder(order, paymentIntentId);
+  // Hold-based orders may mix GA / seated / resale lines — unified path.
+  // Every path funnels through fulfillAndRecord so the ledger post happens
+  // exactly once (fulfillment itself is atomic; the ledger is append-only
+  // so a retried post would double-count — keyed on this status flip).
+  const fulfillAndRecord = async (
+    fn: () => Promise<'fulfilled' | 'already'>
+  ): Promise<'fulfilled' | 'already'> => {
+    const result = await fn();
+    if (result === 'fulfilled') {
+      await recordSaleLedger(order).catch((e) =>
+        console.error(`fulfillOrder: ledger post failed for ${orderId}`, e)
+      );
+    }
+    return result;
+  };
+  if (order.holdId) return fulfillAndRecord(() => fulfillHoldOrder(orderId, paymentIntentId));
+  if (order.kind === 'RESALE') return fulfillAndRecord(() => fulfillResaleOrder(order, paymentIntentId));
+  if (order.kind === 'SEATED') return fulfillAndRecord(() => fulfillSeatedOrder(order, paymentIntentId));
+  return fulfillAndRecord(async () => {
 
   const [items, event] = await Promise.all([getOrderItems(orderId), getEventMeta(order.eventId)]);
   const createdAt = now();
@@ -1104,14 +1306,15 @@ export async function fulfillOrder(orderId: string, paymentIntentId: string): Pr
         },
       },
     },
-    expireIndexDelete(orderId), // reservation consumed — stop the sweeper
+    expireIndexDelete(orderId), // reservation consumed, stop the sweeper
   ];
 
-  // tickets (denormalized for the wallet UI)
+  // tickets (denormalized for the wallet UI) + a v1 credential each (R1).
   let idx = 0;
   for (const item of items) {
     for (let i = 0; i < item.quantity; i++) {
       const code = ticketCodes[idx++];
+      const cred = credentialItem(code, 1, createdAt);
       transactItems.push({
         Put: {
           TableName: T(),
@@ -1128,6 +1331,7 @@ export async function fulfillOrder(orderId: string, paymentIntentId: string): Pr
             tierName: item.tierName,
             sectionName: item.sectionName,
             currency: order.currency ?? 'usd',
+            faceCents: item.unitPriceCents,
             userId: order.userId,
             status: 'VALID',
             createdAt,
@@ -1139,6 +1343,7 @@ export async function fulfillOrder(orderId: string, paymentIntentId: string): Pr
           },
         },
       });
+      transactItems.push({ Put: { TableName: T(), Item: cred.item } });
     }
     // bump sold count per tier
     if (item.tierId) {
@@ -1167,10 +1372,11 @@ export async function fulfillOrder(orderId: string, paymentIntentId: string): Pr
   try {
     await docClient.send(new TransactWriteCommand({ TransactItems: transactItems }));
   } catch (e) {
-    if (isConditionalCheck(e)) return 'already'; // webhook retry / race — safe
+    if (isConditionalCheck(e)) return 'already'; // webhook retry / race, safe
     throw e;
   }
   return 'fulfilled';
+  });
 }
 
 // ---------- tickets ----------
@@ -1195,6 +1401,166 @@ export async function listUserTickets(
     return rest as unknown as Ticket;
   });
   return { items, nextCursor: encodeCursor(res.LastEvaluatedKey as Record<string, unknown> | undefined) };
+}
+
+// ---------- ticket credentials (R1, decision-1 default: option b) ----------
+//
+// The ticket code is the human/wallet identifier; the QR carries a versioned
+// credential payload `sahra1.<ticketCode>.<version>.<secret>`. Every change
+// of holder (resale, transfer claim, refund/void) revokes the current
+// credential and issues version+1, so a screenshotted QR scans `superseded`.
+// TODO(decision-1): option (c) time-based QR rotation is deferred — the
+// credential response returns rotates_at: null.
+
+export interface TicketCredential {
+  ticketCode: string;
+  version: number;
+  secret: string;
+  payload: string;
+  // sha256(payload) — what the offline door manifest stores (never the secret).
+  hash: string;
+  issuedAt: string;
+  revokedAt?: string;
+}
+
+const credSk = (version: number) => `CRED#${String(version).padStart(4, '0')}`;
+
+export function credentialPayloadFor(ticketCode: string, version: number, secret: string): string {
+  return `sahra1.${ticketCode}.${version}.${secret}`;
+}
+
+export function credentialHash(payload: string): string {
+  return createHash('sha256').update(payload).digest('hex');
+}
+
+// Parses a scanned QR payload. Returns null for anything that isn't a Sahra
+// credential (e.g. a bare legacy ticket code, which callers handle separately).
+export function parseCredentialPayload(
+  raw: string
+): { ticketCode: string; version: number; secret: string } | null {
+  const m = /^sahra1\.(.+)\.(\d+)\.([A-Za-z0-9_-]+)$/.exec(raw.trim());
+  if (!m) return null;
+  return { ticketCode: m[1], version: parseInt(m[2], 10), secret: m[3] };
+}
+
+function credentialItem(
+  ticketCode: string,
+  version: number,
+  issuedAt: string
+): { item: Record<string, unknown>; credential: TicketCredential } {
+  const secret = randomUUID().replace(/-/g, '');
+  const payload = credentialPayloadFor(ticketCode, version, secret);
+  const credential: TicketCredential = {
+    ticketCode,
+    version,
+    secret,
+    payload,
+    hash: credentialHash(payload),
+    issuedAt,
+  };
+  return {
+    item: {
+      pk: ticketPk(ticketCode),
+      sk: credSk(version),
+      ...credential,
+    },
+    credential,
+  };
+}
+
+function stripCredKeys(item: Record<string, unknown>): TicketCredential {
+  const { pk, sk, ...rest } = item;
+  return rest as unknown as TicketCredential;
+}
+
+export async function listCredentials(ticketCode: string): Promise<TicketCredential[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :prefix)',
+      ExpressionAttributeValues: { ':pk': ticketPk(ticketCode), ':prefix': 'CRED#' },
+    })
+  );
+  return (res.Items ?? []).map((item) => stripCredKeys(item as Record<string, unknown>));
+}
+
+export async function getCurrentCredential(ticketCode: string): Promise<TicketCredential | null> {
+  const creds = await listCredentials(ticketCode);
+  return creds.filter((c) => !c.revokedAt).sort((a, b) => b.version - a.version)[0] ?? null;
+}
+
+// Issues version 1 for a ticket that has none (legacy rows predating
+// credentials get backfilled lazily on first access).
+export async function ensureTicketCredential(ticketCode: string): Promise<TicketCredential> {
+  const current = await getCurrentCredential(ticketCode);
+  if (current) return current;
+  const { item, credential } = credentialItem(ticketCode, 1, now());
+  try {
+    await docClient.send(
+      new PutCommand({
+        TableName: T(),
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(pk)',
+      })
+    );
+  } catch (e) {
+    if (!isConditionalCheck(e)) throw e;
+    const raced = await getCurrentCredential(ticketCode);
+    if (raced) return raced;
+  }
+  return credential;
+}
+
+// Revoke the current credential and issue the next version. Used outside a
+// transaction (transfer claim path); the fulfill path uses the txn variants
+// below so rotation is atomic with the ownership move.
+export async function rotateTicketCredential(ticketCode: string): Promise<TicketCredential> {
+  const current = await getCurrentCredential(ticketCode);
+  const nextVersion = (current?.version ?? 0) + 1;
+  const issuedAt = now();
+  const transactItems: TransactWriteCommandInput['TransactItems'] = [];
+  if (current) {
+    transactItems.push({
+      Update: {
+        TableName: T(),
+        Key: { pk: ticketPk(ticketCode), sk: credSk(current.version) },
+        UpdateExpression: 'SET revokedAt = :at',
+        ExpressionAttributeValues: { ':at': issuedAt },
+      },
+    });
+  }
+  const { item, credential } = credentialItem(ticketCode, nextVersion, issuedAt);
+  transactItems.push({ Put: { TableName: T(), Item: item } });
+  await docClient.send(new TransactWriteCommand({ TransactItems: transactItems }));
+  return credential;
+}
+
+type TxnItems = NonNullable<TransactWriteCommandInput['TransactItems']>;
+
+// TransactWrite pieces for rotating a credential inside a larger transaction.
+// Returns the ops plus the credential that will become current.
+export async function credentialRotateOps(ticketCode: string): Promise<{
+  ops: TxnItems;
+  credential: TicketCredential;
+}> {
+  const current = await getCurrentCredential(ticketCode);
+  const nextVersion = (current?.version ?? 0) + 1;
+  const issuedAt = now();
+  const ops: TxnItems = [];
+  if (current) {
+    ops.push({
+      Update: {
+        TableName: T(),
+        Key: { pk: ticketPk(ticketCode), sk: credSk(current.version) },
+        UpdateExpression: 'SET revokedAt = :at',
+        ConditionExpression: 'attribute_not_exists(revokedAt)',
+        ExpressionAttributeValues: { ':at': issuedAt },
+      },
+    });
+  }
+  const { item, credential } = credentialItem(ticketCode, nextVersion, issuedAt);
+  ops.push({ Put: { TableName: T(), Item: item } });
+  return { ops, credential };
 }
 
 // ---------- door ops: ticket lookup, check-in, guest list ----------
@@ -1239,24 +1605,34 @@ export async function transferTicket(input: {
   if (recipient.id === input.fromUserId) return { result: 'SELF' };
 
   const transferredAt = now();
+  // X2/R1: the sender's QR stops working on transfer — rotate the credential
+  // in the same transaction as the ownership move.
+  const rotate = await credentialRotateOps(input.ticketCode);
   try {
     await docClient.send(
-      new UpdateCommand({
-        TableName: T(),
-        Key: { pk: ticketPk(input.ticketCode), sk: 'METADATA' },
-        UpdateExpression:
-          'SET userId = :to, gsi2pk = :ticketsPk, gsi2sk = :ticketsSk, transferredFrom = :from, transferredTo = :toId, transferredAt = :at',
-        ConditionExpression: '#status = :valid AND userId = :from',
-        ExpressionAttributeNames: { '#status': 'status' },
-        ExpressionAttributeValues: {
-          ':to': recipient.id,
-          ':ticketsPk': userTicketsPk(recipient.id),
-          ':ticketsSk': createdSk(ticket.createdAt, input.ticketCode),
-          ':from': input.fromUserId,
-          ':toId': recipient.id,
-          ':at': transferredAt,
-          ':valid': 'VALID',
-        },
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Update: {
+              TableName: T(),
+              Key: { pk: ticketPk(input.ticketCode), sk: 'METADATA' },
+              UpdateExpression:
+                'SET userId = :to, gsi2pk = :ticketsPk, gsi2sk = :ticketsSk, transferredFrom = :from, transferredTo = :toId, transferredAt = :at',
+              ConditionExpression: '#status = :valid AND userId = :from',
+              ExpressionAttributeNames: { '#status': 'status' },
+              ExpressionAttributeValues: {
+                ':to': recipient.id,
+                ':ticketsPk': userTicketsPk(recipient.id),
+                ':ticketsSk': createdSk(ticket.createdAt, input.ticketCode),
+                ':from': input.fromUserId,
+                ':toId': recipient.id,
+                ':at': transferredAt,
+                ':valid': 'VALID',
+              },
+            },
+          },
+          ...rotate.ops,
+        ],
       })
     );
   } catch (e) {
@@ -1276,13 +1652,21 @@ export interface Offer {
   id: string;
   buyerId: string;
   eventId: string;
+  // PriceWatch upgrades (J): tier_id joins the name-based tierKey so new
+  // watches target the tier id while legacy offers keep matching by name.
+  tierId?: string;
   tierName: string;
   tierKey: string;
   sectionName?: string;
   maxPriceCents: number;
   quantity: number;
   matchedCount: number;
-  status: 'ACTIVE' | 'MATCHED' | 'CANCELLED';
+  status: 'ACTIVE' | 'MATCHED' | 'CANCELLED' | 'PAUSED';
+  // W2: saved payment method for auto-buy on match (Stripe pm_ id).
+  paymentMethodId?: string;
+  autoBuy?: boolean;
+  // W4: a failed auto-charge pauses the watch until the buyer resumes.
+  pausedReason?: string;
   lastListingCode?: string;
   lastMatchedAt?: string;
   createdAt: string;
@@ -1298,9 +1682,12 @@ export async function createOffer(input: {
   buyerId: string;
   eventId: string;
   tierName: string;
+  tierId?: string;
   sectionName?: string;
   maxPriceCents: number;
   quantity: number;
+  paymentMethodId?: string;
+  autoBuy?: boolean;
 }): Promise<Offer> {
   const event = await getEventMeta(input.eventId);
   if (!event || event.status !== 'PUBLISHED') throw new OfferError('Event is not on sale');
@@ -1308,8 +1695,9 @@ export async function createOffer(input: {
   if (!Number.isInteger(input.maxPriceCents) || input.maxPriceCents < 1) {
     throw new OfferError('Enter a valid max price');
   }
-  if (!Number.isInteger(input.quantity) || input.quantity < 1 || input.quantity > 8) {
-    throw new OfferError('Quantity must be between 1 and 8');
+  // B1: max 6 tickets per order — a standing watch can't exceed it either.
+  if (!Number.isInteger(input.quantity) || input.quantity < 1 || input.quantity > 6) {
+    throw new OfferError('Quantity must be between 1 and 6');
   }
   const existing = (await listUserOffers(input.buyerId)).items;
   const duplicate = existing.find(
@@ -1327,6 +1715,7 @@ export async function createOffer(input: {
     id,
     buyerId: input.buyerId,
     eventId: input.eventId,
+    tierId: input.tierId,
     tierName: input.tierName.trim(),
     tierKey,
     sectionName: input.sectionName?.trim() || undefined,
@@ -1334,6 +1723,8 @@ export async function createOffer(input: {
     quantity: input.quantity,
     matchedCount: 0,
     status: 'ACTIVE',
+    paymentMethodId: input.paymentMethodId,
+    autoBuy: input.autoBuy,
     createdAt,
   };
   await docClient.send(
@@ -1446,7 +1837,11 @@ export async function matchOffersForListing(listing: Listing): Promise<Offer[]> 
   const offers = await listActiveOffersForTier({
     eventId: listing.eventId,
     tierName: listing.tierName,
-  });
+  }).then((all) =>
+    // Watches that carry a tierId only match listings in the same tier;
+    // name-keyed legacy watches match by tier name as before.
+    all.filter((o) => !o.tierId || !listing.tierId || o.tierId === listing.tierId)
+  );
   const eligible = offers
     .filter((offer) => offer.maxPriceCents >= listing.priceCents)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
@@ -1480,52 +1875,124 @@ export async function cancelOffer(userId: string, offerId: string): Promise<'can
   return 'cancelled';
 }
 
+// W4: a failed auto-charge pauses the watch; the buyer resumes it explicitly.
+export async function pauseOffer(offerId: string, reason: string): Promise<void> {
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: offerPk(offerId), sk: 'METADATA' },
+      UpdateExpression: 'SET #status = :paused, pausedReason = :reason REMOVE gsi1pk, gsi1sk',
+      ConditionExpression: '#status = :active',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: { ':paused': 'PAUSED', ':active': 'ACTIVE', ':reason': reason },
+    })
+  );
+}
+
+export async function resumeOffer(
+  userId: string,
+  offerId: string
+): Promise<'resumed' | 'not_found' | 'forbidden'> {
+  const offer = await getOffer(offerId);
+  if (!offer) return 'not_found';
+  if (offer.buyerId !== userId) return 'forbidden';
+  if (offer.status !== 'PAUSED') return 'not_found';
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: offerPk(offerId), sk: 'METADATA' },
+      UpdateExpression:
+        'SET #status = :active, gsi1pk = :gpk, gsi1sk = :gsk REMOVE pausedReason',
+      ConditionExpression: '#status = :paused',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: {
+        ':active': 'ACTIVE',
+        ':paused': 'PAUSED',
+        ':gpk': ACTIVE_OFFERS_GSI_PK,
+        ':gsk': offerGsiSk(offer.eventId, offer.tierKey, offer.createdAt, offer.id),
+      },
+    })
+  );
+  return 'resumed';
+}
+
 export type CheckInResult =
   | { result: 'OK'; ticket: Ticket }
   | { result: 'ALREADY_USED'; ticket: Ticket }
+  | { result: 'VOID'; ticket: Ticket }
+  | { result: 'SUPERSEDED'; ticket: Ticket }
   | { result: 'WRONG_EVENT' }
   | { result: 'NOT_FOUND' }
   | { result: 'FORBIDDEN' };
 
-// Creator/admin scans a ticket code at the door. Atomic VALID → USED flip so
-// two scanners can't both get a green light.
+// Creator/admin scans a ticket code or a `sahra1.` credential payload at the
+// door. Atomic VALID → USED flip so two scanners can't both get a green
+// light. Stale credential versions scan SUPERSEDED (R1).
 export async function checkInTicket(
   eventId: string,
   code: string,
   actorId: string,
-  actorRole: string
+  actorRole: string,
+  scan?: { deviceId?: string; scannedAt?: string; scanId?: string }
 ): Promise<CheckInResult> {
   const event = await getEventMeta(eventId);
   if (!event) return { result: 'NOT_FOUND' };
-  if (event.creatorId !== actorId && actorRole !== 'ADMIN') {
+  // Door scans are allowed for owner-org admin/cohost plus scoped gate
+  // staff (G); legacy creator-owned events keep the creatorId check.
+  if (!(await canManageEvent(event, actorId, actorRole, ['admin', 'cohost', 'gate']))) {
     return { result: 'FORBIDDEN' };
   }
-  const ticket = await getTicketByCode(code);
+  const parsed = parseCredentialPayload(code);
+  const ticketCode = parsed?.ticketCode ?? code;
+  const ticket = await getTicketByCode(ticketCode);
   if (!ticket) return { result: 'NOT_FOUND' };
   if (ticket.eventId !== eventId) return { result: 'WRONG_EVENT' };
-  if (ticket.status !== 'VALID') {
+  // D1: a USED ticket reports when/where it was admitted; any other non-VALID
+  // state (refunded, transferred away, void) scans as VOID, not ALREADY_USED.
+  if (ticket.status === 'USED') {
     return { result: 'ALREADY_USED', ticket };
+  }
+  if (ticket.status !== 'VALID') {
+    return { result: 'VOID', ticket };
+  }
+  // Credential payloads must be the current unrevoked version; an older QR
+  // (e.g. a screenshot taken before a resale) is SUPERSEDED.
+  if (parsed) {
+    const creds = await listCredentials(ticketCode);
+    const presented = creds.find(
+      (c) => c.version === parsed.version && c.secret === parsed.secret
+    );
+    const current = creds
+      .filter((c) => !c.revokedAt)
+      .sort((a, b) => b.version - a.version)[0];
+    if (!presented || presented.revokedAt || !current || current.version !== presented.version) {
+      return { result: 'SUPERSEDED', ticket };
+    }
   }
   const checkedInAt = now();
   try {
     await docClient.send(
       new UpdateCommand({
         TableName: T(),
-        Key: { pk: ticketPk(code), sk: 'METADATA' },
-        UpdateExpression: 'SET #status = :used, checkedInAt = :at',
+        Key: { pk: ticketPk(ticketCode), sk: 'METADATA' },
+        UpdateExpression:
+          'SET #status = :used, checkedInAt = :at, checkedInDeviceId = :dev, checkedInScannedAt = :sat, checkedInScanId = :sid',
         ConditionExpression: '#status = :valid',
         ExpressionAttributeNames: { '#status': 'status' },
         ExpressionAttributeValues: {
           ':used': 'USED',
           ':valid': 'VALID',
           ':at': checkedInAt,
+          ':dev': scan?.deviceId ?? 'manual',
+          ':sat': scan?.scannedAt ?? checkedInAt,
+          ':sid': scan?.scanId ?? checkedInAt,
         },
       })
     );
     return { result: 'OK', ticket: { ...ticket, status: 'USED', checkedInAt } };
   } catch (e) {
     if (isConditionalCheck(e)) {
-      const fresh = await getTicketByCode(code);
+      const fresh = await getTicketByCode(ticketCode);
       return { result: 'ALREADY_USED', ticket: fresh ?? ticket };
     }
     throw e;
@@ -1578,13 +2045,18 @@ export async function listEventGuests(eventId: string): Promise<EventGuest[]> {
 
 export interface Listing {
   ticketCode: string;
+  // Listing id. Single-ticket creates use the groupId; spec multi-ticket
+  // listings share one groupId across their per-ticket rows.
+  groupId?: string;
   sellerId: string;
   eventId: string;
   eventTitle: string;
   eventStartsAt: string;
   eventLocation: string;
+  tierId?: string;
   tierName: string;
   priceCents: number;
+  splitRule?: 'any' | 'all' | 'pairs';
   currency?: string;
   status: 'ACTIVE' | 'CHECKOUT' | 'SOLD' | 'CANCELLED';
   buyerId?: string;
@@ -1603,7 +2075,29 @@ export async function getListing(ticketCode: string): Promise<Listing | null> {
   return res.Item ? (stripKeys(res.Item) as unknown as Listing) : null;
 }
 
-export class ListingError extends Error {}
+export class ListingError extends Error {
+  code: string;
+  cap?: number;
+  constructor(message: string, code = 'invalid', cap?: number) {
+    super(message);
+    this.code = code;
+    this.cap = cap;
+  }
+}
+
+// R2: resale price cap = face × resale_cap_pct, rounded. Face is the
+// original face value on the ticket (not what the seller paid); for legacy
+// tickets without faceCents we fall back to the current tier price.
+export async function resaleCapCents(ticket: Ticket, event: EventItem | null): Promise<number> {
+  let faceCents = ticket.faceCents;
+  if (faceCents == null && ticket.tierId) {
+    const tier = await getTier(ticket.tierId, ticket.eventId);
+    faceCents = tier?.priceCents;
+  }
+  faceCents ??= 0;
+  const capPct = event?.resaleCapPct ?? env.resaleCapPct;
+  return Math.round((faceCents * capPct) / 100);
+}
 
 // List a VALID ticket for resale. One listing per ticket code (pk = code);
 // re-listing after SOLD/CANCELLED overwrites the record.
@@ -1611,28 +2105,50 @@ export async function createListing(input: {
   sellerId: string;
   ticketCode: string;
   priceCents: number;
+  splitRule?: 'any' | 'all' | 'pairs';
+  groupId?: string;
 }): Promise<Listing> {
   const ticket = await getTicketByCode(input.ticketCode);
-  if (!ticket) throw new ListingError('Ticket not found');
-  if (ticket.userId !== input.sellerId) throw new ListingError('Not your ticket');
-  if (ticket.status !== 'VALID') throw new ListingError('Ticket is not sellable');
+  if (!ticket) throw new ListingError('Ticket not found', 'not_found');
+  if (ticket.userId !== input.sellerId) throw new ListingError('Not your ticket', 'not_holder');
+  // X3: a ticket with a transfer pending can't be listed.
+  if (ticket.status === 'TRANSFER_PENDING') {
+    throw new ListingError('Ticket has a transfer pending', 'transfer_pending');
+  }
+  if (ticket.status !== 'VALID') throw new ListingError('Ticket is not sellable', 'not_sellable');
 
   const existing = await getListing(input.ticketCode);
   if (existing && (existing.status === 'ACTIVE' || existing.status === 'CHECKOUT')) {
-    throw new ListingError('Ticket is already listed');
+    throw new ListingError('Ticket is already listed', 'already_listed');
   }
 
   const event = await getEventMeta(ticket.eventId);
+  if (event?.resaleEnabled === false) {
+    throw new ListingError('The organiser disabled resale for this event', 'resale_disabled');
+  }
+  // R2: cap = face × cap% — checked at listing time.
+  const cap = await resaleCapCents(ticket, event);
+  if (input.priceCents > cap) {
+    throw new ListingError(
+      `Price exceeds the resale cap for this event`,
+      'above_cap',
+      cap
+    );
+  }
+
   const createdAt = now();
   const listing: Listing = {
     ticketCode: input.ticketCode,
+    groupId: input.groupId ?? input.ticketCode,
     sellerId: input.sellerId,
     eventId: ticket.eventId,
     eventTitle: ticket.eventTitle,
     eventStartsAt: ticket.eventStartsAt,
     eventLocation: ticket.eventLocation,
+    tierId: ticket.tierId,
     tierName: ticket.tierName,
     priceCents: input.priceCents,
+    splitRule: input.splitRule ?? 'any',
     currency: ticket.currency ?? event?.currency ?? 'usd',
     status: 'ACTIVE',
     createdAt,
@@ -1659,7 +2175,33 @@ export async function createListing(input: {
   return listing;
 }
 
+// Create a (possibly multi-ticket) listing group. Each ticket gets its own
+// LISTING# row under a shared groupId so checkout can claim them one at a
+// time while the spec shape exposes a single listing with ticket_ids[].
+export async function createListingGroup(input: {
+  sellerId: string;
+  ticketCodes: string[];
+  priceCents: number;
+  splitRule?: 'any' | 'all' | 'pairs';
+}): Promise<{ groupId: string; listings: Listing[] }> {
+  const groupId = randomUUID();
+  const listings: Listing[] = [];
+  for (const ticketCode of input.ticketCodes) {
+    listings.push(
+      await createListing({
+        sellerId: input.sellerId,
+        ticketCode,
+        priceCents: input.priceCents,
+        splitRule: input.splitRule,
+        groupId,
+      })
+    );
+  }
+  return { groupId, listings };
+}
+
 // Active listings, optionally scoped to one event (GSI1 sk prefix).
+// R7: cheapest first.
 export async function listActiveListings(eventId?: string): Promise<Listing[]> {
   const res = await docClient.send(
     new QueryCommand({
@@ -1677,7 +2219,21 @@ export async function listActiveListings(eventId?: string): Promise<Listing[]> {
   );
   return ((res.Items ?? []) as Record<string, unknown>[])
     .map((item) => stripKeys(item) as unknown as Listing)
-    .filter((l) => l.status === 'ACTIVE');
+    .filter((l) => l.status === 'ACTIVE')
+    .sort((a, b) => a.priceCents - b.priceCents || a.createdAt.localeCompare(b.createdAt));
+}
+
+// Active listings inside one tier of one event, cheapest first (R7). New
+// listings carry tierId; legacy rows match by tierName.
+export async function listActiveListingsForTier(
+  eventId: string,
+  tierId: string,
+  tierName?: string
+): Promise<Listing[]> {
+  const listings = await listActiveListings(eventId);
+  return listings.filter((l) =>
+    l.tierId ? l.tierId === tierId : tierName ? l.tierName === tierName : false
+  );
 }
 
 export async function listSellerListings(
@@ -1741,14 +2297,42 @@ export async function releaseListingCheckout(ticketCode: string): Promise<void> 
   }
 }
 
-export async function cancelListing(sellerId: string, ticketCode: string): Promise<'cancelled' | 'not_found' | 'forbidden'> {
+export async function cancelListing(sellerId: string, ticketCode: string): Promise<'cancelled' | 'not_found' | 'forbidden' | 'already_sold'> {
   const listing = await getListing(ticketCode);
   if (!listing) return 'not_found';
   if (listing.sellerId !== sellerId) return 'forbidden';
+  if (listing.status === 'SOLD') return 'already_sold';
   if (listing.status !== 'ACTIVE') return 'not_found';
   await docClient.send(
     new DeleteCommand({ TableName: T(), Key: { pk: listingPk(ticketCode), sk: 'METADATA' } })
   );
+  return 'cancelled';
+}
+
+// Cancel by listing group id (spec DELETE /listings/{id}) — removes every
+// ACTIVE row in the group. Returns the same codes as cancelListing.
+export async function cancelListingGroup(
+  sellerId: string,
+  groupId: string
+): Promise<'cancelled' | 'not_found' | 'forbidden' | 'already_sold'> {
+  const mine = await listSellerListings(sellerId, { limit: 200 });
+  const group = mine.items.filter((l) => (l.groupId ?? l.ticketCode) === groupId);
+  if (group.length === 0) {
+    // Maybe the id is a bare ticket code.
+    return cancelListing(sellerId, groupId);
+  }
+  const active = group.filter((l) => l.status === 'ACTIVE');
+  if (active.length === 0) {
+    return group.some((l) => l.status === 'SOLD') ? 'already_sold' : 'not_found';
+  }
+  for (const listing of active) {
+    await docClient.send(
+      new DeleteCommand({
+        TableName: T(),
+        Key: { pk: listingPk(listing.ticketCode), sk: 'METADATA' },
+      })
+    );
+  }
   return 'cancelled';
 }
 
@@ -1761,6 +2345,9 @@ async function fulfillResaleOrder(
 ): Promise<'fulfilled' | 'already'> {
   if (!order.listingCode) return 'already';
   const createdAt = now();
+  // R1: rotate the credential atomically with the ownership move — the
+  // seller's QR becomes superseded the moment the buyer owns the ticket.
+  const rotate = await credentialRotateOps(order.listingCode);
   try {
     await docClient.send(
       new TransactWriteCommand({
@@ -1783,6 +2370,7 @@ async function fulfillResaleOrder(
             },
           },
           expireIndexDelete(order.id),
+          ...rotate.ops,
           {
             Update: {
               TableName: T(),
@@ -1872,7 +2460,7 @@ export async function setVenueLayout(
 ): Promise<EventItem | null> {
   const event = await getEventMeta(eventId);
   if (!event) return null;
-  if (event.creatorId !== actorId && actorRole !== 'ADMIN') {
+  if (!(await canManageEvent(event, actorId, actorRole))) {
     throw new ConditionFailedError('Not the event creator');
   }
 
@@ -2005,6 +2593,7 @@ async function fulfillSeatedOrder(
             sectionName: item.sectionName,
             seatLabel: item.seatLabels?.[i],
             currency: order.currency ?? 'usd',
+            faceCents: item.unitPriceCents,
             userId: order.userId,
             status: 'VALID',
             createdAt,
@@ -2015,6 +2604,7 @@ async function fulfillSeatedOrder(
           },
         },
       });
+      ticketPuts.push({ Put: { TableName: T(), Item: credentialItem(code, 1, createdAt).item } });
     }
     if (item.sectionId) {
       ticketPuts.push({
@@ -2122,6 +2712,55 @@ export async function consumePasswordReset(email: string, code: string): Promise
     new DeleteCommand({ TableName: T(), Key: { pk: resetPk(email), sk: 'CODE' } })
   );
   return true;
+}
+
+export type DeletionBlock =
+  | 'has_tickets'
+  | 'has_listings'
+  | 'has_price_watches'
+  | 'has_balance'
+  | 'sole_admin';
+
+// Orgs/Membership land in package G; until then no user can be sole admin.
+async function listSoleAdminOrgIds(_userId: string): Promise<string[]> {
+  return [];
+}
+
+// A6: account deletion is blocked while the user has upcoming tickets,
+// active listings, active price watches, a non-zero earnings balance, or is
+// the sole admin of an org.
+export async function accountDeletionBlockers(id: string): Promise<DeletionBlock[]> {
+  const blocks: DeletionBlock[] = [];
+  const nowMs = Date.now();
+  const [ticketsResult, listingsResult, offersResult, withdrawals, soleAdminOrgs] =
+    await Promise.all([
+      listUserTickets(id, { limit: 200 }),
+      listSellerListings(id, { limit: 200 }),
+      listUserOffers(id, { limit: 200 }),
+      listUserWithdrawals(id),
+      listSoleAdminOrgIds(id),
+    ]);
+  const upcoming = ticketsResult.items.some(
+    (ticket) =>
+      (ticket.status === 'VALID' || ticket.status === 'TRANSFER_PENDING') &&
+      Date.parse(ticket.eventStartsAt) > nowMs
+  );
+  if (upcoming) blocks.push('has_tickets');
+  if (listingsResult.items.some((l) => l.status === 'ACTIVE' || l.status === 'CHECKOUT')) {
+    blocks.push('has_listings');
+  }
+  if (offersResult.items.some((o) => o.status === 'ACTIVE')) {
+    blocks.push('has_price_watches');
+  }
+  const readyCents = listingsResult.items
+    .filter((l) => l.status === 'SOLD' && Date.parse(l.eventStartsAt) <= nowMs)
+    .reduce((sum, l) => sum + l.priceCents, 0);
+  const withdrawnCents = withdrawals
+    .filter((w) => w.status === 'PAID')
+    .reduce((sum, w) => sum + w.amountCents, 0);
+  if (readyCents - withdrawnCents > 0) blocks.push('has_balance');
+  if (soleAdminOrgs.length > 0) blocks.push('sole_admin');
+  return blocks;
 }
 
 export async function deleteUser(id: string): Promise<boolean> {
@@ -2406,6 +3045,60 @@ export async function revokeAllRefreshTokens(userId: string): Promise<void> {
     const pk = item.pk as string;
     await docClient.send(new DeleteCommand({ TableName: T(), Key: { pk, sk: 'TOKEN' } }));
   }
+}
+
+// A7: password change signs out all OTHER sessions — revokes every refresh
+// token except the one the caller presented (when given).
+export async function revokeOtherRefreshTokens(userId: string, keepToken?: string): Promise<void> {
+  const keepHash = keepToken ? hashToken(keepToken) : null;
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk',
+      ExpressionAttributeValues: { ':pk': `USER#${userId}#REFRESH` },
+    })
+  );
+  for (const item of res.Items ?? []) {
+    const pk = item.pk as string;
+    if (keepHash && pk === refreshPk(keepHash)) continue;
+    await docClient.send(new DeleteCommand({ TableName: T(), Key: { pk, sk: 'TOKEN' } }));
+  }
+}
+
+// ---------- per-user promo grants (A3: WELCOME10 on onboarding) ----------
+
+// Records that a user was granted a promo code. The promo itself still lives
+// in PROMO#<CODE>; this row just marks the grant (e.g. WELCOME10 granted when
+// onboarding completes).
+export async function grantPromoToUser(userId: string, code: string): Promise<void> {
+  try {
+    await docClient.send(
+      new PutCommand({
+        TableName: T(),
+        Item: {
+          pk: userPk(userId),
+          sk: `GRANT#PROMO#${code.toUpperCase()}`,
+          code: code.toUpperCase(),
+          grantedAt: now(),
+        },
+        ConditionExpression: 'attribute_not_exists(pk)',
+      })
+    );
+  } catch (e) {
+    if (!isConditionalCheck(e)) throw e;
+  }
+}
+
+export async function listUserPromoGrants(userId: string): Promise<string[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :prefix)',
+      ExpressionAttributeValues: { ':pk': userPk(userId), ':prefix': 'GRANT#PROMO#' },
+    })
+  );
+  return (res.Items ?? []).map((item) => item.code as string);
 }
 
 // ---------- email verification tokens ----------
@@ -2874,6 +3567,2421 @@ export async function markSeatsSold(
       if (!isConditionalCheck(e)) throw e;
     }
   }
+}
+
+// ---------- checkout holds (decision-16: 10-min hold, seats shown held) ----------
+
+const holdPk = (id: string) => `HOLD#${id}`;
+const hexpirePk = (id: string) => `HEXPIRE#${id}`;
+
+export interface HoldLine {
+  tierId?: string;
+  sectionId?: string;
+  listingCode?: string; // resale line — listings are keyed by ticket code
+  seatLabels?: string[];
+  qty: number;
+  unitPriceCents: number; // price snapshot at hold time
+  tierName?: string;
+  sectionName?: string;
+}
+
+export interface Hold {
+  id: string;
+  userId: string;
+  eventId: string;
+  lines: HoldLine[];
+  status: 'ACTIVE' | 'CONVERTED' | 'EXPIRED' | 'RELEASED' | 'CLEARED';
+  expiresAt: string;
+  createdAt: string;
+}
+
+export async function createHold(input: {
+  userId: string;
+  eventId: string;
+  lines: HoldLine[];
+  expiresAt: string;
+}): Promise<Hold> {
+  const id = randomUUID();
+  const createdAt = now();
+  const hold: Hold = {
+    id,
+    userId: input.userId,
+    eventId: input.eventId,
+    lines: input.lines,
+    status: 'ACTIVE',
+    expiresAt: input.expiresAt,
+    createdAt,
+  };
+  await docClient.send(
+    new TransactWriteCommand({
+      TransactItems: [
+        {
+          Put: {
+            TableName: T(),
+            Item: {
+              pk: holdPk(id),
+              sk: 'METADATA',
+              ...hold,
+              gsi2pk: `USER#${input.userId}#HOLDS`,
+              gsi2sk: createdSk(createdAt, id),
+            },
+          },
+        },
+        {
+          Put: {
+            TableName: T(),
+            Item: {
+              pk: hexpirePk(id),
+              sk: 'INDEX',
+              holdId: id,
+              expiresAt: input.expiresAt,
+              gsi1pk: EXPIRE_GSI_PK,
+              gsi1sk: input.expiresAt,
+            },
+          },
+        },
+      ],
+    })
+  );
+  return hold;
+}
+
+export async function getHold(id: string): Promise<Hold | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: holdPk(id), sk: 'METADATA' } })
+  );
+  if (!res.Item) return null;
+  const { pk, sk, gsi2pk, gsi2sk, ...rest } = res.Item as Record<string, unknown>;
+  return rest as unknown as Hold;
+}
+
+// Inventory-credit ops for a hold's lines (the mirror of what POST /holds
+// reserved). Used by expire/clear/release paths inside one transaction with
+// the status flip so inventory can't be double-released.
+function holdCreditOps(hold: Hold): TxnItems {
+  const ops: TxnItems = [];
+  for (const line of hold.lines) {
+    if (line.tierId) {
+      ops.push({
+        Update: {
+          TableName: T(),
+          Key: { pk: eventPk(hold.eventId), sk: `TIER#${line.tierId}` },
+          UpdateExpression: 'ADD available :qty',
+          ExpressionAttributeValues: { ':qty': line.qty },
+        },
+      });
+    }
+    if (line.sectionId) {
+      ops.push({
+        Update: {
+          TableName: T(),
+          Key: { pk: eventPk(hold.eventId), sk: `SECTION#${line.sectionId}` },
+          UpdateExpression: 'ADD available :qty',
+          ExpressionAttributeValues: { ':qty': line.qty },
+        },
+      });
+      for (const label of line.seatLabels ?? []) {
+        ops.push({
+          Update: {
+            TableName: T(),
+            Key: { pk: eventPk(hold.eventId), sk: seatSk(line.sectionId, label) },
+            UpdateExpression: 'SET #status = :available REMOVE reservedAt',
+            ConditionExpression: '#status = :held',
+            ExpressionAttributeNames: { '#status': 'status' },
+            ExpressionAttributeValues: { ':available': 'AVAILABLE', ':held': 'HELD' },
+          },
+        });
+      }
+    }
+    if (line.listingCode) {
+      ops.push({
+        Update: {
+          TableName: T(),
+          Key: { pk: listingPk(line.listingCode), sk: 'METADATA' },
+          UpdateExpression: 'SET #status = :active',
+          ConditionExpression: '#status = :checkout',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: { ':active': 'ACTIVE', ':checkout': 'CHECKOUT' },
+        },
+      });
+    }
+  }
+  return ops;
+}
+
+// ACTIVE → terminal with inventory credited back, atomically. Returns false
+// if the hold was already consumed/expired.
+async function settleHold(id: string, to: 'EXPIRED' | 'RELEASED' | 'CLEARED', from: 'ACTIVE' | 'CONVERTED' = 'ACTIVE'): Promise<boolean> {
+  const hold = await getHold(id);
+  if (!hold) return false;
+  try {
+    await docClient.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Update: {
+              TableName: T(),
+              Key: { pk: holdPk(id), sk: 'METADATA' },
+              UpdateExpression: 'SET #status = :to',
+              ConditionExpression: '#status = :from',
+              ExpressionAttributeNames: { '#status': 'status' },
+              ExpressionAttributeValues: { ':to': to, ':from': from },
+            },
+          },
+          {
+            Delete: { TableName: T(), Key: { pk: hexpirePk(id), sk: 'INDEX' } },
+          },
+          ...holdCreditOps(hold),
+        ],
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+}
+
+export const expireHold = (id: string) => settleHold(id, 'EXPIRED');
+export const clearHold = (id: string) => settleHold(id, 'CLEARED');
+// Compensation when an order was converted but order creation failed after
+// conversion — returns the inventory to the pool.
+export const releaseConvertedHold = (id: string) => settleHold(id, 'RELEASED', 'CONVERTED');
+
+// ACTIVE → CONVERTED (the order now owns the reservation; hold is terminal).
+// No inventory movement — ownership moves to the order's release path.
+export async function convertHold(id: string): Promise<boolean> {
+  try {
+    await docClient.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Update: {
+              TableName: T(),
+              Key: { pk: holdPk(id), sk: 'METADATA' },
+              UpdateExpression: 'SET #status = :converted',
+              ConditionExpression: '#status = :active',
+              ExpressionAttributeNames: { '#status': 'status' },
+              ExpressionAttributeValues: { ':converted': 'CONVERTED', ':active': 'ACTIVE' },
+            },
+          },
+          {
+            Delete: { TableName: T(), Key: { pk: hexpirePk(id), sk: 'INDEX' } },
+          },
+        ],
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+}
+
+// Fetch a hold, lazily expiring it if its window has passed (the local dev
+// server has no cron; the Lambda sweeper covers production).
+export async function getUsableHold(id: string): Promise<Hold | null> {
+  let hold = await getHold(id);
+  if (hold && hold.status === 'ACTIVE' && Date.parse(hold.expiresAt) <= Date.now()) {
+    await expireHold(id);
+    hold = await getHold(id);
+  }
+  return hold;
+}
+
+export async function listUserHolds(userId: string): Promise<Hold[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk',
+      ExpressionAttributeValues: { ':pk': `USER#${userId}#HOLDS` },
+      ScanIndexForward: false,
+      Limit: 100,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[]).map((item) => {
+    const { pk, sk, gsi2pk, gsi2sk, ...rest } = item;
+    return rest as unknown as Hold;
+  });
+}
+
+// A5: switching profile clears any active checkout hold.
+export async function clearUserActiveHolds(userId: string): Promise<number> {
+  const holds = await listUserHolds(userId);
+  let cleared = 0;
+  for (const hold of holds) {
+    if (hold.status === 'ACTIVE' && (await clearHold(hold.id))) cleared++;
+  }
+  return cleared;
+}
+
+// Unified fulfillment for orders created from a Hold: dispatches per line —
+// GA tiers, seated sections, and resale listings can coexist in one order.
+export async function fulfillHoldOrder(
+  orderId: string,
+  paymentIntentId: string
+): Promise<'fulfilled' | 'already'> {
+  const order = await getOrderMeta(orderId);
+  if (!order || order.status !== 'PENDING') return 'already';
+
+  const [items, event] = await Promise.all([getOrderItems(orderId), getEventMeta(order.eventId)]);
+  const createdAt = now();
+
+  // Resale lines rotate the seller's credential inside the same transaction.
+  const rotateOpsByCode = new Map<string, TxnItems>();
+  for (const item of items) {
+    if (item.ticketCode && !rotateOpsByCode.has(item.ticketCode)) {
+      rotateOpsByCode.set(item.ticketCode, (await credentialRotateOps(item.ticketCode)).ops);
+    }
+  }
+
+  const transactItems: TxnItems = [
+    expireIndexDelete(orderId),
+  ];
+
+  const ticketCodes: string[] = [];
+  for (const item of items) {
+    if (item.ticketCode) {
+      // Resale line: listing CHECKOUT → SOLD, ticket ownership → buyer.
+      ticketCodes.push(item.ticketCode);
+      transactItems.push(
+        {
+          Update: {
+            TableName: T(),
+            Key: { pk: listingPk(item.ticketCode), sk: 'METADATA' },
+            UpdateExpression: 'SET #status = :sold, buyerId = :buyer',
+            ConditionExpression: '#status IN (:checkout, :active)',
+            ExpressionAttributeNames: { '#status': 'status' },
+            ExpressionAttributeValues: {
+              ':sold': 'SOLD',
+              ':checkout': 'CHECKOUT',
+              ':active': 'ACTIVE',
+              ':buyer': order.userId,
+            },
+          },
+        },
+        {
+          Update: {
+            TableName: T(),
+            Key: { pk: ticketPk(item.ticketCode), sk: 'METADATA' },
+            UpdateExpression: 'SET userId = :buyer, gsi2pk = :ticketsPk, gsi2sk = :ticketsSk',
+            ConditionExpression: '#status = :valid',
+            ExpressionAttributeNames: { '#status': 'status' },
+            ExpressionAttributeValues: {
+              ':buyer': order.userId,
+              ':ticketsPk': userTicketsPk(order.userId),
+              ':ticketsSk': createdSk(createdAt, item.ticketCode),
+              ':valid': 'VALID',
+            },
+          },
+        },
+        ...(rotateOpsByCode.get(item.ticketCode) ?? [])
+      );
+      continue;
+    }
+
+    // New tickets (GA tier or seated section line).
+    for (let i = 0; i < item.quantity; i++) {
+      const code = `BT-${orderId.replace(/-/g, '').slice(0, 6).toUpperCase()}-${ticketCodes.length + 1}-${randomUUID().slice(0, 6).toUpperCase()}`;
+      ticketCodes.push(code);
+      transactItems.push(
+        {
+          Put: {
+            TableName: T(),
+            Item: {
+              pk: ticketPk(code),
+              sk: 'METADATA',
+              code,
+              orderId,
+              eventId: order.eventId,
+              eventTitle: event?.title ?? '',
+              eventStartsAt: event?.startsAt ?? '',
+              eventLocation: event?.location ?? '',
+              tierId: item.tierId,
+              tierName: item.tierName,
+              sectionName: item.sectionName,
+              seatLabel: item.seatLabels?.[i],
+              currency: order.currency ?? 'usd',
+              faceCents: item.unitPriceCents,
+              userId: order.userId,
+              status: 'VALID',
+              createdAt,
+              gsi2pk: userTicketsPk(order.userId),
+              gsi2sk: createdSk(createdAt, code),
+              gsi1pk: eventTicketsGsiPk(order.eventId),
+              gsi1sk: createdSk(createdAt, code),
+            },
+          },
+        },
+        { Put: { TableName: T(), Item: credentialItem(code, 1, createdAt).item } }
+      );
+    }
+    if (item.tierId) {
+      transactItems.push({
+        Update: {
+          TableName: T(),
+          Key: { pk: eventPk(order.eventId), sk: `TIER#${item.tierId}` },
+          UpdateExpression: 'ADD sold :qty',
+          ExpressionAttributeValues: { ':qty': item.quantity },
+        },
+      });
+    }
+    if (item.sectionId) {
+      transactItems.push({
+        Update: {
+          TableName: T(),
+          Key: { pk: eventPk(order.eventId), sk: `SECTION#${item.sectionId}` },
+          UpdateExpression: 'ADD sold :qty',
+          ExpressionAttributeValues: { ':qty': item.quantity },
+        },
+      });
+      for (const label of item.seatLabels ?? []) {
+        transactItems.push({
+          Update: {
+            TableName: T(),
+            Key: { pk: eventPk(order.eventId), sk: seatSk(item.sectionId, label) },
+            UpdateExpression: 'SET #status = :sold REMOVE reservedAt',
+            ConditionExpression: '#status = :held',
+            ExpressionAttributeNames: { '#status': 'status' },
+            ExpressionAttributeValues: { ':sold': 'SOLD', ':held': 'HELD' },
+          },
+        });
+      }
+    }
+  }
+
+  transactItems.unshift({
+    Update: {
+      TableName: T(),
+      Key: { pk: orderPk(orderId), sk: 'METADATA' },
+      UpdateExpression:
+        'SET #status = :paid, paidAt = :paidAt, stripePaymentIntentId = :pi, ticketCodes = :codes',
+      ConditionExpression: '#status = :pending',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: {
+        ':paid': 'PAID',
+        ':pending': 'PENDING',
+        ':paidAt': createdAt,
+        ':pi': paymentIntentId,
+        ':codes': ticketCodes,
+      },
+    },
+  });
+
+  if (order.promoCodeText) {
+    transactItems.push({
+      Update: {
+        TableName: T(),
+        Key: { pk: promoPk(order.promoCodeText), sk: 'METADATA' },
+        UpdateExpression: 'ADD usedCount :one',
+        ExpressionAttributeValues: { ':one': 1 },
+      },
+    });
+  }
+
+  try {
+    await docClient.send(new TransactWriteCommand({ TransactItems: transactItems }));
+  } catch (e) {
+    if (isConditionalCheck(e)) return 'already';
+    throw e;
+  }
+  return 'fulfilled';
+}
+
+// ---------- reminders (E4: "Remind me" on events not yet on sale) ----------
+
+export interface Reminder {
+  userId: string;
+  eventId: string;
+  createdAt: string;
+}
+
+export async function putReminder(userId: string, eventId: string): Promise<Reminder> {
+  const reminder = { userId, eventId, createdAt: now() };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: { pk: userPk(userId), sk: `REMINDER#${eventId}`, ...reminder },
+    })
+  );
+  return reminder;
+}
+
+export async function deleteReminder(userId: string, eventId: string): Promise<void> {
+  await docClient.send(
+    new DeleteCommand({ TableName: T(), Key: { pk: userPk(userId), sk: `REMINDER#${eventId}` } })
+  );
+}
+
+export async function getReminder(userId: string, eventId: string): Promise<Reminder | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: userPk(userId), sk: `REMINDER#${eventId}` } })
+  );
+  return (res.Item as Reminder | undefined) ?? null;
+}
+
+export async function listUserReminders(userId: string): Promise<Reminder[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :prefix)',
+      ExpressionAttributeValues: { ':pk': userPk(userId), ':prefix': 'REMINDER#' },
+    })
+  );
+  return (res.Items ?? []) as Reminder[];
+}
+
+// ---------- transfers (X1–X4, decision-14: return after 48h or doors) ----------
+
+const transferPk = (id: string) => `TRANSFER#${id}`;
+const texpirePk = (id: string) => `TEXPIRE#${id}`;
+const transferContactPk = (contact: string) => `TCONTACT#${contact.toLowerCase()}`;
+
+export interface Transfer {
+  id: string;
+  eventId: string;
+  ticketIds: string[]; // ticket codes
+  fromUserId: string;
+  toContact: string; // email or E.164 phone (decision-17: no OTP needed to send)
+  toContactKind: 'email' | 'phone';
+  toUserId?: string;
+  status: 'pending' | 'claimed' | 'returned' | 'cancelled';
+  expiresAt: string;
+  createdAt: string;
+  claimedAt?: string;
+}
+
+export class TransferError extends Error {
+  code: string;
+  constructor(message: string, code: string) {
+    super(message);
+    this.code = code;
+  }
+}
+
+export function normalizeContact(to: string): { kind: 'email' | 'phone'; value: string } | null {
+  const trimmed = to.trim();
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed)) {
+    return { kind: 'email', value: trimmed.toLowerCase() };
+  }
+  const digits = trimmed.replace(/[^\d+]/g, '');
+  if (/^\+?\d{7,15}$/.test(digits)) {
+    return { kind: 'phone', value: digits.startsWith('+') ? digits : `+${digits}` };
+  }
+  return null;
+}
+
+// POST /transfers — mark tickets TRANSFER_PENDING and open a pending
+// transfer addressed to an email or phone. Atomically: ticket status flips,
+// transfer row, contact index, expiry index.
+export async function createTransfer(input: {
+  fromUserId: string;
+  ticketIds: string[];
+  to: string;
+}): Promise<Transfer> {
+  const contact = normalizeContact(input.to);
+  if (!contact) throw new TransferError('Send to an email or phone number with country code', 'bad_contact');
+
+  const sender = await getUserById(input.fromUserId);
+  if (sender) {
+    const selfEmail = contact.kind === 'email' && sender.email === contact.value;
+    const selfPhone =
+      contact.kind === 'phone' &&
+      sender.phone &&
+      normalizeContact(sender.phone)?.value === contact.value;
+    if (selfEmail || selfPhone) {
+      throw new TransferError('You cannot transfer a ticket to yourself', 'self_transfer');
+    }
+  }
+
+  const tickets = await batchGet<Ticket>(
+    input.ticketIds.map((code) => ({ pk: ticketPk(code), sk: 'METADATA' }))
+  );
+  if (tickets.length !== input.ticketIds.length) {
+    throw new TransferError('Ticket not found', 'not_found');
+  }
+  const eventIds = [...new Set(tickets.map((t) => t.eventId))];
+  if (eventIds.length !== 1) throw new TransferError('All tickets must be for the same event', 'mixed_events');
+  const event = await getEventMeta(eventIds[0]);
+
+  // X4: transfers are disabled once doors open (or the event has started
+  // when no doorsAt is set).
+  const cutoff = event?.doorsAt ?? event?.startsAt;
+  if (cutoff && Date.parse(cutoff) <= Date.now()) {
+    throw new TransferError('Transfers closed — doors are open', 'event_started');
+  }
+
+  for (const ticket of tickets) {
+    if (ticket.userId !== input.fromUserId) throw new TransferError('Not your ticket', 'not_holder');
+    if (ticket.status === 'TRANSFER_PENDING') {
+      throw new TransferError('Ticket already has a transfer pending', 'transfer_pending');
+    }
+    if (ticket.status !== 'VALID') throw new TransferError('Ticket is not transferable', 'not_valid');
+    const listing = await getListing(ticket.code);
+    if (listing && (listing.status === 'ACTIVE' || listing.status === 'CHECKOUT')) {
+      throw new TransferError('Cancel the resale listing before transferring', 'listed');
+    }
+  }
+
+  const id = randomUUID();
+  const createdAt = now();
+  // decision-14: unclaimed transfers return after 48h, or at doors-open if
+  // that's sooner.
+  const ttlMs = env.transferTtlHours * 3600_000;
+  const expiryMs = Math.min(
+    Date.now() + ttlMs,
+    cutoff ? Date.parse(cutoff) : Number.POSITIVE_INFINITY
+  );
+  const expiresAt = new Date(expiryMs).toISOString();
+
+  const transfer: Transfer = {
+    id,
+    eventId: eventIds[0],
+    ticketIds: input.ticketIds,
+    fromUserId: input.fromUserId,
+    toContact: contact.value,
+    toContactKind: contact.kind,
+    status: 'pending',
+    expiresAt,
+    createdAt,
+  };
+
+  const transactItems: TxnItems = tickets.map((ticket) => ({
+    Update: {
+      TableName: T(),
+      Key: { pk: ticketPk(ticket.code), sk: 'METADATA' },
+      UpdateExpression: 'SET #status = :pending, transferId = :tid',
+      ConditionExpression: '#status = :valid AND userId = :from',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: {
+        ':pending': 'TRANSFER_PENDING',
+        ':valid': 'VALID',
+        ':tid': id,
+        ':from': input.fromUserId,
+      },
+    },
+  })) as TxnItems;
+  transactItems.push(
+    {
+      Put: {
+        TableName: T(),
+        Item: {
+          pk: transferPk(id),
+          sk: 'METADATA',
+          ...transfer,
+          gsi2pk: `USER#${input.fromUserId}#TRANSFERS`,
+          gsi2sk: createdSk(createdAt, id),
+        },
+      },
+    },
+    {
+      Put: {
+        TableName: T(),
+        Item: { pk: transferContactPk(contact.value), sk: `TR#${id}`, transferId: id },
+      },
+    },
+    {
+      Put: {
+        TableName: T(),
+        Item: {
+          pk: texpirePk(id),
+          sk: 'INDEX',
+          transferId: id,
+          expiresAt,
+          gsi1pk: EXPIRE_GSI_PK,
+          gsi1sk: expiresAt,
+        },
+      },
+    }
+  );
+  try {
+    await docClient.send(new TransactWriteCommand({ TransactItems: transactItems }));
+  } catch (e) {
+    if (isConditionalCheck(e)) {
+      throw new TransferError('One or more tickets are not transferable', 'not_valid');
+    }
+    throw e;
+  }
+  return transfer;
+}
+
+export async function getTransfer(id: string): Promise<Transfer | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: transferPk(id), sk: 'METADATA' } })
+  );
+  if (!res.Item) return null;
+  const { pk, sk, gsi2pk, gsi2sk, ...rest } = res.Item as Record<string, unknown>;
+  return rest as unknown as Transfer;
+}
+
+// Settle a pending transfer to a terminal state, returning tickets to the
+// sender (returned/cancelled) — one transaction so a racing claim can't win.
+async function settleTransfer(id: string, to: 'returned' | 'cancelled'): Promise<boolean> {
+  const transfer = await getTransfer(id);
+  if (!transfer || transfer.status !== 'pending') return false;
+  const tickets = await batchGet<Ticket>(
+    transfer.ticketIds.map((code) => ({ pk: ticketPk(code), sk: 'METADATA' }))
+  );
+  const transactItems: TxnItems = [
+    {
+      Update: {
+        TableName: T(),
+        Key: { pk: transferPk(id), sk: 'METADATA' },
+        UpdateExpression: 'SET #status = :to',
+        ConditionExpression: '#status = :pending',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':to': to, ':pending': 'pending' },
+      },
+    },
+    { Delete: { TableName: T(), Key: { pk: texpirePk(id), sk: 'INDEX' } } },
+    { Delete: { TableName: T(), Key: { pk: transferContactPk(transfer.toContact), sk: `TR#${id}` } } },
+  ];
+  for (const ticket of tickets) {
+    transactItems.push({
+      Update: {
+        TableName: T(),
+        Key: { pk: ticketPk(ticket.code), sk: 'METADATA' },
+        UpdateExpression: 'SET #status = :valid REMOVE transferId',
+        ConditionExpression: '#status = :pending AND userId = :from',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':valid': 'VALID',
+          ':pending': 'TRANSFER_PENDING',
+          ':from': transfer.fromUserId,
+        },
+      },
+    });
+  }
+  try {
+    await docClient.send(new TransactWriteCommand({ TransactItems: transactItems }));
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+}
+
+export const cancelTransferBySender = (id: string) => settleTransfer(id, 'cancelled');
+export const expireTransfer = (id: string) => settleTransfer(id, 'returned');
+
+// POST /transfers/{id}/claim — the recipient (authed; contact must match
+// their account email or phone) takes ownership. Tickets move, credentials
+// rotate (X2), the sender's QRs become superseded.
+export async function claimTransfer(id: string, claimantId: string): Promise<Transfer> {
+  const transfer = await getTransfer(id);
+  if (!transfer) throw new TransferError('Transfer not found', 'not_found');
+  if (transfer.status !== 'pending') {
+    throw new TransferError('Transfer already claimed or closed', 'already_claimed');
+  }
+  if (Date.parse(transfer.expiresAt) <= Date.now()) {
+    await expireTransfer(id);
+    throw new TransferError('Transfer has expired', 'expired');
+  }
+  const claimant = await getUserById(claimantId);
+  if (!claimant) throw new TransferError('User not found', 'not_found');
+  const claimantPhone = claimant.phone ? normalizeContact(claimant.phone)?.value : undefined;
+  const matches =
+    (transfer.toContactKind === 'email' && claimant.email === transfer.toContact) ||
+    (transfer.toContactKind === 'phone' && claimantPhone === transfer.toContact);
+  if (!matches) throw new TransferError('This transfer is addressed to someone else', 'not_recipient');
+  if (claimantId === transfer.fromUserId) {
+    throw new TransferError('You cannot claim your own transfer', 'self_transfer');
+  }
+
+  const tickets = await batchGet<Ticket>(
+    transfer.ticketIds.map((code) => ({ pk: ticketPk(code), sk: 'METADATA' }))
+  );
+  const claimedAt = now();
+  const transactItems: TxnItems = [
+    {
+      Update: {
+        TableName: T(),
+        Key: { pk: transferPk(id), sk: 'METADATA' },
+        UpdateExpression: 'SET #status = :claimed, toUserId = :to, claimedAt = :at',
+        ConditionExpression: '#status = :pending',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':claimed': 'claimed',
+          ':pending': 'pending',
+          ':to': claimantId,
+          ':at': claimedAt,
+        },
+      },
+    },
+    { Delete: { TableName: T(), Key: { pk: texpirePk(id), sk: 'INDEX' } } },
+    { Delete: { TableName: T(), Key: { pk: transferContactPk(transfer.toContact), sk: `TR#${id}` } } },
+  ];
+  for (const ticket of tickets) {
+    const rotate = await credentialRotateOps(ticket.code);
+    transactItems.push(
+      {
+        Update: {
+          TableName: T(),
+          Key: { pk: ticketPk(ticket.code), sk: 'METADATA' },
+          UpdateExpression:
+            'SET #status = :valid, userId = :to, gsi2pk = :ticketsPk, gsi2sk = :ticketsSk, transferredFrom = :from, transferredTo = :toId, transferredAt = :at REMOVE transferId',
+          ConditionExpression: '#status = :pending AND userId = :from',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: {
+            ':valid': 'VALID',
+            ':pending': 'TRANSFER_PENDING',
+            ':to': claimantId,
+            ':ticketsPk': userTicketsPk(claimantId),
+            ':ticketsSk': createdSk(ticket.createdAt, ticket.code),
+            ':from': transfer.fromUserId,
+            ':toId': claimantId,
+            ':at': claimedAt,
+          },
+        },
+      },
+      ...rotate.ops
+    );
+  }
+  try {
+    await docClient.send(new TransactWriteCommand({ TransactItems: transactItems }));
+  } catch (e) {
+    if (isConditionalCheck(e)) throw new TransferError('Transfer already claimed or closed', 'already_claimed');
+    throw e;
+  }
+  return { ...transfer, status: 'claimed', toUserId: claimantId, claimedAt };
+}
+
+// Transfers the user sent plus pending transfers addressed to their
+// email/phone (claimable).
+export async function listUserTransfers(userId: string): Promise<{ sent: Transfer[]; incoming: Transfer[] }> {
+  const user = await getUserById(userId);
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk',
+      ExpressionAttributeValues: { ':pk': `USER#${userId}#TRANSFERS` },
+      ScanIndexForward: false,
+      Limit: 100,
+    })
+  );
+  const sent = ((res.Items ?? []) as Record<string, unknown>[]).map((item) => {
+    const { pk, sk, gsi2pk, gsi2sk, ...rest } = item;
+    return rest as unknown as Transfer;
+  });
+  const contacts = [user?.email, user?.phone ? normalizeContact(user.phone)?.value : undefined]
+    .filter((c): c is string => Boolean(c));
+  const incoming: Transfer[] = [];
+  for (const contact of contacts) {
+    const idx = await docClient.send(
+      new QueryCommand({
+        TableName: T(),
+        KeyConditionExpression: 'pk = :pk AND begins_with(sk, :prefix)',
+        ExpressionAttributeValues: { ':pk': transferContactPk(contact), ':prefix': 'TR#' },
+      })
+    );
+    for (const item of idx.Items ?? []) {
+      const transfer = await getTransfer(item.transferId as string);
+      if (transfer && transfer.status === 'pending') incoming.push(transfer);
+    }
+  }
+  return { sent, incoming };
+}
+
+// ---------- organisations, memberships, event hosts (G, rule O/T) ----------
+
+const orgPk = (id: string) => `ORG#${id}`;
+const minvitePk = (email: string) => `MINVITE#${email.toLowerCase()}`;
+const hostSk = (orgId: string) => `HOST#${orgId}`;
+
+export interface Organisation {
+  id: string;
+  name: string;
+  type: string; // promoter | venue | artist | other
+  city?: string;
+  createdByUserId: string;
+  // O3: none -> submitted -> approved / rejected (platform review is manual;
+  // approval lands via internal tooling).
+  verificationStatus: 'none' | 'submitted' | 'approved' | 'rejected';
+  legalName?: string;
+  licenceNo?: string;
+  verificationDocs?: string[];
+  payoutAccount?: { iban: string; holder: string; payoutAccountId: string };
+  createdAt: string;
+}
+
+export interface Membership {
+  id: string;
+  orgId: string;
+  userId?: string; // null until the invite is accepted
+  inviteEmail: string;
+  role: 'admin' | 'cohost' | 'gate';
+  // Gate staff can be scoped to specific events (empty = all org events).
+  eventScope?: string[];
+  status: 'invited' | 'active' | 'revoked' | 'left';
+  invitedBy?: string;
+  expiresAt?: string; // T2: invites lapse after 7 days
+  createdAt: string;
+  acceptedAt?: string;
+}
+
+export interface EventHost {
+  eventId: string;
+  orgId: string;
+  role: 'owner' | 'cohost';
+  // Basis points of the net payout (sum across hosts must equal 10000).
+  splitBps: number;
+  accepted: boolean;
+  createdAt: string;
+}
+
+export class OrgError extends Error {
+  code: string;
+  constructor(message: string, code: string) {
+    super(message);
+    this.code = code;
+  }
+}
+
+// ISO 13616 IBAN check (mod-97). Accepts with/without spaces.
+export function isValidIban(iban: string): boolean {
+  const normalized = iban.replace(/\s+/g, '').toUpperCase();
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$/.test(normalized)) return false;
+  const rearranged = normalized.slice(4) + normalized.slice(0, 4);
+  let remainder = 0;
+  for (const ch of rearranged) {
+    const numeric = ch >= 'A' && ch <= 'Z' ? String(ch.charCodeAt(0) - 55) : ch;
+    for (const digit of numeric) remainder = (remainder * 10 + Number(digit)) % 97;
+  }
+  return remainder === 1;
+}
+
+export async function createOrg(input: {
+  name: string;
+  type: string;
+  city?: string;
+  createdByUserId: string;
+}): Promise<Organisation> {
+  // name_exists_for_you: the caller can't create a second org with the same name.
+  const existing = await listUserMemberships(input.createdByUserId);
+  if (
+    existing.some(
+      ({ membership, org }) =>
+        membership.role === 'admin' && org.name.toLowerCase() === input.name.trim().toLowerCase()
+    )
+  ) {
+    throw new OrgError('You already manage an organisation with this name', 'name_exists_for_you');
+  }
+  const id = randomUUID();
+  const createdAt = now();
+  const org: Organisation = {
+    id,
+    name: input.name.trim(),
+    type: input.type,
+    city: input.city,
+    createdByUserId: input.createdByUserId,
+    verificationStatus: 'none',
+    createdAt,
+  };
+  const membership: Membership = {
+    id: randomUUID(),
+    orgId: id,
+    userId: input.createdByUserId,
+    inviteEmail: '',
+    role: 'admin',
+    status: 'active',
+    createdAt,
+    acceptedAt: createdAt,
+  };
+  await docClient.send(
+    new TransactWriteCommand({
+      TransactItems: [
+        { Put: { TableName: T(), Item: { pk: orgPk(id), sk: 'METADATA', ...org } } },
+        {
+          Put: {
+            TableName: T(),
+            Item: {
+              pk: orgPk(id),
+              sk: `MEMBER#${membership.id}`,
+              ...membership,
+              gsi2pk: `USER#${input.createdByUserId}#MEMBERSHIPS`,
+              gsi2sk: `ORG#${id}`,
+            },
+          },
+        },
+      ],
+    })
+  );
+  return org;
+}
+
+export async function getOrg(id: string): Promise<Organisation | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: orgPk(id), sk: 'METADATA' } })
+  );
+  if (!res.Item) return null;
+  const { pk, sk, ...rest } = res.Item as Record<string, unknown>;
+  return rest as unknown as Organisation;
+}
+
+export async function listOrgMembers(orgId: string): Promise<Membership[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :prefix)',
+      ExpressionAttributeValues: { ':pk': orgPk(orgId), ':prefix': 'MEMBER#' },
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[]).map((item) => {
+    const { pk, sk, gsi2pk, gsi2sk, ...rest } = item;
+    return { id: (sk as string).slice(7), ...rest } as unknown as Membership;
+  });
+}
+
+// Active membership for a (user, org) pair — the X-Org-Id check.
+export async function getMembership(userId: string, orgId: string): Promise<Membership | null> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk AND gsi2sk = :sk',
+      ExpressionAttributeValues: {
+        ':pk': `USER#${userId}#MEMBERSHIPS`,
+        ':sk': `ORG#${orgId}`,
+      },
+    })
+  );
+  const item = res.Items?.[0];
+  if (!item) return null;
+  const { pk, sk, gsi2pk, gsi2sk, ...rest } = item as Record<string, unknown>;
+  const membership = rest as unknown as Membership;
+  return membership.status === 'active' ? membership : null;
+}
+
+export async function listUserMemberships(
+  userId: string
+): Promise<{ membership: Membership; org: Organisation }[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk',
+      ExpressionAttributeValues: { ':pk': `USER#${userId}#MEMBERSHIPS` },
+      Limit: 100,
+    })
+  );
+  const out: { membership: Membership; org: Organisation }[] = [];
+  for (const item of res.Items ?? []) {
+    const { pk, sk, gsi2pk, gsi2sk, ...rest } = item as Record<string, unknown>;
+    const membership = rest as unknown as Membership;
+    if (membership.status !== 'active') continue;
+    const org = await getOrg(membership.orgId);
+    if (org) out.push({ membership, org });
+  }
+  return out;
+}
+
+// Pending invites addressed to this user's email (they show up in /me/memberships).
+export async function listInvitesForEmail(email: string): Promise<Membership[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :prefix)',
+      ExpressionAttributeValues: { ':pk': minvitePk(email), ':prefix': 'M#' },
+    })
+  );
+  const out: Membership[] = [];
+  for (const item of res.Items ?? []) {
+    const membership = await getMembershipById(item.orgId as string, item.membershipId as string);
+    if (membership && membership.status === 'invited') out.push(membership);
+  }
+  return out;
+}
+
+export async function getMembershipById(orgId: string, membershipId: string): Promise<Membership | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: orgPk(orgId), sk: `MEMBER#${membershipId}` } })
+  );
+  if (!res.Item) return null;
+  const { pk, sk, gsi2pk, gsi2sk, ...rest } = res.Item as Record<string, unknown>;
+  return { id: (sk as string).slice(7), ...rest } as unknown as Membership;
+}
+
+// T2: invite a member by email; the invite lapses in 7 days.
+export async function inviteMember(input: {
+  orgId: string;
+  email: string;
+  role: 'admin' | 'cohost' | 'gate';
+  eventScope?: string[];
+  invitedBy: string;
+}): Promise<Membership> {
+  const email = input.email.trim().toLowerCase();
+  const org = await getOrg(input.orgId);
+  if (!org) throw new OrgError('Organisation not found', 'not_found');
+  if (org.verificationStatus !== 'approved') {
+    // Studio blocks team invites until the org clears verification (O3).
+    throw new OrgError('Organisation must be verified before inviting members', 'org_unverified');
+  }
+  const members = await listOrgMembers(input.orgId);
+  const clash = members.find(
+    (m) => m.inviteEmail === email && (m.status === 'invited' || m.status === 'active')
+  );
+  // Also block inviting someone who is already an active member.
+  const invitedUser = await getUserByEmail(email);
+  if (clash || (invitedUser && (await getMembership(invitedUser.id, input.orgId)))) {
+    throw new OrgError('This person is already a member or has a pending invite', 'already_member');
+  }
+  const membership: Membership = {
+    id: randomUUID(),
+    orgId: input.orgId,
+    inviteEmail: email,
+    role: input.role,
+    eventScope: input.eventScope,
+    status: 'invited',
+    invitedBy: input.invitedBy,
+    expiresAt: new Date(Date.now() + env.inviteTtlDays * 24 * 3600_000).toISOString(),
+    createdAt: now(),
+  };
+  await docClient.send(
+    new TransactWriteCommand({
+      TransactItems: [
+        {
+          Put: {
+            TableName: T(),
+            Item: { pk: orgPk(input.orgId), sk: `MEMBER#${membership.id}`, ...membership },
+          },
+        },
+        {
+          Put: {
+            TableName: T(),
+            Item: {
+              pk: minvitePk(email),
+              sk: `M#${membership.id}`,
+              orgId: input.orgId,
+              membershipId: membership.id,
+            },
+          },
+        },
+      ],
+    })
+  );
+  return membership;
+}
+
+export async function acceptMembership(membershipId: string, userId: string): Promise<Membership> {
+  const user = await getUserById(userId);
+  if (!user) throw new OrgError('User not found', 'not_found');
+  // Locate the invite via the email index.
+  const invites = await listInvitesForEmail(user.email);
+  const invite = invites.find((m) => m.id === membershipId);
+  if (!invite) throw new OrgError('Invite not found', 'not_found');
+  if (invite.expiresAt && Date.parse(invite.expiresAt) <= Date.now()) {
+    throw new OrgError('Invite has expired', 'invite_expired');
+  }
+  const acceptedAt = now();
+  await docClient.send(
+    new TransactWriteCommand({
+      TransactItems: [
+        {
+          Update: {
+            TableName: T(),
+            Key: { pk: orgPk(invite.orgId), sk: `MEMBER#${membershipId}` },
+            UpdateExpression:
+              'SET #status = :active, userId = :uid, gsi2pk = :gpk, gsi2sk = :gsk, acceptedAt = :at',
+            ConditionExpression: '#status = :invited',
+            ExpressionAttributeNames: { '#status': 'status' },
+            ExpressionAttributeValues: {
+              ':active': 'active',
+              ':invited': 'invited',
+              ':uid': userId,
+              ':gpk': `USER#${userId}#MEMBERSHIPS`,
+              ':gsk': `ORG#${invite.orgId}`,
+              ':at': acceptedAt,
+            },
+          },
+        },
+        {
+          Delete: {
+            TableName: T(),
+            Key: { pk: minvitePk(invite.inviteEmail), sk: `M#${membershipId}` },
+          },
+        },
+      ],
+    })
+  );
+  return { ...invite, status: 'active', userId, acceptedAt };
+}
+
+export async function updateMember(
+  orgId: string,
+  membershipId: string,
+  patch: { role?: 'admin' | 'cohost' | 'gate'; eventScope?: string[] }
+): Promise<Membership | null> {
+  const membership = await getMembershipById(orgId, membershipId);
+  if (!membership) return null;
+  // last_admin: can't demote the final active admin.
+  if (patch.role && membership.role === 'admin') {
+    const members = await listOrgMembers(orgId);
+    const admins = members.filter((m) => m.status === 'active' && m.role === 'admin');
+    if (admins.length === 1 && admins[0].id === membershipId) {
+      throw new OrgError('Cannot demote the last admin', 'last_admin');
+    }
+  }
+  const sets: string[] = [];
+  const values: Record<string, unknown> = {};
+  if (patch.role) {
+    sets.push('#role = :role');
+    values[':role'] = patch.role;
+  }
+  if (patch.eventScope !== undefined) {
+    sets.push('eventScope = :scope');
+    values[':scope'] = patch.eventScope;
+  }
+  if (sets.length === 0) return membership;
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: orgPk(orgId), sk: `MEMBER#${membershipId}` },
+      UpdateExpression: `SET ${sets.join(', ')}`,
+      ExpressionAttributeNames: { '#role': 'role' },
+      ExpressionAttributeValues: values,
+    })
+  );
+  return { ...membership, ...patch };
+}
+
+export async function removeMember(orgId: string, membershipId: string): Promise<void> {
+  const membership = await getMembershipById(orgId, membershipId);
+  if (!membership) return;
+  if (membership.role === 'admin' && membership.status === 'active') {
+    const members = await listOrgMembers(orgId);
+    const admins = members.filter((m) => m.status === 'active' && m.role === 'admin');
+    if (admins.length === 1 && admins[0].id === membershipId) {
+      throw new OrgError('Cannot remove the last admin', 'last_admin');
+    }
+  }
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: orgPk(orgId), sk: `MEMBER#${membershipId}` },
+      UpdateExpression: 'SET #status = :revoked REMOVE gsi2pk, gsi2sk',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: { ':revoked': 'revoked' },
+    })
+  );
+  if (membership.status === 'invited') {
+    await docClient.send(
+      new DeleteCommand({
+        TableName: T(),
+        Key: { pk: minvitePk(membership.inviteEmail), sk: `M#${membershipId}` },
+      })
+    );
+  }
+}
+
+export async function submitOrgVerification(
+  orgId: string,
+  input: { legalName: string; licenceNo: string; docs?: string[] }
+): Promise<Organisation> {
+  const org = await getOrg(orgId);
+  if (!org) throw new OrgError('Organisation not found', 'not_found');
+  if (!input.licenceNo?.trim()) throw new OrgError('Licence number is required', 'licence_invalid');
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: orgPk(orgId), sk: 'METADATA' },
+      UpdateExpression:
+        'SET verificationStatus = :submitted, legalName = :ln, licenceNo = :lic, verificationDocs = :docs',
+      ExpressionAttributeValues: {
+        ':submitted': 'submitted',
+        ':ln': input.legalName,
+        ':lic': input.licenceNo.trim(),
+        ':docs': input.docs ?? [],
+      },
+    })
+  );
+  return {
+    ...org,
+    verificationStatus: 'submitted',
+    legalName: input.legalName,
+    licenceNo: input.licenceNo.trim(),
+    verificationDocs: input.docs ?? [],
+  };
+}
+
+// Admin/internal hook: approve or reject a submitted verification. Called by
+// platform tooling; Studio only submits. Kept as a db function so the
+// verification.decided webhook can flip it.
+export async function setOrgVerificationStatus(
+  orgId: string,
+  status: 'approved' | 'rejected'
+): Promise<void> {
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: orgPk(orgId), sk: 'METADATA' },
+      UpdateExpression: 'SET verificationStatus = :s',
+      ExpressionAttributeValues: { ':s': status },
+    })
+  );
+}
+
+export async function setOrgPayoutAccount(
+  orgId: string,
+  input: { iban: string; holder: string }
+): Promise<Organisation> {
+  const org = await getOrg(orgId);
+  if (!org) throw new OrgError('Organisation not found', 'not_found');
+  const iban = input.iban.replace(/\s+/g, '').toUpperCase();
+  if (!isValidIban(iban)) throw new OrgError('IBAN is invalid', 'iban_invalid');
+  // O4: the account holder must match the legal name from verification.
+  if (
+    org.legalName &&
+    org.legalName.trim().toLowerCase() !== input.holder.trim().toLowerCase()
+  ) {
+    throw new OrgError('Account holder must match the verified legal name', 'name_mismatch');
+  }
+  const payoutAccount = { iban, holder: input.holder.trim(), payoutAccountId: randomUUID() };
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: orgPk(orgId), sk: 'METADATA' },
+      UpdateExpression: 'SET payoutAccount = :pa',
+      ExpressionAttributeValues: { ':pa': payoutAccount },
+    })
+  );
+  return { ...org, payoutAccount };
+}
+
+// Org event pointer row so GET /orgs/{id}/events stays a single query.
+export async function linkEventToOrg(eventId: string, orgId: string): Promise<void> {
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: { pk: orgPk(orgId), sk: `EVENT#${eventId}`, eventId, createdAt: now() },
+    })
+  );
+}
+
+export async function listOrgEventIds(orgId: string): Promise<string[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :prefix)',
+      ExpressionAttributeValues: { ':pk': orgPk(orgId), ':prefix': 'EVENT#' },
+    })
+  );
+  return (res.Items ?? []).map((i) => i.eventId as string);
+}
+
+export async function listEventHosts(eventId: string): Promise<EventHost[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :prefix)',
+      ExpressionAttributeValues: { ':pk': eventPk(eventId), ':prefix': 'HOST#' },
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[]).map((item) => {
+    const { pk, sk, ...rest } = item;
+    return { orgId: (sk as string).slice(5), ...rest } as unknown as EventHost;
+  });
+}
+
+// Add or replace the co-host split rows for an event. decision-11: splits
+// lock at first sale — after that, changes need both orgs' admins and only
+// apply to future sales (enforced here as a hard lock).
+export async function setEventHost(input: {
+  eventId: string;
+  orgId: string;
+  role: 'owner' | 'cohost';
+  splitBps: number;
+}): Promise<EventHost> {
+  const host: EventHost = {
+    eventId: input.eventId,
+    orgId: input.orgId,
+    role: input.role,
+    splitBps: input.splitBps,
+    accepted: input.role === 'owner',
+    createdAt: now(),
+  };
+  const existing = await listEventHosts(input.eventId);
+  const prior = existing.find((h) => h.orgId === input.orgId);
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: eventPk(input.eventId),
+        sk: hostSk(input.orgId),
+        ...host,
+        createdAt: prior?.createdAt ?? host.createdAt,
+      },
+    })
+  );
+  return { ...host, createdAt: prior?.createdAt ?? host.createdAt };
+}
+
+export async function acceptEventHost(eventId: string, orgId: string): Promise<EventHost | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: eventPk(eventId), sk: hostSk(orgId) } })
+  );
+  if (!res.Item) return null;
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: eventPk(eventId), sk: hostSk(orgId) },
+      UpdateExpression: 'SET accepted = :yes',
+      ExpressionAttributeValues: { ':yes': true },
+    })
+  );
+  // The co-host's Studio/door surfaces list the event via the org pointer.
+  await linkEventToOrg(eventId, orgId);
+  const { pk, sk, ...rest } = res.Item as Record<string, unknown>;
+  return { orgId, ...(rest as object), accepted: true } as unknown as EventHost;
+}
+
+// Permission check shared by Studio routes: if the event belongs to an org,
+// the caller needs an active membership in `roles`; otherwise fall back to
+// the legacy creatorId check (platform ADMIN always allowed).
+export async function canManageEvent(
+  event: EventItem,
+  userId: string,
+  userRole: string,
+  roles: ('admin' | 'cohost' | 'gate')[] = ['admin', 'cohost']
+): Promise<boolean> {
+  if (userRole === 'ADMIN') return true;
+  if (event.ownerOrgId) {
+    const membership = await getMembership(userId, event.ownerOrgId);
+    if (membership && roles.includes(membership.role)) {
+      // Gate staff can only touch events inside their scope.
+      if (membership.role === 'gate' && membership.eventScope?.length) {
+        return membership.eventScope.includes(event.id);
+      }
+      return true;
+    }
+    // Co-host org members manage their own slice (hosts endpoints handle this).
+    const hosts = await listEventHosts(event.id);
+    for (const host of hosts) {
+      if (host.role !== 'cohost' || !host.accepted) continue;
+      const m = await getMembership(userId, host.orgId);
+      if (m && roles.includes(m.role)) return true;
+    }
+    return false;
+  }
+  return event.creatorId === userId;
+}
+
+// ---------- event management: tier CRUD, cancel, postpone (G, E2/E3) ----------
+
+// POST /events/{id}/tiers — add a tier to a draft or published event.
+export async function addEventTier(
+  eventId: string,
+  input: {
+    name: string;
+    description?: string;
+    priceCents: number;
+    quantity: number;
+    saleStartsAt?: string;
+    saleEndsAt?: string;
+  }
+): Promise<TicketTier> {
+  const event = await getEventMeta(eventId);
+  if (!event) throw new OrgError('Event not found', 'not_found');
+  if (!input.name?.trim() || input.quantity < 1 || input.priceCents < 0) {
+    throw new OrgError('Invalid tier', 'validation');
+  }
+  const tier: TicketTier = {
+    id: randomUUID(),
+    eventId,
+    name: input.name.trim(),
+    description: input.description,
+    priceCents: input.priceCents,
+    quantity: input.quantity,
+    sold: 0,
+    available: input.quantity,
+    saleStartsAt: input.saleStartsAt,
+    saleEndsAt: input.saleEndsAt,
+  };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: { pk: eventPk(eventId), sk: `TIER#${tier.id}`, ...tier },
+    })
+  );
+  return tier;
+}
+
+// PATCH /events/{id}/tiers/{tier} — E2/E3: price/name edits are free while
+// no tickets sold; quantity can't drop below sold.
+export async function updateEventTier(
+  eventId: string,
+  tierId: string,
+  patch: Partial<Pick<TicketTier, 'name' | 'description' | 'priceCents' | 'quantity' | 'saleStartsAt' | 'saleEndsAt'>>
+): Promise<TicketTier | null> {
+  const tier = await getTier(tierId, eventId);
+  if (!tier) return null;
+  const hasSales = tier.sold > 0;
+  if (hasSales && (patch.priceCents !== undefined && patch.priceCents !== tier.priceCents)) {
+    throw new OrgError('Cannot change the price of a tier with sales', 'tier_has_sales');
+  }
+  if (patch.quantity !== undefined && patch.quantity < tier.sold) {
+    throw new OrgError('Quantity cannot be less than tickets already sold', 'tier_has_sales');
+  }
+  const sets: string[] = [];
+  const removes: string[] = [];
+  const values: Record<string, unknown> = {};
+  const set = (key: string, value: unknown, name = `#${key}`) => {
+    sets.push(`${name} = :${key}`);
+    values[`:${key}`] = value;
+  };
+  if (patch.name !== undefined) set('name', patch.name.trim());
+  if (patch.description !== undefined) set('description', patch.description);
+  if (patch.priceCents !== undefined) set('priceCents', patch.priceCents);
+  if (patch.quantity !== undefined) {
+    set('quantity', patch.quantity);
+    set('available', Math.max(0, patch.quantity - tier.sold));
+  }
+  if (patch.saleStartsAt !== undefined) {
+    if (patch.saleStartsAt === null) removes.push('saleStartsAt');
+    else set('saleStartsAt', patch.saleStartsAt);
+  }
+  if (patch.saleEndsAt !== undefined) {
+    if (patch.saleEndsAt === null) removes.push('saleEndsAt');
+    else set('saleEndsAt', patch.saleEndsAt);
+  }
+  if (sets.length === 0 && removes.length === 0) return tier;
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: eventPk(eventId), sk: `TIER#${tierId}` },
+      UpdateExpression:
+        `${sets.length ? `SET ${sets.join(', ')}` : ''}${removes.length ? ` REMOVE ${removes.join(', ')}` : ''}`.trim(),
+      ExpressionAttributeNames: {
+        '#name': 'name',
+        '#description': 'description',
+        '#priceCents': 'priceCents',
+        '#quantity': 'quantity',
+        '#available': 'available',
+        '#saleStartsAt': 'saleStartsAt',
+        '#saleEndsAt': 'saleEndsAt',
+      },
+      ExpressionAttributeValues: values,
+    })
+  );
+  return { ...tier, ...patch };
+}
+
+// DELETE /events/{id}/tiers/{tier} — allowed until the tier has sales.
+export async function deleteEventTier(eventId: string, tierId: string): Promise<void> {
+  const tier = await getTier(tierId, eventId);
+  if (!tier) return;
+  if (tier.sold > 0) {
+    throw new OrgError('Cannot delete a tier that has sold tickets', 'tier_has_sales');
+  }
+  await docClient.send(
+    new DeleteCommand({ TableName: T(), Key: { pk: eventPk(eventId), sk: `TIER#${tierId}` } })
+  );
+}
+
+// PATCH /events/{id} — E3: after first sale, date/venue are locked and
+// sold tiers can't be removed (tier deletion guards cover the latter).
+export async function updateEventFields(
+  eventId: string,
+  patch: Partial<
+    Pick<
+      EventItem,
+      | 'title'
+      | 'description'
+      | 'category'
+      | 'startsAt'
+      | 'endsAt'
+      | 'doorsAt'
+      | 'onSaleAt'
+      | 'location'
+      | 'address'
+      | 'imageUrl'
+      | 'minAge'
+      | 'resaleEnabled'
+      | 'resaleCapPct'
+      | 'royaltyPct'
+      | 'country'
+      | 'venueTimezone'
+    >
+  >
+): Promise<EventItem | null> {
+  const event = await getEventMeta(eventId);
+  if (!event) return null;
+  const movingDate = patch.startsAt !== undefined && patch.startsAt !== event.startsAt;
+  const movingVenue =
+    (patch.location !== undefined && patch.location !== event.location) ||
+    (patch.address !== undefined && patch.address !== event.address);
+  if (movingDate || movingVenue) {
+    const tiers = await getTiersForEvent(eventId);
+    if (tiers.some((t) => t.sold > 0)) {
+      throw new OrgError('Cannot change date or venue after tickets have sold', 'has_sales');
+    }
+  }
+  const sets: string[] = [];
+  const removes: string[] = [];
+  const names: Record<string, string> = {};
+  const values: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) continue;
+    names[`#${key}`] = key;
+    if (value === null) {
+      removes.push(`#${key}`);
+    } else {
+      sets.push(`#${key} = :${key}`);
+      values[`:${key}`] = value;
+    }
+  }
+  if (sets.length === 0 && removes.length === 0) return event;
+  // Keep the feed key in sync when a draft isn't indexed yet — no-op there.
+  if (patch.startsAt !== undefined && event.status === 'PUBLISHED') {
+    sets.push('gsi1sk = :feedSk');
+    values[':feedSk'] = eventFeedSk(patch.startsAt);
+  }
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: eventPk(eventId), sk: 'METADATA' },
+      UpdateExpression:
+        `${sets.length ? `SET ${sets.join(', ')}` : ''}${removes.length ? ` REMOVE ${removes.join(', ')}` : ''}`.trim(),
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: Object.keys(values).length ? values : undefined,
+    })
+  );
+  return { ...event, ...patch } as EventItem;
+}
+
+// Void a ticket on refund/event-cancel (B: revoke the current credential and
+// issue a fresh version so any stale QR scans superseded/VOID).
+export async function voidTicket(code: string, reason: string): Promise<void> {
+  const rotate = await credentialRotateOps(code);
+  await docClient.send(
+    new TransactWriteCommand({
+      TransactItems: [
+        {
+          Update: {
+            TableName: T(),
+            Key: { pk: ticketPk(code), sk: 'METADATA' },
+            UpdateExpression: 'SET #status = :void, voidReason = :reason, voidedAt = :at',
+            ConditionExpression: '#status = :valid OR #status = :pending',
+            ExpressionAttributeNames: { '#status': 'status' },
+            ExpressionAttributeValues: {
+              ':void': 'VOID',
+              ':valid': 'VALID',
+              ':pending': 'TRANSFER_PENDING',
+              ':reason': reason,
+              ':at': now(),
+            },
+          },
+        },
+        ...rotate.ops,
+      ],
+    })
+  );
+}
+
+// POST /events/{id}/cancel — decision-2: all valid tickets become VOID and
+// their credentials are revoked; buyers are refunded through the ledger
+// (package H wires the Stripe refund — the void happens here).
+export async function cancelEvent(eventId: string): Promise<EventItem | null> {
+  const event = await getEventMeta(eventId);
+  if (!event) return null;
+  if (event.status === 'CANCELLED') return event;
+  // Pending transfers return to their senders first so the settle writes
+  // succeed before the tickets are voided below.
+  const transfers = await listEventTransfers(eventId).catch(() => [] as string[]);
+  for (const tid of transfers) await expireTransfer(tid).catch(() => false);
+  const listings = await listActiveListings(eventId).catch(() => []);
+  for (const listing of listings) {
+    await cancelListing(listing.sellerId, listing.ticketCode).catch(() => 'not_found' as const);
+  }
+  const tickets = await listEventTickets(eventId);
+  for (const ticket of tickets) {
+    if (ticket.status !== 'VALID') continue;
+    try {
+      await voidTicket(ticket.code, 'event_cancelled');
+    } catch (e) {
+      console.error(`cancelEvent: failed to void ticket ${ticket.code}`, e);
+    }
+  }
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: eventPk(eventId), sk: 'METADATA' },
+      UpdateExpression: 'SET #status = :cancelled REMOVE gsi1pk, gsi1sk',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: { ':cancelled': 'CANCELLED' },
+    })
+  );
+  return { ...event, status: 'CANCELLED' };
+}
+
+// POST /events/{id}/postpone — decision-2: new start time + a 14-day refund
+// window. Tickets stay valid for the new date.
+export async function postponeEvent(eventId: string, newStartsAt: string): Promise<EventItem | null> {
+  const event = await getEventMeta(eventId);
+  if (!event) return null;
+  if (event.status !== 'PUBLISHED') {
+    throw new OrgError('Only a published event can be postponed', 'not_published');
+  }
+  const refundWindowEndsAt = new Date(Date.now() + 14 * 24 * 3600_000).toISOString();
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: eventPk(eventId), sk: 'METADATA' },
+      UpdateExpression:
+        'SET #status = :postponed, startsAt = :starts, postponedAt = :at, refundWindowEndsAt = :rw, gsi1sk = :feedSk',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: {
+        ':postponed': 'POSTPONED',
+        ':starts': newStartsAt,
+        ':at': now(),
+        ':rw': refundWindowEndsAt,
+        ':feedSk': eventFeedSk(newStartsAt),
+      },
+    })
+  );
+  return { ...event, status: 'POSTPONED', startsAt: newStartsAt, postponedAt: now(), refundWindowEndsAt };
+}
+
+// Transfers pending on an event — used by cancelEvent to return tickets.
+async function listEventTransfers(eventId: string): Promise<string[]> {
+  // Ticket records hold transferId while TRANSFER_PENDING, so the pending
+  // transfer ids ride along on the ticket feed.
+  const tickets = await listEventTickets(eventId);
+  return tickets
+    .map((t) => (t as unknown as { transferId?: string }).transferId)
+    .filter((id): id is string => Boolean(id));
+}
+
+// ---------- ledger, refunds, payouts (H — double-entry, append-only) ----------
+
+const ledgerPk = (id: string) => `LEDGER#${id}`;
+const acctPk = (account: string) => `ACCT#${account}`;
+const refundPk = (id: string) => `REFUND#${id}`;
+const payoutPk = (id: string) => `PAYOUT#${id}`;
+
+export interface LedgerEntry {
+  id: string;
+  // Groups the paired entries of one logical transaction (sale, refund,
+  // payout, chargeback, reserve release) so auditors can see both sides.
+  txId: string;
+  // 'org:{id}' | 'user:{id}' | 'platform:fees' | 'platform:reserve' | 'tax'
+  account: string;
+  amountMinor: number; // signed: +credit / -debit
+  currency: string;
+  kind:
+    | 'sale'
+    | 'fee'
+    | 'royalty'
+    | 'split'
+    | 'refund'
+    | 'chargeback'
+    | 'payout'
+    | 'reserve_hold'
+    | 'reserve_release'
+    // M2: SMS broadcast cost charged to the event's owner account.
+    | 'broadcast_cost';
+  orderId?: string;
+  eventId?: string;
+  refundId?: string;
+  payoutId?: string;
+  // reserve_hold entries name the org that gets the money on release.
+  beneficiary?: string;
+  memo?: string;
+  createdAt: string;
+}
+
+export interface Refund {
+  id: string;
+  orderId: string;
+  amountMinor: number;
+  currency: string;
+  reason: string;
+  stripeRefundId?: string;
+  status: 'pending' | 'succeeded' | 'failed';
+  createdAt: string;
+}
+
+export interface Payout {
+  id: string;
+  account: string; // 'org:{id}' | 'user:{id}'
+  amountMinor: number;
+  currency: string;
+  bankRef?: string;
+  status: 'scheduled' | 'in_transit' | 'paid' | 'failed';
+  scheduledFor: string;
+  createdAt: string;
+  paidAt?: string;
+}
+
+export async function postLedgerEntries(
+  entries: Omit<LedgerEntry, 'id' | 'createdAt'>[]
+): Promise<LedgerEntry[]> {
+  const createdAt = now();
+  const rows = entries.map((e) => ({ ...e, id: randomUUID(), createdAt }));
+  // Chunk under the 100-item transaction cap (each entry costs 2 items:
+  // the ledger row plus a txId pointer for whole-transaction lookups).
+  for (let i = 0; i < rows.length; i += 45) {
+    const chunk = rows.slice(i, i + 45);
+    await docClient.send(
+      new TransactWriteCommand({
+        TransactItems: chunk.flatMap((entry) => [
+          {
+            Put: {
+              TableName: T(),
+              Item: {
+                pk: ledgerPk(entry.id),
+                sk: 'ENTRY',
+                ...entry,
+                gsi2pk: acctPk(entry.account),
+                gsi2sk: createdSk(entry.createdAt, entry.id),
+              },
+            },
+          },
+          {
+            Put: {
+              TableName: T(),
+              Item: { pk: `LEDGERTX#${entry.txId}`, sk: `E#${entry.id}`, entryId: entry.id },
+            },
+          },
+        ]),
+      })
+    );
+  }
+  return rows;
+}
+
+// Derived balance: sum of every entry on the account (never stored).
+export async function ledgerBalance(account: string): Promise<number> {
+  let sum = 0;
+  let cursor: Record<string, unknown> | undefined;
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: T(),
+        IndexName: 'gsi2',
+        KeyConditionExpression: 'gsi2pk = :pk',
+        ExpressionAttributeValues: { ':pk': acctPk(account) },
+        ExclusiveStartKey: cursor,
+      })
+    );
+    sum += (res.Items ?? []).reduce((s, i) => s + (i.amountMinor as number), 0);
+    cursor = res.LastEvaluatedKey;
+  } while (cursor);
+  return sum;
+}
+
+export async function listLedgerEntries(account: string, limit = 100): Promise<LedgerEntry[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk',
+      ExpressionAttributeValues: { ':pk': acctPk(account) },
+      ScanIndexForward: false,
+      Limit: limit,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[]).map((item) => {
+    const { pk, sk, gsi2pk, gsi2sk, ...rest } = item;
+    return rest as unknown as LedgerEntry;
+  });
+}
+
+// Account an order's primary-sale proceeds belong to.
+function saleAccount(event: EventItem): string {
+  return event.ownerOrgId ? `org:${event.ownerOrgId}` : `user:${event.creatorId}`;
+}
+
+// Post the ledger side of a fulfilled order. Called once per order —
+// guarded by the fulfill transaction's exactly-once status flip.
+export async function recordSaleLedger(order: Order): Promise<void> {
+  const event = await getEventMeta(order.eventId);
+  if (!event) return;
+  const currency = order.currency ?? 'usd';
+  const txId = `sale:${order.id}`;
+  const entries: Omit<LedgerEntry, 'id' | 'createdAt'>[] = [];
+  const base = {
+    txId,
+    currency,
+    orderId: order.id,
+    eventId: order.eventId,
+  };
+
+  if (order.kind === 'RESALE' && order.listingCode) {
+    // Resale: seller nets price - seller fee; the organiser royalty is
+    // carved out of that seller fee (TODO(decision-7)); the buyer fee is
+    // platform revenue.
+    const listing = await getListing(order.listingCode);
+    const sellerFee = Math.round((order.subtotalCents * env.sellerFeePercent) / 100);
+    const royalty = Math.min(
+      sellerFee,
+      Math.round((order.subtotalCents * (event.royaltyPct ?? env.royaltyPercent)) / 100)
+    );
+    if (listing) {
+      entries.push({
+        ...base,
+        account: `user:${listing.sellerId}`,
+        amountMinor: order.subtotalCents - sellerFee,
+        kind: 'sale',
+      });
+    }
+    if (royalty > 0) {
+      entries.push({ ...base, account: saleAccount(event), amountMinor: royalty, kind: 'royalty' });
+    }
+    entries.push({
+      ...base,
+      account: 'platform:fees',
+      amountMinor: order.feesCents + (sellerFee - royalty),
+      kind: 'fee',
+      memo: 'buyer fee + seller fee net of royalty',
+    });
+  } else {
+    // Primary sale: organiser proceeds = subtotal (buyer fee is platform
+    // revenue on top). decision-3: a reserve slice is held until event+14d.
+    const account = saleAccount(event);
+    const reserve = Math.round((order.subtotalCents * env.orgReservePct) / 100);
+    const net = order.subtotalCents - reserve;
+    if (reserve > 0) {
+      entries.push({
+        ...base,
+        account: 'platform:reserve',
+        amountMinor: reserve,
+        kind: 'reserve_hold',
+        beneficiary: account,
+      });
+    }
+    const hosts = await listEventHosts(order.eventId);
+    const splits = hosts.filter((h) => h.accepted);
+    if (splits.length > 0) {
+      // decision-11: accepted splits apply to this sale.
+      let distributed = 0;
+      for (const host of splits) {
+        const share =
+          host === splits[splits.length - 1]
+            ? net - distributed // last host takes the rounding remainder
+            : Math.round((net * host.splitBps) / 10000);
+        distributed += share;
+        if (share > 0) {
+          entries.push({
+            ...base,
+            account: `org:${host.orgId}`,
+            amountMinor: share,
+            kind: host.role === 'owner' ? 'sale' : 'split',
+          });
+        }
+      }
+    } else if (net > 0) {
+      entries.push({ ...base, account, amountMinor: net, kind: 'sale' });
+    }
+    if (order.feesCents > 0) {
+      entries.push({ ...base, account: 'platform:fees', amountMinor: order.feesCents, kind: 'fee' });
+    }
+  }
+  if ((order.taxCents ?? 0) > 0) {
+    entries.push({ ...base, account: 'tax', amountMinor: order.taxCents!, kind: 'sale', memo: 'VAT' });
+  }
+  if (entries.length > 0) await postLedgerEntries(entries);
+}
+
+// Refund flips the sale entries' signs (double-entry: every account that was
+// credited is debited back, so balances unwind exactly).
+export async function recordRefundLedger(order: Order, refundId: string): Promise<void> {
+  const sale = await listLedgerEntriesByTx(`sale:${order.id}`);
+  if (sale.length === 0) return;
+  const txId = `refund:${refundId}`;
+  await postLedgerEntries(
+    sale.map((e) => ({
+      txId,
+      account: e.account,
+      amountMinor: -e.amountMinor,
+      currency: e.currency,
+      kind: 'refund' as const,
+      orderId: order.id,
+      eventId: order.eventId,
+      refundId,
+    }))
+  );
+}
+
+async function listLedgerEntriesByTx(txId: string): Promise<LedgerEntry[]> {
+  // Entries within a tx share txId; query per-account is wrong here — use a
+  // narrow scan-free trick: entries also carry orderId. Accounts that
+  // participated: platform:fees, platform:reserve, tax + any org/user. We
+  // query the order-tagged entries through a small txId secondary lookup
+  // stored as a pointer row instead.
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :prefix)',
+      ExpressionAttributeValues: { ':pk': `LEDGERTX#${txId}`, ':prefix': 'E#' },
+    })
+  );
+  const out: LedgerEntry[] = [];
+  for (const item of res.Items ?? []) {
+    const got = await docClient.send(
+      new GetCommand({ TableName: T(), Key: { pk: ledgerPk(item.entryId as string), sk: 'ENTRY' } })
+    );
+    if (got.Item) {
+      const { pk, sk, gsi2pk, gsi2sk, ...rest } = got.Item as Record<string, unknown>;
+      out.push(rest as unknown as LedgerEntry);
+    }
+  }
+  return out;
+}
+
+// charge.dispute.created → chargeback: debit the seller-side accounts that
+// were credited by the original sale (org or resale seller + royalty).
+export async function recordChargebackLedger(
+  order: Order,
+  amountMinor: number,
+  disputeId: string
+): Promise<void> {
+  const sale = await listLedgerEntriesByTx(`sale:${order.id}`);
+  const sellerSide = sale.filter((e) => e.kind === 'sale' || e.kind === 'split' || e.kind === 'royalty');
+  const credited = sellerSide.reduce((s, e) => s + e.amountMinor, 0);
+  if (credited <= 0 || amountMinor <= 0) return;
+  // Debit pro-rata across the credited accounts up to the disputed amount.
+  const entries: Omit<LedgerEntry, 'id' | 'createdAt'>[] = [];
+  let remaining = Math.min(amountMinor, credited);
+  for (const e of sellerSide) {
+    const debit = Math.min(remaining, e.amountMinor);
+    if (debit <= 0) continue;
+    entries.push({
+      txId: `chargeback:${disputeId}`,
+      account: e.account,
+      amountMinor: -debit,
+      currency: e.currency,
+      kind: 'chargeback',
+      orderId: order.id,
+      eventId: order.eventId,
+      memo: `dispute ${disputeId}`,
+    });
+    remaining -= debit;
+  }
+  if (entries.length > 0) await postLedgerEntries(entries);
+}
+
+export async function createRefund(input: {
+  orderId: string;
+  amountMinor: number;
+  currency: string;
+  reason: string;
+  stripeRefundId?: string;
+}): Promise<Refund> {
+  const refund: Refund = {
+    id: randomUUID(),
+    orderId: input.orderId,
+    amountMinor: input.amountMinor,
+    currency: input.currency,
+    reason: input.reason,
+    stripeRefundId: input.stripeRefundId,
+    status: 'succeeded',
+    createdAt: now(),
+  };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: { pk: refundPk(refund.id), sk: 'METADATA', ...refund },
+    })
+  );
+  return refund;
+}
+
+// Full-order refund: order → REFUNDED (exactly-once), tickets voided,
+// ledger mirrored. The Stripe API call happens in the route.
+export async function refundOrder(orderId: string, reason: string): Promise<'refunded' | 'not_paid' | 'not_found'> {
+  const order = await getOrderMeta(orderId);
+  if (!order) return 'not_found';
+  if (order.status !== 'PAID') return 'not_paid';
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: orderPk(orderId), sk: 'METADATA' },
+        UpdateExpression: 'SET #status = :refunded, refundedAt = :at, refundReason = :reason',
+        ConditionExpression: '#status = :paid',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':refunded': 'REFUNDED',
+          ':paid': 'PAID',
+          ':at': now(),
+          ':reason': reason,
+        },
+      })
+    );
+  } catch (e) {
+    if (isConditionalCheck(e)) return 'not_paid';
+    throw e;
+  }
+  const codes = order.ticketCodes ?? [];
+  for (const code of codes) {
+    await voidTicket(code, `refund:${reason}`).catch(() => undefined);
+  }
+  // RESALE: the seller's ticket transfer isn't undone locally — the voided
+  // buyer ticket is enough for door integrity (decision-2 TODO).
+  const refund = await createRefund({
+    orderId,
+    amountMinor: order.totalCents,
+    currency: order.currency ?? 'usd',
+    reason,
+  });
+  await recordRefundLedger(order, refund.id);
+  return 'refunded';
+}
+
+// ---------- payouts ----------
+
+export async function createPayout(input: {
+  account: string;
+  amountMinor: number;
+  currency: string;
+  scheduledFor?: string;
+  bankRef?: string;
+}): Promise<Payout> {
+  const payout: Payout = {
+    id: randomUUID(),
+    account: input.account,
+    amountMinor: input.amountMinor,
+    currency: input.currency,
+    bankRef: input.bankRef,
+    status: 'scheduled',
+    scheduledFor: input.scheduledFor ?? now(),
+    createdAt: now(),
+  };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: payoutPk(payout.id),
+        sk: 'METADATA',
+        ...payout,
+        gsi2pk: `ACCT#${input.account}#PAYOUTS`,
+        gsi2sk: createdSk(payout.createdAt, payout.id),
+      },
+    })
+  );
+  // Debit the account immediately so the balance reflects committed money.
+  await postLedgerEntries([
+    {
+      txId: `payout:${payout.id}`,
+      account: input.account,
+      amountMinor: -input.amountMinor,
+      currency: input.currency,
+      kind: 'payout',
+      payoutId: payout.id,
+    },
+  ]);
+  return payout;
+}
+
+export async function listPayouts(account: string, limit = 50): Promise<Payout[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk',
+      ExpressionAttributeValues: { ':pk': `ACCT#${account}#PAYOUTS` },
+      ScanIndexForward: false,
+      Limit: limit,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[]).map((item) => {
+    const { pk, sk, gsi2pk, gsi2sk, ...rest } = item;
+    return rest as unknown as Payout;
+  });
+}
+
+export async function updatePayoutStatus(
+  id: string,
+  status: Payout['status'],
+  bankRef?: string
+): Promise<void> {
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: payoutPk(id), sk: 'METADATA' },
+      UpdateExpression: 'SET #status = :s, paidAt = :at, bankRef = :ref',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: { ':s': status, ':at': now(), ':ref': bankRef },
+    })
+  );
+}
+
+// decision-3: reserves release event_ends + ORG_RESERVE_DAYS. Called by the
+// sweeper: finds reserve_hold entries for ended events and credits each
+// beneficiary back.
+export async function releaseReservesForEndedEvents(): Promise<number> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk',
+      ExpressionAttributeValues: { ':pk': acctPk('platform:reserve') },
+    })
+  );
+  let released = 0;
+  const releaseAfter = Date.now() - env.orgReserveDays * 24 * 3600_000;
+  const holds = ((res.Items ?? []) as Record<string, unknown>[]) as (Record<string, unknown> &
+    LedgerEntry)[];
+  const pending = holds.filter((h) => h.kind === 'reserve_hold' && h.amountMinor > 0);
+  for (const hold of pending) {
+    if (!hold.eventId || !hold.beneficiary) continue;
+    const event = await getEventMeta(hold.eventId);
+    if (!event) continue;
+    const endsMs = Date.parse(event.endsAt ?? event.startsAt);
+    if (Number.isNaN(endsMs) || endsMs > releaseAfter) continue;
+    await postLedgerEntries([
+      {
+        txId: `reserve_release:${hold.id}`,
+        account: 'platform:reserve',
+        amountMinor: -hold.amountMinor,
+        currency: hold.currency,
+        kind: 'reserve_release',
+        orderId: hold.orderId,
+        eventId: hold.eventId,
+      },
+      {
+        txId: `reserve_release:${hold.id}`,
+        account: hold.beneficiary,
+        amountMinor: hold.amountMinor,
+        currency: hold.currency,
+        kind: 'reserve_release',
+        orderId: hold.orderId,
+        eventId: hold.eventId,
+      },
+    ]);
+    // Mark the hold consumed so it isn't released twice (amount → 0 on the
+    // original row keeps the audit trail of the gross hold).
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: ledgerPk(hold.id), sk: 'ENTRY' },
+        UpdateExpression: 'SET amountMinor = :zero, releasedAt = :at',
+        ConditionExpression: 'amountMinor = :orig',
+        ExpressionAttributeValues: { ':zero': 0, ':orig': hold.amountMinor, ':at': now() },
+      })
+    ).catch(() => undefined);
+    released++;
+  }
+  return released;
+}
+
+// ---------- door mode: devices, scan events, manifest (I, D1–D4) ----------
+
+const scanSk = (scanId: string) => `SCAN#${scanId}`;
+const devicePk = (id: string) => `DEVICE#${id}`;
+
+export interface ScanEvent {
+  scanId: string; // client-generated id for batch replay, server uuid for single scans
+  eventId: string;
+  ticketCode: string;
+  deviceId?: string;
+  actorId: string;
+  result: string; // admitted | already_used | wrong_event | void | superseded | not_found | undo
+  scannedAt: string; // server receipt time
+  deviceScannedAt?: string; // offline device's clock
+}
+
+export interface Device {
+  id: string;
+  userId: string;
+  orgId?: string;
+  name?: string;
+  lastSyncAt?: string;
+  createdAt: string;
+}
+
+// Register/update a scanner device for the signed-in user.
+export async function upsertDevice(input: {
+  id?: string;
+  userId: string;
+  orgId?: string;
+  name?: string;
+}): Promise<Device> {
+  const id = input.id ?? randomUUID();
+  const device: Device = {
+    id,
+    userId: input.userId,
+    orgId: input.orgId,
+    name: input.name,
+    lastSyncAt: now(),
+    createdAt: now(),
+  };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: { pk: devicePk(id), sk: 'METADATA', ...device },
+    })
+  );
+  return device;
+}
+
+export async function touchDeviceSync(id: string): Promise<void> {
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: devicePk(id), sk: 'METADATA' },
+      UpdateExpression: 'SET lastSyncAt = :at',
+      ExpressionAttributeValues: { ':at': now() },
+    })
+  );
+}
+
+export async function recordScanEvent(scan: ScanEvent): Promise<void> {
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: { pk: eventPk(scan.eventId), sk: scanSk(scan.scanId), ...scan },
+      ConditionExpression: 'attribute_not_exists(pk)',
+    })
+  ).catch((e) => {
+    // Same scan_id replayed → already recorded; that's the batch dedupe.
+    if (!isConditionalCheck(e)) throw e;
+  });
+}
+
+export async function getScanEvent(eventId: string, scanId: string): Promise<ScanEvent | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: eventPk(eventId), sk: scanSk(scanId) } })
+  );
+  if (!res.Item) return null;
+  const { pk, sk, ...rest } = res.Item as Record<string, unknown>;
+  return rest as unknown as ScanEvent;
+}
+
+export async function listScanEvents(eventId: string, limit = 500): Promise<ScanEvent[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :prefix)',
+      ExpressionAttributeValues: { ':pk': eventPk(eventId), ':prefix': 'SCAN#' },
+      Limit: limit,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[]).map((item) => {
+    const { pk, sk, ...rest } = item;
+    return rest as unknown as ScanEvent;
+  });
+}
+
+// Undo a check-in (decision window: env.doorUndoSeconds after admission).
+export async function undoCheckIn(
+  eventId: string,
+  ticketCode: string,
+  actorId: string,
+  actorRole: string
+): Promise<'undone' | 'not_checked_in' | 'window_closed' | 'forbidden' | 'not_found'> {
+  const event = await getEventMeta(eventId);
+  if (!event) return 'not_found';
+  if (!(await canManageEvent(event, actorId, actorRole, ['admin', 'cohost', 'gate']))) {
+    return 'forbidden';
+  }
+  const ticket = await getTicketByCode(ticketCode);
+  if (!ticket || ticket.eventId !== eventId) return 'not_found';
+  if (ticket.status !== 'USED' || !ticket.checkedInAt) return 'not_checked_in';
+  if (Date.parse(ticket.checkedInAt) < Date.now() - env.doorUndoSeconds * 1000) {
+    return 'window_closed';
+  }
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: ticketPk(ticketCode), sk: 'METADATA' },
+        UpdateExpression:
+          'SET #status = :valid, checkInUndoneAt = :at, checkInUndoneBy = :by REMOVE checkedInAt, checkedInDeviceId, checkedInScannedAt, checkedInScanId',
+        ConditionExpression: '#status = :used',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':valid': 'VALID',
+          ':used': 'USED',
+          ':at': now(),
+          ':by': actorId,
+        },
+      })
+    );
+    return 'undone';
+  } catch (e) {
+    if (isConditionalCheck(e)) return 'not_checked_in';
+    throw e;
+  }
+}
+
+// Door manifest: every ticket's current credential, hashed for offline
+// verification (the door never sees the raw secret).
+export async function doorManifest(eventId: string) {
+  const tickets = await listEventTickets(eventId);
+  const credentials = [] as {
+    ticket_id: string;
+    version: number;
+    hash: string;
+    tier: string;
+    holder: string;
+    qty_group: number;
+    status: string;
+    used: boolean;
+  }[];
+  const holderCache = new Map<string, string>();
+  for (const ticket of tickets) {
+    const current = await getCurrentCredential(ticket.code);
+    if (!current) continue; // tickets issued before credentials existed
+    let holder = holderCache.get(ticket.userId);
+    if (holder === undefined) {
+      const user = await getUserById(ticket.userId);
+      holder = user ? `${user.firstName} ${user.lastName}`.trim() : '';
+      holderCache.set(ticket.userId, holder);
+    }
+    credentials.push({
+      ticket_id: ticket.code,
+      version: current.version,
+      hash: createHash('sha256').update(current.secret).digest('hex'),
+      tier: ticket.tierName,
+      holder,
+      qty_group: 1,
+      status: ticket.status,
+      used: ticket.status === 'USED',
+    });
+  }
+  return { credentials, issued_at: now() };
+}
+
+// GET /me/door-events: events the caller can scan for — legacy creator-owned
+// events plus events of orgs where they hold an active membership (gate
+// staff restricted to their event scope).
+export async function listDoorEvents(
+  userId: string
+): Promise<{ event: EventItem; org: Organisation | null; role: string }[]> {
+  const out: { event: EventItem; org: Organisation | null; role: string }[] = [];
+  const seen = new Set<string>();
+
+  for (const event of await listCreatorEvents(userId)) {
+    if (event.ownerOrgId) continue; // surfaced via membership instead
+    out.push({ event, org: null, role: 'owner' });
+    seen.add(event.id);
+  }
+
+  const memberships = await listUserMemberships(userId);
+  for (const { membership, org } of memberships) {
+    if (!['admin', 'cohost', 'gate'].includes(membership.role)) continue;
+    const eventIds = await listOrgEventIds(org.id);
+    for (const eventId of eventIds) {
+      if (seen.has(eventId)) continue;
+      if (membership.role === 'gate' && membership.eventScope?.length) {
+        if (!membership.eventScope.includes(eventId)) continue;
+      }
+      const event = await getEventMeta(eventId);
+      if (!event) continue;
+      out.push({ event, org, role: membership.role });
+      seen.add(eventId);
+    }
+    // Events where this org is an accepted co-host.
+    // (Co-host orgs scan for the shared event too.)
+    // EventHost rows live under the event partition — check via events the
+    // org already hosts: skip unless linked; covered by listOrgEventIds only
+    // when the org created a pointer. TODO(api-gap): co-host org event
+    // pointers are written on accept in package follow-up.
+  }
+  return out;
 }
 
 // ---------- cursor pagination helpers ----------

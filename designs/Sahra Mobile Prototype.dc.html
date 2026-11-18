@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#ece4d6;font-family:'Bricolage Grotesque',sans-serif;color:#241c14}a{color:#b8323a}a:hover{color:#16263b}input,textarea,button{font-family:inherit}input::placeholder,textarea::placeholder{color:#6f84a0}</style>
+</helmet>
+<div style="display:flex;gap:48px;padding:48px;flex-wrap:wrap;align-items:flex-start;justify-content:center">
+
+<div style="width:410px;height:864px;border-radius:56px;background:#0b1420;padding:10px;box-sizing:border-box;flex:none">
+<div style="width:390px;height:844px;border-radius:46px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:{{ frameBg }};color:{{ frameFg }}">
+<div style="height:48px;padding:0 28px;display:flex;align-items:flex-end;justify-content:space-between;font-size:15px;font-weight:600;flex:none"><span>9:41</span><span style="width:70px;height:12px;border-radius:4px;background:currentColor;opacity:.25"></span></div>
+
+<sc-if value="{{ is.splash }}" hint-placeholder-val="{{ true }}"><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px"><img src="brand/png/sahra-logo-gold.png" alt="Sahra" style="width:150px"></img><span style="font-size:14px;letter-spacing:.2em;color:#9fb0c6">SAHRA.APP</span></div></sc-if>
+
+<sc-if value="{{ is.getStarted }}" hint-placeholder-val="{{ false }}"><div style="flex:1;display:flex;flex-direction:column;padding:12px 24px 36px;gap:20px">
+<div style="display:flex;justify-content:space-between;align-items:center"><img src="brand/png/sahra-logo-gold.png" alt="Sahra" style="width:56px"></img><button onClick="{{ toggleLang }}" style="background:#22344d;border:none;color:#f7f1e6;border-radius:99px;padding:8px 14px;font-size:14px;cursor:pointer">{{ langLabel }}</button></div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:16px"><strong style="font-size:40px;line-height:1.02;letter-spacing:-.03em">Every night out,<br><span style="color:#f2d9a0">one tap away.</span></strong><span style="font-size:16px;line-height:1.5;color:#c9d3df">Concerts, comedy and football across the Gulf. Buy, sell and send tickets safely, at fair prices.</span></div>
+<button onClick="{{ goSignUp }}" style="background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:99px;cursor:pointer">Create account</button>
+<button onClick="{{ goSignIn }}" style="background:none;border:1.5px solid #3a506c;color:#f7f1e6;font-weight:600;font-size:16px;padding:15px;border-radius:99px;cursor:pointer">I have an account</button>
+</div></sc-if>
+
+<sc-if value="{{ is.auth }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+<div style="padding:4px 24px 0;display:flex;flex-direction:column;gap:18px;flex:1;overflow:auto">
+<div style="display:flex;flex-direction:column;gap:6px"><strong style="font-size:28px;letter-spacing:-.02em;line-height:1.1">{{ authTitle }}</strong><span style="font-size:15px;line-height:1.45;color:#c9d3df">{{ authSub }}</span></div>
+<sc-if value="{{ authUp }}" hint-placeholder-val="{{ false }}"><label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#9fb0c6">Full name<input value="{{ f.name }}" onChange="{{ on.name }}" placeholder="Layla Al-Amin" style="background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input></label></sc-if>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#9fb0c6">Email<input value="{{ f.email }}" onChange="{{ on.email }}" placeholder="you@example.com" style="background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input></label>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#9fb0c6">Password<input type="password" value="{{ f.pw }}" onChange="{{ on.pw }}" placeholder="8+ characters" style="background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input></label>
+<sc-if value="{{ authUp }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;color:#9fb0c6">I’m signing up to</span><sc-for list="{{ acctTypes }}" as="a" hint-placeholder-count="2"><button onClick="{{ a.on }}" style="display:flex;gap:12px;align-items:flex-start;text-align:left;background:#22344d;border:1.5px solid {{ a.bd }};border-radius:14px;padding:14px 16px;color:#f7f1e6;cursor:pointer"><span style="width:20px;height:20px;flex:none;margin-top:1px;border-radius:50%;border:2px solid {{ a.bd }};display:flex;align-items:center;justify-content:center"><span style="width:10px;height:10px;border-radius:50%;background:{{ a.dot }}"></span></span><span style="display:flex;flex-direction:column;gap:3px"><span style="font-size:15px;font-weight:600">{{ a.t }}</span><span style="font-size:13px;line-height:1.4;color:#9fb0c6">{{ a.d }}</span></span></button></sc-for></div></sc-if>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#e0626a">{{ err }}</span></sc-if>
+<sc-if value="{{ authIn }}" hint-placeholder-val="{{ true }}"><button onClick="{{ goForgot }}" style="align-self:flex-end;background:none;border:none;color:#f2d9a0;font-size:14px;cursor:pointer;padding:4px 0">Forgot password?</button></sc-if>
+<span style="font-size:12px;color:#6f84a0">Prototype: any email + 8-character password works. layla.alamin@gmail.com is fan + host (lands on personal). host@kave.ae is host-only (lands on creator).</span>
+</div>
+<div style="padding:12px 24px 28px;display:flex;flex-direction:column;gap:8px"><button onClick="{{ submitAuth }}" style="width:100%;background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:99px;cursor:pointer">{{ authCta }}</button><button onClick="{{ authSwap }}" style="background:none;border:none;color:#c9d3df;font-size:14px;cursor:pointer;padding:8px">{{ authSwapLbl }}</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.forgot }}" hint-placeholder-val="{{ false }}"><div style="flex:1;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+<div style="padding:4px 24px 0;display:flex;flex-direction:column;gap:16px;flex:1"><strong style="font-size:28px;letter-spacing:-.02em">Reset password</strong><span style="font-size:15px;color:#c9d3df;line-height:1.5">We’ll send a 6-digit code to your email.</span>
+<input value="{{ f.resetEmail }}" onChange="{{ on.resetEmail }}" placeholder="you@example.com" style="background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#e0626a">{{ err }}</span></sc-if></div>
+<div style="padding:12px 24px 32px"><button onClick="{{ sendReset }}" style="width:100%;background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:99px;cursor:pointer">Send code</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.otp }}" hint-placeholder-val="{{ false }}"><div style="flex:1;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+<div style="padding:4px 24px 0;display:flex;flex-direction:column;gap:16px;flex:1"><strong style="font-size:28px;letter-spacing:-.02em">Enter the code</strong><span style="font-size:15px;color:#c9d3df;line-height:1.5">Sent to {{ f.resetEmail }}. Any 6 digits work here.</span>
+<input value="{{ f.otp }}" onChange="{{ on.otp }}" inputMode="numeric" maxLength="6" placeholder="••••••" style="background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:16px;font-size:28px;letter-spacing:.5em;text-align:center;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#e0626a">{{ err }}</span></sc-if>
+<button onClick="{{ resend }}" style="align-self:flex-start;background:none;border:none;color:#f2d9a0;font-size:14px;cursor:pointer;padding:0">Resend code</button></div>
+<div style="padding:12px 24px 32px"><button onClick="{{ verifyOtp }}" style="width:100%;background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:99px;cursor:pointer">Verify</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.newPw }}" hint-placeholder-val="{{ false }}"><div style="flex:1;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+<div style="padding:4px 24px 0;display:flex;flex-direction:column;gap:16px;flex:1"><strong style="font-size:28px;letter-spacing:-.02em">New password</strong>
+<input type="password" value="{{ f.np1 }}" onChange="{{ on.np1 }}" placeholder="New password" style="background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input>
+<input type="password" value="{{ f.np2 }}" onChange="{{ on.np2 }}" placeholder="Confirm password" style="background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input>
+<div style="display:flex;flex-direction:column;gap:8px;font-size:14px"><sc-for list="{{ npRules }}" as="r" hint-placeholder-count="3"><div style="display:flex;gap:10px;align-items:center;color:{{ r.c }}"><span style="width:18px;height:18px;border-radius:50%;background:{{ r.bg }};color:#16263b;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">{{ r.i }}</span>{{ r.n }}</div></sc-for></div></div>
+<div style="padding:12px 24px 32px"><button onClick="{{ saveNewPw }}" style="width:100%;background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:99px;cursor:pointer;opacity:{{ npOp }}">Save and sign in</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.personalize }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:16px 24px 0;display:flex;flex-direction:column;gap:6px"><strong style="font-size:28px;letter-spacing:-.02em">Make it yours</strong><span style="font-size:15px;color:#c9d3df">Pick your city and at least 3 things you love.</span></div>
+<div style="flex:1;overflow:auto;padding:18px 24px 0;display:flex;flex-direction:column;gap:12px">
+<span style="font-size:13px;color:#9fb0c6">City</span><div style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ cityChips }}" as="c" hint-placeholder-count="5"><button onClick="{{ c.on }}" style="border:none;border-radius:99px;padding:9px 14px;font-size:14px;font-weight:500;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</button></sc-for></div>
+<span style="font-size:13px;color:#9fb0c6;padding-top:8px">Interests · {{ intCount }}</span><div style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ intChips }}" as="c" hint-placeholder-count="7"><button onClick="{{ c.on }}" style="border:none;border-radius:99px;padding:9px 14px;font-size:14px;font-weight:500;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</button></sc-for></div>
+</div>
+<div style="padding:12px 24px 32px"><button onClick="{{ finishPersonalize }}" style="width:100%;background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:99px;cursor:pointer;opacity:{{ intOp }}">Show my events</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.home }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;overflow:auto">
+<div style="padding:12px 20px 0;display:flex;align-items:center;justify-content:space-between"><img src="brand/png/sahra-logo-gold.png" alt="Sahra" style="width:60px"></img><div style="display:flex;gap:8px;align-items:center"><button onClick="{{ openCity }}" style="display:flex;align-items:center;gap:6px;background:#22344d;border:none;color:#f7f1e6;border-radius:99px;padding:9px 14px;font-size:14px;font-weight:500;cursor:pointer">{{ city }} <span style="color:#f2d9a0">▾</span></button><button onClick="{{ openInbox }}" style="width:40px;height:40px;border-radius:50%;background:#22344d;border:none;color:#f7f1e6;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1112 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.9 1.9 0 003.4 0"></path></svg><sc-if value="{{ unread }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:8px;right:9px;width:8px;height:8px;border-radius:50%;background:#f2d9a0"></span></sc-if></button></div></div>
+<div style="padding:18px 20px 0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;color:#9fb0c6">Marhaba, {{ firstName }}</span><strong style="font-size:28px;letter-spacing:-.02em">For you in {{ city }}</strong></div>
+<sc-if value="{{ homeEmpty }}" hint-placeholder-val="{{ false }}"><div style="margin:24px 20px;padding:24px;border-radius:18px;border:1.5px dashed #3a506c;display:flex;flex-direction:column;gap:12px;align-items:flex-start"><strong style="font-size:18px">Nothing in {{ city }} yet</strong><span style="font-size:14px;color:#c9d3df;line-height:1.5">We’re signing venues there now. Turn on Weekly picks and we’ll tell you first.</span><button onClick="{{ backToDubai }}" style="background:#f2d9a0;color:#16263b;border:none;border-radius:99px;padding:10px 16px;font-weight:600;cursor:pointer">Show Dubai</button></div></sc-if>
+<sc-if value="{{ homeHas }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ hero.on }}" style="margin:16px 20px 0;width:350px;height:220px;border:none;border-radius:20px;padding:18px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;gap:4px;text-align:left;cursor:pointer;color:#f7f1e6;background:repeating-linear-gradient(135deg,{{ hero.tone }} 0 14px,#2a3b52 14px 28px)"><span style="font-size:12px;font-weight:600;background:#f2d9a0;color:#16263b;padding:4px 10px;border-radius:99px">{{ hero.tag }}</span><strong style="font-size:24px;letter-spacing:-.02em">{{ hero.t }}</strong><span style="font-size:14px">{{ hero.sub }}</span></button>
+<div style="padding:22px 20px 8px;font-weight:600;font-size:18px">Coming up</div>
+<div style="padding:0 20px 20px;display:flex;flex-direction:column;gap:4px"><sc-for list="{{ homeList }}" as="e" hint-placeholder-count="3"><button onClick="{{ e.on }}" style="display:flex;gap:14px;align-items:center;padding:10px 0;background:none;border:none;color:inherit;text-align:left;cursor:pointer"><span style="width:64px;height:64px;border-radius:12px;flex:none;background:{{ e.tone }}"></span><span style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0"><strong style="font-size:15px">{{ e.t }}</strong><span style="font-size:13px;color:#9fb0c6">{{ e.sub }}</span><span style="font-size:13px;color:#f2d9a0;font-weight:600">{{ e.price }}</span></span></button></sc-for></div>
+</sc-if>
+</div></sc-if>
+
+<sc-if value="{{ is.search }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:12px 20px 0"><input value="{{ f.q }}" onChange="{{ on.q }}" placeholder="Events, venues, artists" style="width:100%;box-sizing:border-box;background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input></div>
+<div style="padding:12px 20px 0;display:flex;gap:8px;overflow-x:auto;flex:none"><sc-for list="{{ catChips }}" as="c" hint-placeholder-count="5"><button onClick="{{ c.on }}" style="flex:none;border:none;border-radius:99px;padding:8px 14px;font-size:14px;font-weight:500;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</button></sc-for></div>
+<div style="flex:1;overflow:auto;padding:14px 20px 20px;display:flex;flex-direction:column;gap:4px">
+<span style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#9fb0c6">{{ resultsLabel }}</span>
+<sc-for list="{{ results }}" as="e" hint-placeholder-count="3"><button onClick="{{ e.on }}" style="display:flex;gap:14px;align-items:center;padding:10px 0;background:none;border:none;color:inherit;text-align:left;cursor:pointer"><span style="width:56px;height:56px;border-radius:12px;flex:none;background:{{ e.tone }}"></span><span style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0"><strong style="font-size:15px">{{ e.t }}</strong><span style="font-size:13px;color:#9fb0c6">{{ e.sub }}</span></span><span style="font-size:13px;color:#f2d9a0;font-weight:600">{{ e.price }}</span></button></sc-for>
+<sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}"><div style="padding:28px 0;display:flex;flex-direction:column;gap:8px;align-items:flex-start"><strong style="font-size:17px">No events match “{{ f.q }}”</strong><span style="font-size:14px;color:#c9d3df">Try an artist, a venue, or clear the category filter.</span><button onClick="{{ clearSearch }}" style="background:none;border:1.5px solid #3a506c;color:#f7f1e6;border-radius:99px;padding:9px 14px;cursor:pointer;margin-top:6px">Clear search</button></div></sc-if>
+</div>
+</div></sc-if>
+
+<sc-if value="{{ is.event }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column;margin-top:-48px">
+<div style="flex:1;overflow:auto">
+<div style="height:300px;padding:56px 16px 20px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;background:repeating-linear-gradient(135deg,{{ ev.tone }} 0 14px,#2a3b52 14px 28px)"><button onClick="{{ back }}" style="width:40px;height:40px;border-radius:50%;background:#16263bcc;border:none;color:#f7f1e6;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><span style="align-self:flex-start;font-size:12px;font-weight:600;background:#16263bcc;padding:5px 10px;border-radius:99px">{{ ev.cat }}</span></div>
+<div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+<strong style="font-size:28px;letter-spacing:-.02em;line-height:1.1">{{ ev.t }}</strong>
+<div style="display:flex;flex-direction:column;gap:4px;font-size:15px;color:#c9d3df"><span>{{ ev.d }} · {{ ev.time }}</span><span>{{ ev.v }} · {{ ev.area }}</span></div>
+<sc-if value="{{ evHeld }}" hint-placeholder-val="{{ false }}"><button onClick="{{ openHeld }}" style="display:flex;justify-content:space-between;align-items:center;background:#22344d;border:1.5px solid #f2d9a0;border-radius:14px;padding:14px 16px;color:#f7f1e6;font-size:15px;cursor:pointer"><span>You have {{ evHeldText }}</span><span style="color:#f2d9a0;font-weight:600">View</span></button></sc-if>
+<sc-if value="{{ evNotOnSale }}" hint-placeholder-val="{{ false }}"><div style="background:#22344d;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;color:#9fb0c6">On sale</span><strong style="font-size:17px">{{ ev.saleDate }}</strong></div></sc-if>
+<span style="font-size:15px;line-height:1.55;color:#c9d3df">{{ ev.about }}</span>
+<div style="display:flex;justify-content:space-between;font-size:14px;padding:12px 0;border-top:1px solid #22344d;color:#9fb0c6"><span>{{ ev.kind }}</span><span>{{ ev.resaleTxt }}</span></div>
+</div></div>
+<div style="flex:none;padding:14px 20px 30px;background:#0f1c2d;display:flex;align-items:center;justify-content:space-between;gap:12px"><span style="display:flex;flex-direction:column"><span style="font-size:12px;color:#9fb0c6">{{ ev.priceLabel }}</span><strong style="font-size:20px">{{ ev.price }}</strong></span><button onClick="{{ evCta.on }}" style="border:none;border-radius:99px;padding:15px 24px;font-weight:600;font-size:16px;cursor:pointer;background:{{ evCta.bg }};color:{{ evCta.fg }}">{{ evCta.n }}</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.tiers }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Choose tickets</strong></div>
+<div style="padding:0 20px;font-size:13px;color:#9fb0c6">{{ ev.t }} · max 6 per order</div>
+<div style="flex:1;overflow:auto;padding:14px 20px 20px;display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ tierRows }}" as="t" hint-placeholder-count="3"><div style="background:#22344d;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><span style="display:flex;flex-direction:column;gap:2px"><strong style="font-size:16px">{{ t.n }}</strong><span style="font-size:13px;color:{{ t.noteC }}">{{ t.note }}</span></span>
+<sc-if value="{{ t.avail }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:12px"><strong style="font-size:15px">{{ t.price }}</strong><button onClick="{{ t.dec }}" style="width:34px;height:34px;border-radius:50%;border:1.5px solid #3a506c;background:none;color:#f7f1e6;font-size:18px;cursor:pointer">−</button><strong style="width:16px;text-align:center">{{ t.qty }}</strong><button onClick="{{ t.inc }}" style="width:34px;height:34px;border-radius:50%;border:none;background:#f2d9a0;color:#16263b;font-size:18px;cursor:pointer">+</button></span></sc-if>
+<sc-if value="{{ t.soldOut }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px;background:#3a506c">Sold out</span></sc-if></div>
+<sc-for list="{{ t.resale }}" as="r" hint-placeholder-count="0"><div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid #3a506c;font-size:14px"><span><span style="font-size:11px;font-weight:700;color:#16263b;background:#f2d9a0;padding:2px 7px;border-radius:99px;margin-right:8px">Resale</span>{{ r.qtyText }}</span><button onClick="{{ r.buy }}" style="background:none;border:1.5px solid #f2d9a0;color:#f2d9a0;border-radius:99px;padding:7px 12px;font-weight:600;cursor:pointer">{{ r.price }}</button></div></sc-for>
+<sc-if value="{{ t.soldOut }}" hint-placeholder-val="{{ false }}"><button onClick="{{ t.setPrice }}" style="background:none;border:1.5px dashed #3a506c;color:#f7f1e6;border-radius:12px;padding:10px;font-size:14px;cursor:pointer">None at your price? <strong style="color:#f2d9a0">Set your price</strong></button></sc-if>
+</div></sc-for>
+</div>
+<div style="flex:none;padding:14px 20px 30px;background:#0f1c2d;display:flex;align-items:center;justify-content:space-between"><span style="display:flex;flex-direction:column"><span style="font-size:12px;color:#9fb0c6">{{ cartQtyText }}</span><strong style="font-size:20px">{{ cartTotal }}</strong></span><button onClick="{{ tiersNext }}" style="border:none;border-radius:99px;padding:15px 24px;font-weight:600;font-size:16px;cursor:pointer;background:#f2d9a0;color:#16263b;opacity:{{ cartOp }}">Continue</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.sections }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Pick a section</strong></div>
+<div style="margin:8px 20px 0;height:200px;border-radius:18px;background:#0f1c2d;position:relative;display:flex;flex-direction:column;align-items:center;padding-top:14px;gap:10px;box-sizing:border-box"><span style="font-size:11px;letter-spacing:.2em;color:#9fb0c6;background:#0b1420;padding:6px 40px;border-radius:6px">STAGE</span><div style="display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:8px;width:300px"><sc-for list="{{ secRows }}" as="s" hint-placeholder-count="3"><button onClick="{{ s.on }}" style="height:110px;border-radius:10px;border:none;cursor:pointer;font-weight:700;font-size:13px;background:{{ s.mapBg }};color:#16263b">{{ s.id }}</button></sc-for></div></div>
+<div style="flex:1;overflow:auto;padding:14px 20px 20px;display:flex;flex-direction:column;gap:8px"><sc-for list="{{ secRows }}" as="s" hint-placeholder-count="3"><button onClick="{{ s.on }}" style="display:flex;justify-content:space-between;align-items:center;background:#22344d;border:none;border-radius:14px;padding:14px 16px;color:#f7f1e6;cursor:pointer;font-size:15px"><span style="display:flex;align-items:center;gap:10px"><span style="width:12px;height:12px;border-radius:3px;background:{{ s.mapBg }}"></span>{{ s.n }}</span><span style="display:flex;flex-direction:column;align-items:flex-end"><strong>{{ s.price }}</strong><span style="font-size:12px;color:#9fb0c6">{{ s.left }}</span></span></button></sc-for></div>
+</div></sc-if>
+
+<sc-if value="{{ is.seats }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">{{ secName }}</strong></div>
+<div style="margin:6px 20px 0;padding:7px;border-radius:8px;background:#0b1420;text-align:center;font-size:11px;letter-spacing:.2em;color:#9fb0c6">STAGE ↑</div>
+<div style="flex:1;overflow:auto;padding:16px 20px;display:flex;flex-direction:column;gap:8px;align-items:center"><sc-for list="{{ seatRows }}" as="r" hint-placeholder-count="8"><div style="display:flex;gap:6px;align-items:center"><span style="width:16px;font-size:11px;color:#9fb0c6">{{ r.r }}</span><sc-for list="{{ r.seats }}" as="s" hint-placeholder-count="10"><button onClick="{{ s.on }}" style="width:26px;height:26px;border-radius:7px 7px 4px 4px;border:none;padding:0;font-size:10px;font-weight:700;background:{{ s.bg }};color:#16263b;cursor:{{ s.cur }}">{{ s.l }}</button></sc-for></div></sc-for>
+<div style="display:flex;gap:14px;font-size:12px;color:#9fb0c6;padding-top:10px"><span style="display:flex;gap:6px;align-items:center"><span style="width:12px;height:12px;border-radius:3px;background:#6f84a0"></span>Free</span><span style="display:flex;gap:6px;align-items:center"><span style="width:12px;height:12px;border-radius:3px;background:#f2d9a0"></span>Yours</span><span style="display:flex;gap:6px;align-items:center"><span style="width:12px;height:12px;border-radius:3px;background:#2a3b52"></span>Taken</span></div></div>
+<div style="flex:none;padding:14px 20px 30px;background:#0f1c2d;display:flex;align-items:center;justify-content:space-between"><span style="display:flex;flex-direction:column"><span style="font-size:12px;color:#9fb0c6">{{ seatSel }}</span><strong style="font-size:20px">{{ cartTotal }}</strong></span><button onClick="{{ seatsNext }}" style="border:none;border-radius:99px;padding:15px 24px;font-weight:600;font-size:16px;cursor:pointer;background:#f2d9a0;color:#16263b;opacity:{{ cartOp }}">Continue</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.checkout }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px;color:#16263b"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Checkout</strong></div>
+<div style="flex:1;overflow:auto;padding:8px 20px 20px;display:flex;flex-direction:column;gap:14px">
+<div style="background:#fff9ef;border:1px solid #e3d9c6;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:8px"><strong style="font-size:16px;color:#16263b">{{ co.ev }}</strong><span style="font-size:13px;opacity:.7">{{ co.when }}</span>
+<sc-for list="{{ co.lines }}" as="l" hint-placeholder-count="1"><div style="display:flex;justify-content:space-between;font-size:15px;padding-top:6px"><span>{{ l.label }}</span><span>{{ l.amt }}</span></div></sc-for></div>
+<div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:600">Pay with</span><sc-for list="{{ payOpts }}" as="p" hint-placeholder-count="2"><button onClick="{{ p.on }}" style="display:flex;justify-content:space-between;align-items:center;background:#fff9ef;border:1.5px solid {{ p.bd }};border-radius:14px;padding:13px 16px;font-size:15px;color:#241c14;cursor:pointer"><span>{{ p.n }}</span><span style="width:18px;height:18px;border-radius:50%;border:2px solid #16263b;background:{{ p.dot }};box-sizing:border-box"></span></button></sc-for></div>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:600">Promo code</span><div style="display:flex;gap:8px"><input value="{{ f.promo }}" onChange="{{ on.promo }}" placeholder="e.g. WELCOME10" style="flex:1;min-width:0;background:#fff9ef;border:1.5px solid #d8cdb9;border-radius:12px;padding:12px 14px;font-size:15px;text-transform:uppercase;outline:none;color:#241c14"></input><button onClick="{{ applyPromo }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:0 18px;font-weight:600;cursor:pointer">Apply</button></div><span style="font-size:13px;color:{{ promoMsgC }}">{{ promoMsg }}</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:15px;border-top:1px solid #e3d9c6;padding-top:12px"><div style="display:flex;justify-content:space-between"><span>Subtotal</span><span>{{ co.sub }}</span></div><div style="display:flex;justify-content:space-between"><span>Service fee (5%)</span><span>{{ co.fee }}</span></div><sc-if value="{{ co.hasDisc }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:space-between;color:#2f7a4f"><span>{{ co.discLabel }}</span><span>{{ co.disc }}</span></div></sc-if><div style="display:flex;justify-content:space-between;font-weight:800;font-size:18px;color:#16263b;padding-top:4px"><span>Total</span><span>{{ co.total }}</span></div></div>
+<sc-if value="{{ payErr }}" hint-placeholder-val="{{ false }}"><div style="background:#b8323a14;border:1.5px solid #b8323a;color:#b8323a;border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.45">{{ payErr }}</div></sc-if>
+</div>
+<div style="flex:none;padding:12px 20px 30px"><button onClick="{{ pay }}" style="width:100%;background:#16263b;color:#f2d9a0;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:99px;cursor:pointer">{{ payLabel }}</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.pass }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;align-items:center;padding:0 20px 24px">
+<div style="align-self:stretch;display:flex;justify-content:space-between;align-items:center;min-height:48px"><button onClick="{{ closePass }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button><span style="font-size:13px;color:#9fb0c6">Works offline</span></div>
+<div style="width:100%;background:#f2d9a0;color:#16263b;border-radius:24px;overflow:hidden;display:flex;flex-direction:column">
+<div style="padding:20px;display:flex;flex-direction:column;gap:6px"><img src="brand/png/sahra-logo-night.png" alt="" style="width:64px"></img><strong style="font-size:22px;letter-spacing:-.02em">{{ pass.t }}</strong><span style="font-size:14px">{{ pass.v }} · {{ pass.when }}</span><span style="font-size:14px;font-weight:600">{{ pass.qty }} · {{ pass.tier }}</span></div>
+<div style="border-top:2px dashed #16263b55;margin:0 16px"></div>
+<div style="padding:20px;display:flex;flex-direction:column;align-items:center;gap:10px"><div style="width:180px;height:180px;background:#fff9ef;border-radius:12px;padding:12px;box-sizing:border-box;display:grid;grid-template-columns:repeat(9,1fr);gap:2px"><sc-for list="{{ qr }}" as="q" hint-placeholder-count="81"><span style="background:{{ q.bg }};border-radius:2px"></span></sc-for></div><span style="font-size:13px;letter-spacing:.1em">{{ pass.code }}</span></div>
+</div>
+<sc-if value="{{ pass.selling }}" hint-placeholder-val="{{ false }}"><div style="width:100%;margin-top:14px;background:#22344d;border-radius:14px;padding:14px 16px;font-size:14px;line-height:1.5;color:#c9d3df">{{ pass.listText }}</div><button onClick="{{ stopSelling }}" style="width:100%;margin-top:12px;background:none;border:1.5px solid #3a506c;color:#f7f1e6;font-weight:600;font-size:16px;padding:15px;border-radius:99px;cursor:pointer">Stop selling</button></sc-if>
+<sc-if value="{{ pass.holding }}" hint-placeholder-val="{{ true }}"><div style="width:100%;margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px"><button onClick="{{ goSend }}" style="background:#22344d;border:none;color:#f7f1e6;font-weight:600;font-size:15px;padding:15px;border-radius:99px;cursor:pointer">Send</button><button onClick="{{ goSell }}" style="background:#22344d;border:none;color:#f7f1e6;font-weight:600;font-size:15px;padding:15px;border-radius:99px;cursor:pointer">I can’t go · Sell</button></div></sc-if>
+</div></sc-if>
+
+<sc-if value="{{ is.tickets }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;overflow:auto;padding:12px 20px 20px;display:flex;flex-direction:column;gap:12px">
+<strong style="font-size:28px;letter-spacing:-.02em">Tickets</strong>
+<sc-if value="{{ tkEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:28px 20px;border-radius:18px;border:1.5px dashed #3a506c;display:flex;flex-direction:column;gap:10px;align-items:flex-start"><strong style="font-size:18px">No tickets yet</strong><span style="font-size:14px;color:#c9d3df">Anything you buy, receive or auto-buy shows up here.</span><button onClick="{{ browse }}" style="background:#f2d9a0;color:#16263b;border:none;border-radius:99px;padding:10px 16px;font-weight:600;cursor:pointer">Find something</button></div></sc-if>
+<sc-if value="{{ hasUpcoming }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#9fb0c6">Upcoming</span>
+<sc-for list="{{ tkUpcoming }}" as="t" hint-placeholder-count="1"><button onClick="{{ t.on }}" style="background:#f2d9a0;color:#16263b;border:none;border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:6px;text-align:left;cursor:pointer"><span style="display:flex;justify-content:space-between;align-items:center;width:100%"><strong style="font-size:17px">{{ t.t }}</strong><span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;background:{{ t.cbg }};color:{{ t.cfg }}">{{ t.chip }}</span></span><span style="font-size:14px">{{ t.sub }}</span><span style="font-size:13px;opacity:.7">{{ t.extra }}</span></button></sc-for></sc-if>
+<sc-if value="{{ hasWaiting }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#9fb0c6;padding-top:6px">Waiting for tickets</span>
+<sc-for list="{{ tkWaiting }}" as="w" hint-placeholder-count="1"><div style="border:1.5px dashed #3a506c;border-radius:18px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px"><span style="display:flex;flex-direction:column;gap:2px"><strong style="font-size:15px">{{ w.t }}</strong><span style="font-size:13px;color:#9fb0c6">{{ w.sub }}</span></span><button onClick="{{ w.cancel }}" style="background:none;border:none;color:#f2d9a0;font-size:14px;cursor:pointer">Cancel</button></div></sc-for></sc-if>
+<sc-if value="{{ hasPast }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#9fb0c6;padding-top:6px">Sold &amp; sent</span>
+<sc-for list="{{ tkPast }}" as="t" hint-placeholder-count="1"><div style="background:#22344d;border-radius:16px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px"><span style="display:flex;flex-direction:column;gap:2px"><strong style="font-size:15px">{{ t.t }}</strong><span style="font-size:13px;color:#9fb0c6">{{ t.sub }} · {{ t.extra }}</span></span><span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;background:{{ t.cbg }};color:{{ t.cfg }}">{{ t.chip }}</span></div></sc-for></sc-if>
+</div></sc-if>
+
+<sc-if value="{{ is.send }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Send tickets</strong></div>
+<div style="flex:1;overflow:auto;padding:8px 20px;display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;justify-content:space-between;align-items:center;background:#22344d;border-radius:14px;padding:14px 16px"><span style="display:flex;flex-direction:column"><strong>How many?</strong><span style="font-size:13px;color:#9fb0c6">{{ pass.tier }}</span></span><span style="display:flex;align-items:center;gap:12px"><button onClick="{{ sendDec }}" style="width:34px;height:34px;border-radius:50%;border:1.5px solid #3a506c;background:none;color:#f7f1e6;font-size:18px;cursor:pointer">−</button><strong>{{ sendQty }}</strong><button onClick="{{ sendInc }}" style="width:34px;height:34px;border-radius:50%;border:none;background:#f2d9a0;color:#16263b;font-size:18px;cursor:pointer">+</button></span></div>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#9fb0c6">Send to<input value="{{ f.to }}" onChange="{{ on.to }}" placeholder="Phone (+971…) or email" style="background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input></label>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#e0626a">{{ err }}</span></sc-if>
+<span style="font-size:14px;line-height:1.5;color:#c9d3df">They get a link to claim the tickets. If they don’t have Sahra yet, the link walks them through sign-up.</span></div>
+<div style="padding:12px 20px 30px"><button onClick="{{ sendTickets }}" style="width:100%;background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:99px;cursor:pointer">Review and send</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.sell }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Sell tickets</strong></div>
+<div style="flex:1;overflow:auto;padding:8px 20px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;justify-content:space-between;align-items:center;background:#22344d;border-radius:14px;padding:14px 16px"><strong>How many?</strong><span style="display:flex;align-items:center;gap:12px"><button onClick="{{ sellDec }}" style="width:34px;height:34px;border-radius:50%;border:1.5px solid #3a506c;background:none;color:#f7f1e6;font-size:18px;cursor:pointer">−</button><strong>{{ sellQty }}</strong><button onClick="{{ sellInc }}" style="width:34px;height:34px;border-radius:50%;border:none;background:#f2d9a0;color:#16263b;font-size:18px;cursor:pointer">+</button></span></div>
+<div style="background:#22344d;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;align-items:center"><strong>Price each</strong><span style="display:flex;align-items:center;gap:12px"><button onClick="{{ priceDown }}" style="width:34px;height:34px;border-radius:50%;border:1.5px solid #3a506c;background:none;color:#f7f1e6;font-size:18px;cursor:pointer">−</button><strong style="min-width:80px;text-align:center">{{ sellPrice }}</strong><button onClick="{{ priceUp }}" style="width:34px;height:34px;border-radius:50%;border:none;background:#f2d9a0;color:#16263b;font-size:18px;cursor:pointer">+</button></span></div><span style="font-size:13px;color:#9fb0c6">{{ sellCap }}</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:15px;padding:4px 2px"><div style="display:flex;justify-content:space-between"><span>Buyer pays</span><span>{{ sellGross }}</span></div><div style="display:flex;justify-content:space-between;color:#9fb0c6"><span>Sahra fee (5%)</span><span>{{ sellFee }}</span></div><div style="display:flex;justify-content:space-between;font-weight:800;font-size:18px;color:#f2d9a0"><span>You get</span><span>{{ sellPayout }}</span></div></div>
+<span style="font-size:13px;line-height:1.5;color:#9fb0c6">Paid after the event happens. Your QR stops working the moment a buyer pays.</span></div>
+<div style="padding:12px 20px 30px"><button onClick="{{ listForSale }}" style="width:100%;background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:99px;cursor:pointer">List for sale</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.setPrice }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Set your price</strong></div>
+<div style="flex:1;overflow:auto;padding:8px 20px;display:flex;flex-direction:column;gap:14px"><span style="font-size:15px;line-height:1.5;color:#c9d3df">{{ ev.t }} · {{ sp.tier }}. When someone lists at or below your price, we buy it for you automatically.</span>
+<div style="display:flex;justify-content:space-between;align-items:center;background:#22344d;border-radius:14px;padding:14px 16px"><strong>Tickets</strong><span style="display:flex;align-items:center;gap:12px"><button onClick="{{ spQtyDec }}" style="width:34px;height:34px;border-radius:50%;border:1.5px solid #3a506c;background:none;color:#f7f1e6;font-size:18px;cursor:pointer">−</button><strong>{{ sp.qty }}</strong><button onClick="{{ spQtyInc }}" style="width:34px;height:34px;border-radius:50%;border:none;background:#f2d9a0;color:#16263b;font-size:18px;cursor:pointer">+</button></span></div>
+<div style="display:flex;justify-content:space-between;align-items:center;background:#22344d;border-radius:14px;padding:14px 16px"><strong>Max per ticket</strong><span style="display:flex;align-items:center;gap:12px"><button onClick="{{ spDown }}" style="width:34px;height:34px;border-radius:50%;border:1.5px solid #3a506c;background:none;color:#f7f1e6;font-size:18px;cursor:pointer">−</button><strong style="min-width:80px;text-align:center">{{ sp.price }}</strong><button onClick="{{ spUp }}" style="width:34px;height:34px;border-radius:50%;border:none;background:#f2d9a0;color:#16263b;font-size:18px;cursor:pointer">+</button></span></div>
+<span style="font-size:14px;color:#9fb0c6">Most you’ll pay, incl. fees: <strong style="color:#f7f1e6">{{ sp.total }}</strong>. Charged only if we find tickets.</span></div>
+<div style="padding:12px 20px 30px"><button onClick="{{ confirmSetPrice }}" style="width:100%;background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:99px;cursor:pointer">Start auto-buy</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.profile }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;overflow:auto;padding-bottom:20px">
+<div style="padding:12px 20px 0;display:flex;justify-content:space-between;align-items:center"><strong style="font-size:28px;letter-spacing:-.02em">Profile</strong><span style="display:flex;gap:8px;align-items:center"><sc-if value="{{ hasOrgs }}" hint-placeholder-val="{{ false }}"><button onClick="{{ openSwitch }}" style="height:44px;border-radius:99px;background:#22344d;border:none;color:#f7f1e6;padding:0 14px;font-size:14px;font-weight:600;cursor:pointer">Switch ⇄</button></sc-if><button onClick="{{ goSettings }}" aria-label="Settings" style="width:44px;height:44px;border-radius:50%;background:#22344d;border:none;color:#f7f1e6;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"></path></svg></button></span></div>
+<button onClick="{{ goEdit }}" style="margin:16px 20px 0;width:350px;display:flex;align-items:center;gap:14px;background:#22344d;border:none;border-radius:18px;padding:14px;color:#f7f1e6;text-align:left;cursor:pointer"><span style="width:56px;height:56px;border-radius:50%;background:#f2d9a0;color:#16263b;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;flex:none">{{ user.initials }}</span><span style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0"><strong style="font-size:18px">{{ user.name }}</strong><span style="font-size:13px;color:#9fb0c6">{{ user.city }} · Member since 2025</span></span><span style="font-size:14px;font-weight:600;color:#f2d9a0">Edit ›</span></button>
+<sc-if value="{{ hasEarn }}" hint-placeholder-val="{{ false }}"><button onClick="{{ goEarnings }}" style="margin:12px 20px 0;width:350px;display:flex;align-items:center;gap:14px;background:#f2d9a0;color:#16263b;border:none;border-radius:18px;padding:14px 16px;text-align:left;cursor:pointer"><span style="display:flex;flex-direction:column;gap:2px;flex:1"><span style="font-size:13px">Resale earnings · {{ earnSub }}</span><strong style="font-size:22px;letter-spacing:-.02em">{{ earnTotal }}</strong></span><span style="font-size:14px;font-weight:600">Earnings ›</span></button></sc-if>
+<div style="padding:22px 20px 0;display:flex;flex-direction:column"><span style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#9fb0c6;padding-bottom:4px">Money</span><sc-for list="{{ profMoney }}" as="r" hint-placeholder-count="2"><button onClick="{{ r.on }}" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border:none;border-bottom:1px solid #22344d;background:none;color:inherit;font-size:15px;cursor:pointer;text-align:left"><span>{{ r.n }}</span><span style="color:#9fb0c6">{{ r.v }} ›</span></button></sc-for></div>
+<div style="padding:22px 20px 0;display:flex;flex-direction:column"><span style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#9fb0c6;padding-bottom:4px">Rewards</span><sc-for list="{{ profRewards }}" as="r" hint-placeholder-count="2"><button onClick="{{ r.on }}" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border:none;border-bottom:1px solid #22344d;background:none;color:inherit;font-size:15px;cursor:pointer;text-align:left"><span>{{ r.n }}</span><span style="color:#9fb0c6">{{ r.v }} ›</span></button></sc-for></div>
+</div></sc-if>
+
+<sc-if value="{{ is.editProfile }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;justify-content:space-between;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Edit profile</strong><button onClick="{{ saveProfile }}" style="background:none;border:none;color:#f2d9a0;font-weight:600;font-size:16px;cursor:pointer;padding:0 8px">Save</button></div>
+<div style="flex:1;overflow:auto;padding:12px 20px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><span style="width:88px;height:88px;border-radius:50%;background:#f2d9a0;color:#16263b;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:30px">{{ user.initials }}</span><span style="font-size:14px;color:#f2d9a0">Change photo</span></div>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#9fb0c6">Full name<input value="{{ f.pname }}" onChange="{{ on.pname }}" style="background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input></label>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#9fb0c6">City<input value="{{ f.pcity }}" onChange="{{ on.pcity }}" style="background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input></label>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#9fb0c6">Email<span style="background:#22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;display:flex;justify-content:space-between">{{ user.email }}<span style="font-size:12px;color:#f2d9a0">Verified</span></span></div>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#e0626a">{{ err }}</span></sc-if>
+</div></div></sc-if>
+
+<sc-if value="{{ is.earnings }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Earnings</strong></div>
+<div style="flex:1;overflow:auto;padding:8px 20px 20px;display:flex;flex-direction:column;gap:14px">
+<div style="border-radius:20px;background:#f2d9a0;color:#16263b;padding:20px;display:flex;flex-direction:column;gap:12px"><span style="font-size:14px">Ready to withdraw</span><strong style="font-size:36px;letter-spacing:-.02em;margin-top:-10px">{{ earn.ready }}</strong><div style="display:flex;justify-content:space-between;font-size:14px;padding-top:10px;border-top:1px solid #16263b33"><span>Pending · after the event</span><strong>{{ earn.pending }}</strong></div><button onClick="{{ goWithdraw }}" style="background:#16263b;color:#f2d9a0;border:none;font-weight:600;font-size:16px;padding:15px;border-radius:99px;cursor:pointer;opacity:{{ wOp }}">Withdraw to bank</button></div>
+<div style="display:flex;justify-content:space-between;align-items:center;background:#22344d;border-radius:14px;padding:14px 16px;font-size:14px"><span style="display:flex;flex-direction:column"><span style="color:#9fb0c6;font-size:12px">Paid out to</span><strong>Emirates NBD ··3021</strong></span><span style="color:#f2d9a0">Change</span></div>
+<span style="font-size:13px;color:#9fb0c6">Lifetime {{ earn.lifetime }}</span>
+<sc-for list="{{ sales }}" as="x" hint-placeholder-count="1"><div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #22344d"><span style="display:flex;flex-direction:column;gap:2px"><strong style="font-size:15px">{{ x.t }}</strong><span style="font-size:13px;color:#9fb0c6">{{ x.s }}</span></span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><strong>{{ x.a }}</strong><span style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:99px;background:{{ x.bg }};color:{{ x.fg }}">{{ x.st }}</span></span></div></sc-for>
+</div></div></sc-if>
+
+<sc-if value="{{ is.withdraw }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Withdraw</strong></div>
+<div style="flex:1;padding:40px 20px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center"><span style="font-size:14px;color:#9fb0c6">You’re withdrawing</span><strong style="font-size:48px;letter-spacing:-.03em">{{ earn.ready }}</strong><span style="font-size:15px;color:#c9d3df">To Emirates NBD ··3021 · arrives in 1–2 working days</span></div>
+<div style="padding:12px 20px 30px"><button onClick="{{ doWithdraw }}" style="width:100%;background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:99px;cursor:pointer">{{ wLabel }}</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.payMethods }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Payment methods</strong></div>
+<div style="flex:1;overflow:auto;padding:8px 20px;display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ cards }}" as="c" hint-placeholder-count="2"><div style="display:flex;align-items:center;gap:12px;background:#22344d;border:1.5px solid {{ c.bd }};border-radius:14px;padding:14px 16px"><span style="display:flex;flex-direction:column;gap:2px;flex:1"><strong style="font-size:15px">{{ c.n }}</strong><span style="font-size:13px;color:#9fb0c6">{{ c.s }}</span></span><sc-if value="{{ c.def }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:600;color:#f2d9a0">Default</span></sc-if><sc-if value="{{ c.notDef }}" hint-placeholder-val="{{ true }}"><button onClick="{{ c.make }}" style="background:none;border:none;color:#f2d9a0;font-size:13px;cursor:pointer">Make default</button></sc-if><button onClick="{{ c.remove }}" style="background:none;border:none;color:#9fb0c6;font-size:18px;cursor:pointer;padding:0 4px">×</button></div></sc-for>
+<button onClick="{{ goAddCard }}" style="border:1.5px dashed #3a506c;background:none;border-radius:14px;padding:14px 16px;font-size:15px;font-weight:600;color:#f2d9a0;text-align:left;cursor:pointer">+ Add a card</button>
+<span style="font-size:13px;line-height:1.5;color:#9fb0c6;padding-top:6px">Cards are stored by our payment provider, never on Sahra. Resale payouts go to the bank account in Earnings.</span></div>
+</div></sc-if>
+
+<sc-if value="{{ is.addCard }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Add a card</strong></div>
+<div style="flex:1;padding:8px 20px;display:flex;flex-direction:column;gap:14px">
+<input value="{{ f.card }}" onChange="{{ on.card }}" inputMode="numeric" placeholder="Card number (16 digits)" style="background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><input value="{{ f.exp }}" onChange="{{ on.exp }}" placeholder="MM/YY" style="min-width:0;background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input><input value="{{ f.cvc }}" onChange="{{ on.cvc }}" placeholder="CVC" style="min-width:0;background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input></div>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#e0626a">{{ err }}</span></sc-if></div>
+<div style="padding:12px 20px 30px"><button onClick="{{ addCard }}" style="width:100%;background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:99px;cursor:pointer">Save card</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.transactions }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Transactions</strong></div>
+<div style="flex:1;overflow:auto;padding:4px 20px 20px;display:flex;flex-direction:column">
+<sc-for list="{{ tx }}" as="x" hint-placeholder-count="2"><div style="display:flex;gap:12px;padding:13px 0;border-bottom:1px solid #22344d;align-items:center"><span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0"><strong style="font-size:15px">{{ x.t }}</strong><span style="font-size:13px;color:#9fb0c6">{{ x.s }}</span></span><strong style="font-size:15px;color:{{ x.c }}">{{ x.a }}</strong></div></sc-for>
+<sc-if value="{{ txEmpty }}" hint-placeholder-val="{{ false }}"><span style="padding:24px 0;color:#9fb0c6">No transactions yet.</span></sc-if></div>
+</div></sc-if>
+
+<sc-if value="{{ is.promos }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Promo codes</strong></div>
+<div style="flex:1;overflow:auto;padding:8px 20px 20px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px"><input value="{{ f.code }}" onChange="{{ on.code }}" placeholder="Try SAHRA10 or NOUR20" style="flex:1;min-width:0;background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:15px;color:#f7f1e6;text-transform:uppercase;outline:none" style-focus="border-color:#f2d9a0"></input><button onClick="{{ addCode }}" style="background:#f2d9a0;color:#16263b;border:none;font-weight:600;padding:0 20px;border-radius:99px;cursor:pointer">Add</button></div>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#e0626a">{{ err }}</span></sc-if>
+<span style="font-size:14px;font-weight:600;padding-top:8px">Ready to use</span>
+<sc-if value="{{ noValid }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#9fb0c6">No codes right now.</span></sc-if>
+<sc-for list="{{ promosValid }}" as="p" hint-placeholder-count="1"><div style="display:flex;background:#f2d9a0;color:#16263b;border-radius:14px;overflow:hidden"><div style="width:84px;flex:none;display:flex;align-items:center;justify-content:center;border-right:2px dashed #16263b55;font-size:22px;font-weight:800">{{ p.v }}</div><div style="padding:14px;display:flex;flex-direction:column;gap:3px"><strong style="letter-spacing:.06em">{{ p.c }}</strong><span style="font-size:13px">{{ p.d }} · {{ p.e }}</span></div></div></sc-for>
+<sc-if value="{{ hasUsed }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;font-weight:600;color:#9fb0c6;padding-top:8px">Used</span><sc-for list="{{ promosUsed }}" as="p" hint-placeholder-count="1"><div style="display:flex;background:#22344d;color:#9fb0c6;border-radius:14px;overflow:hidden"><div style="width:84px;flex:none;display:flex;align-items:center;justify-content:center;border-right:2px dashed #3a506c;font-size:22px;font-weight:800">{{ p.v }}</div><div style="padding:14px;display:flex;flex-direction:column;gap:3px"><strong style="letter-spacing:.06em;text-decoration:line-through">{{ p.c }}</strong><span style="font-size:13px">{{ p.d }}</span></div></div></sc-for></sc-if>
+</div></div></sc-if>
+
+<sc-if value="{{ is.invite }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+<div style="padding:8px 24px;display:flex;flex-direction:column;gap:16px"><strong style="font-size:30px;letter-spacing:-.02em;line-height:1.08">Bring a friend.<br><span style="color:#f2d9a0">You both get AED 25.</span></strong><span style="font-size:15px;line-height:1.5;color:#c9d3df">They get it on sign-up. You get yours after their first ticket.</span>
+<div style="background:#22344d;border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:14px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="display:flex;flex-direction:column"><span style="font-size:12px;color:#9fb0c6">Your code</span><strong style="font-size:24px;letter-spacing:.08em">{{ inviteCode }}</strong></span><button onClick="{{ copyCode }}" style="background:none;border:none;color:#f2d9a0;font-weight:600;cursor:pointer">Copy</button></div><button onClick="{{ share }}" style="background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:15px;border-radius:99px;cursor:pointer">Share invite</button></div></div>
+</div></sc-if>
+
+<sc-if value="{{ is.settings }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+<div style="padding:0 20px;font-weight:800;font-size:28px;letter-spacing:-.02em">Settings</div>
+<div style="flex:1;overflow:auto;padding-bottom:20px">
+<div style="padding:18px 20px 0;display:flex;flex-direction:column"><span style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#9fb0c6;padding-bottom:4px">Preferences</span><sc-for list="{{ setRows }}" as="r" hint-placeholder-count="3"><button onClick="{{ r.on }}" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border:none;border-bottom:1px solid #22344d;background:none;color:inherit;font-size:15px;cursor:pointer;text-align:left"><span>{{ r.n }}</span><span style="color:#9fb0c6">{{ r.v }} ›</span></button></sc-for></div>
+<div style="padding:22px 20px 0;display:flex;flex-direction:column"><span style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#9fb0c6;padding-bottom:4px">Hosting</span><sc-for list="{{ hostRows }}" as="r" hint-placeholder-count="1"><button onClick="{{ r.on }}" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border:none;border-bottom:1px solid #22344d;background:none;color:inherit;font-size:15px;cursor:pointer;text-align:left"><span>{{ r.n }}</span><span style="color:#9fb0c6">{{ r.v }} ›</span></button></sc-for></div>
+<div style="padding:22px 20px 0;display:flex;flex-direction:column"><span style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#9fb0c6;padding-bottom:4px">Support</span><sc-for list="{{ supRows }}" as="r" hint-placeholder-count="1"><button onClick="{{ r.on }}" style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border:none;border-bottom:1px solid #22344d;background:none;color:inherit;font-size:15px;cursor:pointer;text-align:left"><span>{{ r.n }}</span><span style="color:#9fb0c6">{{ r.v }} ›</span></button></sc-for></div>
+<button onClick="{{ signOut }}" style="margin:18px 20px 0;background:none;border:none;color:#e0626a;font-weight:600;font-size:15px;cursor:pointer;padding:0">Sign out</button>
+<div style="padding:16px 20px 0;font-size:12px;color:#6f84a0">Sahra 1.0.0</div>
+</div></div></sc-if>
+
+<sc-if value="{{ is.notifSettings }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Notifications</strong></div>
+<div style="flex:1;overflow:auto;padding:8px 20px;display:flex;flex-direction:column">
+<span style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#9fb0c6;padding-bottom:4px">How we reach you</span>
+<sc-for list="{{ nChannels }}" as="t" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid #22344d;font-size:15px"><span>{{ t.n }}</span><button onClick="{{ t.on }}" style="width:48px;height:28px;border-radius:99px;border:none;background:{{ t.bg }};position:relative;cursor:pointer;padding:0;flex:none"><span style="position:absolute;top:3px;left:{{ t.x }};width:22px;height:22px;border-radius:50%;background:{{ t.kn }};transition:left .2s"></span></button></div></sc-for>
+<span style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#9fb0c6;padding:22px 0 4px">What about</span>
+<div style="display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid #22344d;font-size:15px"><span style="display:flex;flex-direction:column;gap:2px">Tickets &amp; orders<span style="font-size:13px;color:#9fb0c6">Always on. You need these to get in.</span></span><span style="font-size:13px;color:#9fb0c6">On</span></div>
+<sc-for list="{{ nTypes }}" as="t" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid #22344d;font-size:15px;gap:12px"><span style="display:flex;flex-direction:column;gap:2px">{{ t.n }}<span style="font-size:13px;color:#9fb0c6">{{ t.d }}</span></span><button onClick="{{ t.on }}" style="width:48px;height:28px;border-radius:99px;border:none;background:{{ t.bg }};position:relative;cursor:pointer;padding:0;flex:none"><span style="position:absolute;top:3px;left:{{ t.x }};width:22px;height:22px;border-radius:50%;background:{{ t.kn }};transition:left .2s"></span></button></div></sc-for>
+</div></div></sc-if>
+
+<sc-if value="{{ is.language }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Language &amp; numbers</strong></div>
+<div style="padding:8px 20px;display:flex;flex-direction:column;gap:12px">
+<span style="font-size:13px;color:#9fb0c6">Language</span><div style="display:grid;grid-template-columns:1fr 1fr;background:#22344d;border-radius:99px;padding:4px"><sc-for list="{{ langOpts }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.on }}" style="border:none;border-radius:99px;padding:10px;font-size:15px;font-weight:600;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.n }}</button></sc-for></div><span style="font-size:13px;color:#9fb0c6">{{ langNote }}</span>
+<span style="font-size:13px;color:#9fb0c6;padding-top:10px">Numbers</span><div style="display:grid;grid-template-columns:1fr 1fr;background:#22344d;border-radius:99px;padding:4px"><sc-for list="{{ numOpts }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.on }}" style="border:none;border-radius:99px;padding:10px;font-size:15px;font-weight:600;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.n }}</button></sc-for></div>
+<div style="background:#22344d;border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;font-size:15px"><span style="color:#9fb0c6">Preview</span><strong>{{ numPreview }}</strong></div><span style="font-size:13px;color:#9fb0c6">Applies to every price and date in the app. Try it, then open an event.</span>
+</div></div></sc-if>
+
+<sc-if value="{{ is.security }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Sign-in &amp; security</strong></div>
+<div style="padding:8px 20px;display:flex;flex-direction:column">
+<button onClick="{{ goChangePw }}" style="display:flex;justify-content:space-between;padding:14px 0;border:none;border-bottom:1px solid #22344d;background:none;color:inherit;font-size:15px;cursor:pointer"><span>Change password</span><span style="color:#9fb0c6">›</span></button>
+<button onClick="{{ signOutOthers }}" style="display:flex;justify-content:space-between;padding:14px 0;border:none;border-bottom:1px solid #22344d;background:none;color:inherit;font-size:15px;cursor:pointer"><span>Sign out other devices</span><span style="color:#9fb0c6">2 active ›</span></button>
+<button onClick="{{ deleteAccount }}" style="text-align:left;padding:22px 0;border:none;background:none;color:#e0626a;font-weight:600;font-size:15px;cursor:pointer">Delete account</button>
+</div></div></sc-if>
+
+<sc-if value="{{ is.changePw }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Change password</strong></div>
+<div style="flex:1;padding:8px 20px;display:flex;flex-direction:column;gap:14px">
+<input type="password" value="{{ f.cp0 }}" onChange="{{ on.cp0 }}" placeholder="Current password" style="background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input>
+<button onClick="{{ forgotFromCp }}" style="align-self:flex-end;background:none;border:none;color:#f2d9a0;font-size:14px;cursor:pointer;padding:0;margin-top:-6px">Forgot it?</button>
+<input type="password" value="{{ f.cp1 }}" onChange="{{ on.cp1 }}" placeholder="New password" style="background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input>
+<input type="password" value="{{ f.cp2 }}" onChange="{{ on.cp2 }}" placeholder="Confirm new password" style="background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input>
+<div style="display:flex;flex-direction:column;gap:8px;font-size:14px"><sc-for list="{{ cpRules }}" as="r" hint-placeholder-count="3"><div style="display:flex;gap:10px;align-items:center;color:{{ r.c }}"><span style="width:18px;height:18px;border-radius:50%;background:{{ r.bg }};color:#16263b;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">{{ r.i }}</span>{{ r.n }}</div></sc-for></div>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#e0626a">{{ err }}</span></sc-if></div>
+<div style="padding:12px 20px 30px"><button onClick="{{ updatePw }}" style="width:100%;background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:99px;cursor:pointer">Update password</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.help }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Help &amp; FAQs</strong></div>
+<div style="flex:1;overflow:auto;padding:4px 20px">
+<sc-for list="{{ faqs }}" as="q" hint-placeholder-count="4"><button onClick="{{ q.on }}" style="width:100%;padding:15px 0;border:none;border-bottom:1px solid #22344d;background:none;color:inherit;display:flex;flex-direction:column;gap:10px;text-align:left;cursor:pointer"><span style="display:flex;justify-content:space-between;gap:12px;font-size:15px;font-weight:600;width:100%"><span>{{ q.q }}</span><span style="color:#f2d9a0">{{ q.i }}</span></span><sc-if value="{{ q.open }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;line-height:1.55;color:#c9d3df">{{ q.a }}</span></sc-if></button></sc-for></div>
+<div style="margin:0 20px 28px;padding:16px;border-radius:16px;background:#22344d;display:flex;justify-content:space-between;align-items:center;font-size:14px"><span style="display:flex;flex-direction:column;gap:2px"><strong>Still stuck?</strong><span style="color:#9fb0c6;font-size:13px">We reply in Arabic or English</span></span><button onClick="{{ chat }}" style="background:#f2d9a0;color:#16263b;border:none;font-weight:600;padding:10px 16px;border-radius:99px;cursor:pointer">Chat with us</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.inbox }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;justify-content:space-between;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><button onClick="{{ markAll }}" style="background:none;border:none;color:#f2d9a0;font-size:14px;cursor:pointer;padding:0 8px">Mark all read</button></div>
+<div style="padding:0 20px;font-weight:800;font-size:28px;letter-spacing:-.02em">Notifications</div>
+<div style="flex:1;overflow:auto;padding:8px 20px 20px">
+<sc-for list="{{ notifs }}" as="n" hint-placeholder-count="2"><button onClick="{{ n.on }}" style="width:100%;display:flex;gap:12px;padding:13px 0;border:none;border-bottom:1px solid #22344d;background:none;color:inherit;text-align:left;cursor:pointer;align-items:flex-start"><span style="display:flex;flex-direction:column;gap:3px;flex:1"><strong style="font-size:15px;line-height:1.3">{{ n.t }}</strong><span style="font-size:13px;color:#9fb0c6;line-height:1.4">{{ n.s }}</span></span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span style="font-size:12px;color:#9fb0c6">{{ n.w }}</span><span style="width:8px;height:8px;border-radius:50%;background:{{ n.dot }}"></span></span></button></sc-for>
+<sc-if value="{{ noNotifs }}" hint-placeholder-val="{{ false }}"><span style="color:#9fb0c6">You’re all caught up.</span></sc-if></div>
+</div></sc-if>
+
+<sc-if value="{{ is.cEvents }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;overflow:auto;padding:12px 20px 20px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;justify-content:space-between;align-items:center"><img src="brand/png/sahra-logo-gold.png" alt="" style="width:56px"></img><span style="font-size:12px;letter-spacing:.14em;color:#9fb0c6">DOOR MODE · {{ roleName }}</span></div>
+<span style="font-size:14px;color:#9fb0c6;padding-top:6px">{{ cOrg }}</span><strong style="font-size:26px;letter-spacing:-.02em;margin-top:-8px">Your events</strong>
+<sc-if value="{{ isFreshOrg }}" hint-placeholder-val="{{ false }}"><div style="background:#22344d;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px"><strong style="font-size:16px">Get ready to sell</strong><sc-for list="{{ orgChecklist }}" as="c" hint-placeholder-count="4"><div style="display:flex;gap:12px;align-items:flex-start"><span style="width:22px;height:22px;border-radius:50%;background:{{ c.bg }};color:#16263b;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">{{ c.i }}</span><span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:15px">{{ c.n }}</span><span style="font-size:13px;color:#9fb0c6">{{ c.d }}</span></span></div></sc-for><button onClick="{{ openHandoff }}" style="background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:15px;padding:13px;border-radius:99px;cursor:pointer">Build your first event on the web</button></div><div style="padding:16px;border-radius:16px;border:1.5px dashed #3a506c;font-size:14px;color:#c9d3df;line-height:1.5">No events yet. Once one is published it shows here with live sales, and Scan and Guests start working for it.</div></sc-if>
+<sc-for list="{{ cEvents }}" as="e" hint-placeholder-count="3"><button onClick="{{ e.on }}" style="background:#22344d;border:none;color:#f7f1e6;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;text-align:left;cursor:pointer"><span style="display:flex;justify-content:space-between;width:100%;align-items:center"><strong style="font-size:16px">{{ e.t }}</strong><span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;background:{{ e.cbg }};color:{{ e.cfg }}">{{ e.chip }}</span></span><span style="font-size:13px;color:#9fb0c6">{{ e.d }}</span><span style="font-size:13px">{{ e.meta }}</span></button></sc-for>
+<button onClick="{{ openHandoff }}" style="border:1.5px dashed #3a506c;background:none;color:#c9d3df;border-radius:14px;padding:14px 16px;font-size:13px;line-height:1.5;text-align:left;cursor:pointer">Creating or editing events happens on the web. <strong style="color:#f2d9a0">Open Studio ↗</strong></button>
+</div></sc-if>
+
+<sc-if value="{{ is.cEvent }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">{{ ce.t }}</strong></div>
+<div style="flex:1;overflow:auto;padding:4px 20px 20px;display:flex;flex-direction:column;gap:12px"><span style="font-size:13px;color:#9fb0c6">{{ ce.d }}</span>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div style="background:#22344d;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;color:#9fb0c6">Sold</span><strong style="font-size:24px">{{ ce.sold }}</strong></div><div style="background:#22344d;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;color:#9fb0c6">Checked in</span><strong style="font-size:24px;color:#f2d9a0">{{ ce.checked }}</strong><span style="font-size:12px;color:#9fb0c6">{{ ce.pct }}</span></div></div>
+<sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}"><div style="background:#22344d;border-radius:14px;padding:14px;display:flex;justify-content:space-between"><span style="color:#9fb0c6;font-size:14px">Revenue</span><strong>{{ ce.revenue }}</strong></div></sc-if>
+<sc-if value="{{ notAdmin }}" hint-placeholder-val="{{ false }}"><div style="border:1.5px dashed #3a506c;border-radius:14px;padding:12px 14px;font-size:13px;color:#9fb0c6">Revenue is visible to admins only.</div></sc-if>
+<sc-if value="{{ canBroadcast }}" hint-placeholder-val="{{ true }}"><button onClick="{{ goBroadcast }}" style="background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:15px;border-radius:99px;cursor:pointer">Message guests</button></sc-if>
+<div style="display:flex;flex-direction:column;padding-top:6px"><sc-for list="{{ handoffLinks }}" as="l" hint-placeholder-count="3"><button onClick="{{ openHandoff }}" style="display:flex;justify-content:space-between;padding:13px 0;border:none;border-bottom:1px solid #22344d;background:none;color:#9fb0c6;font-size:15px;cursor:pointer"><span>{{ l.n }}</span><span>Web ↗</span></button></sc-for></div>
+</div></div></sc-if>
+
+<sc-if value="{{ is.broadcast }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column">
+<div style="padding:4px 12px 0;display:flex;align-items:center;gap:4px;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button><strong style="font-size:17px">Message guests</strong></div>
+<div style="flex:1;overflow:auto;padding:4px 20px 20px;display:flex;flex-direction:column;gap:12px">
+<span style="font-size:13px;color:#9fb0c6">Send to</span><div style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ audChips }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.on }}" style="border:none;border-radius:99px;padding:8px 12px;font-size:13px;font-weight:500;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</button></sc-for></div>
+<textarea value="{{ f.msg }}" onChange="{{ on.msg }}" maxLength="160" rows="4" style="background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:15px;line-height:1.45;color:#f7f1e6;outline:none;resize:none" style-focus="border-color:#f2d9a0"></textarea>
+<span style="font-size:12px;color:#9fb0c6;align-self:flex-end;margin-top:-6px">{{ msgCount }}</span>
+<sc-for list="{{ chRows }}" as="t" hint-placeholder-count="2"><div style="display:flex;justify-content:space-between;align-items:center;font-size:15px"><span style="display:flex;flex-direction:column">{{ t.n }}<span style="font-size:12px;color:#9fb0c6">{{ t.d }}</span></span><button onClick="{{ t.on }}" style="width:48px;height:28px;border-radius:99px;border:none;background:{{ t.bg }};position:relative;cursor:pointer;padding:0"><span style="position:absolute;top:3px;left:{{ t.x }};width:22px;height:22px;border-radius:50%;background:{{ t.kn }};transition:left .2s"></span></button></div></sc-for>
+<div style="background:#0b1420;border-radius:16px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start"><img src="brand/png/sahra-app-icon-1024.png" alt="" style="width:30px;height:30px;border-radius:7px"></img><span style="display:flex;flex-direction:column;gap:2px;font-size:13px"><strong>Nour Haddad Live</strong><span style="color:#c9d3df;line-height:1.4">{{ f.msg }}</span></span></div>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#e0626a">{{ err }}</span></sc-if>
+<span style="font-size:13px;color:#9fb0c6">{{ smsCost }} · {{ sendsLeft }}</span>
+<sc-if value="{{ limitHit }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#e0626a">Daily limit reached. It resets at midnight so guests don’t get spammed.</span></sc-if>
+</div>
+<div style="padding:12px 20px 30px"><button onClick="{{ sendBroadcast }}" style="width:100%;background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:99px;cursor:pointer;opacity:{{ bOp }}">Review and send</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.cScan }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column;position:relative"><sc-if value="{{ noLive }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#16263b;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:32px;text-align:center"><strong style="font-size:20px">No live event</strong><span style="font-size:14px;color:#c9d3df;line-height:1.5">This opens on the day of a published event. Publishing needs verification first.</span></div></sc-if>
+<div style="padding:10px 20px 0;display:flex;justify-content:space-between;align-items:center"><strong style="font-size:17px">{{ liveName }}</strong><button onClick="{{ toggleOffline }}" style="border:none;border-radius:99px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;background:#22344d;color:#f7f1e6">{{ checkedIn }} in</button></div>
+<sc-if value="{{ offline }}" hint-placeholder-val="{{ false }}"><div style="margin:10px 20px 0;padding:10px 14px;border-radius:12px;background:#f2d9a0;color:#16263b;font-size:13px;font-weight:600">Offline · {{ queuedText }}. Tap “Venue Wi-Fi drops” again to reconnect.</div></sc-if>
+<div style="margin:24px auto 0;width:250px;height:250px;position:relative;background:repeating-linear-gradient(135deg,#131f30 0 12px,#0f1a29 12px 24px);border-radius:16px;flex:none"><span style="position:absolute;inset:0;border:3px solid #f2d9a0;border-radius:16px;clip-path:polygon(0 0,30% 0,30% 4%,4% 4%,4% 30%,0 30%,0 70%,4% 70%,4% 96%,30% 96%,30% 100%,70% 100%,70% 96%,96% 96%,96% 70%,100% 70%,100% 30%,96% 30%,96% 4%,70% 4%,70% 0,100% 0,100% 100%,0 100%)"></span></div>
+<span style="text-align:center;font-size:14px;color:#9fb0c6;padding-top:16px">Point at a ticket QR</span>
+<div style="padding:18px 20px 0;display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;color:#6f84a0;text-align:center">Prototype: simulate a scan</span><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><sc-for list="{{ sims }}" as="m" hint-placeholder-count="4"><button onClick="{{ m.on }}" style="background:#22344d;border:none;color:#f7f1e6;border-radius:12px;padding:12px;font-size:14px;cursor:pointer">{{ m.n }}</button></sc-for></div></div>
+<sc-if value="{{ hasScan }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:0;right:0;bottom:0;padding:22px 20px 28px;border-radius:24px 24px 0 0;display:flex;flex-direction:column;gap:12px;background:{{ scan.bg }};color:{{ scan.fg }}"><strong style="font-size:26px;letter-spacing:-.02em">{{ scan.h }}</strong><span style="font-size:15px;line-height:1.5">{{ scan.b }}</span><button onClick="{{ scan.act }}" style="background:#16263b;color:#f2d9a0;border:none;font-weight:600;font-size:17px;padding:16px;border-radius:99px;cursor:pointer">{{ scan.btn }}</button></div></sc-if>
+</div></sc-if>
+
+<sc-if value="{{ is.cGuests }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column;position:relative"><sc-if value="{{ noLive }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#16263b;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:32px;text-align:center"><strong style="font-size:20px">No live event</strong><span style="font-size:14px;color:#c9d3df;line-height:1.5">This opens on the day of a published event. Publishing needs verification first.</span></div></sc-if>
+<div style="padding:12px 20px 0;font-weight:800;font-size:26px;letter-spacing:-.02em">Guests</div>
+<div style="padding:12px 20px 0"><input value="{{ f.gq }}" onChange="{{ on.gq }}" placeholder="Search name or order #" style="width:100%;box-sizing:border-box;background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:13px 16px;font-size:15px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input></div>
+<div style="padding:12px 20px 0;display:flex;gap:8px"><sc-for list="{{ gFilters }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.on }}" style="border:none;border-radius:99px;padding:7px 12px;font-size:13px;font-weight:500;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</button></sc-for></div>
+<div style="flex:1;overflow:auto;padding:8px 20px 20px">
+<sc-for list="{{ guestRows }}" as="g" hint-placeholder-count="6"><button onClick="{{ g.on }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:12px 0;border:none;border-bottom:1px solid #22344d;background:none;color:inherit;text-align:left;cursor:pointer"><span style="display:flex;flex-direction:column;gap:2px;flex:1"><strong style="font-size:15px">{{ g.n }}</strong><span style="font-size:13px;color:#9fb0c6">{{ g.sub }}</span></span><span style="font-size:13px;font-weight:600;color:{{ g.stc }}">{{ g.st }}</span></button></sc-for>
+<sc-if value="{{ noGuests }}" hint-placeholder-val="{{ false }}"><span style="display:block;padding:24px 0;color:#9fb0c6">No guests match.</span></sc-if></div>
+</div></sc-if>
+
+<sc-if value="{{ is.cAccount }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;overflow:auto;padding:12px 20px;display:flex;flex-direction:column">
+<strong style="font-size:26px;letter-spacing:-.02em">Account</strong>
+<div style="margin-top:16px;background:#22344d;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:4px"><strong style="font-size:17px">{{ cOrg }}</strong><span style="font-size:14px;color:#9fb0c6">{{ user.name }} · {{ roleName }}</span></div>
+<button onClick="{{ openHandoff }}" style="display:flex;justify-content:space-between;padding:14px 0;margin-top:12px;border:none;border-bottom:1px solid #22344d;background:none;color:inherit;font-size:15px;cursor:pointer"><span>Open Studio on web</span><span style="color:#9fb0c6">↗</span></button>
+<button onClick="{{ openSwitch }}" style="display:flex;justify-content:space-between;padding:14px 0;border:none;border-bottom:1px solid #22344d;background:none;color:inherit;font-size:15px;cursor:pointer"><span>Switch profile</span><span style="color:#9fb0c6">›</span></button>
+<button onClick="{{ signOut }}" style="text-align:left;padding:20px 0;border:none;background:none;color:#e0626a;font-weight:600;font-size:15px;cursor:pointer">Sign out</button>
+</div></sc-if>
+
+<sc-if value="{{ is.hostIntro }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column"><div style="padding:4px 12px 0;display:flex;align-items:center;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+<div style="flex:1;overflow:auto;padding:8px 24px;display:flex;flex-direction:column;gap:18px"><strong style="font-size:30px;letter-spacing:-.02em;line-height:1.08">Host events<br><span style="color:#f2d9a0">on Sahra.</span></strong><span style="font-size:15px;line-height:1.5;color:#c9d3df">Same account, same login. You add an organisation; your tickets stay yours.</span>
+<sc-for list="{{ hostPoints }}" as="p" hint-placeholder-count="3"><div style="display:flex;gap:12px"><span style="width:28px;height:28px;border-radius:50%;background:#22344d;color:#f2d9a0;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">{{ p.i }}</span><span style="display:flex;flex-direction:column;gap:2px"><strong style="font-size:15px">{{ p.t }}</strong><span style="font-size:14px;color:#9fb0c6;line-height:1.45">{{ p.d }}</span></span></div></sc-for></div>
+<div style="padding:12px 24px 30px;display:flex;flex-direction:column;gap:6px"><button onClick="{{ goHostOrg }}" style="width:100%;background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:99px;cursor:pointer">Set up my organisation</button><button onClick="{{ back }}" style="background:none;border:none;color:#f7f1e6;font-weight:600;font-size:15px;padding:10px;cursor:pointer">Not now</button></div>
+</div></sc-if>
+
+<sc-if value="{{ is.hostOrg }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-height:0;display:flex;flex-direction:column"><div style="padding:4px 12px 0;display:flex;align-items:center;min-height:48px"><button onClick="{{ back }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;cursor:pointer;padding:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button></div>
+<div style="flex:1;overflow:auto;padding:4px 24px;display:flex;flex-direction:column;gap:14px"><strong style="font-size:28px;letter-spacing:-.02em">Your organisation</strong><span style="font-size:15px;color:#c9d3df;line-height:1.5">The name fans see on your events. Invite your team after.</span>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#9fb0c6">Organisation name<input value="{{ f.oname }}" onChange="{{ on.oname }}" placeholder="e.g. Mawja Live Productions" style="background:#22344d;border:1.5px solid #22344d;border-radius:14px;padding:14px 16px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input></label>
+<span style="font-size:13px;color:#9fb0c6">Based in</span><div style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ ocityChips }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.on }}" style="border:none;border-radius:99px;padding:9px 14px;font-size:14px;font-weight:500;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</button></sc-for></div>
+<span style="font-size:13px;color:#9fb0c6">What describes you best?</span><div style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ typeChips }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.on }}" style="border:none;border-radius:99px;padding:9px 14px;font-size:14px;font-weight:500;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</button></sc-for></div>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#e0626a">{{ err }}</span></sc-if>
+<span style="font-size:13px;color:#9fb0c6;line-height:1.5">No paperwork yet. You’ll verify ID and a trade licence before your first event goes on sale.</span></div>
+<div style="padding:12px 24px 30px"><button onClick="{{ createOrg }}" style="width:100%;background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:16px;border-radius:99px;cursor:pointer">Create organisation</button><sc-if value="{{ canSkipOrg }}" hint-placeholder-val="{{ false }}"><button onClick="{{ skipOrg }}" style="width:100%;background:none;border:none;color:#f7f1e6;font-weight:600;font-size:15px;padding:12px;cursor:pointer">Skip for now. I just want tickets</button></sc-if></div>
+</div></sc-if>
+
+<sc-if value="{{ switchSheet }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#0b1420aa;display:flex;flex-direction:column;justify-content:flex-end;z-index:20"><button onClick="{{ closeSheet }}" aria-label="Close" style="flex:1;background:none;border:none;cursor:pointer"></button><div style="background:#16263b;color:#f7f1e6;border-radius:24px 24px 0 0;padding:18px 20px 34px;display:flex;flex-direction:column"><strong style="font-size:18px;padding-bottom:6px">Switch profile</strong>
+<sc-for list="{{ switchItems }}" as="p" hint-placeholder-count="2"><button onClick="{{ p.on }}" style="display:flex;align-items:center;gap:12px;padding:12px 0;border:none;border-bottom:1px solid #22344d;background:none;color:#f7f1e6;cursor:pointer;text-align:left"><span style="width:40px;height:40px;border-radius:50%;background:#f2d9a0;color:#16263b;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">{{ p.ini }}</span><span style="display:flex;flex-direction:column;gap:2px;flex:1"><strong style="font-size:15px">{{ p.n }}</strong><span style="font-size:13px;color:#9fb0c6">{{ p.s }}</span></span><span style="color:#f2d9a0;font-weight:800">{{ p.mark }}</span></button></sc-for>
+<button onClick="{{ newOrgFromSwitch }}" style="padding:14px 0 0;border:none;background:none;color:#f2d9a0;font-weight:600;font-size:15px;text-align:left;cursor:pointer">+ Create an organisation</button></div></div></sc-if>
+
+<sc-if value="{{ showTabs }}" hint-placeholder-val="{{ false }}"><div style="height:80px;flex:none;background:#0f1c2d;display:flex;padding-top:10px;box-sizing:border-box"><sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.on }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;font-size:11px;cursor:pointer;color:{{ t.c }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="{{ t.d }}"></path></svg>{{ t.n }}</button></sc-for></div></sc-if>
+
+<sc-if value="{{ citySheet }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#0b1420aa;display:flex;flex-direction:column;justify-content:flex-end;z-index:20"><button onClick="{{ closeSheet }}" aria-label="Close" style="flex:1;background:none;border:none;cursor:pointer"></button><div style="background:#16263b;border-radius:24px 24px 0 0;padding:16px 20px 34px;display:flex;flex-direction:column"><strong style="font-size:18px;padding-bottom:8px">Choose a city</strong><sc-for list="{{ cityOpts }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.on }}" style="display:flex;justify-content:space-between;padding:14px 0;border:none;border-bottom:1px solid #22344d;background:none;color:#f7f1e6;font-size:16px;cursor:pointer"><span>{{ c.n }}</span><span style="color:#f2d9a0">{{ c.mark }}</span></button></sc-for></div></div></sc-if>
+
+<sc-if value="{{ handoff }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#0b1420aa;display:flex;flex-direction:column;justify-content:flex-end;z-index:20"><button onClick="{{ closeSheet }}" aria-label="Close" style="flex:1;background:none;border:none;cursor:pointer"></button><div style="background:#f7f1e6;color:#16263b;border-radius:24px 24px 0 0;padding:22px 20px 34px;display:flex;flex-direction:column;gap:12px"><strong style="font-size:22px;letter-spacing:-.02em">Continue on the web</strong><span style="font-size:15px;line-height:1.5;opacity:.8">Building and editing events needs a bigger screen. Studio is at studio.sahra.app.</span><button onClick="{{ openWeb }}" style="background:#16263b;color:#f2d9a0;border:none;font-weight:600;font-size:16px;padding:15px;border-radius:99px;cursor:pointer">Open in browser</button><button onClick="{{ emailLink }}" style="background:none;border:1.5px solid #16263b;color:#16263b;font-weight:600;font-size:16px;padding:14px;border-radius:99px;cursor:pointer">Email me the link</button></div></div></sc-if>
+
+<sc-if value="{{ hasGSel }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#0b1420aa;display:flex;flex-direction:column;justify-content:flex-end;z-index:20"><button onClick="{{ gClose }}" aria-label="Close" style="flex:1;background:none;border:none;cursor:pointer"></button><div style="background:#16263b;border-radius:24px 24px 0 0;padding:22px 20px 34px;display:flex;flex-direction:column;gap:10px"><strong style="font-size:22px">{{ gSel.n }}</strong><span style="font-size:14px;color:#9fb0c6">{{ gSel.sub }}</span><span style="font-size:14px;color:#f2d9a0">{{ gSel.st }}</span><span style="font-size:13px;color:#9fb0c6;line-height:1.5">Check ID matches the name before a manual check-in.</span><button onClick="{{ gToggle }}" style="background:#f2d9a0;color:#16263b;border:none;font-weight:600;font-size:16px;padding:15px;border-radius:99px;cursor:pointer;margin-top:6px">{{ gSel.btn }}</button></div></div></sc-if>
+
+<sc-if value="{{ hasConfirm }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#0b1420aa;display:flex;flex-direction:column;justify-content:flex-end;z-index:25"><button onClick="{{ confirmCancel }}" aria-label="Close" style="flex:1;background:none;border:none;cursor:pointer"></button><div style="background:#16263b;color:#f7f1e6;border-radius:24px 24px 0 0;padding:22px 20px 34px;display:flex;flex-direction:column;gap:12px"><strong style="font-size:22px;letter-spacing:-.02em">{{ confirm.t }}</strong><span style="font-size:15px;line-height:1.5;color:#c9d3df">{{ confirm.b }}</span><button onClick="{{ confirmOk }}" style="border:none;font-weight:600;font-size:16px;padding:15px;border-radius:99px;cursor:pointer;margin-top:4px;background:{{ confirmBtnBg }};color:{{ confirmBtnFg }}">{{ confirm.ok }}</button><button onClick="{{ confirmCancel }}" style="background:none;border:none;color:#f7f1e6;font-weight:600;font-size:16px;padding:10px;cursor:pointer">Cancel</button></div></div></sc-if>
+
+<sc-if value="{{ toastMsg }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:56px;left:20px;right:20px;z-index:30;background:#f7f1e6;color:#16263b;border-radius:14px;padding:12px 16px;font-size:14px;font-weight:600;box-shadow:0 10px 30px #0b142066">{{ toastMsg }}</div></sc-if>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:20px;width:360px;max-width:100%">
+<div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#b8323a;font-weight:600">Sahra · Mobile prototype</span><strong style="font-size:34px;letter-spacing:-.03em;line-height:1.05;color:#16263b">Fan app + door mode</strong><span style="font-size:15px;line-height:1.55;opacity:.75;text-wrap:pretty">Everything is clickable and remembers what you do. Buy a ticket and it lands in Tickets; sell one and Earnings appears on Profile. Logic tree: <a href="Sahra Mobile Logic Map.dc.html">Mobile logic map</a>.</span></div>
+<div style="background:#fbf7ef;border:1px solid #e3d9c6;border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:14px">
+<strong style="font-size:15px;color:#16263b">App</strong>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;background:#ece4d6;border-radius:99px;padding:4px"><sc-for list="{{ modeBtns }}" as="m" hint-placeholder-count="2"><button onClick="{{ m.on }}" style="border:none;border-radius:99px;padding:9px;font-size:14px;font-weight:600;cursor:pointer;background:{{ m.bg }};color:{{ m.fg }}">{{ m.n }}</button></sc-for></div>
+<sc-if value="{{ isCreator }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;opacity:.7">Signed in as</span><div style="display:flex;gap:6px"><sc-for list="{{ roleBtns }}" as="m" hint-placeholder-count="3"><button onClick="{{ m.on }}" style="flex:1;border:1.5px solid #16263b;border-radius:99px;padding:8px 6px;font-size:13px;font-weight:600;cursor:pointer;background:{{ m.bg }};color:{{ m.fg }}">{{ m.n }}</button></sc-for></div></div></sc-if>
+<strong style="font-size:15px;color:#16263b;padding-top:6px">Simulate</strong>
+<sc-for list="{{ demo }}" as="d" hint-placeholder-count="5"><button onClick="{{ d.on }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:#fff9ef;border:1px solid #e3d9c6;border-radius:12px;padding:10px 12px;cursor:pointer;color:#16263b;opacity:{{ d.op }}" style-hover="border-color:#16263b"><strong style="font-size:14px">{{ d.n }}</strong><span style="font-size:12px;opacity:.65">{{ d.s }}</span></button></sc-for>
+<button onClick="{{ reset }}" style="background:none;border:none;color:#b8323a;font-weight:600;font-size:14px;cursor:pointer;text-align:left;padding:4px 0">Reset prototype</button>
+</div>
+<div style="background:#fbf7ef;border:1px solid #e3d9c6;border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:8px;font-size:14px;color:#16263b"><strong style="font-size:15px">State</strong><sc-for list="{{ stateLines }}" as="l" hint-placeholder-count="5"><div style="display:flex;justify-content:space-between;gap:12px"><span style="opacity:.65">{{ l.k }}</span><strong>{{ l.v }}</strong></div></sc-for></div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const EV0 = [
+  { id: 'e1', t: 'Nour Haddad Live', v: 'Opera House', area: 'Downtown Dubai', d: 'Thu 20 Nov', time: '8:00 PM', cat: 'Concerts', seated: true, onSale: true, tone: '#2f4560', about: 'New songs and old favourites with a full string section. Doors open 7 PM.', secs: [{ id: '104', n: 'Section 104', p: 310 }, { id: 'GC', n: 'Golden Circle', p: 650 }, { id: '102', n: 'Section 102', p: 420 }] },
+  { id: 'e2', t: 'Desert Bass Festival', v: 'Al Qudra', area: 'Dubai', d: 'Sat 29 Nov', time: '4:00 PM', cat: 'Festivals', seated: false, onSale: true, tone: '#6f84a0', about: 'Twelve hours, three stages, one desert. Free shuttles from Al Quoz.', tiers: [{ id: 'eb', n: 'Early bird', p: 150, left: 0, resale: [{ id: 'r1', p: 165, qty: 2 }, { id: 'r2', p: 180, qty: 1 }] }, { id: 'ga', n: 'General admission', p: 195, left: 240, resale: [] }, { id: 'vip', n: 'VIP deck', p: 450, left: 6, resale: [] }] },
+  { id: 'e3', t: 'Ali Al Sayed: Stand-up', v: 'Dubai Comedy Club', area: 'Al Quoz', d: 'Fri 5 Dec', time: '9:00 PM', cat: 'Comedy', seated: false, onSale: false, saleDate: 'Mon 24 Nov, 10 AM', tone: '#8a6d3b', resale: false, about: 'A brand-new hour, in Arabic and English. Ages 16+.', tiers: [{ id: 'std', n: 'Standard', p: 120, left: 300, resale: [] }, { id: 'front', n: 'Front rows', p: 220, left: 40, resale: [] }] },
+  { id: 'e4', t: 'Derby Night', v: 'Al Maktoum Stadium', area: 'Deira', d: 'Thu 4 Dec', time: '7:30 PM', cat: 'Football', seated: false, onSale: true, tone: '#2f7a4f', about: 'The city derby. Gates open 90 minutes before kick-off.', tiers: [{ id: 'east', n: 'East Stand', p: 85, left: 900, resale: [] }, { id: 'west', n: 'West Stand', p: 110, left: 420, resale: [] }] }
+];
+const G0 = [
+  ['Omar Khalid', 'Golden Circle', 2, 'SA-48213', false], ['Fatima Al-Zahra', 'Section 104', 1, 'SA-48190', true], ['Rami Nassar', 'Section 102', 4, 'SA-48177', false],
+  ['Huda Saleh', 'Golden Circle', 2, 'SA-48151', true], ['Yousef Darwish', 'Section 104', 2, 'SA-48140', false], ['Mariam Haddad', 'Section 102', 1, 'SA-48122', false],
+  ['Khalid Mansour', 'Section 104', 3, 'SA-48109', true], ['Noor Abbas', 'Golden Circle', 2, 'SA-48095', false]
+].map(([n, tier, qty, order, inn], i) => ({ id: 'g' + i, n, tier, qty, order, in: inn, at: inn ? '7:4' + i + ' PM' : '' }));
+const CEV = [
+  { id: 'c1', t: 'Nour Haddad Live', d: 'Tonight · 8:00 PM · Opera House', live: true, sold: 1612, rev: 'AED 612,400' },
+  { id: 'c2', t: 'Desert Bass Festival', d: 'Sat 29 Nov · Al Qudra', sold: 3410, rev: 'AED 701,950' },
+  { id: 'c3', t: 'Ali Al Sayed: Stand-up', d: 'Fri 5 Dec · Draft on web', draft: true, sold: 0, rev: 'AED 0' }
+];
+const P = { home: 'M4 10l8-6 8 6v10h-5v-6H9v6H4z', search: 'M11 4a7 7 0 110 14 7 7 0 010-14zM20 20l-4-4', tickets: 'M3 7h18v3a2 2 0 000 4v3H3v-3a2 2 0 000-4z', profile: 'M12 4a4 4 0 110 8 4 4 0 010-8zM4 21c1-4 4-6 8-6s7 2 8 6', events: 'M4 6h16v14H4zM4 10h16M9 3v4M15 3v4', scan: 'M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3M4 12h16', guests: 'M9 4a4 4 0 110 8 4 4 0 010-8zM2 21c.8-4 3.5-6 7-6s6.2 2 7 6M17 4.5a3.5 3.5 0 010 7M22 21c-.5-3-2.2-5-4.5-5.7' };
+const ROOTS = ['home', 'search', 'tickets', 'profile', 'cEvents', 'cScan', 'cGuests', 'cAccount'];
+const LAYLA_ORGS = [{ id: 'mawja', n: 'Mawja Live Productions', role: 'admin', verified: 'yes' }, { id: 'kave', n: 'Kave Dubai', role: 'gate', verified: 'yes' }];
+const clone = x => JSON.parse(JSON.stringify(x));
+const init = () => ({
+  mode: 'fan', role: 'admin', route: 'splash', stack: [], tab: 'home', authed: false, toast: null, confirm: null, sheet: null, err: null,
+  user: { name: 'Layla Al-Amin', city: 'Dubai', email: 'layla.alamin@gmail.com' }, isNew: false,
+  f: { email: '', pw: '', name: '', resetEmail: '', otp: '', np1: '', np2: '', q: '', promo: '', to: '', pname: '', pcity: '', card: '', exp: '', cvc: '', code: '', cp0: '', cp1: '', cp2: '', msg: 'Doors are open! Gate B has the shortest queue right now.', gq: '', oname: '' },
+  hostSignup: false, orgs: [], org: null, otype: 'Promoter', ocity: 'Dubai',
+  authTab: 'up', city: 'Dubai', interests: [], cat: 'All', ev: 'e1', events: clone(EV0), reminders: [],
+  tierQty: {}, sec: null, seats: [], soldSeats: {}, cart: null, payMethod: 'apple', cards: [{ id: 'apple', n: 'Apple Pay', s: 'Default' }, { id: 'visa', n: 'Visa ··4242', s: 'Expires 08/28' }],
+  promoApplied: null, promoMsg: '', promoOk: true, payFail: false, paying: false, payErr: null,
+  tickets: [{ id: 't1', ev: 'e4', tier: 'East Stand', tierId: 'east', qty: 4, price: 85, face: 85, status: 'holding', code: 'SA-48102' }],
+  pass: null, sendQty: 1, sellQty: 1, sellPrice: 0, spQty: 1, spPrice: 160, spTier: null, waiting: [],
+  earn: { ready: 0, pending: 0, lifetime: 0 }, sales: [], withdrawing: false,
+  tx: [{ t: 'Derby Night · 4× East Stand', s: '12 Nov · Visa ··4242', a: -357 }],
+  promos: [{ c: 'WELCOME10', pct: 10, d: 'Your first order · official tickets', e: 'Expires 31 Dec', used: false, ev: null, resale: false }],
+  notifs: [{ id: 1, t: 'Welcome to Sahra', s: 'WELCOME10 takes 10% off your first order.', w: '1d', unread: true }],
+  nset: { push: true, email: true, sms: false, selling: true, remind: true, weekly: false }, lang: 'en', nums: 'latn', faqOpen: 0,
+  cEv: 'c1', offline: false, queued: 0, scan: null, guests: clone(G0), gFilter: 'all', gSel: null, aud: 'all', ch: { push: true, sms: false }, sendsLeft: 3, checkedBase: 1236
+});
+
+class Component extends DCLogic {
+  state = init();
+  timers = [];
+  componentDidMount() { this.splash(); }
+  componentWillUnmount() { this.timers.forEach(clearTimeout); }
+  later(fn, ms) { this.timers.push(setTimeout(fn, ms)); }
+  splash() { this.later(() => { if (this.state.route === 'splash') this.setState(s => ({ route: s.authed ? (s.mode === 'fan' ? 'home' : (s.role === 'gate' ? 'cScan' : 'cEvents')) : 'getStarted', stack: [] })); }, 1300); }
+  go = (route, extra) => this.setState(s => ({ stack: [...s.stack, s.route], route, err: null, ...(extra || {}) }));
+  back = () => this.setState(s => s.stack.length ? { route: s.stack[s.stack.length - 1], stack: s.stack.slice(0, -1), err: null, payErr: null } : null);
+  root = route => this.setState({ route, stack: [], tab: route, err: null, sheet: null });
+  toast = m => { this.setState({ toast: m }); this.later(() => this.setState(s => s.toast === m ? { toast: null } : null), 2400); };
+  notify = (t, s) => this.setState(st => ({ notifs: [{ id: Math.random(), t, s, w: 'now', unread: true }, ...st.notifs] }));
+  setF = (k, v) => this.setState(s => ({ f: { ...s.f, [k]: v }, err: null }));
+  fmt = n => (this.state.nums === 'arab' ? Math.round(n).toLocaleString('ar-EG') : Math.round(n).toLocaleString('en-US'));
+  aed = n => 'AED ' + this.fmt(n);
+  evById = id => this.state.events.find(e => e.id === id);
+  ask = (t, b, ok, fn, danger) => this.setState({ confirm: { t, b, ok, fn, danger } });
+
+  // auth
+  submitAuth = () => {
+    const { f, authTab } = this.state;
+    if (authTab === 'up' && !f.name.trim()) return this.setState({ err: 'Add your name.' });
+    if (!/^\S+@\S+\.\S+$/.test(f.email)) return this.setState({ err: 'That email doesn’t look right.' });
+    if (f.pw.length < 8) return this.setState({ err: 'Password needs 8+ characters.' });
+    if (authTab === 'up' && f.email.trim().toLowerCase() === 'layla.alamin@gmail.com') return this.setState({ err: 'There’s already an account with this email. Sign in instead.' });
+    if (authTab === 'up') this.setState(s => ({ user: { ...s.user, name: f.name.trim(), email: f.email }, route: s.hostSignup ? 'hostOrg' : 'personalize', stack: [], isNew: true, orgs: [] }));
+    else if (f.email.trim().toLowerCase() === 'host@kave.ae') { this.setState(s => ({ authed: true, user: { ...s.user, name: 'Omar Haddad', email: f.email }, orgs: [{ id: 'kave', n: 'Kave Dubai', role: 'admin', verified: 'yes' }], tickets: [], tx: [] })); this.setMode('creator', 'kave'); }
+    else this.setState(s => ({ authed: true, orgs: s.orgs.length ? s.orgs : clone(LAYLA_ORGS), mode: 'fan', route: 'home', tab: 'home', stack: [] }));
+  };
+  finishPersonalize = () => {
+    if (this.state.interests.length < 3) return this.toast('Pick at least 3 interests');
+    this.setState(s => ({ authed: true, route: 'home', tab: 'home', stack: [], user: { ...s.user, city: s.city } }));
+    this.toast('You’re in. WELCOME10 is in your promo codes.');
+  };
+
+  // buying
+  startBuy = () => {
+    const e = this.evById(this.state.ev);
+    if (!e.onSale) {
+      const on = this.state.reminders.includes(e.id);
+      this.setState(s => ({ reminders: on ? s.reminders.filter(x => x !== e.id) : [...s.reminders, e.id] }));
+      return this.toast(on ? 'Reminder removed' : 'We’ll notify you when sales open');
+    }
+    if (e.seated) this.go('sections', { seats: [] }); else this.go('tiers', { tierQty: {} });
+  };
+  tierInc = (t, d) => this.setState(s => {
+    const q = { ...s.tierQty }, total = Object.values(q).reduce((a, b) => a + b, 0), cur = q[t.id] || 0;
+    if (d > 0 && total >= 6) { this.toast('Max 6 tickets per order'); return null; }
+    if (d > 0 && cur >= t.left) { this.toast('Only ' + t.left + ' left in ' + t.n); return null; }
+    q[t.id] = Math.max(0, cur + d); return { tierQty: q };
+  });
+  tiersNext = () => {
+    const e = this.evById(this.state.ev), lines = e.tiers.filter(t => this.state.tierQty[t.id]).map(t => ({ tier: t.id, label: t.n, qty: this.state.tierQty[t.id], price: t.p }));
+    if (!lines.length) return this.toast('Add at least one ticket');
+    this.go('checkout', { cart: { ev: e.id, lines }, payErr: null, promoApplied: null, promoMsg: '' });
+  };
+  buyResale = (t, r) => this.go('checkout', { cart: { ev: this.state.ev, lines: [{ tier: t.id, label: t.n + ' · Resale', qty: r.qty, price: r.p, face: t.p, listing: r.id }] }, payErr: null, promoApplied: null, promoMsg: '' });
+  toggleSeat = (key, taken) => {
+    if (taken) return;
+    this.setState(s => {
+      if (s.seats.includes(key)) return { seats: s.seats.filter(k => k !== key) };
+      if (s.seats.length >= 6) { this.toast('Max 6 seats per order'); return null; }
+      return { seats: [...s.seats, key] };
+    });
+  };
+  seatsNext = () => {
+    const e = this.evById(this.state.ev), sec = e.secs.find(x => x.id === this.state.sec);
+    if (!this.state.seats.length) return this.toast('Tap seats to pick them');
+    this.go('checkout', { cart: { ev: e.id, lines: [{ tier: sec.id, label: sec.n + ' · ' + this.state.seats.join(', '), qty: this.state.seats.length, price: sec.p, seats: this.state.seats.slice() }] }, payErr: null, promoApplied: null, promoMsg: '' });
+  };
+  totals() {
+    const c = this.state.cart; if (!c) return { sub: 0, fee: 0, disc: 0, total: 0, qty: 0 };
+    const sub = c.lines.reduce((a, l) => a + l.qty * l.price, 0), fee = Math.round(sub * 0.05), p = this.state.promoApplied, disc = p ? Math.round(sub * p.pct / 100) : 0;
+    return { sub, fee, disc, total: sub + fee - disc, qty: c.lines.reduce((a, l) => a + l.qty, 0) };
+  }
+  applyPromo = () => {
+    const code = this.state.f.promo.trim().toUpperCase(), own = this.state.promos.find(p => p.c === code);
+    if (!code) return;
+    if (own && own.used) return this.setState({ promoMsg: code + ' was already used.', promoOk: false, promoApplied: null });
+    const p = own || (code === 'SAHRA10' ? { c: code, pct: 10, resale: true } : null);
+    if (!p) return this.setState({ promoMsg: 'We don’t recognise that code.', promoOk: false, promoApplied: null });
+    const cart = this.state.cart;
+    if (p.ev && cart && p.ev !== cart.ev) return this.setState({ promoMsg: code + ' only works for ' + this.evById(p.ev).t + '.', promoOk: false, promoApplied: null });
+    if (!p.resale && cart && cart.lines.some(l => l.listing)) return this.setState({ promoMsg: code + ' doesn’t work on resale tickets.', promoOk: false, promoApplied: null });
+    this.setState({ promoApplied: p, promoMsg: p.c + ' applied: ' + p.pct + '% off tickets', promoOk: true });
+  };
+  pay = () => {
+    if (this.state.paying) return;
+    this.setState({ paying: true, payErr: null });
+    this.later(() => {
+      if (this.state.payFail) return this.setState({ paying: false, payFail: false, payErr: 'Your bank declined this payment. Nothing was charged. Try again or pick another method.' });
+      const s0 = this.state, c0 = s0.cart, e0 = this.evById(c0.ev);
+      const gone = c0.lines.find(l => l.seats ? l.seats.some(k => (s0.soldSeats[c0.ev + l.tier] || []).includes(k)) : e0.tiers && (l.listing ? !e0.tiers.find(x => x.id === l.tier).resale.some(r => r.id === l.listing) : e0.tiers.find(x => x.id === l.tier).left < l.qty));
+      if (gone) return this.setState({ paying: false, payErr: gone.listing ? 'Another fan just bought that resale listing. You weren’t charged. Go back to pick another.' : gone.label + ' sold out while you were checking out. You weren’t charged. Go back to pick another tier.' });
+      const s = this.state, c = s.cart, e = this.evById(c.ev), T = this.totals(), id = 't' + Date.now(), code = 'SA-' + (48300 + Math.floor(Math.random() * 600));
+      const qty = T.qty, label = c.lines.map(l => l.label).join(' + ');
+      const events = clone(s.events), ee = events.find(x => x.id === c.ev);
+      c.lines.forEach(l => { if (ee.tiers) { const t = ee.tiers.find(x => x.id === l.tier); if (l.listing) t.resale = t.resale.filter(r => r.id !== l.listing); else t.left -= l.qty; } });
+      const soldSeats = { ...s.soldSeats }; c.lines.forEach(l => { if (l.seats) soldSeats[c.ev + l.tier] = [...(soldSeats[c.ev + l.tier] || []), ...l.seats]; });
+      this.setState({
+        paying: false, events, soldSeats, cart: null, tierQty: {}, seats: [], f: { ...s.f, promo: '' },
+        tickets: [...c.lines.map((l, i) => ({ id: id + (i ? '-' + i : ''), ev: c.ev, tier: l.label, tierId: l.tier, qty: l.qty, price: l.price, face: l.face || l.price, status: 'holding', code: code + (i ? '-' + i : '') })), ...s.tickets],
+        promos: s.promoApplied ? s.promos.map(p => p.c === s.promoApplied.c ? { ...p, used: true } : p) : s.promos, promoApplied: null, promoMsg: '',
+        tx: [{ t: e.t + ' · ' + qty + '× ' + label, s: 'Today · ' + (s.cards.find(x => x.id === s.payMethod) || {}).n, a: -T.total }, ...s.tx],
+        pass: id, route: 'pass', stack: [], tab: 'tickets'
+      });
+      this.notify('You’re going to ' + e.t, qty + ' ticket' + (qty > 1 ? 's' : '') + ' added to Tickets. Order ' + code + '.');
+    }, 1200);
+  };
+
+  // tickets
+  openPass = id => this.go('pass', { pass: id });
+  sendTickets = () => {
+    const to = this.state.f.to.trim(), t = this.state.tickets.find(x => x.id === this.state.pass), n = this.state.sendQty;
+    if (!/^\S+@\S+\.\S+$/.test(to) && !/^\+?[\d\s]{9,}$/.test(to)) return this.setState({ err: 'Enter an email or a phone number with country code.' });
+    if (to.toLowerCase() === this.state.user.email.toLowerCase()) return this.setState({ err: 'That’s your own account. Enter a friend’s phone or email.' });
+    this.ask('Send ' + n + ' ticket' + (n > 1 ? 's' : '') + '?', 'To ' + to + '. Once they accept, the tickets leave your account and your QR stops working.', 'Send', () => {
+      this.setState(s => ({ tickets: this.splitTicket(s.tickets, t.id, n, { status: 'sent', to }), route: 'tickets', stack: [], tab: 'tickets', f: { ...s.f, to: '' } }));
+      this.notify('Tickets sent', n + '× ' + t.tier + ' sent to ' + to + '.');
+      this.toast('Sent to ' + to);
+    });
+  };
+  splitTicket(list, id, n, patch) {
+    const out = [];
+    list.forEach(t => {
+      if (t.id !== id) return out.push(t);
+      if (n < t.qty) { out.push({ ...t, qty: t.qty - n }); out.push({ ...t, ...patch, id: t.id + 'x' + Date.now(), qty: n }); } else out.push({ ...t, ...patch });
+    });
+    return out;
+  }
+  withListing(events, t, l) { return events.map(e => e.id !== t.ev || !e.tiers ? e : { ...e, tiers: e.tiers.map(x => x.id === t.tierId ? { ...x, resale: [...x.resale, l] } : x) }); }
+  dropListing(events, id) { return events.map(e => !e.tiers ? e : { ...e, tiers: e.tiers.map(x => ({ ...x, resale: x.resale.filter(r => r.id !== id) })) }); }
+  listForSale = () => {
+    const t = this.state.tickets.find(x => x.id === this.state.pass), n = this.state.sellQty, p = this.state.sellPrice, newId = t.id + 'x' + Date.now();
+    this.setState(s => {
+      const out = []; s.tickets.forEach(x => { if (x.id !== t.id) return out.push(x); if (n < x.qty) { out.push({ ...x, qty: x.qty - n }); out.push({ ...x, id: newId, qty: n, status: 'selling', list: p }); } else out.push({ ...x, status: 'selling', list: p }); });
+      return { tickets: out, route: 'tickets', stack: [], tab: 'tickets', events: this.withListing(s.events, t, { id: n < t.qty ? newId : t.id, p, qty: n, mine: true }) };
+    });
+    this.toast('Listed ' + n + ' at ' + this.aed(p) + ' each');
+    const sid = n < t.qty ? newId : t.id;
+    this.later(() => this.buyerBuys(sid), 7000);
+  };
+  buyerBuys = id => {
+    const t = this.state.tickets.find(x => x.id === id && x.status === 'selling') || (id ? null : this.state.tickets.find(x => x.status === 'selling'));
+    if (!t) return;
+    const e = this.evById(t.ev), payout = Math.round(t.list * t.qty * 0.95);
+    this.setState(s => ({ events: this.dropListing(s.events, t.id), tickets: s.tickets.map(x => x.id === t.id ? { ...x, status: 'sold' } : x), earn: { ...s.earn, pending: s.earn.pending + payout, lifetime: s.earn.lifetime + payout }, sales: [{ t: e.t, s: t.qty + '× ' + t.tier, a: payout, st: 'Pending' }, ...s.sales] }));
+    this.notify('Your tickets sold', t.qty + '× ' + e.t + '. ' + this.aed(payout) + ' arrives after the event.');
+    this.toast('A buyer bought your ' + e.t + ' tickets');
+  };
+  stopSelling = () => {
+    const t = this.state.tickets.find(x => x.id === this.state.pass);
+    this.ask('Stop selling?', 'Your listing comes down and the tickets go back to your wallet.', 'Stop selling', () => { this.setState(s => ({ events: this.dropListing(s.events, t.id), tickets: s.tickets.map(x => x.id === t.id ? { ...x, status: 'holding', list: null } : x) })); this.toast('Listing removed'); });
+  };
+  confirmSetPrice = () => {
+    const e = this.evById(this.state.ev), t = e.tiers.find(x => x.id === this.state.spTier);
+    const match = t.resale.filter(r => !r.mine && r.p <= this.state.spPrice && r.qty === this.state.spQty).sort((a, b) => a.p - b.p)[0];
+    if (match) { this.toast('A listing at ' + this.aed(match.p) + ' already matches. Check out now.'); return this.buyResale(t, match); }
+    this.setState(s => ({ waiting: [...s.waiting, { id: 'w' + Date.now(), ev: e.id, tier: t.n, tierId: t.id, face: t.p, qty: s.spQty, max: s.spPrice }], route: 'tickets', stack: [], tab: 'tickets' }));
+    this.toast('We’ll buy automatically at ' + this.aed(this.state.spPrice) + ' or less');
+  };
+  fulfillWaiting = () => {
+    const w = this.state.waiting[0]; if (!w) return;
+    const e = this.evById(w.ev), price = w.max - 10, total = price * w.qty;
+    this.setState(s => ({ waiting: s.waiting.slice(1), tickets: [{ id: 't' + Date.now(), ev: w.ev, tier: w.tier + ' · Resale', tierId: w.tierId, qty: w.qty, price, face: w.face, status: 'holding', code: 'SA-' + (48900 + Math.floor(Math.random() * 90)) }, ...s.tickets], tx: [{ t: e.t + ' · ' + w.qty + '× ' + w.tier + ' (auto-buy)', s: 'Today · Apple Pay', a: -Math.round(total * 1.05) }, ...s.tx] }));
+    this.notify('Got them!', 'We bought ' + w.qty + '× ' + w.tier + ' for ' + e.t + ' at ' + this.aed(price) + ' each.');
+    this.toast('Auto-buy filled: ' + e.t);
+  };
+
+  // money
+  doWithdraw = () => {
+    if (!this.state.earn.ready) return;
+    this.setState({ withdrawing: true });
+    this.later(() => {
+      const amt = this.state.earn.ready;
+      this.setState(s => ({ withdrawing: false, earn: { ...s.earn, ready: 0 }, sales: s.sales.map(x => x.st === 'Ready' ? { ...x, st: 'Paid out' } : x), tx: [{ t: 'Withdrawal · Emirates NBD ··3021', s: 'Today · arrives in 1–2 days', a: amt }, ...s.tx], route: 'earnings', stack: s.stack.slice(0, -1) }));
+      this.notify('Withdrawal on its way', this.aed(amt) + ' to Emirates NBD ··3021.');
+      this.toast('Withdrawal requested');
+    }, 1000);
+  };
+  release = () => this.setState(s => ({ earn: { ...s.earn, ready: s.earn.ready + s.earn.pending, pending: 0 }, sales: s.sales.map(x => x.st === 'Pending' ? { ...x, st: 'Ready' } : x) }), () => this.notify('Earnings released', 'Your resale money is ready to withdraw.'));
+  addCard = () => {
+    const { card, exp, cvc } = this.state.f, digits = card.replace(/\s/g, '');
+    if (!/^\d{16}$/.test(digits)) return this.setState({ err: 'Card number should be 16 digits.' });
+    if (!/^\d{2}\/\d{2}$/.test(exp)) return this.setState({ err: 'Expiry should look like 08/28.' });
+    if (!/^\d{3,4}$/.test(cvc)) return this.setState({ err: 'CVC is 3 or 4 digits.' });
+    this.setState(s => ({ cards: [...s.cards, { id: 'c' + Date.now(), n: 'Mastercard ··' + digits.slice(-4), s: 'Expires ' + exp }], f: { ...s.f, card: '', exp: '', cvc: '' } }));
+    this.back(); this.toast('Card added');
+  };
+  addCode = () => {
+    const c = this.state.f.code.trim().toUpperCase();
+    if (!c) return;
+    if (this.state.promos.some(p => p.c === c)) return this.setState({ err: 'You already have ' + c + '.' });
+    const known = { SAHRA10: [10, 'Any event · resale too'], NOUR20: [20, 'Nour Haddad Live only'] }[c];
+    if (!known) return this.setState({ err: 'That code isn’t valid or has expired.' });
+    this.setState(s => ({ promos: [{ c, pct: known[0], d: known[1], e: 'Expires 31 Dec', used: false, ev: c === 'NOUR20' ? 'e1' : null, resale: c === 'SAHRA10' }, ...s.promos], f: { ...s.f, code: '' } }));
+    this.toast(c + ' added');
+  };
+  saveProfile = () => {
+    const { pname, pcity } = this.state.f;
+    if (!pname.trim()) return this.setState({ err: 'Name can’t be empty.' });
+    this.setState(s => ({ user: { ...s.user, name: pname.trim(), city: pcity || s.user.city } }));
+    this.back(); this.toast('Profile saved');
+  };
+  updatePw = () => {
+    const { cp0, cp1, cp2 } = this.state.f;
+    if (!cp0) return this.setState({ err: 'Enter your current password.' });
+    if (!(cp1.length >= 8 && /\d/.test(cp1) && cp1 === cp2)) return this.setState({ err: 'Check the rules below.' });
+    this.setState(s => ({ f: { ...s.f, cp0: '', cp1: '', cp2: '' } })); this.back(); this.toast('Password updated. Other devices signed out.');
+  };
+  signOut = () => this.ask('Sign out?', 'Your tickets stay safe in your account.', 'Sign out', () => this.setState({ authed: false, route: 'getStarted', stack: [], authTab: 'in', mode: 'fan' }), true);
+  deleteAccount = () => {
+    const s = this.state, admin = s.orgs.find(o => o.role === 'admin');
+    const block = s.tickets.some(t => t.status === 'holding' || t.status === 'selling') ? 'You still have upcoming tickets. Sell or send them first.' : s.waiting.length ? 'Cancel your Set-your-price orders first.' : (s.earn.ready + s.earn.pending) > 0 ? 'You have resale earnings. Withdraw them first; pending money releases after the event.' : admin ? 'You’re the admin of ' + admin.n + '. Make someone else admin or close it in Studio first.' : null;
+    if (block) return this.ask('Can’t delete yet', block, 'OK', () => {});
+    this.ask('Delete your account?', 'This permanently removes your profile and history.', 'Delete account', () => { this.timers.forEach(clearTimeout); this.setState({ ...init(), route: 'getStarted' }); }, true);
+  };
+  setMode = (m, orgId) => this.setState(s => {
+    if (m === 'fan') return { mode: 'fan', authed: true, route: 'home', tab: 'home', stack: [], sheet: null, scan: null };
+    const orgs = s.orgs.length ? s.orgs : clone(LAYLA_ORGS), o = orgs.find(x => x.id === (orgId || s.org)) || orgs[0], r = o.role;
+    return { orgs, org: o.id, role: r, mode: 'creator', authed: true, route: r === 'gate' ? 'cScan' : 'cEvents', tab: r === 'gate' ? 'cScan' : 'cEvents', stack: [], sheet: null, scan: null };
+  });
+  createOrg = () => {
+    const n = this.state.f.oname.trim();
+    if (n.length < 2) return this.setState({ err: 'Give your organisation a name.' });
+    if (this.state.orgs.some(o => o.n.toLowerCase() === n.toLowerCase())) return this.setState({ err: 'You’re already in an organisation called ' + n + '.' });
+    const o = { id: 'o' + Date.now(), n, role: 'admin', verified: 'none', fresh: true, type: this.state.otype, city: this.state.ocity };
+    this.setState(s => ({ orgs: [...s.orgs, o], f: { ...s.f, oname: '' }, hostSignup: false }), () => { this.setMode('creator', o.id); this.toast(n + ' is set up. Build your first event on the web.'); });
+  };
+  setRole = r => this.setState({ role: r, route: r === 'gate' ? 'cScan' : 'cEvents', tab: r === 'gate' ? 'cScan' : 'cEvents', stack: [], scan: null });
+
+  // creator
+  doScan = kind => {
+    const s = this.state; let g = null;
+    if (kind === 'valid') { g = s.guests.find(x => !x.in); if (!g) return this.toast('Everyone on the list is in'); }
+    if (kind === 'used') g = s.guests.find(x => x.in);
+    this.setState({ scan: { kind, g } });
+  };
+  admit = () => {
+    const g = this.state.scan.g;
+    this.setState(s => ({ guests: s.guests.map(x => x.id === g.id ? { ...x, in: true, at: s.offline ? 'queued' : 'now' } : x), queued: s.offline ? s.queued + 1 : s.queued, scan: null }));
+    this.toast(this.state.offline ? 'Admitted offline · will sync' : 'Admitted ' + g.qty);
+  };
+  toggleOffline = () => this.setState(s => {
+    if (s.offline && s.queued) { this.toast('Synced ' + s.queued + ' check-ins'); return { offline: false, queued: 0, guests: s.guests.map(x => x.at === 'queued' ? { ...x, at: 'now' } : x) }; }
+    return { offline: !s.offline };
+  });
+  sendBroadcast = () => {
+    const s = this.state;
+    if (!s.sendsLeft) return;
+    if (!s.f.msg.trim()) return this.setState({ err: 'Write a message first.' });
+    if (!s.ch.push && !s.ch.sms) return this.setState({ err: 'Pick at least one channel.' });
+    if (!this.audiences().find(a => a.id === s.aud).count) return this.setState({ err: 'Nobody is in that group right now.' });
+    const aud = this.audiences().find(a => a.id === s.aud);
+    this.ask('Send to ' + aud.n.toLowerCase() + '?', aud.count + ' people' + (s.ch.sms ? ' · SMS costs ' + this.aed(Math.ceil(aud.count * 0.12)) : '') + '. You can’t unsend it.', 'Send now', () => { this.setState(st => ({ sendsLeft: st.sendsLeft - 1 })); this.back(); this.toast('Message sent to ' + aud.count + ' people'); });
+  };
+  audiences() {
+    const inn = this.state.checkedBase + this.state.guests.filter(g => g.in).length;
+    return [{ id: 'all', n: 'All ticket holders', count: 1612 }, { id: 'in', n: 'Checked in', count: inn }, { id: 'out', n: 'Not arrived yet', count: 1612 - inn }, { id: 'gc', n: 'Golden Circle', count: 212 }];
+  }
+
+  renderVals() {
+    const s = this.state, f = s.f, fmt = this.fmt, aed = this.aed, chips = (arr, isOn, fn) => arr.map(n => ({ n, on: () => fn(n), bg: isOn(n) ? '#f2d9a0' : '#22344d', fg: isOn(n) ? '#16263b' : '#f7f1e6' }));
+    const on = {}; Object.keys(f).forEach(k => { on[k] = e => this.setF(k, e.target.value); });
+    const is = { [s.route]: true }, ev0 = this.evById(s.ev), sand = s.route === 'checkout';
+    const minP = e => e.seated ? Math.min(...e.secs.map(x => x.p)) : Math.min(...e.tiers.filter(t => t.left > 0).map(t => t.p).concat(e.tiers.flatMap(t => t.resale.map(r => r.p))));
+    const evCard = e => ({ ...e, sub: e.d + ' · ' + e.v, price: e.onSale ? 'From ' + aed(minP(e)) : 'On sale ' + e.saleDate.split(',')[0], on: () => this.go('event', { ev: e.id }) });
+    const cityEvents = s.city === 'Dubai' ? s.events : [];
+    const T = this.totals();
+    const ticketsFor = id => s.tickets.filter(t => t.ev === id && (t.status === 'holding' || t.status === 'selling'));
+    const held = ticketsFor(s.ev), heldQty = held.reduce((a, t) => a + t.qty, 0);
+    const evCta = !ev0.onSale ? (s.reminders.includes(ev0.id) ? { n: 'Reminder on ✓', bg: '#22344d', fg: '#f2d9a0' } : { n: 'Remind me', bg: '#f2d9a0', fg: '#16263b' }) : { n: 'Get tickets', bg: '#f2d9a0', fg: '#16263b' };
+    evCta.on = this.startBuy;
+    const passT = s.tickets.find(t => t.id === s.pass), passE = passT ? this.evById(passT.ev) : null;
+    const stChip = { holding: ['Ready', '#2f7a4f', '#f7f1e6'], selling: ['Selling', '#f2d9a0', '#16263b'], sold: ['Sold', '#3a506c', '#f7f1e6'], sent: ['Sent', '#3a506c', '#f7f1e6'] };
+    const tkRow = t => { const e = this.evById(t.ev), c = stChip[t.status]; return { t: e.t, sub: e.d + ' · ' + t.qty + '× ' + t.tier, chip: c[0], cbg: c[1], cfg: c[2], extra: t.status === 'selling' ? 'Listed at ' + aed(t.list) + ' each' : t.status === 'sent' ? 'To ' + t.to : t.status === 'sold' ? 'Payout ' + aed(Math.round(t.list * t.qty * 0.95)) : 'Gate opens 1h before', on: () => (t.status === 'holding' || t.status === 'selling') ? this.openPass(t.id) : null }; };
+    const upcoming = s.tickets.filter(t => t.status === 'holding' || t.status === 'selling').map(tkRow), past = s.tickets.filter(t => t.status === 'sold' || t.status === 'sent').map(tkRow);
+    const waiting = s.waiting.map(w => ({ t: this.evById(w.ev).t, sub: w.qty + '× ' + w.tier + ' · up to ' + aed(w.max) + ' each', cancel: () => { this.setState(st => ({ waiting: st.waiting.filter(x => x.id !== w.id) })); this.toast('Auto-buy cancelled'); } }));
+    const unread = s.notifs.some(n => n.unread);
+    const hasEarn = s.sales.length > 0;
+    const cap = passT ? Math.round((passT.face || passT.price) * 1.1) : 0;
+    const audList = this.audiences();
+    const checkedIn = s.checkedBase + s.guests.filter(g => g.in).length;
+    const isAdmin = s.role === 'admin';
+    const gq = f.gq.toLowerCase();
+    const guestRows = s.guests.filter(g => (s.gFilter === 'all' || (s.gFilter === 'in' ? g.in : !g.in)) && (!gq || (g.n + g.order).toLowerCase().includes(gq))).map(g => ({ ...g, sub: g.qty + '× ' + g.tier + ' · ' + g.order, st: g.in ? (g.at === 'queued' ? 'Queued' : 'In ' + (g.at === 'now' ? 'just now' : g.at)) : 'Not yet', stc: g.in ? '#f2d9a0' : '#9fb0c6', on: () => this.setState({ gSel: g.id }) }));
+    const gSel = s.guests.find(g => g.id === s.gSel);
+    const scanCfg = s.scan ? ({
+      valid: { bg: '#f2d9a0', fg: '#16263b', h: 'Valid ticket', b: (s.scan.g ? s.scan.g.n + ' · ' + s.scan.g.qty + '× ' + s.scan.g.tier + ' · ' + s.scan.g.order : '') + (s.offline ? ' · Offline: checked against this phone’s list only' : ''), btn: 'Admit ' + (s.scan.g ? s.scan.g.qty : ''), act: this.admit },
+      used: { bg: '#b8323a', fg: '#f7f1e6', h: 'Already used', b: s.scan.g ? s.scan.g.n + ' checked in at ' + (s.scan.g.at === 'now' ? 'a moment ago' : s.scan.g.at) + '. Don’t admit; send to the help desk.' : '', btn: 'Scan next', act: () => this.setState({ scan: null }) },
+      wrong: { bg: '#f7f1e6', fg: '#16263b', h: 'Wrong event', b: 'This ticket is for Desert Bass Festival on Sat 29 Nov.', btn: 'Scan next', act: () => this.setState({ scan: null }) },
+      refund: { bg: '#b8323a', fg: '#f7f1e6', h: 'Refunded', b: 'Order SA-47702 was refunded on 15 Nov. Don’t admit.', btn: 'Scan next', act: () => this.setState({ scan: null }) }
+    })[s.scan.kind] : null;
+    const tabsFan = [['home', 'For You'], ['search', 'Search'], ['tickets', 'Tickets'], ['profile', 'Profile']];
+    const tabsC = [['cEvents', 'Events', 'events'], ['cScan', 'Scan', 'scan'], ['cGuests', 'Guests', 'guests'], ['cAccount', 'Account', 'profile']].filter(t => !(s.role === 'gate' && t[0] === 'cEvents'));
+    const tabs = (s.mode === 'fan' ? tabsFan.map(t => [t[0], t[1], t[0]]) : tabsC).map(([r, n, ic]) => ({ n, d: P[ic], c: s.tab === r ? '#f2d9a0' : '#9fb0c6', on: () => this.root(r) }));
+    const sw = (v, fn) => ({ on: fn, bg: v ? '#f2d9a0' : '#3a506c', x: v ? '23px' : '3px', kn: v ? '#16263b' : '#f7f1e6' });
+    const npOk = [f.np1.length >= 8, /\d/.test(f.np1), f.np1 && f.np1 === f.np2];
+    const cpOk = [f.cp1.length >= 8, /\d/.test(f.cp1), f.cp1 && f.cp1 === f.cp2];
+    const rule = (n, ok) => ({ n, i: ok ? '✓' : '', bg: ok ? '#f2d9a0' : '#3a506c', c: ok ? '#f7f1e6' : '#9fb0c6' });
+    const ce = CEV.find(c => c.id === s.cEv);
+    const curOrg = s.orgs.find(o => o.id === s.org) || LAYLA_ORGS[0], ini = s.user.name.split(' ').map(w => w[0]).slice(0, 2).join('');
+    const faqs = [['When do I get my tickets?', 'Instantly. They live in Tickets and work offline at the gate.'], ['Can I sell tickets I can’t use?', 'Yes. Open the ticket, tap Sell. Prices are capped at face value +10% so nobody gets gouged.'], ['When is resale money paid?', 'After the event happens. Then you can withdraw to your bank in 1–2 days.'], ['What is Set your price?', 'For sold-out tiers: tell us your max and we buy the first ticket listed at or below it.']].map(([q, a], i) => ({ q, a, open: s.faqOpen === i, i: s.faqOpen === i ? '−' : '+', on: () => this.setState({ faqOpen: s.faqOpen === i ? -1 : i }) }));
+    const demoFan = [
+      { n: (s.payFail ? '✓ ' : '') + 'Next payment fails', s: 'Card declined at checkout', on: () => this.setState({ payFail: !s.payFail }), ok: true },
+      { n: 'A buyer buys your listing', s: 'Needs a ticket listed for sale', on: () => this.buyerBuys(null), ok: s.tickets.some(t => t.status === 'selling') },
+      { n: 'Event ends → release payouts', s: 'Pending ' + aed(s.earn.pending) + ' becomes withdrawable', on: this.release, ok: s.earn.pending > 0 },
+      { n: 'Matching resale listing appears', s: 'Fills your oldest Set-your-price order', on: this.fulfillWaiting, ok: s.waiting.length > 0 },
+      { n: 'Another fan checks out first', s: 'VIP deck sells out + cheapest Early-bird resale goes', ok: true, on: () => { this.setState(st => ({ events: st.events.map(e => e.id !== 'e2' ? e : { ...e, tiers: e.tiers.map(x => x.id === 'vip' ? { ...x, left: 0 } : x.id === 'eb' ? { ...x, resale: x.resale.filter(r => r.id !== 'r1') } : x) }) })); this.toast('Desert Bass: VIP sold out, cheapest resale gone'); } },
+      { n: 'Sales open: Ali Al Sayed', s: 'Notifies you if you tapped Remind me', ok: !this.evById('e3').onSale, on: () => { this.setState(st => ({ events: st.events.map(e => e.id === 'e3' ? { ...e, onSale: true } : e) })); if (s.reminders.includes('e3')) this.notify('On sale now: Ali Al Sayed', 'You asked us to remind you. Front rows go fast.'); this.toast('Ali Al Sayed is on sale'); } }
+    ];
+    const demoC = [
+      { n: (s.offline ? '✓ ' : '') + 'Venue Wi-Fi drops', s: 'Scanner queues check-ins offline', on: this.toggleOffline, ok: true },
+      { n: 'Verification approved', s: 'For a newly created organisation', on: () => this.setState(st => ({ orgs: st.orgs.map(o => o.id === st.org ? { ...o, verified: 'yes' } : o) })), ok: !!curOrg.fresh && curOrg.verified !== 'yes' },
+      { n: 'Broadcast limit resets', s: s.sendsLeft + ' of 3 sends left today', on: () => this.setState({ sendsLeft: 3 }), ok: s.sendsLeft < 3 }
+    ];
+    return {
+      is, frameBg: sand ? '#f7f1e6' : '#16263b', frameFg: sand ? '#241c14' : '#f7f1e6', showTabs: s.authed && ROOTS.includes(s.route), tabs, back: this.back,
+      toastMsg: s.toast, hasConfirm: !!s.confirm, confirm: s.confirm || {}, confirmBtnBg: s.confirm && s.confirm.danger ? '#b8323a' : '#f2d9a0', confirmBtnFg: s.confirm && s.confirm.danger ? '#f7f1e6' : '#16263b',
+      confirmOk: () => { const fn = s.confirm.fn; this.setState({ confirm: null }); fn(); }, confirmCancel: () => this.setState({ confirm: null }),
+      f, on, err: s.err, langLabel: s.lang === 'en' ? 'العربية' : 'English', toggleLang: () => this.setState({ lang: s.lang === 'en' ? 'ar' : 'en' }),
+      goSignUp: () => this.go('auth', { authTab: 'up', hostSignup: false }), goSignIn: () => this.go('auth', { authTab: 'in', hostSignup: false }),
+      authTitle: s.authTab === 'up' ? 'Create your account' : 'Welcome back', authSub: s.authTab === 'up' ? 'One account for tickets and hosting.' : 'Sign in with your Sahra email. Hosts land in their organisation.',
+      authSwap: () => this.setState({ authTab: s.authTab === 'up' ? 'in' : 'up', err: null }), authSwapLbl: s.authTab === 'up' ? 'Already have an account? Sign in' : 'New to Sahra? Create account',
+      acctTypes: [[false, 'Go to events', 'Buy, sell and send tickets.'], [true, 'Go to events and host them', 'Everything above, plus an organisation to sell tickets and run the door. You’ll name it next.']].map(([v, t, d]) => ({ t, d, on: () => this.setState({ hostSignup: v }), bd: s.hostSignup === v ? '#f2d9a0' : '#22344d', dot: s.hostSignup === v ? '#f2d9a0' : 'transparent' })),
+      authTabs: [['up', 'Sign up'], ['in', 'Sign in']].map(([k, n]) => ({ n, on: () => this.setState({ authTab: k, err: null }), bg: s.authTab === k ? '#f2d9a0' : 'transparent', fg: s.authTab === k ? '#16263b' : '#f7f1e6' })),
+      authUp: s.authTab === 'up', authIn: s.authTab === 'in', authCta: s.authTab === 'up' ? 'Create account' : 'Sign in', submitAuth: this.submitAuth, goForgot: () => this.go('forgot', { f: { ...f, resetEmail: f.email } }),
+      sendReset: () => /^\S+@\S+\.\S+$/.test(f.resetEmail) ? this.go('otp') : this.setState({ err: 'Enter the email you signed up with.' }),
+      verifyOtp: () => /^\d{6}$/.test(f.otp) ? this.go('newPw') : this.setState({ err: 'Enter all 6 digits.' }), resend: () => this.toast('New code sent'),
+      npRules: [rule('8+ characters', npOk[0]), rule('A number', npOk[1]), rule('Passwords match', npOk[2])], npOp: npOk.every(Boolean) ? 1 : .4,
+      saveNewPw: () => { if (!npOk.every(Boolean)) return; if (s.authed) { this.setState({ route: 'security', stack: s.mode === 'fan' ? ['profile', 'settings'] : [], f: { ...f, np1: '', np2: '', otp: '' } }); return this.toast('Password changed. Other devices signed out.'); } this.setState({ route: 'auth', stack: ['getStarted'], authTab: 'in' }); this.toast('Password changed. Sign in with it.'); },
+      cityChips: chips(['Dubai', 'Abu Dhabi', 'Riyadh', 'Doha', 'Kuwait City'], n => s.city === n, n => this.setState({ city: n })),
+      intChips: chips(['Concerts', 'Comedy', 'Football', 'Festivals', 'Theatre', 'Family', 'Nightlife'], n => s.interests.includes(n), n => this.setState(st => ({ interests: st.interests.includes(n) ? st.interests.filter(x => x !== n) : [...st.interests, n] }))),
+      intCount: s.interests.length + ' of 3 picked', intOp: s.interests.length >= 3 ? 1 : .4, finishPersonalize: this.finishPersonalize,
+      city: s.city, firstName: s.user.name.split(' ')[0], openInbox: () => this.go('inbox'), openCity: () => this.setState({ sheet: 'city' }), unread,
+      homeEmpty: !cityEvents.length, homeHas: cityEvents.length > 0, backToDubai: () => this.setState({ city: 'Dubai' }),
+      hero: (() => { const e = s.events[0]; return { ...evCard(e), tag: 'Selling fast', sub: e.d + ' · ' + e.v }; })(), homeList: cityEvents.slice(1).map(evCard),
+      citySheet: s.sheet === 'city', cityOpts: ['Dubai', 'Abu Dhabi', 'Riyadh', 'Doha'].map(n => ({ n, mark: s.city === n ? '✓' : '', on: () => this.setState({ city: n, sheet: null }) })), closeSheet: () => this.setState({ sheet: null }),
+      catChips: chips(['All', 'Concerts', 'Comedy', 'Football', 'Festivals'], n => s.cat === n, n => this.setState({ cat: n })),
+      ...(() => { const q = f.q.toLowerCase(), r = s.events.filter(e => (s.cat === 'All' || e.cat === s.cat) && (!q || (e.t + e.v + e.area).toLowerCase().includes(q))).map(evCard); return { results: r, noResults: !r.length, resultsLabel: 'Events · ' + r.length }; })(),
+      clearSearch: () => this.setState({ f: { ...f, q: '' }, cat: 'All' }),
+      ev: { ...ev0, resaleTxt: ev0.resale === false ? 'No resale for this event' : 'Resale capped at face +10%', kind: ev0.seated ? 'Seated · pick your seats' : 'General admission', price: ev0.onSale ? aed(minP(ev0)) : '—', priceLabel: ev0.onSale ? 'From' : 'Not on sale yet' },
+      evHeld: heldQty > 0, evHeldText: heldQty + ' ticket' + (heldQty > 1 ? 's' : '') + ' for this', openHeld: () => held[0] && this.openPass(held[0].id), evNotOnSale: !ev0.onSale, evCta,
+      tierRows: (ev0.tiers || []).map(t => ({ n: t.n, price: aed(t.p), qty: s.tierQty[t.id] || 0, avail: t.left > 0, soldOut: t.left <= 0, note: t.left <= 0 ? (t.resale.length ? t.resale.length + ' resale listings' : 'Sold out · no resale yet') : t.left <= 10 ? 'Only ' + t.left + ' left' : 'Face value ' + aed(t.p), noteC: t.left > 0 && t.left <= 10 ? '#f2d9a0' : '#9fb0c6', inc: () => this.tierInc(t, 1), dec: () => this.tierInc(t, -1), resale: t.resale.slice().sort((a, b) => a.p - b.p).map(r => ({ qtyText: r.qty + ' ticket' + (r.qty > 1 ? 's' : '') + ' together', price: r.mine ? 'Your listing' : aed(r.p) + ' each', buy: () => r.mine ? this.toast('That’s your own listing. Manage it in Tickets.') : this.buyResale(t, r) })), setPrice: () => this.go('setPrice', { spTier: t.id, spPrice: Math.min(t.p + 10, Math.round(t.p * 1.1)), spQty: 1 }) })),
+      cartQtyText: (() => { const q = Object.values(s.tierQty).reduce((a, b) => a + b, 0); return q ? q + ' ticket' + (q > 1 ? 's' : '') : 'No tickets yet'; })(),
+      cartTotal: aed(ev0.seated ? s.seats.length * ((ev0.secs.find(x => x.id === s.sec) || { p: 0 }).p) : (ev0.tiers || []).reduce((a, t) => a + (s.tierQty[t.id] || 0) * t.p, 0)),
+      cartOp: (ev0.seated ? s.seats.length : Object.values(s.tierQty).reduce((a, b) => a + b, 0)) ? 1 : .4, tiersNext: this.tiersNext,
+      secRows: (ev0.secs || []).map((x, i) => ({ id: x.id, n: x.n, price: aed(x.p), left: (40 - (s.soldSeats[ev0.id + x.id] || []).length - 16) + ' seats left', mapBg: ['#6f84a0', '#f2d9a0', '#9fb0c6'][i], on: () => this.go('seats', { sec: x.id, seats: [] }) })),
+      secName: ((ev0.secs || []).find(x => x.id === s.sec) || {}).n,
+      seatRows: 'ABCDEFGH'.split('').map((r, ri) => ({ r, seats: Array.from({ length: 10 }, (_, c) => { const key = r + (c + 1), si = (ev0.secs || []).findIndex(x => x.id === s.sec), taken = ((ri * 7 + c * 3 + si) % 5 === 0) || (s.soldSeats[ev0.id + s.sec] || []).includes(key), mine = s.seats.includes(key); return { l: mine ? c + 1 : '', bg: taken ? '#2a3b52' : mine ? '#f2d9a0' : '#6f84a0', cur: taken ? 'not-allowed' : 'pointer', on: () => this.toggleSeat(key, taken) }; }) })),
+      seatSel: s.seats.length ? s.seats.join(', ') : 'Tap seats to pick', seatsNext: this.seatsNext,
+      co: s.cart ? { ev: this.evById(s.cart.ev).t, when: this.evById(s.cart.ev).d + ' · ' + this.evById(s.cart.ev).v, lines: s.cart.lines.map(l => ({ label: l.qty + '× ' + l.label, amt: aed(l.qty * l.price) })), sub: aed(T.sub), fee: aed(T.fee), hasDisc: T.disc > 0, disc: '− ' + aed(T.disc), discLabel: s.promoApplied ? s.promoApplied.c : '', total: aed(T.total) } : { lines: [] },
+      payOpts: s.cards.map(c => ({ n: c.n, on: () => this.setState({ payMethod: c.id }), bd: s.payMethod === c.id ? '#16263b' : '#e3d9c6', dot: s.payMethod === c.id ? '#16263b' : 'transparent' })),
+      applyPromo: this.applyPromo, promoMsg: s.promoMsg || 'Have a code? Add it before you pay.', promoMsgC: s.promoMsg ? (s.promoOk ? '#2f7a4f' : '#b8323a') : '#8a7d68',
+      payErr: s.payErr, pay: this.pay, payLabel: s.paying ? 'Processing…' : 'Pay ' + aed(T.total),
+      pass: passT ? { t: passE.t, when: passE.d + ' · ' + passE.time, v: passE.v, tier: passT.tier, qty: passT.qty + ' ticket' + (passT.qty > 1 ? 's' : ''), code: passT.code, selling: passT.status === 'selling', holding: passT.status === 'holding', listText: passT.status === 'selling' ? 'Listed at ' + aed(passT.list) + ' each. We’ll tell you when it sells.' : '' } : {},
+      closePass: () => this.root('tickets'), goSend: () => this.go('send', { sendQty: passT.qty, err: null }), goSell: () => passE.resale === false ? this.ask('Resale is off for this event', 'The organiser doesn’t allow resale for ' + passE.t + '. You can still send tickets to a friend.', 'OK', () => {}) : this.go('sell', { sellQty: passT.qty, sellPrice: Math.min(passT.price, cap) }), stopSelling: this.stopSelling,
+      qr: Array.from({ length: 81 }, (_, i) => ({ bg: ((i * 37 + (passT ? passT.code.charCodeAt(5) : 0)) % 3 === 0) || [0, 1, 9, 10, 7, 8, 16, 17, 63, 64, 72, 73].includes(i) ? '#16263b' : 'transparent' })),
+      tkUpcoming: upcoming, tkPast: past, tkWaiting: waiting, hasUpcoming: upcoming.length > 0, hasPast: past.length > 0, hasWaiting: waiting.length > 0, tkEmpty: !upcoming.length && !waiting.length, browse: () => this.root('home'),
+      sendQty: s.sendQty, sendMax: passT ? passT.qty : 0, sendInc: () => this.setState(st => ({ sendQty: Math.min(passT.qty, st.sendQty + 1) })), sendDec: () => this.setState(st => ({ sendQty: Math.max(1, st.sendQty - 1) })), sendTickets: this.sendTickets,
+      sellQty: s.sellQty, sellPrice: aed(s.sellPrice), sellInc: () => this.setState(st => ({ sellQty: Math.min(passT.qty, st.sellQty + 1) })), sellDec: () => this.setState(st => ({ sellQty: Math.max(1, st.sellQty - 1) })),
+      priceUp: () => this.setState(st => { if (st.sellPrice + 5 > cap) { this.toast('Cap is ' + aed(cap) + ' (face +10%)'); return null; } return { sellPrice: st.sellPrice + 5 }; }), priceDown: () => this.setState(st => ({ sellPrice: Math.max(Math.round(passT.price * 0.5), st.sellPrice - 5) })),
+      sellCap: 'Face value ' + aed(passT ? (passT.face || passT.price) : 0) + ' · max ' + aed(cap) + (passT && passT.face && passT.price > passT.face ? ' (you paid ' + aed(passT.price) + ')' : ''), sellPayout: aed(Math.round(s.sellPrice * s.sellQty * 0.95)), sellGross: aed(s.sellPrice * s.sellQty), sellFee: '− ' + aed(Math.round(s.sellPrice * s.sellQty * 0.05)), listForSale: this.listForSale,
+      sp: (() => { const t = (ev0.tiers || []).find(x => x.id === s.spTier); return { tier: t ? t.n : '', qty: s.spQty, price: aed(s.spPrice), total: aed(Math.round(s.spPrice * s.spQty * 1.05)) }; })(),
+      spQtyInc: () => this.setState(st => ({ spQty: Math.min(4, st.spQty + 1) })), spQtyDec: () => this.setState(st => ({ spQty: Math.max(1, st.spQty - 1) })), spUp: () => this.setState(st => { const tt = (ev0.tiers || []).find(x => x.id === st.spTier), mx = tt ? Math.round(tt.p * 1.1) : 9999; if (st.spPrice + 5 > mx) { this.toast('Resale is capped at ' + aed(mx) + ', so higher won’t find more tickets'); return null; } return { spPrice: st.spPrice + 5 }; }), spDown: () => this.setState(st => ({ spPrice: Math.max(50, st.spPrice - 5) })), confirmSetPrice: this.confirmSetPrice,
+      user: { ...s.user, initials: s.user.name.split(' ').map(w => w[0]).slice(0, 2).join('') }, hasEarn, earnTotal: aed(s.earn.ready + s.earn.pending), earnSub: s.earn.ready ? aed(s.earn.ready) + ' ready to withdraw' : aed(s.earn.pending) + ' pending · releases after the event',
+      goEdit: () => this.go('editProfile', { f: { ...f, pname: s.user.name, pcity: s.user.city } }), goEarnings: () => this.go('earnings'), goSettings: () => this.go('settings'),
+      profMoney: [{ n: 'Payment methods', v: (s.cards.find(c => c.id === s.payMethod) || {}).n, on: () => this.go('payMethods') }, { n: 'Transactions', v: s.tx.length + '', on: () => this.go('transactions') }],
+      profRewards: [{ n: 'Promo codes', v: s.promos.filter(p => !p.used).length + ' ready', on: () => this.go('promos') }, { n: 'Invite friends', v: 'Get AED 25', on: () => this.go('invite') }],
+      saveProfile: this.saveProfile,
+      earn: { ready: aed(s.earn.ready), pending: aed(s.earn.pending), lifetime: aed(s.earn.lifetime) }, canWithdraw: s.earn.ready > 0, cantWithdraw: !s.earn.ready, wOp: s.earn.ready ? 1 : .4,
+      sales: s.sales.map(x => ({ ...x, a: aed(x.a), bg: x.st === 'Pending' ? '#3a506c' : x.st === 'Ready' ? '#f2d9a0' : '#2f7a4f', fg: x.st === 'Ready' ? '#16263b' : '#f7f1e6' })), noSales: !s.sales.length,
+      goWithdraw: () => s.earn.ready ? this.go('withdraw') : this.toast('Nothing ready yet. Money releases after the event.'), doWithdraw: this.doWithdraw, wLabel: s.withdrawing ? 'Sending…' : 'Withdraw ' + aed(s.earn.ready),
+      cards: s.cards.map(c => ({ ...c, def: s.payMethod === c.id, notDef: s.payMethod !== c.id, bd: s.payMethod === c.id ? '#f2d9a0' : '#22344d', make: () => { this.setState({ payMethod: c.id }); this.toast(c.n + ' is now default'); }, remove: () => c.id === 'apple' ? this.toast('Apple Pay is managed in Wallet') : this.ask('Remove ' + c.n + '?', 'You can add it again any time.', 'Remove', () => this.setState(st => ({ cards: st.cards.filter(x => x.id !== c.id), payMethod: st.payMethod === c.id ? 'apple' : st.payMethod })), true) })),
+      goAddCard: () => this.go('addCard'), addCard: this.addCard,
+      tx: s.tx.map(x => ({ ...x, a: (x.a < 0 ? '− ' : '+ ') + aed(Math.abs(x.a)), c: x.a < 0 ? '#f7f1e6' : '#f2d9a0' })), txEmpty: !s.tx.length,
+      addCode: this.addCode, promosValid: s.promos.filter(p => !p.used).map(p => ({ ...p, v: p.pct + '%' })), promosUsed: s.promos.filter(p => p.used).map(p => ({ ...p, v: p.pct + '%' })), hasUsed: s.promos.some(p => p.used), noValid: !s.promos.some(p => !p.used),
+      copyCode: () => this.toast(s.user.name.split(' ')[0].toUpperCase() + '25 copied'), share: () => this.toast('Share sheet opens here'), inviteCode: s.user.name.split(' ')[0].toUpperCase() + '25',
+      setRows: [{ n: 'Notifications', v: [s.nset.push && 'Push', s.nset.email && 'Email', s.nset.sms && 'SMS'].filter(Boolean).join(', ') || 'Off', on: () => this.go('notifSettings') }, { n: 'Language & numbers', v: (s.lang === 'en' ? 'English' : 'العربية') + ' · ' + (s.nums === 'latn' ? '123' : '١٢٣'), on: () => this.go('language') }, { n: 'Sign-in & security', v: '', on: () => this.go('security') }],
+      supRows: [{ n: 'Help & FAQs', v: '', on: () => this.go('help') }], hostRows: s.orgs.length ? [{ n: 'Switch profile', v: s.orgs.length + (s.orgs.length > 1 ? ' organisations' : ' organisation'), on: () => this.setState({ sheet: 'switch' }) }, { n: 'Create another organisation', v: '', on: () => this.go('hostOrg', { err: null }) }] : [{ n: 'Host events on Sahra', v: 'Free to start', on: () => this.go('hostIntro') }], signOut: this.signOut,
+      nChannels: [['push', 'Push notifications'], ['email', 'Email'], ['sms', 'SMS']].map(([k, n]) => ({ n, ...sw(s.nset[k], () => this.setState(st => ({ nset: { ...st.nset, [k]: !st.nset[k] } }))) })),
+      nTypes: [['selling', 'Selling updates', 'When a listing sells or expires'], ['remind', 'Reminders', 'Sales opening, doors, gates'], ['weekly', 'Weekly picks', 'Events we think you’ll like']].map(([k, n, d]) => ({ n, d, ...sw(s.nset[k], () => this.setState(st => ({ nset: { ...st.nset, [k]: !st.nset[k] } }))) })),
+      langOpts: [['en', 'English'], ['ar', 'العربية']].map(([k, n]) => ({ n, on: () => this.setState({ lang: k }), bg: s.lang === k ? '#f2d9a0' : 'transparent', fg: s.lang === k ? '#16263b' : '#f7f1e6' })),
+      numOpts: [['latn', '123'], ['arab', '١٢٣']].map(([k, n]) => ({ n, on: () => this.setState({ nums: k }), bg: s.nums === k ? '#f2d9a0' : 'transparent', fg: s.nums === k ? '#16263b' : '#f7f1e6' })),
+      numPreview: aed(1240) + ' · ' + this.fmt(29) + ' Nov', langNote: s.lang === 'ar' ? 'The app switches to right-to-left. (Arabic copy isn’t in this prototype.)' : 'Arabic flips the whole app to right-to-left.',
+      goChangePw: () => this.go('changePw'), signOutOthers: () => this.ask('Sign out other devices?', 'You’ll stay signed in on this phone.', 'Sign out others', () => this.toast('Signed out of 2 other devices')), deleteAccount: this.deleteAccount,
+      cpRules: [rule('8+ characters', cpOk[0]), rule('A number', cpOk[1]), rule('Passwords match', cpOk[2])], updatePw: this.updatePw, forgotFromCp: () => this.go('forgot', { f: { ...f, resetEmail: s.user.email } }),
+      faqs, chat: () => this.toast('Live chat opens here (Arabic or English)'),
+      notifs: s.notifs.map(n => ({ ...n, dot: n.unread ? '#f2d9a0' : 'transparent', on: () => { this.setState(st => ({ notifs: st.notifs.map(x => x.id === n.id ? { ...x, unread: false } : x) })); if (/sold|Earnings|Withdrawal/.test(n.t)) this.go('earnings'); else if (/going to|Got them|Tickets sent/.test(n.t)) this.root('tickets'); else if (/On sale/.test(n.t)) this.go('event', { ev: 'e3' }); } })), noNotifs: !s.notifs.length, markAll: () => this.setState(st => ({ notifs: st.notifs.map(n => ({ ...n, unread: false })) })),
+      // creator
+      roleName: { admin: 'Admin', cohost: 'Co-host', gate: 'Gate staff' }[s.role], isAdmin, notAdmin: !isAdmin, canBroadcast: s.role !== 'gate',
+      cEvents: (curOrg.fresh ? [] : CEV).map(c => ({ ...c, chip: c.live ? 'Live now' : c.draft ? 'Draft' : 'On sale', cbg: c.live ? '#f2d9a0' : '#3a506c', cfg: c.live ? '#16263b' : '#f7f1e6', meta: c.draft ? 'Finish setup on web' : fmt(c.sold) + ' sold' + (isAdmin ? ' · ' + c.rev : ''), on: () => c.draft ? this.setState({ sheet: 'handoff' }) : this.go('cEvent', { cEv: c.id }) })),
+      ce: { ...ce, sold: fmt(ce.sold), checked: ce.live ? fmt(checkedIn) : '—', pct: ce.live ? Math.round(checkedIn / ce.sold * 100) + '%' : '0%', revenue: ce.rev },
+      goBroadcast: () => this.go('broadcast', { err: null }), openHandoff: () => this.setState({ sheet: 'handoff' }), handoff: s.sheet === 'handoff',
+      handoffLinks: [{ n: 'Edit event & tickets' }, { n: 'Full analytics' }, { n: 'Payouts' }], openWeb: () => { this.setState({ sheet: null }); this.toast('Opens studio.sahra.app'); }, emailLink: () => { this.setState({ sheet: null }); this.toast('Link sent to your email'); },
+      audChips: audList.map(a => ({ n: a.n + ' · ' + fmt(a.count), on: () => this.setState({ aud: a.id }), bg: s.aud === a.id ? '#f2d9a0' : '#22344d', fg: s.aud === a.id ? '#16263b' : '#f7f1e6' })),
+      msgCount: f.msg.length + ' / 160', chRows: [['push', 'Push', 'Free'], ['sms', 'SMS', 'AED 0.12 per person']].map(([k, n, d]) => ({ n, d, ...sw(s.ch[k], () => this.setState(st => ({ ch: { ...st.ch, [k]: !st.ch[k] } }))) })),
+      smsCost: s.ch.sms ? 'SMS cost: ' + aed(Math.ceil(audList.find(a => a.id === s.aud).count * 0.12)) : 'Push only · free', sendsLeft: s.sendsLeft + ' of 3 broadcasts left today', bOp: s.sendsLeft ? 1 : .4, limitHit: !s.sendsLeft, sendBroadcast: this.sendBroadcast,
+      offline: s.offline, online: !s.offline, toggleOffline: this.toggleOffline, queuedText: s.queued + ' check-ins waiting to sync', checkedIn: fmt(checkedIn),
+      sims: [['valid', 'Valid'], ['used', 'Already used'], ['wrong', 'Wrong event'], ['refund', 'Refunded']].map(([k, n]) => ({ n, on: () => this.doScan(k) })),
+      hasScan: !!s.scan, scan: scanCfg || {},
+      gFilters: [['all', 'All'], ['in', 'Checked in'], ['out', 'Not yet']].map(([k, n]) => ({ n, on: () => this.setState({ gFilter: k }), bg: s.gFilter === k ? '#f2d9a0' : '#22344d', fg: s.gFilter === k ? '#16263b' : '#f7f1e6' })),
+      guestRows, noGuests: !guestRows.length, hasGSel: !!gSel, gSel: gSel ? { ...gSel, sub: gSel.qty + '× ' + gSel.tier + ' · ' + gSel.order, btn: gSel.in ? 'Undo check-in' : 'Check in ' + gSel.qty, st: gSel.in ? 'Checked in ' + (gSel.at === 'now' ? 'just now' : gSel.at) : 'Not checked in' } : {},
+      gToggle: () => { this.setState(st => ({ guests: st.guests.map(g => g.id === st.gSel ? { ...g, in: !g.in, at: g.in ? '' : 'now' } : g), gSel: null })); this.toast(gSel.in ? 'Check-in undone' : 'Checked in manually'); }, gClose: () => this.setState({ gSel: null }),
+      cOrg: curOrg.n, noLive: s.mode === 'creator' && !!curOrg.fresh, liveName: curOrg.id === 'kave' ? 'Kave Friday Sessions' : 'Nour Haddad Live', canSkipOrg: s.hostSignup && !s.orgs.length, skipOrg: () => this.setState({ hostSignup: false, route: 'personalize', stack: [], err: null }),
+      goHostSignUp: () => this.go('auth', { authTab: 'up', hostSignup: true }), hostNote: s.hostSignup && s.authTab === 'up',
+      goHostOrg: () => this.go('hostOrg', { err: null }), createOrg: this.createOrg,
+      hostPoints: [{ i: '1', t: 'Build events on the web', d: 'Tickets, seating, promo codes and payouts live in Studio at studio.sahra.app.' }, { i: '2', t: 'Run the door from this app', d: 'Switch profile to scan tickets, check the guest list and message guests.' }, { i: '3', t: 'Verify when you’re ready to sell', d: 'Draft freely. We ask for ID and a trade licence before tickets go on sale, and a bank account before payouts.' }],
+      typeChips: chips(['Promoter', 'Venue', 'Artist', 'Community'], n => s.otype === n, n => this.setState({ otype: n })),
+      ocityChips: chips(['Dubai', 'Abu Dhabi', 'Riyadh', 'Doha'], n => s.ocity === n, n => this.setState({ ocity: n })),
+      hasOrgs: s.orgs.length > 0, openSwitch: () => this.setState({ sheet: 'switch' }), switchSheet: s.sheet === 'switch',
+      switchItems: [{ n: s.user.name, s: 'Personal · tickets & earnings', ini, mark: s.mode === 'fan' ? '✓' : '', on: () => this.setMode('fan') }, ...s.orgs.map(o => ({ n: o.n, s: { admin: 'Admin', cohost: 'Co-host', gate: 'Gate staff' }[o.role] + ' · door mode', ini: o.n[0], mark: s.mode === 'creator' && s.org === o.id ? '✓' : '', on: () => this.setMode('creator', o.id) }))],
+      newOrgFromSwitch: () => this.setState({ sheet: null }, () => this.go('hostOrg', { err: null })),
+      isFreshOrg: !!curOrg.fresh,
+      orgChecklist: [{ n: 'Organisation created', d: (curOrg.type || '') + ' · ' + (curOrg.city || ''), ok: true }, { n: 'Draft your first event', d: 'On the web, in Studio', ok: false }, { n: 'Verify ID + trade licence', d: curOrg.verified === 'yes' ? 'Approved' : 'Needed before tickets go on sale', ok: curOrg.verified === 'yes' }, { n: 'Add a business bank account', d: 'Needed before your first payout', ok: false }].map(x => ({ ...x, i: x.ok ? '✓' : '', bg: x.ok ? '#f2d9a0' : '#3a506c' })), switchToFan: () => this.setMode('fan'),
+      modeBtns: [['fan', 'Fan app'], ['creator', 'Door mode']].map(([k, n]) => ({ n, on: () => this.setMode(k), bg: s.mode === k ? '#16263b' : 'transparent', fg: s.mode === k ? '#f2d9a0' : '#16263b' })),
+      isCreator: s.mode === 'creator', roleBtns: [['admin', 'Admin'], ['cohost', 'Co-host'], ['gate', 'Gate staff']].map(([k, n]) => ({ n, on: () => this.setRole(k), bg: s.role === k ? '#16263b' : 'transparent', fg: s.role === k ? '#f2d9a0' : '#16263b' })),
+      demo: (s.mode === 'fan' ? demoFan : demoC).map(d => ({ ...d, op: d.ok ? 1 : .45, on: d.ok ? d.on : () => {} })), reset: () => { this.timers.forEach(clearTimeout); this.setState(init()); this.splash(); },
+      stateLines: s.mode === 'fan' ? [{ k: 'Screen', v: s.route }, { k: 'Signed in', v: s.authed ? 'Yes' : 'No' }, { k: 'Tickets held', v: upcoming.reduce((a, t) => a + (+t.sub.split('· ').pop().split('×')[0] || 0), 0) + '' }, { k: 'Waiting orders', v: s.waiting.length + '' }, { k: 'Earnings', v: aed(s.earn.ready) + ' ready · ' + aed(s.earn.pending) + ' pending' }, { k: 'Unread', v: s.notifs.filter(n => n.unread).length + '' }] : [{ k: 'Screen', v: s.route }, { k: 'Role', v: { admin: 'Admin', cohost: 'Co-host', gate: 'Gate staff' }[s.role] }, { k: 'Checked in', v: fmt(checkedIn) }, { k: 'Offline queue', v: s.queued + '' }, { k: 'Broadcasts left', v: s.sendsLeft + '' }]
+    };
+  }
+}
+</script>
+</body>
+</html>

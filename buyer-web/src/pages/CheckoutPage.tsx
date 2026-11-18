@@ -1,12 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { api, ApiError } from '../lib/api';
+import { BUYER_FEE_PCT, CHECKOUT_HOLD_COUNTDOWN } from '../lib/config';
 import { formatMoney, formatShortDateTime } from '../lib/format';
 import type { CheckoutSelection } from './EventPage';
 import { Badge, Button, Card, EmptyState, Input, Spinner } from '../components/ui';
-import { ArrowLeftIcon, CheckIcon, ShieldIcon, TicketIcon } from '../components/icons';
+import { ArrowLeftIcon, CheckIcon, ClockIcon, ShieldIcon, TicketIcon } from '../components/icons';
 import { useAuth } from '../lib/auth';
 
 const STRIPE_KEY = (import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined) ?? '';
@@ -35,12 +36,26 @@ export default function CheckoutPage() {
   const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<'paid' | 'confirming' | null>(null);
+  // TODO(decision-16): recommended default, visible countdown while the
+  // inventory hold is live. Real expiry comes from the order record.
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!expiresAt || !CHECKOUT_HOLD_COUNTDOWN) return;
+    const tick = () => {
+      setSecondsLeft(Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [expiresAt]);
 
   const itemLabel = useMemo(() => {
     if (!selection) return '';
     if (selection.kind === 'resale') return `1 × ${selection.tierName} (resale)`;
     if (selection.kind === 'section') {
-      const seats = selection.seatLabels?.length ? ` — seats ${selection.seatLabels.join(', ')}` : '';
+      const seats = selection.seatLabels?.length ? `, seats ${selection.seatLabels.join(', ')}` : '';
       return `${selection.quantity} × ${selection.sectionName}${seats}`;
     }
     return `${selection.quantity} × ${selection.tierName}`;
@@ -84,8 +99,24 @@ export default function CheckoutPage() {
         discountCents: res.discountCents,
         feesCents: res.feesCents,
       });
+      // The intent response has no expiresAt, read the order for the hold clock.
+      api
+        .order(res.orderId)
+        .then((o) => setExpiresAt(o.order.expiresAt ?? null))
+        .catch(() => setExpiresAt(null));
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not start checkout');
+      // Spec copy: resale races read "Another fan just bought that listing".
+      if (
+        e instanceof ApiError &&
+        selection!.kind === 'resale' &&
+        (e.status === 409 || /no longer available|just sold/i.test(e.message))
+      ) {
+        setError('Another fan just bought that listing. Pick another resale ticket or a different tier.');
+      } else if (e instanceof ApiError && /own listing/i.test(e.message)) {
+        setError('That’s your listing, you can’t buy it.');
+      } else {
+        setError(e instanceof ApiError ? e.message : 'Could not start checkout');
+      }
     } finally {
       setPreparing(false);
     }
@@ -98,12 +129,12 @@ export default function CheckoutPage() {
           <CheckIcon size={30} className="text-emerald-700" />
         </div>
         <h1 className="mt-6 font-display text-3xl font-extrabold text-ink">
-          {done === 'paid' ? 'You’re in.' : 'Payment received'}
+          {done === 'paid' ? 'You’re in. See you there.' : 'Payment received'}
         </h1>
         <p className="mt-2 text-ink/60">
           {done === 'paid'
-            ? 'Your tickets are ready in the Tickets tab.'
-            : 'We’re confirming your payment — your tickets will appear in Tickets shortly.'}
+            ? 'Your tickets are ready in My tickets, the QR goes live 24 hours before doors.'
+            : 'We’re confirming your payment, your tickets will appear in My tickets shortly.'}
         </p>
         <div className="mt-8 flex justify-center gap-3">
           <Link to="/tickets">
@@ -121,6 +152,9 @@ export default function CheckoutPage() {
   const discount = intent?.discountCents ?? 0;
   const fees = intent?.feesCents ?? null;
   const total = intent?.amountCents ?? null;
+  const holdExpired = CHECKOUT_HOLD_COUNTDOWN && secondsLeft != null && secondsLeft <= 0;
+  const mm = secondsLeft != null ? Math.max(0, Math.floor(secondsLeft / 60)) : 0;
+  const ss = secondsLeft != null ? Math.max(0, secondsLeft % 60) : 0;
 
   return (
     <div className="min-h-[calc(100vh-76px)] bg-sand text-ink">
@@ -156,7 +190,14 @@ export default function CheckoutPage() {
             </Card>
 
             <Card tone="light" className="p-6">
-              <h2 className="font-display text-lg font-extrabold text-ink">Pay with</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-lg font-extrabold text-ink">Pay with</h2>
+                {STRIPE_KEY.startsWith('pk_test') ? (
+                  <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-800">
+                    Test mode
+                  </span>
+                ) : null}
+              </div>
               {!intent ? (
                 <div className="mt-4">
                   {STRIPE_KEY ? (
@@ -173,6 +214,24 @@ export default function CheckoutPage() {
                   <p className="mt-3 flex items-center gap-1.5 text-xs text-ink/50">
                     <ShieldIcon size={13} /> Payments secured by Stripe. Tickets appear in your Tickets tab instantly.
                   </p>
+                </div>
+              ) : holdExpired ? (
+                <div className="mt-4 rounded-xl border border-rumman/30 bg-rumman/5 p-4">
+                  <p className="text-sm font-semibold text-rumman">
+                    Your hold expired, the tickets were released back on sale.
+                  </p>
+                  <Button
+                    variant="night"
+                    className="mt-3"
+                    onClick={() => {
+                      setIntent(null);
+                      setExpiresAt(null);
+                      setSecondsLeft(null);
+                      setError(null);
+                    }}
+                  >
+                    Start checkout again
+                  </Button>
                 </div>
               ) : stripePromise ? (
                 <div className="mt-4">
@@ -224,6 +283,19 @@ export default function CheckoutPage() {
               {itemLabel}
             </div>
 
+            {CHECKOUT_HOLD_COUNTDOWN && intent && secondsLeft != null ? (
+              <div
+                className={`mt-3 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ${
+                  holdExpired || secondsLeft <= 60 ? 'bg-rumman/10 text-rumman' : 'bg-dune/70 text-ink'
+                }`}
+              >
+                <ClockIcon size={15} />
+                {holdExpired
+                  ? 'Hold expired'
+                  : `Held for ${mm}:${String(ss).padStart(2, '0')}, pay before the countdown ends.`}
+              </div>
+            ) : null}
+
             <div className="mt-5 flex flex-col gap-2.5 text-sm">
               <div className="flex justify-between">
                 <span className="text-ink/60">Subtotal</span>
@@ -236,8 +308,8 @@ export default function CheckoutPage() {
                 </div>
               ) : null}
               <div className="flex justify-between">
-                <span className="text-ink/60">Service fee</span>
-                <span className="font-semibold text-ink">{fees != null ? money(fees) : '—'}</span>
+                <span className="text-ink/60">Service fee ({BUYER_FEE_PCT}%)</span>
+                <span className="font-semibold text-ink">{fees != null ? money(fees) : '-'}</span>
               </div>
               <div className="flex justify-between border-t border-ink/10 pt-3 text-base">
                 <span className="font-bold text-ink">Total</span>
@@ -268,11 +340,11 @@ export default function CheckoutPage() {
                   Apply
                 </Button>
               </div>
-              {intent ? (
-                <p className="mt-2 text-[11px] text-ink/50">
-                  Promo is validated when you pay — an invalid code will be rejected by the server.
-                </p>
-              ) : null}
+              <p className="mt-2 text-[11px] text-ink/50">
+                {intent
+                  ? 'Promo is validated when you pay, an invalid code will be rejected by the server.'
+                  : 'Promo discounts the tickets, not the service fee.'}
+              </p>
             </div>
 
             <p className="mt-4 text-[11px] leading-relaxed text-ink/50">
@@ -308,11 +380,12 @@ function PaymentForm({
       confirmParams: { return_url: `${window.location.origin}/tickets` },
     });
     if (error) {
-      onError(error.message ?? 'Payment failed');
+      // Spec copy on decline: "Nothing was charged".
+      onError(`${error.message ?? 'Payment failed'} Nothing was charged.`);
       setProcessing(false);
       return;
     }
-    // Webhook fulfills the order asynchronously — poll briefly.
+    // Webhook fulfills the order asynchronously, poll briefly.
     for (let i = 0; i < 10; i++) {
       try {
         const res = await api.order(orderId);
@@ -321,7 +394,7 @@ function PaymentForm({
           return;
         }
         if (res.order.status === 'FAILED' || res.order.status === 'CANCELLED') {
-          onError('Payment could not be completed. Please try again.');
+          onError('Payment could not be completed. Nothing was charged, please try again.');
           setProcessing(false);
           return;
         }

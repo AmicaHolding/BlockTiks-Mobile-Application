@@ -1,6 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
-import 'package:get/get.dart';
 
 import '../controllers/notifications_page_controller.dart';
 
@@ -13,6 +12,7 @@ class NotificationsPageView extends GetView<NotificationsPageController> {
       backgroundColor: ColorConstant.night,
       appBar: AppBar(
         backgroundColor: ColorConstant.night,
+        foregroundColor: ColorConstant.whiteA700,
         elevation: 0,
         title: Text('Notifications',
             style: sahraText(size: 22, weight: FontWeight.w800)),
@@ -46,38 +46,29 @@ class NotificationsPageView extends GetView<NotificationsPageController> {
         }
         if (controller.items.isEmpty) {
           return Center(
-              child: Text('No notifications yet',
+              child: Text('You’re all caught up.',
                   style: sahraText(color: ColorConstant.nightMuted)));
         }
         return RefreshIndicator(
           color: ColorConstant.gold,
           onRefresh: controller.fetch,
           child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
             itemCount: controller.items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            separatorBuilder: (_, __) => Divider(
+                height: 1,
+                thickness: 1,
+                color: ColorConstant.nightBorder),
             itemBuilder: (context, index) {
               final item = controller.items[index];
               final read = controller.isRead(item);
-              return SahraCard(
-                color: read
-                    ? ColorConstant.nightSurface
-                    : ColorConstant.nightElevated,
-                child: Row(
+              return InkWell(
+                onTap: () => controller.markRead(item),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                            color: ColorConstant.nightSurface,
-                            borderRadius: BorderRadius.circular(12)),
-                        child: Icon(
-                            controller.iconFor(item['type']?.toString()),
-                            color: ColorConstant.gold,
-                            size: 20),
-                      ),
-                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,7 +83,7 @@ class NotificationsPageView extends GetView<NotificationsPageController> {
                                       size: 13)),
                             ]),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 12),
                       Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
@@ -114,6 +105,7 @@ class NotificationsPageView extends GetView<NotificationsPageController> {
                             ),
                           ]),
                     ]),
+                ),
               );
             },
           ),

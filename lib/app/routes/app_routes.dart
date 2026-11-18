@@ -41,6 +41,12 @@ abstract class Routes {
   static const MY_SCANNER = _Paths.MY_SCANNER;
   static const ALL_GUESTS = _Paths.ALL_GUESTS;
   static const BROADCAST_MESSAGE = _Paths.BROADCAST_MESSAGE;
+  static const SEND_TICKETS = _Paths.SEND_TICKETS;
+  static const HOST_INTRO = _Paths.HOST_INTRO;
+  static const HOST_ORG = _Paths.HOST_ORG;
+  static const NOTIFICATION_SETTINGS = _Paths.NOTIFICATION_SETTINGS;
+  static const LANGUAGE_SETTINGS = _Paths.LANGUAGE_SETTINGS;
+  static const SECURITY_SETTINGS = _Paths.SECURITY_SETTINGS;
 }
 
 abstract class _Paths {
@@ -82,4 +88,10 @@ abstract class _Paths {
   static const MY_SCANNER = '/my-scanner';
   static const ALL_GUESTS = '/all-guests';
   static const BROADCAST_MESSAGE = '/broadcast-message';
+  static const SEND_TICKETS = '/send-tickets';
+  static const HOST_INTRO = '/host-intro';
+  static const HOST_ORG = '/host-org';
+  static const NOTIFICATION_SETTINGS = '/notification-settings';
+  static const LANGUAGE_SETTINGS = '/language';
+  static const SECURITY_SETTINGS = '/sign-in-security';
 }

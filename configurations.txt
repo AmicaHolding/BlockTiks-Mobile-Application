@@ -133,7 +133,7 @@ CI/CD: Use GitHub Actions or Bitrise for continuous integration and deployment.
 Architecture:
 
 
-This project follows the MVC (Model-View-Controller) architecture, where the application is divided into three main components—Model, View, and Controller—each handling specific responsibilities.
+This project follows the MVC (Model-View-Controller) architecture, where the application is divided into three main components, Model, View, and Controller, each handling specific responsibilities.
 In this ticket booking and event management application, the Model refers primarily to the data layer, which is managed using Firebase Firestore. This layer contains all the data related to events, tickets, users, and other relevant entities.
 It handles the retrieval, storage, and manipulation of data.
 For instance, collections in Firestore like "Events," "Tickets," and "Users" act as the backend data structure, representing the Model in the MVC architecture.

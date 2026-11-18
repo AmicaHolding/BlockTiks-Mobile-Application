@@ -2,7 +2,6 @@ import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/services/api_service.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
-import 'package:get/get.dart';
 
 class PaymentOptionsController extends GetxController {
   final RxList<Map<String, dynamic>> methods = <Map<String, dynamic>>[].obs;

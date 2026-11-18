@@ -1,0 +1,20 @@
+appId: com.amicaholding.blocktix
+---
+# W9/W10: creator account -> Switch profile -> creator dashboard -> door mode
+- launchApp
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*For You[\s\S]*'
+    timeout: 20000
+- tapOn: '[\s\S]*Profile[\s\S]*'
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*(Door mode|Switch profile)[\s\S]*'
+    timeout: 10000
+- takeScreenshot: w9-creator-profile
+- tapOn: '[\s\S]*Door mode[\s\S]*'
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*(event|Event|scan|Scan|guest|Guest)[\s\S]*'
+    timeout: 12000
+- takeScreenshot: w9-creator-dashboard

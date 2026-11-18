@@ -2,8 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Sahra tokens, generated from designs/brand/tokens.json (do not fork values).
+ * Core palette: night #16263B · gold #F2D9A0 · sand #F7F1E6 · dune #ECE4D6 ·
+ * ink #241C14 · rumman #B8323A.
+ * The night-surface/elevated/border/muted/deep shades are taken from the fan
+ * surfaces inside "Sahra Web Prototype.dc.html" (#22344D, #2A3B52, #3A506C,
+ * #9FB0C6, #0B1420), they are the spec's own derived Night scale.
+ */
+:root {
+  --night: #16263b;
+  --gold: #f2d9a0;
+  --sand: #f7f1e6;
+  --dune: #ece4d6;
+  --ink: #241c14;
+  --rumman: #b8323a;
+}
+
 html {
-  background: #16263b;
+  background: var(--night);
 }
 
 body {
@@ -14,6 +31,17 @@ body {
   font-family: 'Bricolage Grotesque', 'Aref Ruqaa', serif;
 }
 
+/* tokens.json numeric rule: tabular figures for prices, seats, dates */
+.tnum {
+  font-feature-settings: 'tnum';
+}
+
+/* RTL-ready: html[dir=rtl] mirrors flex/grid flow automatically; only
+   direction-dependent affordances (back arrows) need explicit mirroring. */
+[dir='rtl'] .rtl-mirror {
+  transform: scaleX(-1);
+}
+
 /* Thin scrollbars for horizontal card rows */
 .row-scroll::-webkit-scrollbar {
   height: 6px;
@@ -21,4 +49,57 @@ body {
 .row-scroll::-webkit-scrollbar-thumb {
   background: #3a506c;
   border-radius: 999px;
+}
+
+/* fHome motion (Sahra Web Prototype)    Easing everywhere: cubic-bezier(.2.7.2,1). All motion is disabled
+   globally under prefers-reduced-motion (same rule the prototype uses). */
+@keyframes sahra-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sahra-rise-x {
+  from { opacity: 0; transform: translateX(-14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sahra-band {
+  from { opacity: 0; transform: translateY(28px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Hero elements: 700ms rise, staggered via --rise-delay (80 + i*90ms) */
+.sahra-rise {
+  animation: sahra-rise 700ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  animation-delay: var(--rise-delay, 0ms);
+}
+/* Weekend/city section enters at 520ms; re-enters with a 450ms slide on
+   city change (proto runCity). */
+.sahra-city-in {
+  animation: sahra-rise 700ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  animation-delay: 520ms;
+}
+.sahra-city-change {
+  animation: sahra-rise-x 450ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+/* "Hosting events?" band: IntersectionObserver-gated reveal. */
+.sahra-band-in {
+  animation: sahra-band 700ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+/* Card hover lift, --lift -4px grid / -6px weekend, gold outline. */
+.sahra-card {
+  transition: transform 300ms cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 300ms;
+}
+.sahra-card:hover {
+  transform: translateY(var(--lift, -4px));
+  box-shadow: 0 14px 32px #0007;
+  outline: 2px solid var(--gold);
+}
+.sahra-card-lg:hover {
+  box-shadow: 0 18px 40px #0008;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

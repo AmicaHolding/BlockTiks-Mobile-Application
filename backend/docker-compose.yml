@@ -1,4 +1,4 @@
-# Local DynamoDB for offline development — same API as AWS, no account needed.
+# Local DynamoDB for offline development, same API as AWS, no account needed.
 #   docker compose up -d      (or: npm run db:up)
 # Data persists in the named volume until `npm run db:down -- -v`.
 services:

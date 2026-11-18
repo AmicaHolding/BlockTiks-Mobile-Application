@@ -1,0 +1,23 @@
+appId: com.amicaholding.blocktix
+---
+# W3: search tab -> type query -> open result
+- launchApp
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*For You[\s\S]*'
+    timeout: 20000
+- tapOn: '[\s\S]*Search[\s\S]*'
+- takeScreenshot: w3-search-home
+- tapOn: 'Artists, events, venues'
+- inputText: 'desert'
+- takeScreenshot: w3-search-results
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*Desert Sessions[\s\S]*'
+    timeout: 8000
+- tapOn: '[\s\S]*Desert Sessions[\s\S]*'
+- extendedWaitUntil:
+    visible:
+      text: 'About this event'
+    timeout: 8000
+- takeScreenshot: w3-search-opened

@@ -347,7 +347,7 @@ final Map<String, String> enUs = {
   "msg_what_are_your_opening": "What are your opening hours?",
   "msg_account_subscription": "Account Subscription",
   "msg_google_is_one_of":
-      "\r\nGoogle is one of a third-party vendor on our site. It also uses cookies, known as DART cookies, to serve ads to our site visitors based upon their visit to www.website.com and other sites on the internet. However, visitors may choose to decline the use of DART cookies by visiting the Google ad and content network Privacy Policy at the following URL – https://policies.google.com/technologies/ads.\r\n\r\nSome of advertisers on our site may use cookies and web beacons. Our advertising partners are listed below. Each of our advertising partners has their own Privacy Policy for their policies on user data. For easier access, we hyperlinked to their Privacy Policies below.",
+      "\r\nGoogle is one of a third-party vendor on our site. It also uses cookies, known as DART cookies, to serve ads to our site visitors based upon their visit to www.website.com and other sites on the internet. However, visitors may choose to decline the use of DART cookies by visiting the Google ad and content network Privacy Policy at the following URL, https://policies.google.com/technologies/ads.\r\n\r\nSome of advertisers on our site may use cookies and web beacons. Our advertising partners are listed below. Each of our advertising partners has their own Privacy Policy for their policies on user data. For easier access, we hyperlinked to their Privacy Policies below.",
   "lbl_70": "70%",
   "lbl_rules": "Rules:",
   "msg_allow_house_hook": "Allow “House Hook” to use \nyour location?",

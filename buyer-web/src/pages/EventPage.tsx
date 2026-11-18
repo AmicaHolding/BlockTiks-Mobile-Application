@@ -1,103 +1,72 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { api, type Listing, type SahraEvent, type Tier } from '../lib/api';
-import { formatCents, formatEventDateTime, parseIso } from '../lib/format';
-import { Badge, Button, Card, EmptyState, Spinner } from '../components/ui';
-import { EVENT_MEDIA_GRADIENT } from '../components/EventCard';
-import {
-  ArrowLeftIcon,
-  BookmarkIcon,
-  CalendarIcon,
-  CheckIcon,
-  ClockIcon,
-  MapIcon,
-  MinusIcon,
-  PinIcon,
-  PlusIcon,
-  ShareIcon,
-  TicketIcon,
-} from '../components/icons';
+import { api, ApiError, getToken, type Listing, type SahraEvent, type Tier, type VenueSection } from '../lib/api';
+import { MAX_PER_ORDER, RESALE_CAP_PCT } from '../lib/config';
+import { formatEventDate, formatMoney } from '../lib/format';
+import { useAuth } from '../lib/auth';
+import { EmptyState, Spinner, Badge, countdownLine } from '../components/ui';
+import { ArrowLeftIcon, MinusIcon, PlusIcon, TicketIcon } from '../components/icons';
+import { EVENT_MEDIA_GRADIENT, eventSoldOut, remainingIn } from '../components/EventCard';
 
-export type CheckoutSelection =
-  | {
-      kind: 'tier';
-      eventId: string;
-      tierId: string;
-      tierName: string;
-      priceCents: number;
-      quantity: number;
-      currency?: string;
-      eventTitle: string;
-      eventStartsAt: string;
-      eventLocation: string;
-    }
-  | {
-      kind: 'section';
-      eventId: string;
-      sectionId: string;
-      sectionName: string;
-      priceCents: number;
-      quantity: number;
-      currency?: string;
-      seatLabels?: string[];
-      eventTitle: string;
-      eventStartsAt: string;
-      eventLocation: string;
-    }
-  | {
-      kind: 'resale';
-      eventId: string;
-      listingCode: string;
-      tierName: string;
-      priceCents: number;
-      quantity: 1;
-      currency?: string;
-      eventTitle: string;
-      eventStartsAt: string;
-      eventLocation: string;
-    };
-
-function remainingOf(tier: Tier): number {
-  return Math.max(0, tier.remaining ?? tier.quantity - tier.sold);
+/** What the checkout page needs, the backend takes ONE line per intent. */
+export interface CheckoutSelection {
+  kind: 'tier' | 'section' | 'resale';
+  eventId: string;
+  tierId?: string;
+  tierName?: string;
+  sectionId?: string;
+  sectionName?: string;
+  seatLabels?: string[];
+  listingCode?: string;
+  priceCents: number;
+  quantity: number;
+  currency?: string;
+  eventTitle: string;
+  eventStartsAt: string;
+  eventLocation: string;
 }
 
-function addToCalendarUrl(event: SahraEvent) {
-  const start = parseIso(event.startsAt);
-  if (!start) return '#';
-  const end = parseIso(event.endsAt) ?? new Date(start.getTime() + 3 * 3_600_000);
-  const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-  const params = new URLSearchParams({
-    action: 'TEMPLATE',
-    text: event.title,
-    dates: `${fmt(start)}/${fmt(end)}`,
-    location: `${event.location}${event.address ? `, ${event.address}` : ''}`,
-    details: event.description?.slice(0, 500) ?? '',
-  });
-  return `https://calendar.google.com/calendar/render?${params.toString()}`;
-}
+type Selection =
+  | { kind: 'tier'; tier: Tier }
+  | { kind: 'listing'; listing: Listing }
+  | null;
 
 export default function EventPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id = '' } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+
   const [event, setEvent] = useState<SahraEvent | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
+  const [heldCount, setHeldCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-  const [selection, setSelection] = useState<CheckoutSelection | null>(null);
+  const [selection, setSelection] = useState<Selection>(null);
+  const [tierQty, setTierQty] = useState<Record<string, number>>({});
+  const [remindState, setRemindState] = useState<'idle' | 'done' | 'unavailable'>('idle');
 
   useEffect(() => {
-    if (!id) return;
     let active = true;
-    setLoading(true);
     Promise.all([api.event(id), api.listings(id).catch(() => ({ listings: [] as Listing[] }))])
-      .then(([eventRes, listingsRes]) => {
+      .then(async ([evRes, lsRes]) => {
         if (!active) return;
-        setEvent(eventRes.event);
-        setListings(listingsRes.listings.filter((l) => l.status === 'ACTIVE'));
+        setEvent(evRes.event);
+        setListings(lsRes.listings);
+        if (getToken()) {
+          try {
+            const res = await api.tickets();
+            if (active) {
+              setHeldCount(
+                res.tickets.filter((t) => t.eventId === evRes.event.id && t.status === 'VALID').length
+              );
+            }
+          } catch {
+            /* count is best-effort */
+          }
+        }
       })
       .catch((e) => {
-        if (active) setError(e instanceof Error ? e.message : 'Event not found');
+        if (active) setError(e instanceof ApiError ? e.message : 'Failed to load event');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -107,35 +76,81 @@ export default function EventPage() {
     };
   }, [id]);
 
+  const onSale = event?.status === 'PUBLISHED';
+  const tiers = event?.tiers ?? [];
+  const sections = event?.venueSections ?? [];
+  const soldOut = event ? eventSoldOut(event) : false;
+
+  // Resale sits inside the matching tier, cheapest first.
   const listingsByTier = useMemo(() => {
     const map = new Map<string, Listing[]>();
-    for (const listing of listings) {
-      const key = listing.tierName.toLowerCase();
-      const arr = map.get(key) ?? [];
-      arr.push(listing);
-      map.set(key, arr);
+    for (const l of listings.filter((l) => l.status === 'ACTIVE')) {
+      const arr = map.get(l.tierName) ?? [];
+      arr.push(l);
+      map.set(l.tierName, arr);
     }
-    for (const arr of map.values()) {
-      arr.sort((a, b) => a.priceCents - b.priceCents);
-    }
+    for (const arr of map.values()) arr.sort((a, b) => a.priceCents - b.priceCents);
     return map;
   }, [listings]);
 
-  async function share() {
-    const url = window.location.href;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: event?.title ?? 'Sahra event', url });
-        return;
-      } catch {
-        // user cancelled — fall through to clipboard
-      }
-    }
+  const tierCap = (t: Tier) => Math.min(remainingIn(t), MAX_PER_ORDER);
+  const tierSoldOut = (t: Tier) => remainingIn(t) <= 0;
+
+  function changeTierQty(tier: Tier, qty: number) {
+    const clamped = Math.max(0, Math.min(qty, tierCap(tier)));
+    // One line per order intent: adjusting a tier makes it the only line.
+    setTierQty(clamped === 0 ? {} : { [tier.id]: clamped });
+    setSelection(clamped === 0 ? null : { kind: 'tier', tier });
+  }
+
+  const totalCents =
+    selection?.kind === 'tier'
+      ? selection.tier.priceCents * (tierQty[selection.tier.id] ?? 0)
+      : selection?.kind === 'listing'
+        ? selection.listing.priceCents
+        : 0;
+
+  async function remindMe() {
     try {
-      await navigator.clipboard.writeText(url);
+      await api.reminder(id, true);
+      setRemindState('done');
     } catch {
-      // clipboard unavailable
+      setRemindState('unavailable');
     }
+  }
+
+  function buy() {
+    if (!selection || !event) return;
+    if (!user) {
+      navigate(`/login?next=${encodeURIComponent(`/events/${event.id}`)}`);
+      return;
+    }
+    const base = {
+      eventId: event.id,
+      currency: event.currency,
+      eventTitle: event.title,
+      eventStartsAt: event.startsAt,
+      eventLocation: event.location,
+    };
+    const sel: CheckoutSelection =
+      selection.kind === 'tier'
+        ? {
+            ...base,
+            kind: 'tier',
+            tierId: selection.tier.id,
+            tierName: selection.tier.name,
+            priceCents: selection.tier.priceCents,
+            quantity: tierQty[selection.tier.id] ?? 1,
+          }
+        : {
+            ...base,
+            kind: 'resale',
+            listingCode: selection.listing.ticketCode,
+            tierName: selection.listing.tierName,
+            priceCents: selection.listing.priceCents,
+            quantity: 1,
+          };
+    navigate('/checkout', { state: { selection: sel } });
   }
 
   if (loading) {
@@ -149,370 +164,244 @@ export default function EventPage() {
   if (error || !event) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-24 text-center">
-        <EmptyState title="Event not found">{error ?? 'This event may have been removed.'}</EmptyState>
-        <div className="mt-6">
-          <Link to="/explore">
-            <Button variant="outline">Back to Explore</Button>
-          </Link>
-        </div>
+        <EmptyState title="Event not found">{error ?? 'This event is unavailable.'}</EmptyState>
       </div>
     );
   }
 
-  const tiers = event.tiers ?? [];
-  const sections = event.venueSections ?? [];
-  const hasVenue = sections.length > 0;
-
-  const summaryCount = selection ? (selection.kind === 'resale' ? 1 : selection.quantity) : 0;
-  const summaryTotal = selection
-    ? selection.kind === 'resale'
-      ? selection.priceCents
-      : selection.priceCents * selection.quantity
-    : 0;
+  const saleNote = (tier: Tier) => {
+    if (tierSoldOut(tier)) return null;
+    const left = remainingIn(tier);
+    return left <= 10 ? `${left} left · selling fast` : `${left} left`;
+  };
 
   return (
-    <div className="pb-28">
-      {/* Breadcrumb */}
-      <div className="border-b border-night-border/50 bg-night-deep/60">
-        <div className="mx-auto flex max-w-[1440px] items-center gap-2 px-6 py-3 text-sm text-night-muted lg:px-12">
-          <Link to="/explore" className="flex items-center gap-1.5 transition hover:text-sand">
-            <ArrowLeftIcon size={15} /> Explore
-          </Link>
-          <span>/</span>
-          <span>{event.category}</span>
-          <span>/</span>
-          <span className="truncate text-sand/80">{event.title}</span>
-        </div>
-      </div>
+    <div className="mx-auto max-w-[1440px] px-6 pb-24 pt-8 lg:px-8">
+      <Link
+        to="/"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-night-muted transition hover:text-sand"
+      >
+        <ArrowLeftIcon size={15} className="rtl-mirror" /> All events
+      </Link>
 
-      <div className="mx-auto grid max-w-[1440px] gap-10 px-6 pt-8 lg:grid-cols-[1fr_420px] lg:px-12">
-        {/* Left column */}
-        <div className="flex flex-col gap-8">
-          <div className={`relative h-72 overflow-hidden rounded-3xl border border-night-border/60 bg-gradient-to-br ${EVENT_MEDIA_GRADIENT} lg:h-[420px]`}>
+      <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_380px] lg:gap-10">
+        {/* left column */}
+        <div>
+          <div className={`relative h-[300px] overflow-hidden rounded-card bg-gradient-to-br ${EVENT_MEDIA_GRADIENT}`}>
             {event.imageUrl ? (
               <img src={event.imageUrl} alt={event.title} className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full items-center justify-center font-display text-8xl font-extrabold text-sand/10">
-                {event.title.charAt(0)}
+              <div className="flex h-full items-center justify-center">
+                <span className="font-display text-8xl font-extrabold text-sand/15">{event.title.charAt(0)}</span>
               </div>
             )}
-            <div className="absolute left-4 top-4 flex gap-2">
-              <Badge tone="muted">{event.category}</Badge>
-              {hasVenue ? <Badge tone="gold">Seated venue</Badge> : null}
+            <div className="absolute end-4 top-4">
+              <Badge tone="gold">{event.category}</Badge>
             </div>
           </div>
 
-          <div>
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <div className="text-sm font-semibold uppercase tracking-[0.18em] text-gold">
-                  {event.category}
-                </div>
-                <h1 className="mt-1 font-display text-4xl font-extrabold tracking-tight text-sand">
-                  {event.title}
-                </h1>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="ghost" className="px-4 py-2 text-xs" onClick={() => setSaved((s) => !s)}>
-                  <BookmarkIcon size={15} filled={saved} /> {saved ? 'Saved' : 'Save'}
-                </Button>
-                <Button variant="ghost" className="px-4 py-2 text-xs" onClick={share}>
-                  <ShareIcon size={15} /> Share
-                </Button>
-              </div>
-            </div>
-
-            <div className="mt-5 flex flex-col gap-3">
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[15px] text-sand/85">
-                <span className="flex items-center gap-2">
-                  <CalendarIcon size={17} className="text-gold" />
-                  {formatEventDateTime(event.startsAt)}
-                </span>
-                <a
-                  href={addToCalendarUrl(event)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1.5 text-gold underline-offset-4 hover:underline"
-                >
-                  <ClockIcon size={15} /> Add to calendar
-                </a>
-              </div>
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[15px] text-sand/85">
-                <span className="flex items-center gap-2">
-                  <PinIcon size={17} className="text-gold" />
-                  <span>
-                    <span className="font-semibold">{event.location}</span>
-                    {event.address ? <span className="text-night-muted"> · {event.address}</span> : null}
-                  </span>
-                </span>
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                    `${event.location} ${event.address ?? ''}`
-                  )}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1.5 text-gold underline-offset-4 hover:underline"
-                >
-                  <MapIcon size={15} /> Get directions
-                </a>
-              </div>
-            </div>
-
-            {event.description ? (
-              <p className="mt-6 max-w-2xl text-[15px] leading-relaxed text-sand/75">
-                {event.description}
-              </p>
+          <h1 className="mt-6 font-display text-4xl font-extrabold tracking-tight text-sand">
+            {event.title}
+          </h1>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[15px] text-night-muted">
+            <span>
+              {formatEventDate(event.startsAt)} · {event.location}
+            </span>
+            {event.startsAt ? (
+              <span className="rounded-full bg-night-surface px-3 py-1 text-xs font-semibold text-gold">
+                {countdownLine(event.startsAt)}
+              </span>
             ) : null}
           </div>
+          <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-sand/75">{event.description}</p>
         </div>
 
-        {/* Right: ticket panel */}
-        <div className="lg:sticky lg:top-24 lg:self-start">
-          <Card className="p-6">
-            <div className="flex items-center justify-between">
-              <h2 className="font-display text-xl font-extrabold text-sand">Tickets</h2>
-              <span className="text-xs font-semibold text-night-muted">Cheapest first</span>
-            </div>
+        {/* tickets panel */}
+        <aside className="h-fit rounded-card bg-night-surface p-5 lg:sticky lg:top-24">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-display text-[15px] font-extrabold tracking-wide text-gold">TICKETS</h2>
+            {heldCount > 0 ? (
+              <Link to="/tickets" className="text-xs font-semibold text-gold hover:underline">
+                You have {heldCount} ticket{heldCount === 1 ? '' : 's'} →
+              </Link>
+            ) : null}
+          </div>
 
-            <div className="mt-5 flex flex-col gap-3">
-              {tiers.length === 0 && sections.length === 0 ? (
-                <p className="text-sm text-night-muted">No tickets are on sale for this event yet.</p>
-              ) : null}
-
+          {onSale ? (
+            <div className="flex flex-col gap-5">
               {tiers.map((tier) => {
-                const left = remainingOf(tier);
-                const soldOut = left <= 0;
-                const resale = listingsByTier.get(tier.name.toLowerCase()) ?? [];
-                const selectedTier =
-                  selection?.kind === 'tier' && selection.tierId === tier.id ? selection : null;
+                const out = tierSoldOut(tier);
+                const tierListings = listingsByTier.get(tier.name) ?? [];
+                const qty = tierQty[tier.id] ?? 0;
                 return (
-                  <div key={tier.id} className="rounded-2xl border border-night-border/50 bg-night p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="font-display text-base font-bold text-sand">{tier.name}</div>
-                        {tier.description ? (
-                          <div className="mt-0.5 text-xs text-night-muted">{tier.description}</div>
-                        ) : null}
-                      </div>
-                      <div className="text-right">
-                        <div className="font-display text-lg font-extrabold text-gold">
-                          {formatCents(tier.priceCents)}
-                        </div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-night-muted">
-                          {soldOut ? 'Sold out' : left <= 10 ? `Only ${left} left` : 'Official'}
+                  <div key={tier.id} className="flex flex-col gap-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate font-semibold text-sand">{tier.name}</div>
+                        <div className={`tnum text-[13px] ${out ? 'text-night-muted' : 'text-gold'}`}>
+                          {out ? '' : `${formatMoney(tier.priceCents, event.currency)}`}
+                          {saleNote(tier) ? ` · ${saleNote(tier)}` : ''}
                         </div>
                       </div>
+                      {out ? (
+                        <span className="rounded-full bg-night-border px-3.5 py-1.5 text-xs text-sand/70">Sold out</span>
+                      ) : (
+                        <Stepper qty={qty} min={0} max={tierCap(tier)} onChange={(q) => changeTierQty(tier, q)} />
+                      )}
                     </div>
 
-                    {!soldOut ? (
-                      <div className="mt-3 flex items-center justify-between">
-                        <span className="text-xs text-night-muted">
-                          {left} available · instant delivery
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            aria-label="Decrease quantity"
-                            onClick={() => {
-                              const qty = Math.max(1, (selectedTier?.quantity ?? 1) - 1);
-                              setSelection({
-                                kind: 'tier',
-                                eventId: event.id,
-                                tierId: tier.id,
-                                tierName: tier.name,
-                                priceCents: tier.priceCents,
-                                quantity: qty,
-                                eventTitle: event.title,
-                                eventStartsAt: event.startsAt,
-                                eventLocation: event.location,
-                              });
-                            }}
-                            className="flex h-8 w-8 items-center justify-center rounded-full border border-night-border text-sand transition hover:border-gold"
-                          >
-                            <MinusIcon size={14} />
-                          </button>
-                          <span className="w-6 text-center font-display text-sm font-bold text-sand">
-                            {selectedTier?.quantity ?? 1}
-                          </span>
-                          <button
-                            type="button"
-                            aria-label="Increase quantity"
-                            onClick={() => {
-                              const qty = Math.min(left, (selectedTier?.quantity ?? 1) + 1);
-                              setSelection({
-                                kind: 'tier',
-                                eventId: event.id,
-                                tierId: tier.id,
-                                tierName: tier.name,
-                                priceCents: tier.priceCents,
-                                quantity: qty,
-                                eventTitle: event.title,
-                                eventStartsAt: event.startsAt,
-                                eventLocation: event.location,
-                              });
-                            }}
-                            className="flex h-8 w-8 items-center justify-center rounded-full border border-night-border text-sand transition hover:border-gold"
-                          >
-                            <PlusIcon size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {!soldOut ? (
-                      <Button
-                        variant={selectedTier ? 'gold' : 'outline'}
-                        className="mt-3 w-full py-2 text-xs"
-                        onClick={() =>
-                          setSelection({
-                            kind: 'tier',
-                            eventId: event.id,
-                            tierId: tier.id,
-                            tierName: tier.name,
-                            priceCents: tier.priceCents,
-                            quantity: selectedTier?.quantity ?? 1,
-                            eventTitle: event.title,
-                            eventStartsAt: event.startsAt,
-                            eventLocation: event.location,
-                          })
-                        }
-                      >
-                        {selectedTier ? <CheckIcon size={14} /> : null}
-                        {selectedTier ? 'Selected' : 'Select'}
-                      </Button>
-                    ) : null}
-
-                    {/* Resale listings for this tier, cheapest first */}
-                    {resale.map((listing) => {
-                      const isSelected =
-                        selection?.kind === 'resale' && selection.listingCode === listing.ticketCode;
+                    {/* resale inside the tier, cheapest first */}
+                    {tierListings.map((listing) => {
+                      const mine = !!user && listing.sellerId === user.id;
+                      const picked = selection?.kind === 'listing' && selection.listing.ticketCode === listing.ticketCode;
                       return (
-                        <div
+                        <button
                           key={listing.ticketCode}
-                          className="mt-3 rounded-xl border border-gold/30 bg-night-surface/60 p-3"
+                          type="button"
+                          disabled={mine}
+                          onClick={() => {
+                            setTierQty({});
+                            setSelection(picked ? null : { kind: 'listing', listing });
+                          }}
+                          className={`flex items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-left transition ${
+                            picked
+                              ? 'border-gold bg-gold/10'
+                              : mine
+                                ? 'border-night-border/60 opacity-60'
+                                : 'border-night-border/60 hover:border-gold/60'
+                          }`}
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <Badge tone="gold">Resale</Badge>
-                              <span className="text-xs text-night-muted">1 ticket · instant</span>
-                            </div>
-                            <div className="font-display font-extrabold text-gold">
-                              {formatCents(listing.priceCents)}
-                            </div>
-                          </div>
-                          <Button
-                            variant={isSelected ? 'gold' : 'ghost'}
-                            className="mt-2 w-full py-1.5 text-xs"
-                            onClick={() =>
-                              setSelection({
-                                kind: 'resale',
-                                eventId: event.id,
-                                listingCode: listing.ticketCode,
-                                tierName: listing.tierName,
-                                priceCents: listing.priceCents,
-                                quantity: 1,
-                                eventTitle: event.title,
-                                eventStartsAt: event.startsAt,
-                                eventLocation: event.location,
-                              })
-                            }
-                          >
-                            {isSelected ? <CheckIcon size={13} /> : null}
-                            {isSelected ? 'Selected' : 'Buy resale'}
-                          </Button>
-                        </div>
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold text-sand">
+                              {formatMoney(listing.priceCents, event.currency)}
+                              <span className="ml-2 rounded-full bg-night-border px-2 py-0.5 text-[11px] font-medium text-sand/80">
+                                Resale
+                              </span>
+                            </span>
+                            <span className="block truncate text-xs text-night-muted">
+                              {mine ? 'Your listing' : 'Fan resale'}
+                            </span>
+                          </span>
+                          <span className="tnum shrink-0 text-xs text-night-muted">{listing.tierName}</span>
+                        </button>
                       );
                     })}
-
-                    {soldOut && resale.length === 0 ? (
-                      <div className="mt-3">
-                        <Link to={`/offers/new?eventId=${event.id}&tierName=${encodeURIComponent(tier.name)}`}>
-                          <Button variant="outline" className="w-full py-2 text-xs">
-                            <TicketIcon size={13} /> Set your price
-                          </Button>
-                        </Link>
-                        <div className="mt-1.5 text-center text-[11px] text-night-muted">
-                          Sold out, no resale yet
-                        </div>
-                      </div>
-                    ) : null}
                   </div>
                 );
               })}
 
-              {sections.map((section) => {
-                const left = Math.max(0, section.remaining ?? section.capacity);
-                const soldOut = left <= 0;
+              {/* seated sections → seat selection */}
+              {sections.map((section: VenueSection) => {
+                const out = (section.remaining ?? section.available ?? 0) <= 0;
                 return (
-                  <div key={section.id} className="rounded-2xl border border-night-border/50 bg-night p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="font-display text-base font-bold text-sand">{section.name}</div>
-                        <div className="mt-0.5 text-xs text-night-muted">
-                          {section.rows && section.seatsPerRow
-                            ? `${section.rows} rows · ${section.seatsPerRow} seats`
-                            : 'Allocated seats'}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-display text-lg font-extrabold text-gold">
-                          {formatCents(section.priceCents)}
-                        </div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-night-muted">
-                          {soldOut ? 'Sold out' : 'Official'}
-                        </div>
+                  <div key={section.id} className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate font-semibold text-sand">{section.name}</div>
+                      <div className="tnum text-[13px] text-gold">
+                        {formatMoney(section.priceCents, event.currency)}
+                        <span className="text-night-muted">
+                          {' '}
+                          · {section.remaining ?? section.available ?? 0} left
+                        </span>
                       </div>
                     </div>
-                    {!soldOut ? (
-                      <>
-                        <div className="mt-2 text-xs text-night-muted">
-                          {left} seats left · pick seats next
-                        </div>
-                        <Link to={`/events/${event.id}/seats`}>
-                          <Button variant="outline" className="mt-3 w-full py-2 text-xs">
-                            Choose seats
-                          </Button>
-                        </Link>
-                      </>
-                    ) : null}
+                    <button
+                      type="button"
+                      disabled={out}
+                      onClick={() => navigate(`/events/${event.id}/seats?section=${encodeURIComponent(section.id)}`)}
+                      className="shrink-0 rounded-full bg-gold px-4 py-2 text-[13px] font-bold text-night transition hover:brightness-95 disabled:opacity-40"
+                    >
+                      {out ? 'Sold out' : 'Choose seats'}
+                    </button>
                   </div>
                 );
               })}
-            </div>
 
-            <div className="mt-5 border-t border-night-border/50 pt-4">
-              {selection ? (
-                <>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-night-muted">
-                      {summaryCount} ticket{summaryCount === 1 ? '' : 's'}
-                      {selection.kind === 'resale' ? ' · resale' : ''}
-                    </span>
-                    <span className="font-display font-extrabold text-sand">{formatCents(summaryTotal)}</span>
-                  </div>
-                  <div className="mt-1 text-[11px] text-night-muted">
-                    Fees are calculated at checkout.
-                  </div>
-                  <Button
-                    variant="primary"
-                    className="mt-3 w-full py-3 text-base"
-                    onClick={() => navigate('/checkout', { state: { selection } })}
-                  >
-                    Continue to checkout
-                  </Button>
-                </>
-              ) : (
-                <div className="rounded-xl bg-night-elevated/60 px-4 py-3 text-center text-sm text-night-muted">
-                  Select a ticket above to continue
+              {soldOut && tiers.length > 0 ? (
+                <div className="rounded-xl border border-night-border/60 p-4 text-sm text-sand/80">
+                  Sold out. Want us to tell you if seats open up?{' '}
+                  <button type="button" onClick={remindMe} className="font-semibold text-gold hover:underline">
+                    Remind me
+                  </button>
+                  {remindState === 'unavailable' ? (
+                    <span className="block pt-1 text-xs text-night-muted">Reminders aren’t available yet, check back soon.</span>
+                  ) : remindState === 'done' ? (
+                    <span className="block pt-1 text-xs text-gold">You’re on the list, we’ll tell you if seats open up.</span>
+                  ) : null}
                 </div>
-              )}
-              <p className="mt-3 text-center text-[11px] leading-relaxed text-night-muted">
-                Resale tickets are reissued to you with a new QR. Same entry, same guarantee.
-              </p>
+              ) : null}
+
+              {/* set your price on any sold-out tier (auto-buy watch) */}
+              {tiers.some(tierSoldOut) ? (
+                <Link
+                  to={`/offers/new?eventId=${event.id}&tierName=${encodeURIComponent(
+                    tiers.find(tierSoldOut)?.name ?? ''
+                  )}`}
+                  className="text-center text-sm font-semibold text-gold hover:underline"
+                >
+                  Set your price, we’ll flag it if a fan lists one
+                </Link>
+              ) : null}
             </div>
-          </Card>
-        </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <p className="text-sm leading-relaxed text-sand/80">
+                {event.status === 'CANCELLED' ? 'This event is cancelled.' : 'This event isn’t on sale right now.'}
+              </p>
+              {event.status !== 'CANCELLED' ? (
+                <button
+                  type="button"
+                  onClick={remindMe}
+                  className="rounded-full border-[1.5px] border-gold px-5 py-2.5 text-sm font-bold text-gold transition hover:bg-gold hover:text-night"
+                >
+                  Remind me
+                </button>
+              ) : null}
+              {remindState === 'unavailable' ? (
+                <p className="text-xs text-night-muted">Reminders aren’t available yet, check back soon.</p>
+              ) : remindState === 'done' ? (
+                <p className="text-xs text-gold">You’re on the list, we’ll tell you the moment tickets go on sale.</p>
+              ) : null}
+            </div>
+          )}
+
+          {/* total + CTA */}
+          <div className="mt-5 flex items-center justify-between border-t border-night-border/60 pt-4 text-[15px]">
+            <span className="font-semibold text-sand">Total</span>
+            <span className="tnum font-extrabold text-gold">
+              {totalCents > 0 ? formatMoney(totalCents, event.currency) : '-'}
+            </span>
+          </div>
+          <button
+            type="button"
+            disabled={!selection || !onSale || totalCents <= 0}
+            onClick={buy}
+            className="mt-3 flex h-[52px] w-full items-center justify-center gap-2 rounded-full bg-gold font-display text-[15px] font-bold text-night transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <TicketIcon size={17} />
+            {user ? 'Checkout' : 'Sign in to buy'}
+          </button>
+          <p className="pt-3 text-center text-xs leading-relaxed text-night-muted">
+            Max {MAX_PER_ORDER} per order · resale capped at face +{RESALE_CAP_PCT}%
+          </p>
+        </aside>
       </div>
+    </div>
+  );
+}
+
+function Stepper({ qty, min, max, onChange }: { qty: number; min: number; max: number; onChange: (q: number) => void }) {
+  const btn =
+    'flex h-[30px] w-[30px] items-center justify-center rounded-full border border-night-border bg-night-elevated text-sand transition hover:border-gold hover:text-gold disabled:opacity-30';
+  return (
+    <div className="flex items-center gap-1">
+      <button type="button" aria-label="Decrease" className={btn} disabled={qty <= min} onClick={() => onChange(qty - 1)}>
+        <MinusIcon size={14} />
+      </button>
+      <span className="tnum w-7 text-center font-semibold text-sand">{qty}</span>
+      <button type="button" aria-label="Increase" className={btn} disabled={qty >= max} onClick={() => onChange(qty + 1)}>
+        <PlusIcon size={14} />
+      </button>
     </div>
   );
 }

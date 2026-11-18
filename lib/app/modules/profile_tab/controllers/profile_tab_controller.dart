@@ -12,12 +12,52 @@ class ProfileTabController extends GetxController
   final AppPreferences _appPreferences = AppPreferences();
   late TabController tabController;
 
+  final RxInt upcomingCount = 0.obs;
+  final RxInt sahrasCount = 0.obs;
+  final RxInt followingCount = 0.obs;
+
+  /// Real earnings summary for the money card (rule, ready vs pending).
+  final RxInt earningsReadyCents = 0.obs;
+  final RxInt earningsPendingCents = 0.obs;
+  final RxString earningsCurrency = 'usd'.obs;
+
   @override
   void onInit() {
     super.onInit();
     tabController = TabController(length: Constants.isUserCreator ? 2 : 1, vsync: this);
     getUserData();
     getMyProfile();
+    _loadStats();
+  }
+
+  /// Stats row + earnings card data, all best-effort.
+  Future<void> _loadStats() async {
+    try {
+      final tickets = await ApiService.myTickets(limit: 100);
+      final now = DateTime.now();
+      upcomingCount.value = tickets.where((t) {
+        if (t['status']?.toString() != 'VALID') return false;
+        final starts = DateTime.tryParse(
+            t['eventStartsAt']?.toString() ?? '');
+        return starts == null || starts.isAfter(now);
+      }).length;
+      // "Sahras" = events already attended (used tickets).
+      sahrasCount.value = tickets
+          .where((t) => t['status']?.toString() == 'USED')
+          .length;
+    } catch (_) {}
+    // TODO(api-gap: "following" count needs a user-stats/follows endpoint)
+    try {
+      final earn = await ApiService.earnings();
+      earningsReadyCents.value =
+          ((earn['readyCents'] ?? earn['ready'] ?? 0) as num? ?? 0).toInt();
+      earningsPendingCents.value =
+          ((earn['pendingCents'] ?? earn['pending'] ?? 0) as num? ?? 0).toInt();
+      final cur = earn['currency']?.toString();
+      if (cur != null && cur.isNotEmpty) {
+        earningsCurrency.value = cur.toLowerCase();
+      }
+    } catch (_) {}
   }
 
   getUserData() async {

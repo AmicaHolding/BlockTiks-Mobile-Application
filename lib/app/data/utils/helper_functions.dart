@@ -78,7 +78,7 @@ class HelperFunction {
   }
 
   static String? urlValidate(String val, {fieldName}) {
-    // RegExp regex = RegExp(r"(https?|http)://([-A-Z0-9.]+)(/[-A-Z0-9+&@#/%=~_|!:,.;]*)?(\?[A-Z0-9+&@#/%=~_|!:‌​,.;]*)?",caseSensitive: false);
+    // RegExp regex = RegExp(r"(https?|http)://([-A-Z0-9.]+)(/[-A-Z0-9+&@#/%=~_|!:.;]*)?(\?[A-Z0-9+&@#/%=~_|!:‌​.;]*)?",caseSensitive: false);
     RegExp regex = RegExp(
         r'(http|https)://[\w-]+(\.[\w-]+)+([\w.,@?^=%&amp;:/~+#-]*[\w@?^=%&amp;/~+#-])?',
         caseSensitive: false);

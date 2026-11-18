@@ -1,9 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
-import 'package:block_tix/app/data/widgets/custom_button.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/modules/payment_page/views/payment_page_view.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -45,7 +42,7 @@ class WebHandoffSheet {
               ),
               const SizedBox(height: 10),
               Text(
-                'The mobile app is built for event day — scanning, guests and '
+                'The mobile app is built for event day, scanning, guests and '
                 'broadcasts. For $feature, use Sahra Studio on the web.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.ibmPlexSansArabic(

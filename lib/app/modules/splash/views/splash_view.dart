@@ -23,19 +23,18 @@ class SplashView extends GetView<SplashController> {
                   scale: 0.86 + (progress * 0.14),
                   child: Opacity(
                     opacity: progress,
-                    child: Text('Sahra',
-                        style: sahraText(
-                            color: ColorConstant.gold,
-                            size: 44,
-                            weight: FontWeight.w800,
-                            letterSpacing: -1.2)),
+                    child: Image.asset(ImageConstant.logoGold,
+                        width: 150, fit: BoxFit.contain),
                   ),
                 );
               },
             ),
-            const SizedBox(height: 12),
-            Text('sahra.app',
-                style: sahraText(color: ColorConstant.nightMuted, size: 15)),
+            const SizedBox(height: 18),
+            Text('SAHRA.APP',
+                style: sahraText(
+                    color: ColorConstant.nightMuted,
+                    size: 14,
+                    letterSpacing: 3.2)),
           ],
         ),
       ),

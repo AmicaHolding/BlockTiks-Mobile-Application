@@ -1,7 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/helper_functions.dart';
 import 'package:block_tix/app/data/widgets/sahra_auth.dart';
-import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import '../../sign_in/views/widgets/auth_pill_button.dart';
 import '../controllers/change_password_controller.dart';
 

@@ -26,10 +26,18 @@ import '../modules/forget_password/bindings/forget_password_binding.dart';
 import '../modules/forget_password/views/forget_password_view.dart';
 import '../modules/get_started/bindings/get_started_binding.dart';
 import '../modules/get_started/views/get_started_view.dart';
+import '../modules/host_intro/bindings/host_intro_binding.dart';
+import '../modules/host_intro/views/host_intro_view.dart';
+import '../modules/host_org/bindings/host_org_binding.dart';
+import '../modules/host_org/views/host_org_view.dart';
+import '../modules/language_settings/bindings/language_settings_binding.dart';
+import '../modules/language_settings/views/language_settings_view.dart';
 import '../modules/media_preview/bindings/media_preview_binding.dart';
 import '../modules/media_preview/views/media_preview_view.dart';
 import '../modules/my_scanner/bindings/my_scanner_binding.dart';
 import '../modules/my_scanner/views/my_scanner_view.dart';
+import '../modules/notification_settings/bindings/notification_settings_binding.dart';
+import '../modules/notification_settings/views/notification_settings_view.dart';
 import '../modules/notifications_page/bindings/notifications_page_binding.dart';
 import '../modules/notifications_page/views/notifications_page_view.dart';
 import '../modules/otp_verification_screen/bindings/otp_verification_screen_binding.dart';
@@ -55,6 +63,8 @@ import '../modules/referrals/views/referrals_view.dart';
 import '../modules/reset_password_screen/bindings/reset_password_screen_binding.dart';
 import '../modules/reset_password_screen/views/reset_password_screen_view.dart';
 import '../modules/search/bindings/search_binding.dart';
+import '../modules/security_settings/bindings/security_settings_binding.dart';
+import '../modules/security_settings/views/security_settings_view.dart';
 import '../modules/search/views/search_view.dart';
 import '../modules/sign_in/bindings/sign_in_binding.dart';
 import '../modules/sign_in/views/sign_in_view.dart';
@@ -187,6 +197,38 @@ class AppPages {
       name: _Paths.TRANSFER,
       page: () => const TransferView(),
       binding: TransferBinding(),
+    ),
+    // Spec route name: consolidated "Send tickets" replaces the old
+    // per-ticket transfer screen (same module, canonical path).
+    GetPage(
+      name: _Paths.SEND_TICKETS,
+      page: () => const TransferView(),
+      binding: TransferBinding(),
+    ),
+    GetPage(
+      name: _Paths.HOST_INTRO,
+      page: () => const HostIntroView(),
+      binding: HostIntroBinding(),
+    ),
+    GetPage(
+      name: _Paths.HOST_ORG,
+      page: () => const HostOrgView(),
+      binding: HostOrgBinding(),
+    ),
+    GetPage(
+      name: _Paths.NOTIFICATION_SETTINGS,
+      page: () => const NotificationSettingsView(),
+      binding: NotificationSettingsBinding(),
+    ),
+    GetPage(
+      name: _Paths.LANGUAGE_SETTINGS,
+      page: () => const LanguageSettingsView(),
+      binding: LanguageSettingsBinding(),
+    ),
+    GetPage(
+      name: _Paths.SECURITY_SETTINGS,
+      page: () => const SecuritySettingsView(),
+      binding: SecuritySettingsBinding(),
     ),
     GetPage(
       name: _Paths.PLACE_BID,

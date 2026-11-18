@@ -1,7 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/services/api_service.dart';
-import 'package:get/get.dart';
 
 class EventDetailController extends GetxController {
   RxInt platinumCount = 0.obs;
@@ -121,7 +120,7 @@ class EventDetailController extends GetxController {
     } else {
       sectionCount.value =
           sectionCount.value == 0 && max > 0 ? 1 : sectionCount.value;
-      if (sectionCount.value > max) sectionCount.value = max.clamp(0, 8);
+      if (sectionCount.value > max) sectionCount.value = max.clamp(0, 6);
     }
     loadSectionSeats(id);
   }
@@ -162,7 +161,7 @@ class EventDetailController extends GetxController {
     if (seat.isEmpty || !seatSelectable(seat)) return;
     final section = selectedSection;
     final max =
-        section == null ? 8 : sectionRemaining(section).clamp(0, 8).toInt();
+        section == null ? 6 : sectionRemaining(section).clamp(0, 6).toInt();
     if (selectedSeatLabels.contains(label)) {
       selectedSeatLabels.remove(label);
       return;
@@ -183,7 +182,7 @@ class EventDetailController extends GetxController {
     clearSeats();
     final section = selectedSection;
     if (section == null) return;
-    final max = sectionRemaining(section).clamp(0, 8);
+    final max = sectionRemaining(section).clamp(0, 6);
     final next = (sectionCount.value + delta).clamp(0, max);
     sectionCount.value = next;
   }
@@ -299,6 +298,44 @@ class EventDetailController extends GetxController {
       isLoading.value = false;
     }
     _fetchResaleListings();
+    _checkHeldTickets();
+  }
+
+  /// Tickets the signed-in fan already holds for this event (rule R10,   /// you can't buy the same event twice).
+  final RxInt heldTicketCount = 0.obs;
+  bool get alreadyHolds => heldTicketCount.value > 0;
+
+  Future<void> _checkHeldTickets() async {
+    final id = eventId;
+    if (id == null) return;
+    try {
+      final mine = await ApiService.myTickets(limit: 50);
+      heldTicketCount.value = mine.where((t) {
+        final status = t['status']?.toString().toUpperCase() ?? '';
+        final eid = t['eventId']?.toString() ?? '';
+        return eid == id &&
+            (status == 'VALID' || status == 'HOLDING' || status == 'TRANSFERRED');
+      }).length;
+    } catch (_) {}
+  }
+
+  /// "Remind me" / "Get on the list", spec 24, spec 31.
+  final RxBool reminded = false.obs;
+  final RxBool remindBusy = false.obs;
+
+  Future<void> toggleRemind() async {
+    final id = eventId;
+    if (id == null || remindBusy.value) return;
+    remindBusy.value = true;
+    try {
+      await ApiService.setReminder(id);
+      reminded.value = !reminded.value;
+    } catch (_) {
+      // TODO(api-gap: reminders endpoint not live yet, keep the toggle local)
+      reminded.value = !reminded.value;
+    } finally {
+      remindBusy.value = false;
+    }
   }
 
   Future<void> _fetchResaleListings() async {
@@ -307,7 +344,7 @@ class EventDetailController extends GetxController {
     try {
       resaleListings.value = await ApiService.activeListings(eventId: id);
     } catch (_) {
-      // Resale is additive — never block the official ticket flow.
+      // Resale is additive, never block the official ticket flow.
       resaleListings.value = const [];
     }
   }
@@ -326,7 +363,7 @@ class EventDetailController extends GetxController {
   void adjustTier(String tierId, int delta, int max) {
     if (delta > 0) selectedListingCode.value = '';
     final current = tierCounts[tierId] ?? 0;
-    final next = (current + delta).clamp(0, max > 10 ? 10 : max);
+    final next = (current + delta).clamp(0, max > 6 ? 6 : max);
     tierCounts[tierId] = next;
     if (next == 0) tierCounts.remove(tierId);
   }
@@ -352,7 +389,8 @@ class EventDetailController extends GetxController {
     return loc.isNotEmpty ? loc : addr;
   }
 
-  String get formattedDate => formatEventDate(startsAtText);
+  String get formattedDate => formatEventDate(startsAtText,
+      tz: event['venueTimezone']?.toString());
 
   /// Arguments forwarded to the payment/checkout screen.
   Map<String, dynamic> paymentArguments() {

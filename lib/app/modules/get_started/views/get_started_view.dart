@@ -17,40 +17,18 @@ class GetStartedView extends GetView<GetStartedController> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Sahra',
-                      style: sahraText(
-                          color: ColorConstant.gold,
-                          size: 24,
-                          weight: FontWeight.w800)),
-                  Container(
+                  Image.asset(ImageConstant.logoGold,
+                      width: 56, fit: BoxFit.contain),
+                  Obx(() => Container(
                     padding: const EdgeInsets.all(3),
                     decoration: BoxDecoration(
                         color: ColorConstant.nightSurface,
                         borderRadius: BorderRadius.circular(99)),
                     child: Row(children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                            color: ColorConstant.gold,
-                            borderRadius: BorderRadius.circular(99)),
-                        child: Text('EN',
-                            style: sahraText(
-                                color: ColorConstant.night,
-                                size: 13,
-                                weight: FontWeight.w700)),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        child: Text('عربي',
-                            style: sahraText(
-                                color: ColorConstant.nightMuted,
-                                size: 13,
-                                weight: FontWeight.w600)),
-                      ),
+                      _langPill('EN', 'en'),
+                      _langPill('عربي', 'ar'),
                     ]),
-                  ),
+                  )),
                 ],
               ),
             ),
@@ -138,19 +116,33 @@ class GetStartedView extends GetView<GetStartedController> {
                             weight: FontWeight.w700)),
                   ),
                 ),
-                const SizedBox(height: 10),
-                TextButton(
-                  onPressed: () => Get.offAllNamed(Routes.USER_DASHBOARD),
-                  child: Text('Look around first',
-                      style: sahraText(
-                          color: ColorConstant.nightMuted,
-                          size: 14,
-                          weight: FontWeight.w600)),
-                ),
+
               ]),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _langPill(String label, String code) {
+    final selected = controller.lang.value == code;
+    return GestureDetector(
+      // TODO(decision-1: Arabic copy isn't translated yet, the toggle is
+      // persisted but the app still renders English strings)
+      onTap: () => controller.lang.value = code,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+            color: selected ? ColorConstant.gold : Colors.transparent,
+            borderRadius: BorderRadius.circular(99)),
+        child: Text(label,
+            style: sahraText(
+                color: selected
+                    ? ColorConstant.night
+                    : ColorConstant.nightMuted,
+                size: 13,
+                weight: selected ? FontWeight.w700 : FontWeight.w600)),
       ),
     );
   }

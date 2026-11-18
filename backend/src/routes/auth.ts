@@ -1,5 +1,6 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import {
+    accountDeletionBlockers,
     applyReferralCode,
     consumeEmailVerificationToken,
     consumePasswordReset,
@@ -11,9 +12,12 @@ import {
     getRefreshTokenUserId,
     getUserByEmail,
     getUserById,
+    grantPromoToUser,
     issueRefreshToken,
+    listUserMemberships,
     registerReferralCode,
     revokeAllRefreshTokens,
+    revokeOtherRefreshTokens,
     revokeRefreshToken,
     updateUser,
     updateUserPassword,
@@ -68,30 +72,34 @@ export async function authRoutes(app: FastifyInstance) {
             phone: { type: 'string' },
             password: { type: 'string', minLength: 8 },
             role: { type: 'string', enum: ['user', 'creator'] },
+            // A2: spec intent — host continues to Create organisation.
+            intent: { type: 'string', enum: ['fan', 'host'] },
             referralCode: { type: 'string' },
           },
         },
       },
     },
     async (request, reply) => {
-      const { firstName, lastName, email, phone, password, role, referralCode } = request.body as {
+      const { firstName, lastName, email, phone, password, role, intent, referralCode } = request.body as {
         firstName: string;
         lastName: string;
         email: string;
         phone?: string;
         password: string;
         role?: string;
+        intent?: 'fan' | 'host';
         referralCode?: string;
       };
 
       try {
+        const isHost = intent === 'host' || role === 'creator';
         const user = await createUser({
           email,
           passwordHash: hashPassword(password),
           firstName,
           lastName: lastName ?? '',
           phone,
-          role: role === 'creator' ? 'CREATOR' : 'FAN',
+          role: isHost ? 'CREATOR' : 'FAN',
         });
         if (user.referralCode) await registerReferralCode(user.id, user.referralCode);
         if (referralCode?.trim()) {
@@ -111,6 +119,8 @@ export async function authRoutes(app: FastifyInstance) {
           token,
           refreshToken,
           user: publicUser({ ...user, referralCount: user.referralCount ?? 0 }),
+          // A2 spec routing hint (additive — legacy clients ignore it).
+          next: isHost ? 'create_org' : 'personalize',
         });
       } catch (e) {
         if (e instanceof EmailExistsError) {
@@ -121,41 +131,62 @@ export async function authRoutes(app: FastifyInstance) {
     }
   );
 
-  app.post(
-    '/auth/login',
-    {
-      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
-      schema: {
-        body: {
-          type: 'object',
-          required: ['email', 'password'],
-          properties: {
-            email: { type: 'string', format: 'email' },
-            password: { type: 'string' },
-          },
+  const loginHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+    const { email, password } = request.body as { email: string; password: string };
+    const user = await getUserByEmail(email);
+
+    if (!user || !verifyPassword(password, user.passwordHash)) {
+      return reply.status(401).send({ code: 'bad_credentials', message: 'Invalid email or password' });
+    }
+
+    const token = signAccessToken(app, user);
+    const refreshToken = await issueRefreshToken(user.id);
+
+    // A4: memberships + landing hint drive the profile switcher after
+    // sign-in. lastMode='personal' or an org id (stale org ids fall back
+    // to personal when the membership is gone).
+    const memberships = await listUserMemberships(user.id);
+    let landing: { mode: string; org_id?: string; role?: string } = { mode: 'personal' };
+    if (user.lastMode && user.lastMode !== 'personal') {
+      const last = memberships.find(({ org }) => org.id === user.lastMode);
+      if (last) {
+        landing = { mode: 'org', org_id: last.org.id, role: last.membership.role };
+      }
+    }
+
+    return {
+      token,
+      refreshToken,
+      user: publicUser(user),
+      memberships: memberships.map(({ membership, org }) => ({
+        org_id: org.id,
+        org_name: org.name,
+        role: membership.role,
+        event_scope: membership.eventScope ?? [],
+        verification_status: org.verificationStatus,
+      })),
+      landing,
+    };
+  };
+
+  const loginOpts = {
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    schema: {
+      body: {
+        type: 'object' as const,
+        required: ['email', 'password'],
+        properties: {
+          email: { type: 'string' as const, format: 'email' },
+          password: { type: 'string' as const },
         },
       },
     },
-    async (request, reply) => {
-      const { email, password } = request.body as { email: string; password: string };
-      const user = await getUserByEmail(email);
+  };
+  app.post('/auth/login', loginOpts, loginHandler);
+  // Spec path (02-api); /auth/login remains for existing clients.
+  app.post('/auth/signin', loginOpts, loginHandler);
 
-      if (!user || !verifyPassword(password, user.passwordHash)) {
-        return reply.status(401).send({ message: 'Invalid email or password' });
-      }
-
-      const token = signAccessToken(app, user);
-      const refreshToken = await issueRefreshToken(user.id);
-
-      return {
-        token,
-        refreshToken,
-        user: publicUser(user),
-      };
-    }
-  );
-
-  // POST /auth/refresh — exchange a refresh token for a new access token.
+  // POST /auth/refresh, exchange a refresh token for a new access token.
   // Refresh tokens rotate: the presented token is revoked and a new one issued.
   app.post(
     '/auth/refresh',
@@ -210,10 +241,13 @@ export async function authRoutes(app: FastifyInstance) {
                 push: { type: 'boolean' },
                 email: { type: 'boolean' },
                 sms: { type: 'boolean' },
+                selling: { type: 'boolean' },
+                remind: { type: 'boolean' },
+                weekly: { type: 'boolean' },
               },
             },
             pushNotification: { type: 'boolean' },
-            // NOTE: emailVerified is intentionally NOT user-writable — it is
+            // NOTE: emailVerified is intentionally NOT user-writable, it is
             // reserved for a future server-side verification flow.
           },
         },
@@ -229,9 +263,23 @@ export async function authRoutes(app: FastifyInstance) {
         city?: string;
         interests?: string[];
         dateOfBirth?: string;
-        notificationPrefs?: { push?: boolean; email?: boolean; sms?: boolean };
+        notificationPrefs?: {
+          push?: boolean;
+          email?: boolean;
+          sms?: boolean;
+          selling?: boolean;
+          remind?: boolean;
+          weekly?: boolean;
+        };
         pushNotification?: boolean;
       };
+      // A3: onboarding needs >= 3 interests. An empty/absent array stays
+      // allowed (clearing the field isn't an onboarding submission).
+      if (body.interests && body.interests.length > 0 && body.interests.length < 3) {
+        return reply
+          .status(400)
+          .send({ code: 'interests_min_3', message: 'Pick at least 3 interests', field: 'interests' });
+      }
       // pushNotification is the legacy mobile toggle; notificationPrefs is the
       // persisted shape used by the account settings screens.
       const user = await updateUser(request.user.sub, {
@@ -247,6 +295,10 @@ export async function authRoutes(app: FastifyInstance) {
           (body.pushNotification !== undefined ? { push: body.pushNotification } : undefined),
       });
       if (!user) return reply.status(404).send({ message: 'User not found' });
+      // A3: onboarding complete (city + >=3 interests) → grant WELCOME10.
+      if (user.city && (user.interests?.length ?? 0) >= 3) {
+        await grantPromoToUser(user.id, 'WELCOME10').catch(() => undefined);
+      }
       return { user: publicUser(user) };
     }
   );
@@ -262,21 +314,31 @@ export async function authRoutes(app: FastifyInstance) {
           properties: {
             currentPassword: { type: 'string' },
             newPassword: { type: 'string', minLength: 8 },
+            // A7: pass the current session's refresh token to stay signed in
+            // while every other session is revoked.
+            refreshToken: { type: 'string' },
           },
         },
       },
     },
     async (request, reply) => {
-      const { currentPassword, newPassword } = request.body as {
+      const { currentPassword, newPassword, refreshToken } = request.body as {
         currentPassword: string;
         newPassword: string;
+        refreshToken?: string;
       };
       const user = await getUserById(request.user.sub);
       if (!user || !verifyPassword(currentPassword, user.passwordHash)) {
-        return reply.status(401).send({ message: 'Current password is incorrect' });
+        return reply.status(401).send({ code: 'wrong_password', message: 'Current password is incorrect' });
+      }
+      // A1: the new password must contain a number (8+ chars via schema).
+      if (!/\d/.test(newPassword)) {
+        return reply
+          .status(400)
+          .send({ code: 'weak_password', message: 'New password must contain a number', field: 'newPassword' });
       }
       await updateUserPassword(user.id, hashPassword(newPassword));
-      await revokeAllRefreshTokens(user.id).catch(() => undefined);
+      await revokeOtherRefreshTokens(user.id, refreshToken).catch(() => undefined);
       return { ok: true };
     }
   );
@@ -361,7 +423,7 @@ export async function authRoutes(app: FastifyInstance) {
     }
   );
 
-  // POST /auth/verify-email/request — (re)send a verification link.
+  // POST /auth/verify-email/request, (re)send a verification link.
   app.post('/auth/verify-email/request', { preHandler: app.authenticate }, async (request, reply) => {
     const user = await getUserById(request.user.sub);
     if (!user || user.deletedAt) return reply.status(404).send({ message: 'User not found' });
@@ -372,7 +434,7 @@ export async function authRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  // POST /auth/verify-email/confirm — consume a verification token.
+  // POST /auth/verify-email/confirm, consume a verification token.
   app.post(
     '/auth/verify-email/confirm',
     {
@@ -395,13 +457,27 @@ export async function authRoutes(app: FastifyInstance) {
     }
   );
 
+  // DELETE /auth/me — A6: deletion is blocked while the account still has
+  // commitments. `code` is additive; legacy clients read `message`.
   app.delete('/auth/me', { preHandler: app.authenticate }, async (request, reply) => {
+    const blocks = await accountDeletionBlockers(request.user.sub);
+    if (blocks.length > 0) {
+      const code = blocks[0];
+      const messages: Record<string, string> = {
+        has_tickets: 'You still have tickets for upcoming events',
+        has_listings: 'Cancel your active resale listings first',
+        has_price_watches: 'Cancel your active price watches first',
+        has_balance: 'Withdraw your remaining earnings balance first',
+        sole_admin: 'Hand over admin of your organisation first',
+      };
+      return reply.status(409).send({ code, message: messages[code], blocks });
+    }
     const deleted = await deleteUser(request.user.sub);
     if (!deleted) return reply.status(404).send({ message: 'User not found' });
     return { ok: true };
   });
 
-  // POST /auth/logout — revoke the presented refresh token (or all of them).
+  // POST /auth/logout, revoke the presented refresh token (or all of them).
   app.post(
     '/auth/logout',
     {

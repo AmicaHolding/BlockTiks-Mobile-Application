@@ -1,0 +1,18 @@
+appId: com.amicaholding.blocktix
+---
+# W4: Tickets tab -> active ticket -> QR + resale/transfer actions
+- launchApp
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*For You[\s\S]*'
+    timeout: 20000
+- tapOn: '[\s\S]*Tickets[\s\S]*'
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*(Active tickets|No active tickets)[\s\S]*'
+    timeout: 10000
+- takeScreenshot: w4-tickets
+- tapOn:
+    text: '[\s\S]*(Show this QR at the gate|Active tickets)[\s\S]*'
+    optional: true
+- takeScreenshot: w4-ticket-detail

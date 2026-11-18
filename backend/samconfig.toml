@@ -1,5 +1,5 @@
 # SAM deploy environments. One CloudFormation stack (and its own DynamoDB
-# table) per stage. Secrets are NOT stored here — use scripts/deploy.sh, which
+# table) per stage. Secrets are NOT stored here, use scripts/deploy.sh, which
 # reads them from the gitignored .env.deploy.<stage> file:
 #
 #   scripts/deploy.sh dev | staging | prod

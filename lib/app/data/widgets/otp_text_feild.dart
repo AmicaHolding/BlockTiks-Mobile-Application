@@ -19,8 +19,9 @@ class OtpTextField extends StatelessWidget {
       this.focusNode,
       this.onChanged,
       this.onComplete,
-      this.color = ColorConstant.textFieldUnderlineColor})
-      : super(key: key);
+      Color? color})
+      : color = color ?? ColorConstant.textFieldUnderlineColor,
+        super(key: key);
 
   final Responsive responsive = Responsive();
 

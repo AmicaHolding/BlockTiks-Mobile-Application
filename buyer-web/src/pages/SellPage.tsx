@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { api, ApiError, type Offer, type Ticket } from '../lib/api';
-import { formatCents, formatShortDateTime } from '../lib/format';
+import { api, ApiError, type Offer, type SahraEvent, type Ticket } from '../lib/api';
+import { RESALE_CAP_PCT, SELLER_FEE_PCT } from '../lib/config';
+import { formatMoney, formatShortDateTime } from '../lib/format';
 import { Badge, Button, Card, EmptyState, Input, Spinner } from '../components/ui';
-import { ArrowLeftIcon, CheckIcon, TagIcon } from '../components/icons';
+import { ArrowLeftIcon, CheckIcon, MinusIcon, PlusIcon, TagIcon } from '../components/icons';
 
 export default function SellPage() {
   const [params] = useSearchParams();
   const eventId = params.get('eventId') ?? '';
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [event, setEvent] = useState<SahraEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -28,6 +30,14 @@ export default function SellPage() {
         if (!active) return;
         setTickets(t.tickets.filter((tk) => !eventId || tk.eventId === eventId));
         setOffers(o.offers.filter((of) => of.status === 'ACTIVE' || of.status === 'MATCHED'));
+        if (eventId) {
+          api
+            .event(eventId)
+            .then((res) => {
+              if (active) setEvent(res.event);
+            })
+            .catch(() => undefined);
+        }
       })
       .catch((e) => {
         if (active) setError(e instanceof ApiError ? e.message : 'Failed to load tickets');
@@ -48,7 +58,28 @@ export default function SellPage() {
 
   const priceCents = Math.round((Number(price) || 0) * 100);
   const validPrice = priceCents >= 1;
-  const total = priceCents * selected.size;
+  const currency = tickets[0]?.currency ?? event?.currency;
+
+  // R2, face value of each selected ticket drives the resale cap.
+  function faceFor(ticket: Ticket): number | null {
+    if (!event) return null;
+    if (ticket.sectionName) {
+      const s = (event.venueSections ?? []).find((x) => x.name === ticket.sectionName);
+      if (s) return s.priceCents;
+    }
+    const t =
+      (event.tiers ?? []).find((x) => x.id === ticket.tierId) ??
+      (event.tiers ?? []).find((x) => x.name === ticket.tierName);
+    return t?.priceCents ?? null;
+  }
+
+  const selectedTickets = tickets.filter((t) => selected.has(t.code));
+  const faces = selectedTickets.map(faceFor).filter((f): f is number => f != null);
+  const faceCents = faces.length ? Math.min(...faces) : null;
+  const capCents = faceCents != null ? Math.round(faceCents * (1 + RESALE_CAP_PCT / 100)) : null;
+  const aboveCap = capCents != null && priceCents > capCents;
+  const payoutCents = Math.round(priceCents * (1 - SELLER_FEE_PCT / 100));
+  const total = payoutCents * selected.size;
 
   function toggle(code: string) {
     setSelected((prev) => {
@@ -60,7 +91,10 @@ export default function SellPage() {
   }
 
   async function listTickets() {
-    if (selected.size === 0 || !validPrice) return;
+    if (selected.size === 0 || !validPrice || aboveCap) {
+      if (aboveCap) setError(`Resale is capped at face +${RESALE_CAP_PCT}%, ${formatMoney(capCents, currency)} max.`);
+      return;
+    }
     setBusy(true);
     setError(null);
     let listed = 0;
@@ -94,8 +128,8 @@ export default function SellPage() {
         </div>
         <h1 className="mt-6 font-display text-3xl font-extrabold text-ink">{done} ticket{done === 1 ? '' : 's'} listed</h1>
         <p className="mt-2 text-ink/60">
-          Your tickets are on sale at {price ? formatCents(priceCents) : ''} each. Each buyer gets a fresh QR, so your old
-          ones stop working. Proceeds appear in Earnings and are paid out after the event.
+          Your tickets are on sale at {price ? formatMoney(priceCents, currency) : ''} each. Each buyer gets a fresh
+          QR, so your old ones stop working. Proceeds appear in Earnings and are paid out after the event.
         </p>
         <div className="mt-8 flex justify-center gap-3">
           <Link to="/tickets">
@@ -184,10 +218,24 @@ export default function SellPage() {
                 <h2 className="font-display text-lg font-extrabold text-ink">
                   <span className="mr-2 text-gold">2.</span> Price &amp; rules
                 </h2>
+                {/* TODO(api-gap): spec Event.resale_enabled lets the organiser
+                    switch resale off ("Resale is off. You can still send."),                     the field isn't in the backend Event yet. */}
+                {event?.resaleEnabled === false ? (
+                  <div className="mt-4 rounded-xl border border-ink/10 bg-dune/50 px-4 py-4 text-sm font-semibold text-ink">
+                    Resale is off for this event. You can still send your ticket to a friend.
+                  </div>
+                ) : null}
                 <div className="mt-4">
                   <div className="mb-1.5 text-sm font-semibold text-ink">Price each</div>
                   <div className="flex items-center gap-2">
-                    <span className="font-display text-lg font-extrabold text-ink">$</span>
+                    <button
+                      type="button"
+                      aria-label="Lower price"
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-ink/20 text-ink transition hover:border-ink/50"
+                      onClick={() => setPrice((p) => String(Math.max(0, (Number(p) || 0) - 5)))}
+                    >
+                      <MinusIcon size={15} />
+                    </button>
                     <Input
                       tone="light"
                       type="number"
@@ -195,17 +243,41 @@ export default function SellPage() {
                       step="0.01"
                       value={price}
                       onChange={(e) => setPrice(e.target.value)}
-                      placeholder="420"
-                      className="max-w-[160px]"
+                      placeholder="0"
+                      className="max-w-[140px] tnum"
                     />
+                    <button
+                      type="button"
+                      aria-label="Raise price"
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-ink/20 text-ink transition hover:border-ink/50"
+                      onClick={() => setPrice((p) => String((Number(p) || 0) + 5))}
+                    >
+                      <PlusIcon size={15} />
+                    </button>
                     <span className="text-sm text-ink/50">per ticket</span>
+                    {capCents != null ? (
+                      <button
+                        type="button"
+                        className="text-xs font-semibold text-night underline"
+                        onClick={() => setPrice((capCents / 100).toFixed(2))}
+                      >
+                        Max allowed
+                      </button>
+                    ) : null}
                   </div>
+                  {faceCents != null ? (
+                    <p className={`mt-2 text-xs ${aboveCap ? 'font-semibold text-rumman' : 'text-ink/50'}`}>
+                      Face {formatMoney(faceCents, currency)} · capped at face +{RESALE_CAP_PCT}% (
+                      {formatMoney(capCents, currency)})
+                      {aboveCap ? ', above the cap.' : ''}
+                    </p>
+                  ) : null}
                 </div>
                 {waitingBuyers.length > 0 ? (
                   <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
                     <Badge tone="green">{waitingBuyers.length} buyer{waitingBuyers.length === 1 ? '' : 's'}</Badge>
                     <span>
-                      waiting with “Set your price” offers on this event — a matching price sells instantly.
+                      waiting with “Set your price” offers on this event, a matching price sells instantly.
                     </span>
                   </div>
                 ) : null}
@@ -224,19 +296,28 @@ export default function SellPage() {
               </div>
               <div className="mt-4 flex justify-between text-sm">
                 <span className="text-ink/60">Tickets</span>
-                <span className="font-semibold text-ink">{selected.size} × {price ? formatCents(priceCents) : '—'}</span>
+                <span className="font-semibold text-ink">
+                  {selected.size} × {price ? formatMoney(priceCents, currency) : '-'}
+                </span>
+              </div>
+              <div className="mt-1 flex justify-between text-sm">
+                <span className="text-ink/60">Seller fee ({SELLER_FEE_PCT}%)</span>
+                <span className="font-semibold text-ink">
+                  {validPrice ? `−${formatMoney(priceCents - payoutCents, currency)}` : '-'}
+                </span>
               </div>
               <div className="mt-2 flex justify-between border-t border-ink/10 pt-3 text-base">
-                <span className="font-bold text-ink">You receive up to</span>
-                <span className="font-display text-xl font-extrabold text-ink">{formatCents(total)}</span>
+                <span className="font-bold text-ink">You receive</span>
+                <span className="font-display text-xl font-extrabold text-ink">{formatMoney(total, currency)}</span>
               </div>
               <p className="mt-2 text-[11px] text-ink/50">
-                Proceeds are tracked in Earnings and release after the event.
+                You keep {100 - SELLER_FEE_PCT}% of the sale. Proceeds are tracked in Earnings and release after the
+                event.
               </p>
               <Button
                 variant="primary"
                 className="mt-5 w-full py-3 text-base"
-                disabled={selected.size === 0 || !validPrice || busy}
+                disabled={selected.size === 0 || !validPrice || aboveCap || busy || event?.resaleEnabled === false}
                 onClick={listTickets}
               >
                 {busy ? <Spinner className="border-night border-t-transparent" /> : null}
@@ -244,6 +325,11 @@ export default function SellPage() {
               </Button>
               {selected.size > 0 && !validPrice ? (
                 <p className="mt-2 text-center text-xs font-semibold text-rumman">Enter a price per ticket</p>
+              ) : null}
+              {aboveCap ? (
+                <p className="mt-2 text-center text-xs font-semibold text-rumman">
+                  Above the resale cap, max {formatMoney(capCents, currency)}.
+                </p>
               ) : null}
             </Card>
           </div>

@@ -6,7 +6,6 @@ import 'package:block_tix/app/data/widgets/custom_round_button.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/modules/sign_up/models/signup_model.dart';
 import 'package:block_tix/app/services/api_service.dart';
-import 'package:get/get.dart';
 
 class EditProfileController extends GetxController {
   final AppPreferences _appPreferences = AppPreferences();
@@ -111,9 +110,9 @@ class EditProfileController extends GetxController {
       });
       final user = Map<String, dynamic>.from(res['user'] as Map? ?? {});
       await _persistUser(user);
+      Get.back(closeOverlays: true);
       CustomSnackBar.showCustomSnackBar(
           title: 'Profile saved', message: 'Your details were updated.');
-      Get.back();
     } catch (e) {
       CustomSnackBar.showCustomErrorToast(
           message: e.toString().replaceFirst('Exception: ', ''));

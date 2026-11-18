@@ -2,7 +2,7 @@
   "name": "blocktiks-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "BlockTiks MVP backend \u2014 auth, events, ticketing, Stripe payments on Lambda + DynamoDB",
+  "description": "BlockTiks MVP backend — auth, events, ticketing, Stripe payments on Lambda + DynamoDB",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "dev:local": "DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT:-http://localhost:8000} AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local tsx watch src/index.ts",
@@ -18,7 +18,8 @@
     "db:create": "DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT:-http://localhost:8000} AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local tsx scripts/create-table.ts",
     "db:seed": "DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT:-http://localhost:8000} AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local tsx scripts/seed.ts",
     "db:reset": "DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT:-http://localhost:8000} AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local tsx scripts/seed.ts --reset",
-    "db:seed:remote": "SEED_ALLOW_REMOTE=1 tsx scripts/seed.ts"
+    "db:seed:remote": "SEED_ALLOW_REMOTE=1 tsx scripts/seed.ts",
+    "db:more": "DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT:-http://localhost:8000} AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local tsx scripts/seed.ts --more"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.0.0",

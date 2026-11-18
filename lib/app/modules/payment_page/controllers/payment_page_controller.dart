@@ -3,7 +3,6 @@ import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/services/api_service.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
-import 'package:get/get.dart';
 
 class PaymentPageController extends GetxController {
   RxInt selectedPayment = 0.obs;
@@ -68,7 +67,7 @@ class PaymentPageController extends GetxController {
       if (data['title'] != null) eventTitle = data['title'].toString();
       if (data['type'] != null) eventType = data['type'].toString();
 
-      // Defensive parsing of checkout context — accept the common key
+      // Defensive parsing of checkout context, accept the common key
       // variants other screens may pass.
       final id = data['eventId'] ?? data['id'];
       if (id != null && id.toString().isNotEmpty) eventId = id.toString();
@@ -142,11 +141,34 @@ class PaymentPageController extends GetxController {
     return legacyCount * 40500;
   }
 
-  /// Mirrors the backend default platform fee until the intent response
-  /// returns the authoritative feesCents/totalCents.
-  int get estimatedFeesCents => (displaySubtotalCents * 12 / 100).round();
+  /// Mirrors the backend default platform fee (5%) until the intent
+  /// response returns the authoritative feesCents/totalCents.
+  int get estimatedFeesCents => (displaySubtotalCents * 5 / 100).round();
 
-  int get estimatedTotalCents => displaySubtotalCents + estimatedFeesCents;
+  // Promo code input, validated/applied server-side at intent creation.
+  final TextEditingController promoController = TextEditingController();
+  final Rxn<String> appliedPromo = Rxn<String>();
+
+  /// Discount in cents when a promo is applied. Unknown client-side: the
+  /// backend computes it in the order-intent response.
+  /// TODO(api-gap: no promo-validate endpoint, discount preview needs
+  /// `POST /promos/validate` or a dry-run `POST /orders/intent`)
+  int get promoDiscountCents => 0;
+
+  void applyPromo() {
+    final code = promoController.text.trim();
+    if (code.isEmpty) return;
+    appliedPromo.value = code;
+    promoCode = code;
+  }
+
+  void clearPromo() {
+    appliedPromo.value = null;
+    promoCode = null;
+    promoController.clear();
+  }
+
+  int get estimatedTotalCents => displaySubtotalCents + estimatedFeesCents - promoDiscountCents;
 
   /// Currency-aware money label for checkout totals.
   String money(int cents) => formatMoney(cents, currency);
@@ -161,6 +183,10 @@ class PaymentPageController extends GetxController {
     final legacyCount = platinum + gold + silver + bronze;
     return legacyCount > 0 ? legacyCount : quantity;
   }
+
+  // TODO(decision-16): checkout holds reserve inventory for 10 minutes
+  // with a visible countdown, needs the intent response to return a
+  // `holdExpiresAt` to render it.
 
   /// Checkout entry point invoked from the Buy button (via the loader).
   /// Creates real order intents on the backend when we have event context;
@@ -185,9 +211,10 @@ class PaymentPageController extends GetxController {
     try {
       final results = <Map<String, dynamic>>[];
       if (listingCode != null) {
-        // Resale purchase — one listing per order.
+        // Resale purchase, one listing per order.
         results.add(await ApiService.createOrderIntent(
           listingCode: listingCode,
+          promoCode: promoCode,
         ));
       } else if (selections.isNotEmpty) {
         for (final sel in selections) {
@@ -209,6 +236,7 @@ class PaymentPageController extends GetxController {
           sectionId: sectionId,
           quantity: quantity,
           seats: seatLabels.isNotEmpty ? seatLabels : null,
+          promoCode: promoCode,
         ));
       } else {
         results.add(await ApiService.createOrderIntent(
@@ -240,7 +268,7 @@ class PaymentPageController extends GetxController {
           continue;
         }
         final paid = await _payWithStripe(clientSecret, orderId);
-        if (!paid) return; // canceled or failed — remaining orders stay PENDING
+        if (!paid) return; // canceled or failed, remaining orders stay PENDING
         paidOrderIds.add(orderId);
       }
 
@@ -267,14 +295,14 @@ class PaymentPageController extends GetxController {
     try {
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
-          merchantDisplayName: 'BlockTiks',
+          merchantDisplayName: 'Sahra',
           paymentIntentClientSecret: clientSecret,
           style: ThemeMode.dark,
         ),
       );
       await Stripe.instance.presentPaymentSheet();
 
-      // Webhook fulfillment is async — poll briefly so the ticket screen
+      // Webhook fulfillment is async, poll briefly so the ticket screen
       // usually renders real tickets. If it lags, the wallet still updates.
       for (var i = 0; i < 10; i++) {
         await Future.delayed(const Duration(seconds: 1));
@@ -284,11 +312,11 @@ class PaymentPageController extends GetxController {
           if (status == 'PAID') return true;
           if (status == 'FAILED' || status == 'CANCELLED') {
             CustomSnackBar.showCustomErrorToast(
-                message: 'Payment did not complete — order $orderId $status');
+                message: 'Payment did not complete, order $orderId $status');
             return false;
           }
         } catch (_) {
-          // transient — keep polling
+          // transient, keep polling
         }
       }
       return true;
@@ -320,6 +348,7 @@ class PaymentPageController extends GetxController {
     expiryController.dispose();
     cvvController.dispose();
     nameController.dispose();
+    promoController.dispose();
     super.onClose();
   }
 }

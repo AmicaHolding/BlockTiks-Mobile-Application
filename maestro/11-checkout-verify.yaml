@@ -1,0 +1,39 @@
+appId: com.amicaholding.blocktix
+---
+# Verify: tier stepper reachable + Get tickets opens checkout
+- launchApp
+- extendedWaitUntil:
+    visible:
+      text: 'More coming up'
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      text: '[\s\S]*Desert Sessions[\s\S]*'
+    direction: DOWN
+    timeout: 15000
+- tapOn: '[\s\S]*Desert Sessions[\s\S]*'
+- extendedWaitUntil:
+    visible:
+      text: 'About this event'
+    timeout: 10000
+# scroll the whole page down so the GA card clears the bottom bar.
+# bare `direction: UP` swipes land on non-scrollable spots; explicit
+# coordinates inside the ListView scroll reliably.
+- swipe:
+    start: '50%,70%'
+    end: '50%,35%'
+    duration: 600
+- swipe:
+    start: '50%,70%'
+    end: '50%,35%'
+    duration: 600
+- takeScreenshot: v-scrolled-bottom
+# + stepper: tap by its Semantics label, not a guessed point
+- tapOn: 'Increase ticket quantity'
+- takeScreenshot: v-after-plus
+- tapOn: '[\s\S]*Get tickets[\s\S]*'
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*(Payment options|Pay with|Checkout|Order summary|Total)[\s\S]*'
+    timeout: 12000
+- takeScreenshot: v-payment

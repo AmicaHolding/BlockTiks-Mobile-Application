@@ -1,6 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
-import 'package:get/get.dart';
 
 import '../controllers/edit_profile_controller.dart';
 
@@ -24,7 +23,7 @@ class EditProfileView extends GetView<EditProfileController> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
-                        onPressed: Get.back,
+                        onPressed: () => Get.back(closeOverlays: true),
                         icon: Icon(Icons.arrow_back_ios_new,
                             color: ColorConstant.ink)),
                     Text('Edit profile',
@@ -47,14 +46,14 @@ class EditProfileView extends GetView<EditProfileController> {
                   padding: const EdgeInsets.fromLTRB(24, 22, 24, 32),
                   children: [
                     Center(
-                        child: Obx(() => CircleAvatar(
+                        child: CircleAvatar(
                             radius: 48,
                             backgroundColor: ColorConstant.night,
                             child: Text(controller.initials,
                                 style: sahraText(
                                     color: ColorConstant.gold,
                                     size: 32,
-                                    weight: FontWeight.w800))))),
+                                    weight: FontWeight.w800)))),
                     const SizedBox(height: 10),
                     Center(
                         child: Text('Change photo',

@@ -32,6 +32,7 @@ class UserDashboardController extends GetxController {
   }
 
   void changePage(index) {
+    if (!pageController.hasClients) return;
     pageController.jumpToPage(index);
   }
 

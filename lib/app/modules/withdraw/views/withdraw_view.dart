@@ -1,6 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
-import 'package:get/get.dart';
 
 import '../controllers/withdraw_controller.dart';
 
@@ -13,6 +12,7 @@ class WithdrawView extends GetView<WithdrawController> {
       backgroundColor: ColorConstant.night,
       appBar: AppBar(
         backgroundColor: ColorConstant.night,
+          foregroundColor: ColorConstant.whiteA700,
         elevation: 0,
         title: Text('Earnings',
             style: sahraText(size: 22, weight: FontWeight.w800)),
@@ -189,7 +189,7 @@ class WithdrawView extends GetView<WithdrawController> {
       final status = enabled
           ? 'Payouts enabled'
           : connected
-              ? 'Setup incomplete — finish payout onboarding'
+              ? 'Setup incomplete, finish payout onboarding'
               : 'Connect a payout account to withdraw earnings';
       return SahraCard(
         child: Row(children: [

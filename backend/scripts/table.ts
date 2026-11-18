@@ -1,5 +1,5 @@
 // Table lifecycle for local/staging data scripts. Schema mirrors
-// BlockTiksTable in template.yaml — keep the two in sync.
+// BlockTiksTable in template.yaml, keep the two in sync.
 import {
   CreateTableCommand,
   DescribeTableCommand,

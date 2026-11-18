@@ -1,4 +1,5 @@
 import 'package:block_tix/app/data/widgets/base/baseview_process_screen.dart';
+import 'package:block_tix/app/data/widgets/custom_bottom_bar.dart';
 import 'package:block_tix/app/data/widgets/custom_dialogue.dart';
 import 'package:block_tix/app/modules/for_you/views/for_you_view.dart';
 import 'package:block_tix/app/modules/profile_tab/views/profile_tab_view.dart';
@@ -45,6 +46,10 @@ class UserDashboardView extends GetView<UserDashboardController> {
           screenName: controller.screenName.isEmpty
               ? null
               : controller.screenName.value,
+          // Fan dashboard always uses the fan tab bar — a creator in
+          // personal mode (lastMode=fan) must not get the door-mode bar,
+          // whose PageController is bound to the creator PageView.
+          customBottomBar: CustomBottomBar(),
           hideAppBar: controller.selectedIndex.value == 3 ||controller.selectedIndex.value == 0,
           basicAppBar: false,
           showBackBtn: false,

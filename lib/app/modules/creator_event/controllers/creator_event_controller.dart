@@ -91,10 +91,11 @@ class CreatorEventController extends GetxController {
   String get venueLabel => event.value?['location']?.toString() ?? '';
   String get startsAtLabel => formatEventDate(
         event.value?['startsAt']?.toString(),
+        tz: event.value?['venueTimezone']?.toString(),
         includeTime: true,
       );
   String get statusLabel => eventStatus.value.isEmpty
-      ? '—'
+      ? '-'
       : eventStatus.value[0] + eventStatus.value.substring(1).toLowerCase();
   int get checkInPercent => capacity.value == 0
       ? 0

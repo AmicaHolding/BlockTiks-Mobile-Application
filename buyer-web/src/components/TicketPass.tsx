@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import type { Ticket } from '../lib/api';
 import { api, ApiError } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { formatShortDateTime, parseIso } from '../lib/format';
 import { Button, Card } from './ui';
 import { CalendarIcon, ClockIcon, MapIcon, SendIcon, TagIcon, TicketIcon } from './icons';
@@ -27,11 +28,23 @@ export default function TicketPass({
   listed?: boolean;
   onChanged?: () => void;
 }) {
+  const { user } = useAuth();
   const [showTransfer, setShowTransfer] = useState(false);
-  const [email, setEmail] = useState('');
+  const [recipient, setRecipient] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  // TODO(decision-1): QR payload comes from the ticket credential resource
+  // (reissued on holder change). Backend has no credential endpoint yet, so
+  // this resolves to the ticket code.
+  const [qrPayload, setQrPayload] = useState(ticket.code);
+
+  useEffect(() => {
+    api
+      .ticketCredential(ticket.code)
+      .then((c) => setQrPayload(c.qrPayload))
+      .catch(() => setQrPayload(ticket.code));
+  }, [ticket.code]);
 
   const qrLive = isQrLive(ticket.eventStartsAt);
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -39,11 +52,21 @@ export default function TicketPass({
   )}`;
 
   async function doTransfer() {
-    setBusy(true);
+    const to = recipient.trim();
     setError(null);
+    if (!to.includes('@')) {
+      // TODO(api-gap): spec transfers accept email OR phone via claim links,       // the backend moves tickets by account email only.
+      setError('Phone transfers aren’t supported yet, send to their Sahra account email.');
+      return;
+    }
+    if (user && to.toLowerCase() === user.email.toLowerCase()) {
+      setError('That’s you, send it to a friend instead.');
+      return;
+    }
+    setBusy(true);
     try {
-      await api.transferTicket(ticket.code, email.trim());
-      setSentTo(email.trim());
+      await api.transferTicket(ticket.code, to);
+      setSentTo(to);
       setShowTransfer(false);
       onChanged?.();
     } catch (e) {
@@ -115,7 +138,7 @@ export default function TicketPass({
 
           {sentTo ? (
             <div className="mt-3 text-sm font-semibold text-night">
-              Transferred to {sentTo} — their QR is now live.
+              Transferred to {sentTo}, their QR is now live.
             </div>
           ) : null}
         </div>
@@ -125,7 +148,7 @@ export default function TicketPass({
           {qrLive ? (
             <>
               <div className="rounded-xl bg-white p-3">
-                <QRCode value={ticket.code} size={96} bgColor="#FFFFFF" fgColor="#241C14" />
+                <QRCode value={qrPayload} size={96} bgColor="#FFFFFF" fgColor="#241C14" />
               </div>
               <div className="text-center text-xs font-semibold text-night/70">
                 Show this at the gate
@@ -147,17 +170,17 @@ export default function TicketPass({
         <div className="border-t border-night-border/60 bg-night-surface p-5">
           <div className="text-sm font-semibold text-sand">Send to a friend</div>
           <p className="mt-1 text-xs text-night-muted">
-            The ticket moves to their account instantly and your QR stops working.
+            Their Sahra account email or phone, the ticket moves instantly and your QR stops working.
           </p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="friend@email.com"
+              type="text"
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              placeholder="friend@email.com or +971…"
               className="w-full rounded-xl border border-night-border bg-night px-3.5 py-2.5 text-sm text-sand outline-none placeholder:text-night-muted focus:border-gold"
             />
-            <Button variant="gold" disabled={busy || !email.includes('@')} onClick={doTransfer}>
+            <Button variant="gold" disabled={busy || !recipient.trim()} onClick={doTransfer}>
               {busy ? 'Sending…' : 'Send ticket'}
             </Button>
           </div>

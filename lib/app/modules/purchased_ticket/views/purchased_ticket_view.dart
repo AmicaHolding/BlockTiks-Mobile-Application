@@ -1,9 +1,7 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/sahra_ticket_card.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
-import 'package:flutter/material.dart';
 
-import 'package:get/get.dart';
 
 import '../controllers/purchased_ticket_controller.dart';
 
@@ -24,7 +22,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
           child: Row(
             children: [
               Expanded(
-                child: _secondaryButton('Transfer', () => _transfer()),
+                child: _secondaryButton('Send', () => _sendTicket()),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -126,14 +124,14 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
       return _banner(
         icon: Icons.science_outlined,
         color: ColorConstant.warningOrange,
-        text: 'Order preview — payment not completed',
+        text: 'Order preview, payment not completed',
       );
     }
     if (controller.isSimulated) {
       return _banner(
         icon: Icons.science_outlined,
         color: ColorConstant.warningOrange,
-        text: 'Simulated ticket — no real purchase',
+        text: 'Simulated ticket, no real purchase',
       );
     }
     return const SizedBox.shrink();
@@ -210,7 +208,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
             fields: {
               'Gate': rowStr('section', 'Main'),
               'Zone': rowStr('tier', controller.ticketTier),
-              'Seat': rowStr('seat', '—'),
+              'Seat': rowStr('seat', '-'),
               'Order': rowStr('orderId', controller.orderId),
             },
             code: row['code']?.toString(),
@@ -284,7 +282,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
     );
   }
 
-  void _transfer() {
+  void _sendTicket() {
     String code = '';
     var tier = controller.ticketTier;
     var section = '';
@@ -299,7 +297,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
       seat = row['seat']?.toString() ?? '';
       break;
     }
-    Get.toNamed(Routes.TRANSFER, arguments: {
+    Get.toNamed(Routes.SEND_TICKETS, arguments: {
       'title': controller.eventTitle,
       'type': controller.eventType,
       'date': controller.ticketDate,
@@ -339,7 +337,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
                   style: sahraText(color: ColorConstant.nightMuted, size: 12)),
               const SizedBox(height: 18),
               _sheetAction(
-                  'Transfer ticket', Icons.swap_horiz_rounded, _transfer),
+                  'Send ticket', Icons.send_outlined, _sendTicket),
               _sheetAction('Sell ticket', Icons.sell_outlined, _sell),
               _sheetAction(
                   'View in Tickets', Icons.confirmation_number_outlined, () {
@@ -355,7 +353,9 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
   }
 
   Widget _sheetAction(String label, IconData icon, VoidCallback onTap) {
-    return ListTile(
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(icon, color: ColorConstant.gold),
       title: Text(label, style: sahraText(size: 15, weight: FontWeight.w600)),
@@ -363,6 +363,6 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
         Get.back();
         onTap();
       },
-    );
+    ));
   }
 }

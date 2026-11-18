@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { api, ApiError, type Earnings, type Faq, type NotificationItem, type PaymentMethod, type Promo, type TransactionRow, type User } from '../lib/api';
+import { STUDIO_URL } from '../lib/config';
 import { useAuth } from '../lib/auth';
 import { formatCents, formatShortDateTime, initials } from '../lib/format';
 import { Badge, Button, Card, Field, Input, Select, Spinner } from '../components/ui';
@@ -16,6 +17,7 @@ import {
   ReceiptIcon,
   ShieldIcon,
   TagIcon,
+  TicketIcon,
   UsersIcon,
 } from '../components/icons';
 
@@ -50,7 +52,16 @@ const CITIES = ['Dubai', 'Abu Dhabi', 'Riyadh', 'Doha', 'Kuwait City', 'Muscat',
 export default function AccountPage() {
   const { user, refresh, logout } = useAuth();
   const navigate = useNavigate();
-  const [section, setSection] = useState<Section>('profile');
+  const [params, setParams] = useSearchParams();
+  const sectionParam = params.get('section') as Section | null;
+  const section: Section = NAV.some((n) => n.id === sectionParam) ? (sectionParam as Section) : 'profile';
+
+  function setSection(id: Section) {
+    const next = new URLSearchParams(params);
+    if (id === 'profile') next.delete('section');
+    else next.set('section', id);
+    setParams(next, { replace: true });
+  }
 
   return (
     <div className="min-h-[calc(100vh-76px)] bg-sand text-ink">
@@ -74,6 +85,14 @@ export default function AccountPage() {
                 </button>
               );
             })}
+            <a
+              href={STUDIO_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-4 flex items-center gap-3 rounded-xl border border-ink/15 px-4 py-2.5 text-left text-sm font-semibold text-ink transition hover:bg-dune"
+            >
+              <TicketIcon size={16} /> Host events · Studio
+            </a>
             <button
               type="button"
               onClick={async () => {
@@ -81,7 +100,7 @@ export default function AccountPage() {
                 logout();
                 navigate('/');
               }}
-              className="mt-4 flex items-center gap-3 rounded-xl px-4 py-2.5 text-left text-sm font-semibold text-rumman transition hover:bg-rumman/10"
+              className="mt-2 flex items-center gap-3 rounded-xl px-4 py-2.5 text-left text-sm font-semibold text-rumman transition hover:bg-rumman/10"
             >
               <LogoutIcon size={16} /> Sign out
             </button>
@@ -448,18 +467,63 @@ function LanguageSection() {
         </Field>
       </div>
       <p className="mt-4 rounded-xl bg-dune/60 px-4 py-3 text-sm text-ink/60">
-        Full Arabic interface and region-specific pricing are rolling out — your preference is noted for when they land.
+        Full Arabic interface and region-specific pricing are rolling out, your preference is noted for when they land.
       </p>
     </SectionShell>
   );
 }
 
 function SecuritySection() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [delBusy, setDelBusy] = useState(false);
+  const [delMsg, setDelMsg] = useState<string | null>(null);
+
+  // A6, deletion is refused while the account still holds anything live:
+  // upcoming tickets, active listings, live price watches, or a balance.
+  // TODO(api-gap): the "sole admin of an org" blocker needs membership data
+  // the fan API doesn't expose; the backend doesn't enforce A6 yet either.
+  async function tryDelete() {
+    setDelBusy(true);
+    setDelMsg(null);
+    try {
+      const [t, l, o, e] = await Promise.all([
+        api.tickets().catch(() => ({ tickets: [] as { status: string; eventStartsAt: string }[] })),
+        api.myListings().catch(() => ({ listings: [] as { status: string }[] })),
+        api.myOffers().catch(() => ({ offers: [] as { status: string }[] })),
+        api.earnings().catch(() => null),
+      ]);
+      const now = Date.now() - 12 * 3_600_000;
+      const upcoming = t.tickets.filter(
+        (tk) => tk.status === 'VALID' && new Date(tk.eventStartsAt).getTime() >= now
+      ).length;
+      const listings = l.listings.filter((x) => x.status === 'ACTIVE' || x.status === 'CHECKOUT').length;
+      const watches = o.offers.filter((x) => x.status === 'ACTIVE' || x.status === 'MATCHED').length;
+      const balance = (e?.availableCents ?? 0) + (e?.pendingCents ?? 0);
+      const blockers: string[] = [];
+      if (upcoming) blockers.push(`${upcoming} upcoming ticket${upcoming === 1 ? '' : 's'}`);
+      if (listings) blockers.push(`${listings} active listing${listings === 1 ? '' : 's'}`);
+      if (watches) blockers.push(`${watches} live price watch${watches === 1 ? '' : 'es'}`);
+      if (balance > 0) blockers.push(`a ${formatCents(balance)} balance`);
+      if (blockers.length > 0) {
+        setDelMsg(`You can’t delete your account while you have ${blockers.join(', ')}.`);
+        return;
+      }
+      if (!window.confirm('Delete your Sahra account? This is permanent.')) return;
+      await api.deleteAccount();
+      logout();
+      navigate('/');
+    } catch (e) {
+      setDelMsg(e instanceof ApiError ? e.message : 'Could not delete account');
+    } finally {
+      setDelBusy(false);
+    }
+  }
 
   async function change() {
     setMsg(null);
@@ -506,8 +570,20 @@ function SecuritySection() {
         {msg ? <span className={`text-sm font-semibold ${msg.ok ? 'text-emerald-700' : 'text-rumman'}`}>{msg.text}</span> : null}
       </div>
       <p className="mt-6 text-xs leading-relaxed text-ink/50">
-        There’s no SMS verification yet — if you lose access, contact support from Help.
+        There’s no SMS verification yet, if you lose access, contact support from Help.
       </p>
+
+      <div className="mt-8 rounded-xl border border-rumman/30 bg-rumman/5 p-5">
+        <div className="text-sm font-bold text-ink">Delete account</div>
+        <p className="mt-1 text-xs leading-relaxed text-ink/60">
+          Permanent. Blocked while you have upcoming tickets, active listings, live price watches, or a balance.
+        </p>
+        <Button variant="danger" className="mt-4" disabled={delBusy} onClick={tryDelete}>
+          {delBusy ? <Spinner className="border-sand border-t-transparent" /> : null}
+          Delete my account
+        </Button>
+        {delMsg ? <p className="mt-3 text-sm font-semibold text-rumman">{delMsg}</p> : null}
+      </div>
     </SectionShell>
   );
 }
@@ -627,6 +703,8 @@ function HelpSection() {
 function EarningsSection() {
   const [earnings, setEarnings] = useState<Earnings | null>(null);
   const [promos, setPromos] = useState<{ ready: Promo[]; used: Promo[] } | null>(null);
+  const [redeemCode, setRedeemCode] = useState('');
+  const [redeemMsg, setRedeemMsg] = useState<string | null>(null);
   const [payouts, setPayouts] = useState<{ connected: boolean; payoutsEnabled?: boolean; detailsSubmitted?: boolean } | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -674,7 +752,7 @@ function EarningsSection() {
                   <div className="text-sm font-bold text-ink">Payout account</div>
                   <div className="text-xs text-ink/60">
                     {payouts?.connected && payouts.payoutsEnabled
-                      ? 'Stripe Connect onboarding complete — withdrawals go to your bank.'
+                      ? 'Stripe Connect onboarding complete, withdrawals go to your bank.'
                       : payouts?.connected
                         ? 'Finish Stripe onboarding to receive payouts.'
                         : 'Connect Stripe to withdraw your earnings.'}
@@ -811,6 +889,34 @@ function EarningsSection() {
       </SectionShell>
 
       <SectionShell title="Promo codes" subtitle="Discounts sent to you by organizers or Sahra.">
+        <div className="mb-4 flex gap-2">
+          <Input
+            tone="light"
+            value={redeemCode}
+            onChange={(e) => setRedeemCode(e.target.value.toUpperCase())}
+            placeholder="Have a code? Add it"
+          />
+          <Button
+            variant="ghost"
+            disabled={redeemCode.trim().length < 3}
+            onClick={async () => {
+              setRedeemMsg(null);
+              try {
+                // TODO(api-gap): POST /me/promos, the backend has no fan-side
+                // promo redemption route yet, so this always reports back.
+                await api.redeemPromo(redeemCode.trim());
+                setRedeemMsg('Added, it will apply automatically at checkout.');
+                setRedeemCode('');
+                api.accountPromos().then(setPromos).catch(() => undefined);
+              } catch (e) {
+                setRedeemMsg(e instanceof ApiError ? e.message : 'Could not add code');
+              }
+            }}
+          >
+            Add
+          </Button>
+        </div>
+        {redeemMsg ? <p className="mb-4 text-sm text-ink/60">{redeemMsg}</p> : null}
         {promos == null || (promos.ready.length === 0 && promos.used.length === 0) ? (
           <div className="rounded-xl border border-dashed border-ink/20 px-6 py-10 text-center text-sm text-ink/60">
             No promo codes yet.
@@ -871,7 +977,7 @@ function ReferralsSection() {
         <div className="flex flex-col gap-5">
           <div className="rounded-xl border border-ink/10 bg-white px-4 py-4">
             <div className="text-xs font-semibold uppercase tracking-wide text-ink/50">Your code</div>
-            <div className="mt-1 font-mono text-xl font-extrabold text-ink">{data.code || '—'}</div>
+            <div className="mt-1 font-mono text-xl font-extrabold text-ink">{data.code || '-'}</div>
             {data.shareUrl ? <div className="mt-2 break-all text-xs text-ink/50">{data.shareUrl}</div> : null}
             <div className="mt-3">
               <Button
@@ -893,7 +999,7 @@ function ReferralsSection() {
             <div className="rounded-xl border border-ink/10 bg-white px-4 py-4">
               <div className="text-xs font-semibold uppercase tracking-wide text-ink/50">Bonus per referral</div>
               <div className="mt-1 font-display text-2xl font-extrabold text-ink">
-                {data.bonusCents ? formatCents(data.bonusCents) : '—'}
+                {data.bonusCents ? formatCents(data.bonusCents) : '-'}
               </div>
             </div>
           </div>

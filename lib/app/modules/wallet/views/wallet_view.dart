@@ -45,13 +45,23 @@ class WalletView extends GetView<WalletController> {
                 Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                     child: Text('No active tickets.',
-                        style: TextStyle(color: ColorConstant.nightMuted))),
-              ...controller.validTickets.map(_ticketTile),
+                        style: TextStyle(color: ColorConstant.nightMuted))), ...controller.validTickets.map(_ticketTile),
               SahraSectionLabel('Selling'),
-              ...controller.listings.map(_listingTile),
+              if (controller.listings.isEmpty)
+                Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 8),
+                    child: Text('Nothing listed right now.',
+                        style: sahraText(
+                            color: ColorConstant.nightMuted, size: 13))), ...controller.listings.map(_listingTile),
+              if (controller.waitingOffers.isNotEmpty) ...[
+                SahraSectionLabel('Waiting',
+                    trailing: Text('Set-your-price orders',
+                        style: sahraText(
+                            color: ColorConstant.nightMuted, size: 12))), ...controller.waitingOffers.map(_offerTile),
+              ],
               if (controller.otherTickets.isNotEmpty) ...[
-                SahraSectionLabel('Past / inactive'),
-                ...controller.otherTickets.map(_ticketTile),
+                SahraSectionLabel('Past / inactive'), ...controller.otherTickets.map(_ticketTile),
               ],
               const SizedBox(height: 32),
             ]));
@@ -129,7 +139,7 @@ class WalletView extends GetView<WalletController> {
                         style: sahraText(size: 16, weight: FontWeight.w600)),
                     const SizedBox(height: 3),
                     Text(
-                        '${formatEventDate(ticket['eventStartsAt']?.toString())} · ${location.isEmpty ? 'Venue TBD' : location}',
+                        '${formatEventDate(ticket['eventStartsAt']?.toString(), tz: ticket['venueTimezone']?.toString())} · ${location.isEmpty ? 'Venue TBD' : location}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: sahraText(
@@ -139,7 +149,7 @@ class WalletView extends GetView<WalletController> {
                       SahraStatusPill(section.isNotEmpty
                           ? section
                           : (tier.isEmpty ? 'Ticket' : tier)),
-                      SahraStatusPill(status.isEmpty ? '—' : status,
+                      SahraStatusPill(status.isEmpty ? '-' : status,
                           color: status == 'VALID'
                               ? ColorConstant.gold
                               : ColorConstant.nightMuted),
@@ -149,9 +159,29 @@ class WalletView extends GetView<WalletController> {
                     ]),
                   ])),
               if (sellable) ...[
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 GestureDetector(
-                    onTap: () => _sellTicketDialog(ticket),
+                    onTap: () => Get.toNamed(Routes.SEND_TICKETS, arguments: {
+                        'ticketCode': ticket['code']?.toString() ?? '',
+                        'eventTitle':
+                            ticket['eventTitle']?.toString() ?? '',
+                    }),
+                    child: Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                            color: ColorConstant.nightSurface,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                                color: ColorConstant.gold)),
+                        child: Icon(Icons.send_outlined,
+                            color: ColorConstant.gold, size: 16))),
+                const SizedBox(width: 8),
+                GestureDetector(
+                    onTap: () => Get.toNamed(Routes.ASK_BID, arguments: {
+                        'code': ticket['code']?.toString() ?? '',
+                        'title':
+                            ticket['eventTitle']?.toString() ?? '',
+                    }),
                     child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 9),
@@ -200,13 +230,64 @@ class WalletView extends GetView<WalletController> {
                 const SizedBox(width: 8),
                 GestureDetector(
                     onTap: () => _cancelListing(listing),
-                    child: Text('Cancel',
+                    child: Text('Stop selling',
                         style: sahraText(
                             color: ColorConstant.rumman,
                             size: 13,
                             weight: FontWeight.w600))),
               ],
             ])));
+  }
+
+  /// "Waiting" row, an ACTIVE Set-your-price order (price watch).
+  Widget _offerTile(Map<String, dynamic> offer) {
+    final cents = offer['maxPriceCents'] ?? offer['priceCents'];
+    final price =
+        cents is num ? formatMoney(cents, offer['currency']?.toString()) : '';
+    final qty = (offer['quantity'] as num?)?.toInt() ?? 1;
+    final label = offer['tierName']?.toString() ??
+        offer['sectionName']?.toString() ??
+        'Ticket';
+    return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: SahraCard(
+            padding: const EdgeInsets.all(14),
+            child: Row(children: [
+              Icon(Icons.bolt_outlined, color: ColorConstant.gold, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(offer['eventTitle']?.toString() ?? 'Event',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: sahraText(size: 15, weight: FontWeight.w600)),
+                    Text('$qty × $label · up to $price',
+                        style: sahraText(
+                            color: ColorConstant.nightMuted, size: 12)),
+                  ])),
+              GestureDetector(
+                  onTap: () => _cancelOffer(offer),
+                  child: Text('Cancel',
+                      style: sahraText(
+                          color: ColorConstant.rumman,
+                          size: 13,
+                          weight: FontWeight.w600))),
+            ])));
+  }
+
+  Future<void> _cancelOffer(Map<String, dynamic> offer) async {
+    final id = (offer['id'] ?? offer['offerId'])?.toString() ?? '';
+    if (id.isEmpty) return;
+    try {
+      await ApiService.cancelOffer(id);
+      await controller.fetchTickets();
+      CustomSnackBar.showCustomToast(message: 'Price watch cancelled');
+    } catch (e) {
+      CustomSnackBar.showCustomErrorToast(
+          message: e.toString().replaceFirst('Exception: ', ''));
+    }
   }
 
   Future<void> _cancelListing(Map<String, dynamic> listing) async {
@@ -221,65 +302,5 @@ class WalletView extends GetView<WalletController> {
       CustomSnackBar.showCustomErrorToast(
           message: e.toString().replaceFirst('Exception: ', ''));
     }
-  }
-
-  void _sellTicketDialog(Map<String, dynamic> ticket) {
-    final code = ticket['code']?.toString() ?? '';
-    if (code.isEmpty) return;
-    final priceController = TextEditingController();
-    final currency = (ticket['currency']?.toString() ?? 'usd').toUpperCase();
-    Get.dialog(AlertDialog(
-      backgroundColor: ColorConstant.nightSurface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: Text('Sell ticket',
-          style: sahraText(size: 18, weight: FontWeight.w700)),
-      content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(ticket['eventTitle']?.toString() ?? '',
-                style: sahraText(color: ColorConstant.nightMuted, size: 13)),
-            const SizedBox(height: 14),
-            TextField(
-                controller: priceController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                style: sahraText(),
-                decoration: InputDecoration(
-                    labelText: 'Your price ($currency)',
-                    labelStyle: sahraText(color: ColorConstant.nightMuted),
-                    enabledBorder: UnderlineInputBorder(
-                        borderSide:
-                            BorderSide(color: ColorConstant.nightMuted)))),
-          ]),
-      actions: [
-        TextButton(
-            onPressed: Get.back,
-            child: Text('Cancel',
-                style: sahraText(color: ColorConstant.nightMuted))),
-        TextButton(
-            onPressed: () async {
-              final dollars = double.tryParse(priceController.text.trim());
-              if (dollars == null || dollars <= 0) {
-                CustomSnackBar.showCustomErrorToast(
-                    message: 'Enter a valid price');
-                return;
-              }
-              Get.back();
-              try {
-                await ApiService.createListing(code, (dollars * 100).round());
-                await controller.fetchTickets();
-                CustomSnackBar.showCustomToast(
-                    message: 'Ticket listed for sale');
-              } catch (e) {
-                CustomSnackBar.showCustomErrorToast(
-                    message: e.toString().replaceFirst('Exception: ', ''));
-              }
-            },
-            child: Text('List it',
-                style: sahraText(
-                    color: ColorConstant.gold, weight: FontWeight.w700))),
-      ],
-    ));
   }
 }

@@ -17,6 +17,10 @@ class SignUpController extends GetxController {
   RxBool isSelectedSwitch = false.obs;
   RxBool acceptTerms = false.obs;
 
+  /// Host intent: "Go to events and host them", the account then creates an
+  /// organisation on the next screen instead of going to personalization.
+  final RxBool hostIntent = false.obs;
+
   FocusNode? firstNameNode = FocusNode();
   FocusNode? emailNode = FocusNode();
   FocusNode? referralNode = FocusNode();
@@ -88,16 +92,27 @@ class SignUpController extends GetxController {
     }
     btnController.start();
     try {
+      // TODO(api-gap: contract is `intent:"fan"|"host"` returning
+      // `next:"personalize"|"create_org"`; the MVP backend uses `role`,
+      // so host intent maps to the creator role until it ships)
       final res = await ApiService.signup(
         firstName: firstName,
         email: email,
         phone: phone.isEmpty ? null : phone,
         password: password,
+        role: hostIntent.value ? 'creator' : 'user',
         referralCode: referralController.text.trim(),
       );
       btnController.stop();
       await ApiService.saveSession(res);
-      Get.offAllNamed(Routes.PERSONALIZE);
+      if (hostIntent.value) {
+        await ApiService.setLastModeLocal('creator');
+        Get.offAllNamed(Routes.HOST_ORG,
+            arguments: {'fromSignup': true});
+      } else {
+        await ApiService.setLastModeLocal('fan');
+        Get.offAllNamed(Routes.PERSONALIZE);
+      }
     } catch (e) {
       btnController.error();
       btnController.stop();

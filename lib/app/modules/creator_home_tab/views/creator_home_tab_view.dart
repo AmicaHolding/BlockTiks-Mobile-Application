@@ -1,10 +1,9 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:block_tix/app/data/widgets/web_handoff_sheet.dart';
 import 'package:block_tix/app/modules/creator_dashboard/controllers/creator_dashboard_controller.dart';
-import 'package:intl/intl.dart';
 
-import 'package:get/get.dart';
 
 import '../controllers/creator_home_tab_controller.dart';
 
@@ -41,6 +40,16 @@ class CreatorHomeTabView extends StatelessWidget {
                   onAction: controller.loadEvents,
                 );
               }
+              // Fresh org → "Get ready to sell" checklist + note (flow M5).
+              if (controller.isFreshOrg)
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _checklistCard(),
+                    const SizedBox(height: 14),
+                    _noEventsNote(),
+                  ],
+                );
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -70,7 +79,7 @@ class CreatorHomeTabView extends StatelessWidget {
               Text('Events',
                   style: sahraText(size: 26, weight: FontWeight.w700)),
               const SizedBox(height: 3),
-              Text('Door mode — scan, guests and live events',
+              Text('Door mode, scan, guests and live events',
                   style: sahraText(color: ColorConstant.nightMuted, size: 12)),
             ],
           ),
@@ -99,10 +108,11 @@ class CreatorHomeTabView extends StatelessWidget {
         onAction: () => WebHandoffSheet.show(feature: 'Creating events'),
       );
     }
-    final startsAt = CreatorHomeTabController.eventStartsAt(event);
-    final date = startsAt == null
+    final startsAtRaw = event['startsAt']?.toString();
+    final date = (startsAtRaw == null || startsAtRaw.isEmpty)
         ? 'Date to be announced'
-        : DateFormat('EEE d MMM · h:mm a').format(startsAt);
+        : formatEventDate(startsAtRaw,
+            tz: event['venueTimezone']?.toString());
     return GestureDetector(
       onTap: () => _openEvent(event),
       child: SahraCard(
@@ -169,6 +179,90 @@ class CreatorHomeTabView extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// "Get ready to sell", the fresh-org checklist (mobile prototype).
+  Widget _checklistCard() {
+    final items = controller.orgChecklist;
+    return SahraCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Get ready to sell',
+              style: sahraText(size: 16, weight: FontWeight.w700)),
+          const SizedBox(height: 14), ...items.map((c) {
+            final ok = c['ok'] == true;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: ok
+                          ? ColorConstant.gold
+                          : ColorConstant.nightBorder,
+                    ),
+                    child: ok
+                        ? Icon(Icons.check_rounded,
+                            color: ColorConstant.night, size: 13)
+                        : Text('${items.indexOf(c) + 1}',
+                            style: sahraText(
+                                color: ColorConstant.nightMuted,
+                                size: 11,
+                                weight: FontWeight.w700)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(c['n']?.toString() ?? '',
+                            style: sahraText(
+                                size: 15, weight: FontWeight.w600)),
+                        Text(c['d']?.toString() ?? '',
+                            style: sahraText(
+                                color: ColorConstant.nightMuted, size: 13)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          const SizedBox(height: 4),
+          SahraPillButton(
+            label: 'Build your first event on the web',
+            onTap: () => WebHandoffSheet.show(feature: 'Creating events'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Dashed note under the checklist (prototype copy, verbatim).
+  Widget _noEventsNote() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+            color: ColorConstant.nightBorder,
+            style: BorderStyle.solid,
+            width: 1.5),
+      ),
+      child: Text(
+        'No events yet. Once one is published it shows here with live sales, '
+        'and Scan and Guests start working for it.',
+        style: sahraText(
+            color: ColorConstant.nightMuted, size: 14, height: 1.5),
       ),
     );
   }
@@ -258,8 +352,7 @@ class CreatorHomeTabView extends StatelessWidget {
           const SizedBox(height: 14),
           Text('Drafts & past',
               style: sahraText(size: 18, weight: FontWeight.w700)),
-          const SizedBox(height: 10),
-          ...controller.pastEvents.take(5).map((e) => _pastTile(e)),
+          const SizedBox(height: 10), ...controller.pastEvents.take(5).map((e) => _pastTile(e)),
         ],
       ],
     );

@@ -120,7 +120,9 @@ class CustomImageView extends StatelessWidget {
                 height: height,
                 width: width,
                 fit: fit ?? BoxFit.contain,
-                color: color,
+                colorFilter: color != null
+                    ? ColorFilter.mode(color!, BlendMode.srcIn)
+                    : null,
               ),
             )
           : SizedBox(
@@ -131,7 +133,9 @@ class CustomImageView extends StatelessWidget {
                 height: height,
                 width: width,
                 fit: fit ?? BoxFit.contain,
-                color: color,
+                colorFilter: color != null
+                    ? ColorFilter.mode(color!, BlendMode.srcIn)
+                    : null,
               ),
             );
     } else if (file != null && file!.path.isNotEmpty) {

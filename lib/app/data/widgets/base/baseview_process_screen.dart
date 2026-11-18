@@ -3,7 +3,6 @@ import 'package:block_tix/app/data/utils/internet_connection_widgets/widget.dart
 import 'package:block_tix/app/data/widgets/custom_bottom_bar_creator.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:block_tix/app/modules/user_dashboard/controllers/user_dashboard_controller.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_export.dart';
 import '../custom_bottom_bar.dart';

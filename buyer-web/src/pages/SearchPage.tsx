@@ -181,7 +181,7 @@ export default function SearchPage() {
                           <div className="font-display text-lg font-extrabold text-gold">
                             {(() => {
                               const p = lowestPrice(event.tiers);
-                              return p === 0 ? 'Free' : p != null ? formatCents(p) : '—';
+                              return p === 0 ? 'Free' : p != null ? formatCents(p) : '-';
                             })()}
                           </div>
                           <div className="mt-1 text-xs font-semibold text-gold">Tickets</div>
@@ -238,7 +238,7 @@ export default function SearchPage() {
             ) : browseError ? (
               <EmptyState title="Couldn't load events">{browseError}</EmptyState>
             ) : browseEvents.length > 0 ? (
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="mt-4 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 {browseEvents.map((event) => (
                   <EventCard key={event.id} event={event} />
                 ))}

@@ -17,6 +17,17 @@ class MySearchController extends GetxController {
   final Rxn<String> searchError = Rxn<String>();
   final RxBool isEmpty = true.obs;
 
+  /// Result segment: 'events' | 'venues' | 'artists'. There is deliberately
+  /// no Users tab, account search is not exposed on mobile (privacy).
+  final RxString segment = 'events'.obs;
+
+  /// In-session recent searches.
+  /// TODO(api-gap: persist recent searches server-side per account)
+  final RxList<String> recentSearches = <String>[].obs;
+
+  /// When set, the events tab is additionally narrowed to this venue/artist.
+  final Rxn<String> focus = Rxn<String>();
+
   void onSearchChanged(String query) {
     _debounce?.cancel();
     final q = query.trim();
@@ -24,6 +35,7 @@ class MySearchController extends GetxController {
     if (q.isEmpty) {
       searchResults.clear();
       searchError.value = null;
+      focus.value = null;
       return;
     }
     _debounce = Timer(const Duration(milliseconds: 400), () {
@@ -62,6 +74,10 @@ class MySearchController extends GetxController {
     searchError.value = null;
     try {
       searchResults.value = await _availableEvents(q: q);
+      // Push to the top of recent searches, de-duplicated (latest first).
+      recentSearches.removeWhere((r) => r.toLowerCase() == q.toLowerCase());
+      recentSearches.insert(0, q);
+      if (recentSearches.length > 6) recentSearches.removeLast();
     } catch (e) {
       searchError.value = e.toString().replaceFirst('Exception: ', '');
       searchResults.clear();
@@ -70,11 +86,62 @@ class MySearchController extends GetxController {
     }
   }
 
+  void applyQuery(String q) {
+    searchController.text = q;
+    onSearchChanged(q);
+  }
+
+  void clearRecent() => recentSearches.clear();
+
+  /// Venues tab, derived client-side until the search contract exists.
+  /// TODO(api-gap: `GET /search?type=venue&q=` returning venue records)
+  List<Map<String, dynamic>> get venueResults {
+    final out = <String, int>{};
+    for (final e in searchResults) {
+      final v = (e['venue'] ?? e['location'] ?? '').toString().trim();
+      if (v.isEmpty) continue;
+      out[v] = (out[v] ?? 0) + 1;
+    }
+    final q = searchController.text.trim().toLowerCase();
+    return out.entries
+        .where((x) => x.key.toLowerCase().contains(q))
+        .map((x) => {'name': x.key, 'count': x.value})
+        .toList();
+  }
+
+  /// Artists tab, derived from event artist/organiser fields.
+  /// TODO(api-gap: `GET /search?type=artist&q=` returning artist records)
+  List<Map<String, dynamic>> get artistResults {
+    final out = <String, int>{};
+    final q = searchController.text.trim().toLowerCase();
+    for (final e in searchResults) {
+      final raw = e['artists'] ?? e['artist'] ?? e['organiser'];
+      final names = raw is List
+          ? raw.map((x) => x.toString()).toList()
+          : raw == null
+              ? <String>[]
+              : raw.toString().split(',');
+      for (final n in names) {
+        final name = n.trim();
+        if (name.isEmpty || !name.toLowerCase().contains(q)) continue;
+        out[name] = (out[name] ?? 0) + 1;
+      }
+    }
+    return out.entries
+        .map((x) => {'name': x.key, 'count': x.value})
+        .toList();
+  }
+
+  void focusOn(String name) {
+    focus.value = name;
+    segment.value = 'events';
+  }
+
   Future<void> fetchRecentEvents() async {
     try {
       recentEvents.value = await _availableEvents();
     } catch (_) {
-      // Recent events are best-effort — leave the list empty on failure.
+      // Recent events are best-effort, leave the list empty on failure.
     }
   }
 
@@ -82,6 +149,24 @@ class MySearchController extends GetxController {
   void onInit() {
     super.onInit();
     fetchRecentEvents();
+  }
+
+  /// Events tab results, narrowed by a tapped venue/artist when set.
+  List<Map<String, dynamic>> get eventResults {
+    final f = focus.value;
+    if (f == null) return searchResults;
+    final lf = f.toLowerCase();
+    return searchResults.where((e) {
+      final fields = [
+        e['venue'],
+        e['location'],
+        e['artists'] is List ? (e['artists'] as List).join(' ') : e['artists'],
+        e['artist'],
+        e['organiser'],
+      ];
+      return fields
+          .any((v) => v != null && v.toString().toLowerCase().contains(lf));
+    }).toList();
   }
 
   @override

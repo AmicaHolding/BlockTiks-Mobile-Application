@@ -1,7 +1,7 @@
+import 'package:block_tix/app/Shared_prefrences/app_prefrences.dart';
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/services/api_service.dart';
-import 'package:get/get.dart';
 
 class ForYouController extends GetxController {
   RxInt currentImage = 0.obs;
@@ -9,11 +9,83 @@ class ForYouController extends GetxController {
   final RxList<Map<String, dynamic>> events = <Map<String, dynamic>>[].obs;
   final RxBool isLoading = true.obs;
   final Rxn<String> loadError = Rxn<String>();
+  final RxString city = 'Dubai'.obs;
+  final RxBool hasUnread = false.obs;
+
+  static const cities = ['Dubai', 'Abu Dhabi', 'Riyadh', 'Doha', 'Kuwait City'];
+
+  /// Feed filtered by the selected city (matches the prototype, where
+  /// non-Dubai cities show the empty state). Events without a city field
+  /// are always shown.
+  List<Map<String, dynamic>> get cityEvents => events.where((e) {
+        final c = _cityOf(e);
+        if (c.isEmpty) return true;
+        return c.toLowerCase() == city.value.toLowerCase();
+      }).toList();
+
+  /// Best-effort city resolution for an event payload. Most records do not
+  /// carry a `city` field, so fall back to the venue strings and finally
+  /// the venue IANA timezone for the regions the feed covers.
+  String _cityOf(Map<String, dynamic> e) {
+    final direct = (e['city'] ?? e['area'] ?? '').toString();
+    if (direct.isNotEmpty) return direct;
+    final blob =
+        '${e['venue'] ?? ''} ${e['location'] ?? ''} ${e['address'] ?? ''}'
+            .toLowerCase();
+    for (final c in cities) {
+      if (blob.contains(c.toLowerCase())) return c;
+    }
+    const tzToCity = {
+      'Asia/Dubai': 'Dubai',
+      'Asia/Riyadh': 'Riyadh',
+      'Asia/Qatar': 'Doha',
+      'Asia/Kuwait': 'Kuwait City',
+      'Asia/Muscat': 'Muscat',
+      'Asia/Bahrain': 'Manama',
+    };
+    return tzToCity[(e['venueTimezone'] ?? '').toString()] ?? '';
+  }
 
   @override
   void onInit() {
     super.onInit();
+    _restoreCity();
     fetchEvents();
+    _checkUnread();
+  }
+
+  Future<void> _restoreCity() async {
+    try {
+      final prefs = AppPreferences();
+      await prefs.isPreferenceReady;
+      final saved = await prefs.getUserCity();
+      if (saved.isNotEmpty) city.value = saved;
+    } catch (_) {}
+  }
+
+  Future<void> selectCity(String c) async {
+    city.value = c;
+    try {
+      final prefs = AppPreferences();
+      await prefs.isPreferenceReady;
+      prefs.setUserCity(city: c);
+    } catch (_) {}
+  }
+
+  Future<void> _checkUnread() async {
+    try {
+      final res = await ApiService.notifications();
+      final items = (res['notifications'] as List?) ??
+          (res['items'] as List?) ??
+          const [];
+      hasUnread.value = items.any((n) =>
+          n is Map && (n['unread'] == true || n['read'] == false));
+    } catch (_) {}
+  }
+
+  void openInbox() {
+    hasUnread.value = false;
+    Get.toNamed(Routes.NOTIFICATIONS_PAGE);
   }
 
   Future<void> fetchEvents() async {
@@ -53,18 +125,12 @@ class ForYouController extends GetxController {
     }
   }
 
-  // Method to jump to the specific slide (optional)
-  void goToSlide(int index) {
-    if (index >= 0 && index < events.length) {
-      currentImage.value = index;
-    }
-  }
-
   /// Currently visible hero event (falls back to the first event).
   Map<String, dynamic>? get currentEvent {
-    if (events.isEmpty) return null;
-    final i = currentImage.value.clamp(0, events.length - 1);
-    return events[i];
+    final list = cityEvents;
+    if (list.isEmpty) return null;
+    final i = currentImage.value.clamp(0, list.length - 1);
+    return list[i];
   }
 
   void openEvent(Map<String, dynamic> event) {

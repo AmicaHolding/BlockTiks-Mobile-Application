@@ -155,7 +155,7 @@ class BroadcastMessageView extends GetView<BroadcastMessageController> {
               Expanded(child: Text(label, style: sahraText(size: 14))),
               Switch.adaptive(
                 value: value.value,
-                activeColor: ColorConstant.gold,
+                activeThumbColor: ColorConstant.gold,
                 onChanged: (v) => value.value = v,
               ),
             ],

@@ -1,14 +1,13 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/services/api_service.dart';
-import 'package:get/get.dart';
 
 class PurchasedTicketController extends GetxController {
   int tickets = 1;
   List<RxBool> rxBoolList = [false.obs];
   bool showBack = false;
 
-  // Ticket details — populated from route arguments when provided, with
+  // Ticket details, populated from route arguments when provided, with
   // sensible fallbacks so the screen still renders standalone.
   String eventTitle = 'DJ Maksmellow Orignawa';
   String eventType = 'Music Concert';
@@ -74,8 +73,7 @@ class PurchasedTicketController extends GetxController {
         ids.add(single.toString());
       }
     }
-    // Only treat it as a real order lookup when an explicit id was passed —
-    // the 'EBP139920AC' fallback must not trigger a network call.
+    // Only treat it as a real order lookup when an explicit id was passed,     // the 'EBP139920AC' fallback must not trigger a network call.
     if (data['orderId'] == null && data['orderIds'] == null) return const [];
     return ids;
   }
@@ -108,10 +106,11 @@ class PurchasedTicketController extends GetxController {
     final event = order['event'];
     if (event is Map) {
       eventTitle = event['title']?.toString() ?? eventTitle;
+      final tz = event['venueTimezone']?.toString();
       final startsAt = event['startsAt']?.toString() ?? '';
       if (startsAt.isNotEmpty) {
-        ticketDate = formatEventDate(startsAt, includeTime: false);
-        ticketTime = formatEventTime(startsAt);
+        ticketDate = formatEventDate(startsAt, includeTime: false, tz: tz);
+        ticketTime = formatEventTime(startsAt, tz: tz);
       }
       final loc = event['location']?.toString() ?? '';
       if (loc.isNotEmpty) venue = loc;
@@ -128,6 +127,7 @@ class PurchasedTicketController extends GetxController {
         ? (event['title']?.toString() ?? this.eventTitle)
         : this.eventTitle;
     final startsAt = event is Map ? (event['startsAt']?.toString() ?? '') : '';
+    final eventTz = event is Map ? event['venueTimezone']?.toString() : null;
     final location =
         event is Map ? (event['location']?.toString() ?? venue) : venue;
     final status = order['status']?.toString() ?? '';
@@ -143,8 +143,10 @@ class PurchasedTicketController extends GetxController {
               : eventTitle,
           'tier': t['tierName']?.toString() ?? '',
           'date': formatEventDate(t['eventStartsAt']?.toString() ?? startsAt,
-              includeTime: false),
-          'time': formatEventTime(t['eventStartsAt']?.toString() ?? startsAt),
+              includeTime: false,
+              tz: t['venueTimezone']?.toString() ?? eventTz),
+          'time': formatEventTime(t['eventStartsAt']?.toString() ?? startsAt,
+              tz: t['venueTimezone']?.toString() ?? eventTz),
           'venue': t['eventLocation']?.toString().isNotEmpty == true
               ? t['eventLocation'].toString()
               : location,
@@ -157,7 +159,7 @@ class PurchasedTicketController extends GetxController {
       return rows;
     }
 
-    // PENDING/preview orders have no issued tickets yet — render items.
+    // PENDING/preview orders have no issued tickets yet, render items.
     final items = order['items'];
     if (items is List) {
       for (final item in items) {
@@ -169,8 +171,9 @@ class PurchasedTicketController extends GetxController {
             'code': '',
             'title': eventTitle,
             'tier': item['tierName']?.toString() ?? '',
-            'date': formatEventDate(startsAt, includeTime: false),
-            'time': formatEventTime(startsAt),
+            'date': formatEventDate(startsAt,
+                includeTime: false, tz: eventTz),
+            'time': formatEventTime(startsAt, tz: eventTz),
             'venue': location,
             'section': '',
             'seat': '',

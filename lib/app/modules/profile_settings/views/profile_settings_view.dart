@@ -32,7 +32,7 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
                 style: sahraText(
                     color: ColorConstant.ink.withValues(alpha: .62), size: 14)),
             const SizedBox(height: 20),
-            _section('Account', [
+            _section('Personal', [
               _tile(
                 icon: Icons.person_outline_rounded,
                 title: 'Edit profile',
@@ -40,36 +40,42 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
                 onTap: () => Get.toNamed(Routes.EDIT_PROFILE),
               ),
               _tile(
-                icon: Icons.lock_outline_rounded,
-                title: 'Change password',
-                subtitle: 'Update your sign-in password',
-                onTap: () => Get.toNamed(Routes.CHANGE_PASSWORD),
-              ),
-              _tile(
                 icon: Icons.notifications_none_rounded,
                 title: 'Notifications',
                 subtitle: 'Purchases, resale and organizer updates',
-                onTap: () => Get.toNamed(Routes.NOTIFICATIONS_PAGE),
+                onTap: () => Get.toNamed(Routes.NOTIFICATION_SETTINGS),
+              ),
+              _tile(
+                icon: Icons.translate_rounded,
+                title: 'Language & numbers',
+                subtitle: 'English / العربية · 123 / ١٢٣',
+                onTap: () => Get.toNamed(Routes.LANGUAGE_SETTINGS),
+              ),
+              _tile(
+                icon: Icons.lock_outline_rounded,
+                title: 'Sign-in & security',
+                subtitle: 'Password, devices, delete account',
+                onTap: () => Get.toNamed(Routes.SECURITY_SETTINGS),
+              ),
+            ]),
+            _section('Money', [
+              _tile(
+                icon: Icons.credit_card_outlined,
+                title: 'Payment methods',
+                subtitle: 'Cards used for checkout',
+                onTap: () => Get.toNamed(Routes.PAYMENT_OPTIONS),
+              ),
+              _tile(
+                icon: Icons.account_balance_wallet_outlined,
+                title: 'Earnings & withdrawals',
+                subtitle: 'Resale proceeds and payouts',
+                onTap: () => Get.toNamed(Routes.WITHDRAW),
               ),
               _tile(
                 icon: Icons.receipt_long_outlined,
                 title: 'Transactions',
                 subtitle: 'Orders, refunds and resale activity',
                 onTap: () => Get.toNamed(Routes.TRANSACTIONS),
-              ),
-            ]),
-            _section('Money', [
-              _tile(
-                icon: Icons.account_balance_wallet_outlined,
-                title: 'Earnings & payouts',
-                subtitle: 'Resale proceeds and withdrawals',
-                onTap: () => Get.toNamed(Routes.WITHDRAW),
-              ),
-              _tile(
-                icon: Icons.credit_card_outlined,
-                title: 'Payment methods',
-                subtitle: 'Cards used for checkout',
-                onTap: () => Get.toNamed(Routes.PAYMENT_OPTIONS),
               ),
               _tile(
                 icon: Icons.local_offer_outlined,
@@ -82,6 +88,22 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
                 title: 'Referrals',
                 subtitle: 'Invite friends and track rewards',
                 onTap: () => Get.toNamed(Routes.REFERRALS),
+              ),
+            ]),
+            _section('Hosting', [
+              _tile(
+                icon: Constants.isUserCreator
+                    ? Icons.door_front_door_outlined
+                    : Icons.auto_awesome_outlined,
+                title: Constants.isUserCreator
+                    ? 'Door mode'
+                    : 'Host an event',
+                subtitle: Constants.isUserCreator
+                    ? 'Events, scanner and guest list'
+                    : 'Create your organization',
+                onTap: () => Constants.isUserCreator
+                    ? Get.offAllNamed(Routes.CREATOR_DASHBOARD)
+                    : Get.toNamed(Routes.HOST_INTRO),
               ),
             ]),
             _section('Support', [

@@ -1,4 +1,3 @@
-import 'dart:ui';
 
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -64,7 +63,7 @@ class MyTextState extends State<MyText> {
       widget.title,
       overflow: widget.toverflow ?? TextOverflow.visible,
       maxLines: widget.line,
-      textScaleFactor: 1.0,
+      textScaler: TextScaler.noScaling,
       style: GoogleFonts.getFont(_resolveFamily(widget.family),
           wordSpacing: widget.letterSpacing,
           height: widget.height,

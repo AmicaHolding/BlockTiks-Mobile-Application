@@ -1,6 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
-import 'package:get/get.dart';
 
 import '../controllers/transactions_controller.dart';
 
@@ -13,23 +12,25 @@ class TransactionsView extends GetView<TransactionsController> {
       backgroundColor: ColorConstant.night,
       appBar: AppBar(
         backgroundColor: ColorConstant.night,
+          foregroundColor: ColorConstant.whiteA700,
         elevation: 0,
         title: Text('Transactions',
             style: sahraText(size: 22, weight: FontWeight.w800)),
       ),
       body: Column(children: [
         SizedBox(
-          height: 52,
+          height: 40,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: controller.tabs.length,
             separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, index) => Obx(() => SahraChip(
+            itemBuilder: (context, index) => Center(
+                child: Obx(() => SahraChip(
                   label: controller.tabs[index],
                   selected: controller.selectedTab.value == index,
                   onTap: () => controller.selectedTab.value = index,
-                )),
+                ))),
           ),
         ),
         Expanded(

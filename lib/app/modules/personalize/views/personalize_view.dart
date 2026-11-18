@@ -1,7 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:block_tix/app/data/widgets/web_handoff_sheet.dart';
-import 'package:get/get.dart';
 
 import '../controllers/personalize_controller.dart';
 
@@ -169,7 +168,7 @@ class PersonalizeView extends GetView<PersonalizeController> {
                 label:
                     controller.isSaving.value ? 'Saving…' : "Show me what's on",
                 onTap: () => controller.continueToApp(),
-                enabled: !controller.isSaving.value)),
+                enabled: controller.canContinue)),
           ),
         ]),
       ),

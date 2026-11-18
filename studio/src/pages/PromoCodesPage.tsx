@@ -1,365 +1,406 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api, type PromoCode, type PromoCodeInput, type StudioEvent } from '../lib/api';
-import { formatCents, formatDate } from '../lib/format';
-import { Badge, Button, Card, EmptyState, Field, Input, Select } from '../components/ui';
+import { api, ApiError, type PromoCode, type PromoCodeInput, type StudioEvent } from '../lib/api';
+import { useOrg } from '../lib/org';
+import { formatMoney } from '../lib/format';
+import {
+  Badge,
+  Button,
+  Chip,
+  EmptyState,
+  Field,
+  Input,
+  LoadingBlock,
+  PageHeader,
+  Select,
+  ToastHost,
+  useToasts,
+} from '../components/ui';
 
-type FilterKey = 'active' | 'scheduled' | 'ended';
+type Filter = 'all' | 'active' | 'scheduled' | 'ended';
 
-function promoStatus(promo: PromoCode): FilterKey {
-  const now = Date.now();
-  const endsAt = promo.endsAt ?? promo.expiresAt;
-  if (!promo.active || (endsAt && new Date(endsAt).getTime() <= now)) return 'ended';
-  if (promo.startsAt && new Date(promo.startsAt).getTime() > now) return 'scheduled';
-  return 'active';
+interface Draft {
+  code: string;
+  mode: 'percent' | 'amount';
+  percent: string;
+  amount: string;
+  scope: 'all' | 'event';
+  eventId: string;
+  maxUses: string;
+  perUser: string;
+  startsAt: string;
+  endsAt: string;
+  appliesToResale: boolean;
+  firstOrderOnly: boolean;
 }
 
-function discountLabel(promo: PromoCode): string {
-  if (promo.percentOff != null || promo.kind === 'PERCENT') {
-    return `${promo.percentOff ?? promo.value ?? 0}%`;
-  }
-  return formatCents(promo.amountOffCents ?? promo.value);
-}
-
-function appliesTo(promo: PromoCode, events: StudioEvent[]): string {
-  if (promo.scope === 'EVENT' && promo.eventId) {
-    return events.find((event) => event.id === promo.eventId)?.title ?? 'Selected event';
-  }
-  if (promo.scope === 'TIER') return promo.tierName ? `Tier · ${promo.tierName}` : 'Selected tier';
-  return 'All events · all tiers';
-}
-
-function toIsoDate(value: string): string | undefined {
-  return value ? `${value}T00:00:00.000Z` : undefined;
-}
+const EMPTY_DRAFT: Draft = {
+  code: '',
+  mode: 'percent',
+  percent: '15',
+  amount: '',
+  scope: 'all',
+  eventId: '',
+  maxUses: '',
+  perUser: '',
+  startsAt: '',
+  endsAt: '',
+  appliesToResale: false,
+  firstOrderOnly: false,
+};
 
 export default function PromoCodesPage() {
-  const [promos, setPromos] = useState<PromoCode[]>([]);
+  const { org } = useOrg();
+  const { toasts, push } = useToasts();
+  const [promos, setPromos] = useState<PromoCode[] | null>(null);
   const [events, setEvents] = useState<StudioEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<FilterKey>('active');
-  const [form, setForm] = useState({
-    code: '',
-    kind: 'PERCENT' as 'PERCENT' | 'FIXED',
-    value: '',
-    scope: 'ALL' as 'ALL' | 'EVENT' | 'TIER',
-    eventId: '',
-    tierName: '',
-    maxUses: '',
-    maxUsesPerUser: '',
-    startsAt: '',
-    endsAt: '',
-    validOnResale: false,
-  });
-  const [formError, setFormError] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [filter, setFilter] = useState<Filter>('all');
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
 
-  async function load() {
-    setLoading(true);
-    setError('');
-    try {
-      const [promoRes, eventRes] = await Promise.all([
-        api.promos(),
-        api.myEvents().catch(() => ({ events: [] as StudioEvent[] })),
-      ]);
-      setPromos(promoRes.promos ?? []);
-      setEvents(eventRes.events ?? []);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load promo codes');
-    } finally {
-      setLoading(false);
+  const load = () => {
+    api.promos().then(({ promos }) => setPromos(promos)).catch(() => setPromos([]));
+    api.myEvents().then(({ events }) => setEvents(events)).catch(() => undefined);
+  };
+
+  useEffect(load, []);
+
+  const now = Date.now();
+  const status = (p: PromoCode): 'active' | 'scheduled' | 'ended' => {
+    if (p.expiresAt && new Date(p.expiresAt).getTime() < now) return 'ended';
+    if (p.endsAt && new Date(p.endsAt).getTime() < now) return 'ended';
+    if (p.startsAt && new Date(p.startsAt).getTime() > now) return 'scheduled';
+    if (!p.active) return 'ended';
+    return 'active';
+  };
+
+  const filtered = useMemo(
+    () => (promos ?? []).filter((p) => filter === 'all' || status(p) === filter),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [promos, filter],
+  );
+
+  const eventName = (id?: string) => events.find((e) => e.id === id)?.title ?? 'All events';
+
+  function set<K extends keyof Draft>(k: K, v: Draft[K]) {
+    setDraft((d) => ({ ...d, [k]: v }));
+  }
+
+  async function create() {
+    const e: Record<string, string> = {};
+    const code = draft.code.trim().toUpperCase();
+    if (!/^[A-Z0-9]{4,12}$/.test(code)) e.code = '4-12 letters or numbers.';
+    if ((promos ?? []).some((p) => p.code.toUpperCase() === code)) e.code = 'That code is taken.';
+    if (draft.mode === 'percent') {
+      const v = Number(draft.percent);
+      if (!v || v < 1 || v > 100) e.percent = '1-100%.';
+    } else {
+      const v = Math.round(parseFloat(draft.amount || '0') * 100);
+      if (!v || v <= 0) e.amount = 'Add an amount.';
     }
-  }
+    if (draft.scope === 'event' && !draft.eventId) e.eventId = 'Pick an event.';
+    setErrors(e);
+    if (Object.keys(e).length) return;
 
-  useEffect(() => {
-    void load();
-  }, []);
-
-  const counts = useMemo(() => {
-    const result = { active: 0, scheduled: 0, ended: 0 };
-    for (const promo of promos) result[promoStatus(promo)] += 1;
-    return result;
-  }, [promos]);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return promos.filter((promo) => {
-      if (promoStatus(promo) !== filter) return false;
-      if (!q) return true;
-      return (
-        promo.code.toLowerCase().includes(q) ||
-        appliesTo(promo, events).toLowerCase().includes(q) ||
-        discountLabel(promo).toLowerCase().includes(q)
-      );
-    });
-  }, [promos, events, query, filter]);
-
-  function setField<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
-    setForm((current) => ({ ...current, [key]: value }));
-  }
-
-  async function createPromo() {
-    setFormError('');
-    const value = Number(form.value);
-    if (!form.code.trim()) return setFormError('Code is required');
-    if (!value || value <= 0) return setFormError('Enter a positive discount value');
-    if (form.kind === 'PERCENT' && value > 100) return setFormError('Percent cannot exceed 100');
-    setSaving(true);
+    setBusy(true);
+    const payload: PromoCodeInput = {
+      code,
+      scope: draft.scope === 'event' ? 'EVENT' : 'ALL',
+      eventId: draft.scope === 'event' ? draft.eventId : undefined,
+      maxUses: draft.maxUses ? Number(draft.maxUses) : undefined,
+      maxUsesPerUser: draft.perUser ? Number(draft.perUser) : undefined,
+      startsAt: draft.startsAt ? new Date(draft.startsAt).toISOString() : undefined,
+      endsAt: draft.endsAt ? new Date(draft.endsAt).toISOString() : undefined,
+      validOnResale: draft.appliesToResale,
+      firstOrderOnly: draft.firstOrderOnly || undefined,
+      active: true,
+    };
+    if (draft.mode === 'percent') {
+      payload.kind = 'PERCENT';
+      payload.percentOff = Number(draft.percent);
+    } else {
+      payload.kind = 'FIXED';
+      payload.amountOffCents = Math.round(parseFloat(draft.amount) * 100);
+    }
     try {
-      const payload: PromoCodeInput = {
-        code: form.code,
-        kind: form.kind,
-        value: form.kind === 'FIXED' ? Math.round(value * 100) : value,
-        scope: form.scope,
-        eventId: form.scope === 'EVENT' ? form.eventId || undefined : undefined,
-        tierName: form.scope === 'TIER' ? form.tierName || undefined : undefined,
-        maxUses: form.maxUses ? Number(form.maxUses) : undefined,
-        maxUsesPerUser: form.maxUsesPerUser ? Number(form.maxUsesPerUser) : undefined,
-        startsAt: toIsoDate(form.startsAt),
-        endsAt: toIsoDate(form.endsAt),
-        validOnResale: form.validOnResale,
-        active: true,
-      };
       await api.createPromo(payload);
-      setForm({
-        code: '',
-        kind: 'PERCENT',
-        value: '',
-        scope: 'ALL',
-        eventId: '',
-        tierName: '',
-        maxUses: '',
-        maxUsesPerUser: '',
-        startsAt: '',
-        endsAt: '',
-        validOnResale: false,
-      });
-      await load();
-    } catch (e) {
-      setFormError(e instanceof Error ? e.message : 'Could not create code');
+      push(`Code ${code} is live.`);
+      setOpen(false);
+      setDraft(EMPTY_DRAFT);
+      load();
+    } catch (err) {
+      if (err instanceof ApiError && /taken|exists|conflict/i.test(err.message)) {
+        setErrors({ code: 'That code is taken.' });
+      } else {
+        push(err instanceof Error ? err.message : 'Could not create the code.', 'danger');
+      }
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   }
 
-  async function toggleActive(promo: PromoCode) {
+  async function toggle(p: PromoCode) {
     try {
-      await api.updatePromo(promo.code, { active: !promo.active });
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not update code');
-    }
-  }
-
-  async function removePromo(promo: PromoCode) {
-    if (!window.confirm(`Delete promo code ${promo.code}?`)) return;
-    try {
-      await api.deletePromo(promo.code);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not delete code');
+      await api.updatePromo(p.code, { active: !p.active });
+      load();
+    } catch (err) {
+      push(err instanceof Error ? err.message : 'Update failed.', 'danger');
     }
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.22em] text-night-muted">Studio</div>
-          <h1 className="mt-1 font-display text-3xl font-extrabold text-ink">Promo codes</h1>
-          <p className="mt-2 text-sm text-night-muted">
-            {counts.active} active · {counts.scheduled} scheduled · {counts.ended} ended
-          </p>
+    <div>
+      <PageHeader
+        title="Promo codes"
+        action={<Button onClick={() => setOpen(true)}>+ New code</Button>}
+      />
+
+      <div className="mb-5 flex gap-2">
+        {(['all', 'active', 'scheduled', 'ended'] as Filter[]).map((f) => (
+          <Chip key={f} selected={filter === f} onClick={() => setFilter(f)}>
+            {f === 'all' ? 'All' : f[0].toUpperCase() + f.slice(1)}
+          </Chip>
+        ))}
+      </div>
+
+      {promos === null ? (
+        <LoadingBlock />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          title="No codes yet"
+          body="Codes give buyers money off at checkout. They only work on official tickets unless you allow resale."
+          action={<Button onClick={() => setOpen(true)}>+ New code</Button>}
+        />
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-dune bg-white">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-dune text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/40">
+                <th className="px-5 py-3">Code</th>
+                <th className="px-5 py-3">Off</th>
+                <th className="px-5 py-3">Applies to</th>
+                <th className="px-5 py-3">Used</th>
+                <th className="px-5 py-3">Resale</th>
+                <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-dune/70">
+              {filtered.map((p) => {
+                const st = status(p);
+                return (
+                  <tr key={p.code} className="hover:bg-sand/40">
+                    <td className="px-5 py-3.5 font-mono text-xs font-bold tracking-wider text-ink">
+                      {p.code}
+                    </td>
+                    <td className="px-5 py-3.5 text-ink/70">
+                      {p.kind === 'FIXED'
+                        ? formatMoney(p.amountOffCents ?? 0, org?.currency)
+                        : `${p.percentOff ?? p.value ?? 0}%`}
+                    </td>
+                    <td className="max-w-[180px] truncate px-5 py-3.5 text-ink/70">
+                      {p.scope === 'ALL' ? 'All your events' : `${eventName(p.eventId)}${p.tierName ? ` · ${p.tierName}` : ''}`}
+                    </td>
+                    <td className="px-5 py-3.5 text-ink/70 tabular-nums">
+                      {p.usedCount}
+                      {p.maxUses ? `/${p.maxUses}` : ''}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      {p.validOnResale ? (
+                        <Badge tone="outline">Yes</Badge>
+                      ) : (
+                        <span className="text-xs text-ink/40">Official only</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <Badge
+                        tone={st === 'active' ? 'gold' : st === 'scheduled' ? 'outline' : 'default'}
+                        className="capitalize"
+                      >
+                        {st}
+                      </Badge>
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <button
+                        type="button"
+                        onClick={() => toggle(p)}
+                        className="text-xs font-semibold text-ink/50 underline underline-offset-2 hover:text-ink"
+                      >
+                        {p.active ? 'Turn off' : 'Turn on'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-        <Badge tone="gold">Sales through codes are not metered yet</Badge>
-      </div>
+      )}
 
-      {error ? <Card className="border-rumman/40 p-4 text-sm text-rumman">{error}</Card> : null}
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <Card className="p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex rounded-full bg-dune p-1 text-sm font-semibold">
-              {(['active', 'scheduled', 'ended'] as const).map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setFilter(item)}
-                  className={`rounded-full px-4 py-1.5 capitalize transition ${
-                    filter === item ? 'bg-night text-sand' : 'text-ink'
-                  }`}
-                >
-                  {item} {counts[item]}
-                </button>
-              ))}
+      {/* Create panel, frame 44 */}
+      {open ? (
+        <div className="fixed inset-0 z-40 flex justify-end bg-night/40" onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
+          <div className="h-full w-full max-w-md overflow-y-auto bg-sand p-7 shadow-2xl">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="font-display text-xl font-bold text-night">New promo code</h2>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Close"
+                className="rounded-full p-1.5 text-ink/40 hover:bg-ink/5"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
             </div>
-            <Input
-              className="w-full max-w-xs"
-              placeholder="Search codes"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
 
-          <div className="mt-5 overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="text-xs uppercase tracking-[0.14em] text-night-muted">
-                <tr>
-                  <th className="py-3 pr-4 font-semibold">Code</th>
-                  <th className="py-3 pr-4 font-semibold">Discount</th>
-                  <th className="py-3 pr-4 font-semibold">Applies to</th>
-                  <th className="py-3 pr-4 font-semibold">Uses</th>
-                  <th className="py-3 pr-4 font-semibold">Sales</th>
-                  <th className="py-3 font-semibold">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-night-border/30">
-                {loading ? (
-                  <tr>
-                    <td className="py-8 text-center text-night-muted" colSpan={6}>
-                      Loading promo codes…
-                    </td>
-                  </tr>
-                ) : filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={6}>
-                      <EmptyState title="No promo codes">Create a code to discount tickets across your events.</EmptyState>
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((promo) => {
-                    const status = promoStatus(promo);
-                    const maxUses = promo.maxUses ?? 0;
-                    const pct = maxUses ? Math.min(100, (promo.usedCount / maxUses) * 100) : 0;
-                    return (
-                      <tr key={promo.code} className="align-top">
-                        <td className="py-4 pr-4">
-                          <div className="font-bold tracking-[0.08em] text-night">{promo.code}</div>
-                          <div className="text-xs text-night-muted">
-                            {promo.endsAt ?? promo.expiresAt ? `Ends ${formatDate(promo.endsAt ?? promo.expiresAt)}` : 'No end date'}
-                          </div>
-                        </td>
-                        <td className="py-4 pr-4 font-semibold text-ink">{discountLabel(promo)}</td>
-                        <td className="py-4 pr-4 text-ink/80">{appliesTo(promo, events)}</td>
-                        <td className="py-4 pr-4">
-                          <div className="text-ink/80">
-                            {promo.usedCount.toLocaleString()}
-                            {maxUses ? ` / ${maxUses.toLocaleString()}` : ''}
-                          </div>
-                          <div className="mt-2 h-1.5 w-32 overflow-hidden rounded-full bg-dune">
-                            <div className="h-full rounded-full bg-night" style={{ width: `${pct}%` }} />
-                          </div>
-                        </td>
-                        <td className="py-4 pr-4 text-ink/80">—</td>
-                        <td className="py-4">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge tone={status === 'active' ? 'green' : status === 'scheduled' ? 'gold' : 'neutral'}>
-                              {status}
-                            </Badge>
-                            <Button variant="ghost" className="px-3 py-1.5 text-xs" onClick={() => void toggleActive(promo)} type="button">
-                              {promo.active ? 'Disable' : 'Enable'}
-                            </Button>
-                            <Button variant="ghost" className="px-3 py-1.5 text-xs text-rumman" onClick={() => void removePromo(promo)} type="button">
-                              Delete
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-
-        <Card className="h-fit p-5 xl:sticky xl:top-24">
-          <div className="font-display text-lg font-bold text-ink">New code</div>
-          <div className="mt-4 space-y-4">
-            <Field label="Code">
-              <Input
-                value={form.code}
-                onChange={(e) => setField('code', e.target.value.toUpperCase())}
-                placeholder="RAMADAN26"
-              />
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Discount type">
-                <Select value={form.kind} onChange={(e) => setField('kind', e.target.value as 'PERCENT' | 'FIXED')}>
-                  <option value="PERCENT">%</option>
-                  <option value="FIXED">AED</option>
-                </Select>
+            <div className="space-y-5">
+              <Field label="Code" error={errors.code} hint="4-12 letters or numbers.">
+                <div className="flex gap-2">
+                  <Input
+                    className="flex-1 font-mono uppercase"
+                    placeholder="DESERT10"
+                    value={draft.code}
+                    onChange={(e) =>
+                      set('code', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12))
+                    }
+                  />
+                  <Button
+                    variant="outline"
+                    small
+                    onClick={() =>
+                      set('code', Math.random().toString(36).slice(2, 8).toUpperCase().replace(/[^A-Z0-9]/g, 'X'))
+                    }
+                  >
+                    Generate
+                  </Button>
+                </div>
               </Field>
-              <Field label={form.kind === 'PERCENT' ? 'Percent' : 'Amount (AED)'}>
-                <Input
-                  type="number"
-                  min="0"
-                  value={form.value}
-                  onChange={(e) => setField('value', e.target.value)}
-                  placeholder={form.kind === 'PERCENT' ? '15' : '50'}
+
+              <Field label="Discount">
+                <div className="flex gap-2">
+                  <Chip selected={draft.mode === 'percent'} onClick={() => set('mode', 'percent')}>
+                    %
+                  </Chip>
+                  <Chip selected={draft.mode === 'amount'} onClick={() => set('mode', 'amount')}>
+                    {org?.currency?.toUpperCase() ?? 'AED'}
+                  </Chip>
+                  {draft.mode === 'percent' ? (
+                    <Input
+                      className="w-24"
+                      inputMode="numeric"
+                      value={draft.percent}
+                      onChange={(e) => set('percent', e.target.value.replace(/\D/g, ''))}
+                    />
+                  ) : (
+                    <Input
+                      className="w-28"
+                      inputMode="decimal"
+                      placeholder="50"
+                      value={draft.amount}
+                      onChange={(e) => set('amount', e.target.value.replace(/[^\d.]/g, ''))}
+                    />
+                  )}
+                </div>
+                {errors.percent ? <p className="mt-1.5 text-xs font-medium text-rumman">{errors.percent}</p> : null}
+                {errors.amount ? <p className="mt-1.5 text-xs font-medium text-rumman">{errors.amount}</p> : null}
+              </Field>
+
+              <Field label="Applies to" error={errors.eventId}>
+                <div className="flex gap-2">
+                  <Chip selected={draft.scope === 'all'} onClick={() => set('scope', 'all')}>
+                    All events
+                  </Chip>
+                  <Chip selected={draft.scope === 'event'} onClick={() => set('scope', 'event')}>
+                    One event
+                  </Chip>
+                </div>
+                {draft.scope === 'event' ? (
+                  <Select
+                    className="mt-3"
+                    value={draft.eventId}
+                    onChange={(e) => set('eventId', e.target.value)}
+                  >
+                    <option value="">Pick an event…</option>
+                    {events.map((ev) => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.title}
+                      </option>
+                    ))}
+                  </Select>
+                ) : null}
+              </Field>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Total uses" hint="Blank = unlimited">
+                  <Input
+                    inputMode="numeric"
+                    value={draft.maxUses}
+                    onChange={(e) => set('maxUses', e.target.value.replace(/\D/g, ''))}
+                  />
+                </Field>
+                <Field label="Per person" hint="Blank = unlimited">
+                  <Input
+                    inputMode="numeric"
+                    value={draft.perUser}
+                    onChange={(e) => set('perUser', e.target.value.replace(/\D/g, ''))}
+                  />
+                </Field>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Starts">
+                  <Input
+                    type="datetime-local"
+                    value={draft.startsAt}
+                    onChange={(e) => set('startsAt', e.target.value)}
+                  />
+                </Field>
+                <Field label="Ends">
+                  <Input
+                    type="datetime-local"
+                    value={draft.endsAt}
+                    onChange={(e) => set('endsAt', e.target.value)}
+                  />
+                </Field>
+              </div>
+
+              <label className="flex items-start gap-3 text-sm text-ink/70">
+                <input
+                  type="checkbox"
+                  checked={draft.appliesToResale}
+                  onChange={(e) => set('appliesToResale', e.target.checked)}
+                  className="mt-1 h-4 w-4 accent-gold"
                 />
-              </Field>
+                <span>
+                  <span className="font-semibold text-ink">Also works on resale tickets</span>
+                  <span className="block text-xs text-ink/45">
+                    Otherwise it's official tickets only.
+                  </span>
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 text-sm text-ink/70">
+                <input
+                  type="checkbox"
+                  checked={draft.firstOrderOnly}
+                  onChange={(e) => set('firstOrderOnly', e.target.checked)}
+                  className="mt-1 h-4 w-4 accent-gold"
+                />
+                <span className="font-semibold text-ink">First order only</span>
+              </label>
+
+              <Button onClick={create} loading={busy}>
+                Create code
+              </Button>
             </div>
-            <Field label="Applies to">
-              <Select value={form.scope} onChange={(e) => setField('scope', e.target.value as typeof form.scope)}>
-                <option value="ALL">All events · all tiers</option>
-                <option value="EVENT">Specific event</option>
-                <option value="TIER">Specific tier</option>
-              </Select>
-            </Field>
-            {form.scope === 'EVENT' ? (
-              <Field label="Event">
-                <Select value={form.eventId} onChange={(e) => setField('eventId', e.target.value)}>
-                  <option value="">Choose event</option>
-                  {events.map((event) => (
-                    <option key={event.id} value={event.id}>
-                      {event.title}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            ) : null}
-            {form.scope === 'TIER' ? (
-              <Field label="Tier name">
-                <Input value={form.tierName} onChange={(e) => setField('tierName', e.target.value)} placeholder="Golden Circle" />
-              </Field>
-            ) : null}
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Total uses">
-                <Input type="number" min="1" value={form.maxUses} onChange={(e) => setField('maxUses', e.target.value)} placeholder="500" />
-              </Field>
-              <Field label="Per person">
-                <Input type="number" min="1" value={form.maxUsesPerUser} onChange={(e) => setField('maxUsesPerUser', e.target.value)} placeholder="1" />
-              </Field>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Starts">
-                <Input type="date" value={form.startsAt} onChange={(e) => setField('startsAt', e.target.value)} />
-              </Field>
-              <Field label="Ends">
-                <Input type="date" value={form.endsAt} onChange={(e) => setField('endsAt', e.target.value)} />
-              </Field>
-            </div>
-            <label className="flex items-start gap-3 text-sm text-ink/80">
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4 accent-night"
-                checked={form.validOnResale}
-                onChange={(e) => setField('validOnResale', e.target.checked)}
-              />
-              <span>
-                Also valid on resale tickets
-                <span className="block text-xs text-night-muted">Organizer covers the discount</span>
-              </span>
-            </label>
-            {formError ? <div className="text-sm text-rumman">{formError}</div> : null}
-            <Button className="w-full" disabled={saving} onClick={() => void createPromo()} type="button">
-              {saving ? 'Creating…' : 'Create code'}
-            </Button>
           </div>
-        </Card>
-      </div>
+        </div>
+      ) : null}
+
+      <ToastHost toasts={toasts} />
     </div>
   );
 }

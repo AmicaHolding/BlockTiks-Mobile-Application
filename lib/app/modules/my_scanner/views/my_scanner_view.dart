@@ -2,11 +2,9 @@ import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:block_tix/app/services/api_service.dart';
-import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:qr_code_scanner/qr_code_scanner.dart';
-import 'package:get/get.dart';
 
 import '../controllers/my_scanner_controller.dart';
 
@@ -57,18 +55,39 @@ class _QRScannerPageState extends State<MyScannerView> {
     }
     final trimmed = code.trim();
     if (trimmed.isEmpty) return;
+    // Decision-18: after 30 min offline, new scans are blocked unless an
+    // admin overrides from the result card.
+    if (controller.offlineBlocked) {
+      controller.lastResult.value = {
+        'result': 'OFFLINE_BLOCKED',
+        'message':
+            'Offline for over 30 minutes, scans are paused until you sync.',
+      };
+      return;
+    }
     _checkingIn = true;
     controller.lastResult.value = null;
     controller.controller?.pauseCamera();
     try {
       final res = await ApiService.checkInTicket(eventId, trimmed);
       controller.lastResult.value = res;
+      controller.lastSyncedAt.value = DateTime.now();
       if (res['result'] == 'OK') controller.noteCheckedIn();
+      // We're online, flush anything queued while offline.
+      controller.flushQueue();
     } catch (e) {
-      controller.lastResult.value = {
-        'result': 'ERROR',
-        'message': e.toString()
-      };
+      if (MyScannerController.looksOffline(e)) {
+        await controller.queueScan(trimmed);
+        controller.lastResult.value = {
+          'result': 'QUEUED',
+          'message': 'No connection, scan saved to sync when back online.',
+        };
+      } else {
+        controller.lastResult.value = {
+          'result': 'ERROR',
+          'message': e.toString()
+        };
+      }
     } finally {
       _checkingIn = false;
     }
@@ -138,6 +157,18 @@ class _QRScannerPageState extends State<MyScannerView> {
                               style:
                                   sahraText(size: 16, weight: FontWeight.w700),
                             ),
+                            Text(
+                              controller.lastSyncedLabel +
+                                  (controller.pendingScans.isNotEmpty
+                                      ? ' · ${controller.pendingScans.length} queued'
+                                      : ''),
+                              style: sahraText(
+                                  color: controller.pendingScans.isNotEmpty ||
+                                          controller.offlineWarning
+                                      ? ColorConstant.warningOrange
+                                      : ColorConstant.nightMuted,
+                                  size: 11),
+                            ),
                             if (controller.checkedInCount.value > 0)
                               Text(
                                 '${controller.checkedInCount.value} in',
@@ -176,6 +207,9 @@ class _QRScannerPageState extends State<MyScannerView> {
                     child: _ResultCard(
                       result: result,
                       onDone: _resume,
+                      onOverride: () =>
+                          controller.offlineOverride.value = true,
+                      isAdmin: controller.isAdmin.value,
                     ),
                   ),
                 ),
@@ -253,6 +287,7 @@ class _QRScannerPageState extends State<MyScannerView> {
                                           size: 14, weight: FontWeight.w600)),
                                   Text(
                                       formatEventDate(e['startsAt']?.toString(),
+                                          tz: e['venueTimezone']?.toString(),
                                           includeTime: true),
                                       style: sahraText(
                                           color: ColorConstant.nightMuted,
@@ -350,40 +385,65 @@ class _QRScannerPageState extends State<MyScannerView> {
 }
 
 class _ResultCard extends StatelessWidget {
-  const _ResultCard({required this.result, required this.onDone});
+  const _ResultCard(
+      {required this.result,
+      required this.onDone,
+      this.onOverride,
+      this.isAdmin = false});
+
+  bool _isAdmin() => isAdmin;
 
   final Map<String, dynamic> result;
   final VoidCallback onDone;
+  final VoidCallback? onOverride;
+  final bool isAdmin;
 
   @override
   Widget build(BuildContext context) {
     final kind = result['result']?.toString() ?? '';
     final ok = kind == 'OK';
-    final color = ok
+    // Partial admit, group tickets can check in a subset of their party
+    // (spec 55). Rendered when the API reports quantity/admitted.
+    final ticket0 = result['ticket'];
+    final admitQty =
+        ticket0 is Map ? (ticket0['quantity'] as num?)?.toInt() ?? 1 : 1;
+    final admitted =
+        ticket0 is Map ? (ticket0['admitted'] as num?)?.toInt() ?? admitQty : admitQty;
+    final partial = ok && admitted < admitQty;
+
+    final color = ok && !partial
         ? ColorConstant.gold
         : kind == 'ALREADY_USED'
             ? ColorConstant.errorRed
             : ColorConstant.warningOrange;
     final icon = ok
-        ? Icons.check_circle_rounded
+        ? (partial ? Icons.group_add_outlined : Icons.check_circle_rounded)
         : kind == 'ALREADY_USED'
             ? Icons.cancel_rounded
-            : Icons.info_rounded;
+            : kind == 'QUEUED'
+                ? Icons.cloud_upload_outlined
+                : Icons.info_rounded;
     final title = switch (kind) {
-      'OK' => 'Valid ticket',
+      'OK' => partial ? 'Partial check-in' : 'Valid ticket',
       'ALREADY_USED' => 'Already scanned',
       'WRONG_EVENT' => 'Wrong event',
       'NOT_FOUND' => 'Ticket not found',
       'FORBIDDEN' => 'Not your event',
+      'QUEUED' => 'Offline, queued',
+      'OFFLINE_BLOCKED' => 'Paused, too long offline',
       _ => 'Scan failed',
     };
     final subtitle = switch (kind) {
-      'OK' => 'Checked in just now',
+      'OK' => partial
+          ? '$admitted of $admitQty admitted, scan again for the rest of the party'
+          : 'Checked in just now',
       'ALREADY_USED' =>
         'Checked in${result['ticket']?['checkedInAt'] != null ? ' at ${formatEventTime(result['ticket']['checkedInAt']?.toString())}' : ''}. Don’t admit; send to the help desk if there’s a dispute.',
       'WRONG_EVENT' => 'This ticket belongs to a different event',
       'NOT_FOUND' => 'No ticket matches that code',
       'FORBIDDEN' => 'Only the event creator can check in guests',
+      'OFFLINE_BLOCKED' =>
+        'You\'ve been offline too long. Sync the queued scans first, an admin can override.',
       _ => result['message']?.toString() ?? 'Try again',
     };
     final ticket = result['ticket'];
@@ -436,9 +496,23 @@ class _ResultCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 22),
+          // Decision-18: an admin may keep scanning past the 30-min window.
+          if (kind == 'OFFLINE_BLOCKED' && onOverride != null && _isAdmin()) ...[
+            SizedBox(
+              width: double.infinity,
+              child: SahraPillButton(
+                  label: 'Override (admin)', onTap: () {
+                    onOverride!();
+                    onDone();
+                  }),
+            ),
+            const SizedBox(height: 10),
+          ],
           SizedBox(
             width: double.infinity,
-            child: SahraPillButton(label: 'Scan next', onTap: onDone),
+            child: SahraPillButton(
+                label: 'Scan next', dark: kind == 'OFFLINE_BLOCKED',
+                onTap: onDone),
           ),
         ],
       ),

@@ -3,10 +3,8 @@ import 'package:block_tix/app/data/widgets/base/baseview_process_screen.dart';
 import 'package:block_tix/app/data/widgets/custom_dialogue.dart';
 import 'package:block_tix/app/modules/all_guests/views/all_guests_view.dart';
 import 'package:block_tix/app/modules/creator_home_tab/views/creator_home_tab_view.dart';
-import 'package:block_tix/app/modules/profile_tab/views/profile_tab_view.dart';
-import 'package:flutter/material.dart';
+import 'package:block_tix/app/modules/creator_account_tab/views/creator_account_tab_view.dart';
 
-import 'package:get/get.dart';
 
 import '../controllers/creator_dashboard_controller.dart';
 
@@ -20,8 +18,10 @@ class CreatorDashboardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     responsive.setContext(context);
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
         showDialog(
             context: context,
             builder: (context) {
@@ -36,7 +36,6 @@ class CreatorDashboardView extends StatelessWidget {
                 },
               );
             });
-        return true;
       },
       child: Obx(
         () => BaseviewScreen(
@@ -58,11 +57,17 @@ class CreatorDashboardView extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             controller: controller.pageController,
             physics: const NeverScrollableScrollPhysics(),
-            children: [
-              CreatorHomeTabView(),
-              AllGuestsView(embedded: true),
-              ProfileTabView(),
-            ],
+            // Gate staff get no Events tab (flow M5).
+            children: controller.isGateStaff.value
+                ? [
+                    AllGuestsView(embedded: true),
+                    const CreatorAccountTabView(),
+                  ]
+                : [
+                    CreatorHomeTabView(),
+                    AllGuestsView(embedded: true),
+                    const CreatorAccountTabView(),
+                  ],
           ),
         ),
       ),

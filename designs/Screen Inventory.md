@@ -1,6 +1,6 @@
 # Sahra screen inventory
 
-This maps the 59 routes from the codebase to the Sahra designs. **Designed** = drawn in `Sahra Product Screens.dc.html` (numbers match the labels on that page).
+This maps the 59 routes from the codebase to the Sahra designs. **Designed** = drawn in `Sahra Product Screens.dc.html` (01–25) or `Sahra Account & Studio Screens.dc.html` (26–45).
 
 ## Platform split (decision)
 
@@ -17,12 +17,12 @@ Rule: mobile creator screens never *build* anything. Any build or edit action op
 ## Entry & auth
 | Route | Status | Design call |
 |---|---|---|
-| /splash | To design | Night background, ticket logo scales in. Under 1.5s, not 3s. |
-| /get-started | To design | 3-card value prop, Arabic/English toggle up top |
-| /sign-in, /sign-up | To design | One screen with tabs. Creator toggle moves to *after* sign-up ("Hosting events?"). |
-| /personalize | **Repurpose** | Pick city + 3 interests. This feeds For You. |
-| /otp-verification-screen | Keep for reset only | Becomes phone OTP once the backend supports it (expected in the Gulf) |
-| /forget-password, /reset-password-screen | To design | Blocked on backend |
+| /splash | Designed (26) | Night background, ticket logo scales in. Under 1.5s, not 3s. |
+| /get-started | Designed (27) | 3-card value prop, Arabic/English toggle up top |
+| /sign-in, /sign-up | Designed (28, 29) | One screen with tabs. Hosts get their own entry: Get started › "I’m hosting events" → sign up → organisation setup. Fans can add an organisation later (Settings › Host events). One account either way. |
+| /personalize | Designed (30) | Pick city + 3 interests. This feeds For You. |
+| /otp-verification-screen | Designed (32), reset only for now | Becomes phone OTP once the backend supports it (expected in the Gulf) |
+| /forget-password, /reset-password-screen | Designed (31, 33) | Blocked on backend |
 | /loader | **Cut** | Replace with skeleton loaders per screen |
 
 ## Fan: discovery & commerce
@@ -54,14 +54,15 @@ Rule: mobile creator screens never *build* anything. Any build or edit action op
 ## Profile & settings
 | Route | Status | Design call |
 |---|---|---|
-| /profile-tab | Designed (06) | Hide follower counts until real |
-| /profile-settings, /settings-tab | **Consolidate** | One Settings list |
-| /edit-profile, /change-password | To design | Standard forms on Sand (light) |
+| /profile-tab | Designed (06, in Account file) | You + money. Identity card → Edit profile. Earnings card (after first resale). Money · Rewards. Gear (top right) → Settings. No social counts. |
+| /profile-settings, /settings-tab | **Consolidate → Settings** (06c) | Opened from the gear on Profile. Preferences · Support · Sign out. |
+| /notifications-page (inbox) | Bell on For You header (01) | Activity, not a setting. Notification toggles live in Settings › Notifications. |
+| /edit-profile, /change-password | Designed (34, 35) | Standard forms on Sand (light) |
 | /other-user-profile, /follow-following | **Park** | Social is out of scope for v1 |
-| /faqs, /notifications-page, /transactions, /referrals | To design | |
-| /promo-codes | To design | Valid / Used sections |
-| /analytic (fan earnings) | **Rename → Earnings** | Only shown once a user has resold a ticket |
-| /payment-options | To design | Merge with the checkout method selector |
+| /faqs, /notifications-page, /transactions, /referrals | Designed (42, 36, 37, 41) | |
+| /promo-codes | Designed (40) | Valid / Used sections |
+| /analytic (fan earnings) | Designed as Earnings (38) | Only shown once a user has resold a ticket |
+| /payment-options | Designed (39) | Merge with the checkout method selector |
 | /media-preview | Keep | Generic |
 
 ## Creator: mobile (door mode)
@@ -72,7 +73,7 @@ Rule: mobile creator screens never *build* anything. Any build or edit action op
 | /creator-event | Designed (15) | Snapshot + web links |
 | /my-scanner | Designed (16, 17) | Valid / already used. Still to do: wrong event, refunded, offline-queued. |
 | /all-guests | Designed (18) | Manual check-in is the scanner fallback |
-| /broadcast-message | To design | |
+| /broadcast-message | Designed (43, 43b) | Audience presets match guest list filters |
 | /creator-search | Merge into the Guests search | |
 
 ## Creator: web (Studio)
@@ -84,9 +85,14 @@ Rule: mobile creator screens never *build* anything. Any build or edit action op
 | (manage) | Designed (08) | |
 | (analytics) | Designed (09) | |
 | (settings) | Designed (10) | |
-| /creator-promo-code | Web, to design | |
-| /venue-layout | Web, to design | Upload a seat map or pick a template; assign tiers to sections. Powers screens 11–13. |
+| /creator-promo-code | Designed (44) | |
+| /venue-layout | Designed (45) | Upload a seat map or pick a template; assign tiers to sections. Powers screens 11–13. |
 | /manage-teams, /add-team, /add-individual, /team-detail, /add-co-host | **Consolidate → Settings › Team** | One list + an invite modal with role (Admin, Co-host, Gate staff) |
+
+## Prototypes & logic maps
+- `Sahra Mobile Prototype.dc.html`: fan app + door mode, stateful, includes host sign-up, fan→host, profile switcher.
+- `Sahra Web Prototype.dc.html`: fan web + Studio on shared data, includes Studio sign-up, verification before publish, bank before payout.
+- `Sahra Mobile Logic Map.dc.html` / `Sahra Web Logic Map.dc.html`: flows, conditions, errors, backend events, roles (rendered by `LogicMap.dc.html`).
 
 ## Token migration
 The code's current tokens (`#0A0A0B` canvas, `#7C5CFF` accent, Manrope/Inter, white pill CTA) are replaced by the Sahra palette in `brand/DESIGN.md`: Night canvas, Gold primary CTA, Bricolage Grotesque + IBM Plex Sans Arabic.

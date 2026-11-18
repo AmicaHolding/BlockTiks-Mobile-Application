@@ -1,15 +1,59 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/utils/event_format.dart' as fmt;
 import 'package:block_tix/app/data/widgets/custom_divider.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/data/widgets/media_selection_tile.dart';
 import 'package:block_tix/app/data/widgets/web_handoff_sheet.dart';
 import 'package:block_tix/app/services/api_service.dart';
-import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 
 class CreatorHomeTabController extends GetxController {
   /// The signed-in creator's events (any status) from `GET /events/mine`.
   RxList<Map<String, dynamic>> events = <Map<String, dynamic>>[].obs;
+
+  /// Memberships (org context) for the "Get ready to sell" checklist.
+  final RxList<Map<String, dynamic>> memberships =
+      <Map<String, dynamic>>[].obs;
+
+  Map<String, dynamic>? get org =>
+      memberships.isEmpty ? null : memberships.first['org'] as Map<String, dynamic>?;
+
+  /// Fresh org = no live (published upcoming) event, the Events tab then
+  /// shows the "Get ready to sell" checklist instead of the list (flow M5).
+  bool get isFreshOrg => upcomingEvents.isEmpty;
+
+  /// The "Get ready to sell" checklist (mobile prototype, fresh org).
+  /// [{n:title, d:detail, ok:done}]
+  List<Map<String, dynamic>> get orgChecklist {
+    final o = org;
+    final meta = [
+      o?['type']?.toString() ?? '',
+      o?['city']?.toString() ?? '',
+    ].where((e) => e.isNotEmpty).join(' · ');
+    final verified = (o?['verified'] ?? o?['verificationStatus'] ??
+            memberships.firstOrNull?['verification_status'])
+        ?.toString()
+        .toLowerCase() ==
+        'yes';
+    return [
+      {'n': 'Organisation created', 'd': meta.isEmpty ? 'Done' : meta, 'ok': true},
+      {
+        'n': 'Draft your first event',
+        'd': 'On the web, in Studio',
+        'ok': events.isNotEmpty,
+      },
+      {
+        'n': 'Verify ID + trade licence',
+        'd': verified ? 'Approved' : 'Needed before tickets go on sale',
+        'ok': verified,
+      },
+      {
+        'n': 'Add a business bank account',
+        'd': 'Needed before your first payout',
+        // TODO(api-gap: no payout-account field on the org contract)
+        'ok': false,
+      },
+    ];
+  }
   RxBool isLoading = true.obs;
   Rxn<String> loadError = Rxn<String>();
 
@@ -25,6 +69,7 @@ class CreatorHomeTabController extends GetxController {
     try {
       final list = await ApiService.myEvents();
       events.assignAll(list);
+      _loadMemberships();
     } catch (e) {
       loadError.value = e.toString();
     } finally {
@@ -33,6 +78,14 @@ class CreatorHomeTabController extends GetxController {
   }
 
   /// Events that are published and haven't started yet.
+  Future<void> _loadMemberships() async {
+    try {
+      memberships.value = await ApiService.memberships();
+    } catch (_) {
+      // Checklist is additive, fine without org data.
+    }
+  }
+
   List<Map<String, dynamic>> get upcomingEvents {
     final now = DateTime.now();
     return events.where((e) {
@@ -58,11 +111,10 @@ class CreatorHomeTabController extends GetxController {
     return DateTime.tryParse(raw)?.toLocal();
   }
 
-  static String formatEventDate(Map<String, dynamic> e) {
-    final dt = _startsAt(e);
-    if (dt == null) return '';
-    return DateFormat('EEEE, d MMMM yyyy').format(dt);
-  }
+  /// e.g. "March 24, 2026" (venue time when the event carries a timezone).
+  static String formatEventDate(Map<String, dynamic> e) =>
+      fmt.formatEventDate(e['startsAt']?.toString(),
+          includeTime: false, tz: e['venueTimezone']?.toString());
 
   static String statusLabel(Map<String, dynamic> e) =>
       (e['status']?.toString() ?? 'DRAFT').toUpperCase();

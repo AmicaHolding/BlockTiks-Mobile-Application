@@ -1,0 +1,16 @@
+appId: com.amicaholding.blocktix
+---
+# W6: city switcher sheet + notification bell on the feed header
+- launchApp
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*For You[\s\S]*'
+    timeout: 20000
+- tapOn: 'Dubai'
+- takeScreenshot: w6-city-sheet
+- tapOn:
+    point: '50%,15%'
+- takeScreenshot: w6-after-city
+- tapOn:
+    point: '89%,10%'
+- takeScreenshot: w6-notifications

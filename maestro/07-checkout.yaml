@@ -1,0 +1,29 @@
+appId: com.amicaholding.blocktix
+---
+# W7: event -> scroll to GA tier -> +qty -> Get tickets -> payment options
+- launchApp
+- extendedWaitUntil:
+    visible:
+      text: 'More coming up'
+    timeout: 20000
+- tapOn: '[\s\S]*Desert Sessions[\s\S]*'
+- extendedWaitUntil:
+    visible:
+      text: 'About this event'
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      text: '[\s\S]*GA[\s\S]*plenty left[\s\S]*'
+    direction: UP
+    centerElement: true
+    timeout: 15000
+- swipe:
+    direction: UP
+- tapOn: 'Increase ticket quantity'
+- takeScreenshot: w7-qty-one
+- tapOn: '[\s\S]*Get tickets[\s\S]*'
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*(Payment options|Pay with|Checkout|Order summary|Payment method)[\s\S]*'
+    timeout: 12000
+- takeScreenshot: w7-payment

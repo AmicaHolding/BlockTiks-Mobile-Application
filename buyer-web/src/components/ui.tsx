@@ -15,8 +15,7 @@ type Tone = 'dark' | 'light';
 export function Button({
   variant = 'primary',
   tone = 'dark',
-  className,
-  ...props
+  className, ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'gold' | 'night' | 'ghost' | 'danger' | 'outline';
   tone?: Tone;
@@ -50,7 +49,7 @@ export function Card({
     tone === 'light'
       ? 'border border-ink/10 bg-white shadow-sm'
       : 'border border-night-border/60 bg-night-surface';
-  return <div className={cx('rounded-2xl', styles, className)}>{children}</div>;
+  return <div className={cx('rounded-card', styles, className)}>{children}</div>;
 }
 
 export function Badge({
@@ -62,7 +61,7 @@ export function Badge({
 }) {
   const tones = {
     neutral: 'bg-night-elevated text-sand',
-    gold: 'bg-gold/25 text-gold',
+    gold: 'bg-gold text-night',
     green: 'bg-emerald-400/15 text-emerald-300',
     red: 'bg-rumman/20 text-red-200',
     muted: 'bg-night-border/50 text-night-muted',
@@ -90,16 +89,14 @@ const controlLight =
 
 export function Input({
   tone = 'light',
-  className,
-  ...props
+  className, ...props
 }: InputHTMLAttributes<HTMLInputElement> & { tone?: Tone }) {
   return <input className={cx(tone === 'light' ? controlLight : controlDark, className)} {...props} />;
 }
 
 export function Textarea({
   tone = 'light',
-  className,
-  ...props
+  className, ...props
 }: TextareaHTMLAttributes<HTMLTextAreaElement> & { tone?: Tone }) {
   return (
     <textarea
@@ -112,14 +109,29 @@ export function Textarea({
 export function Select({
   tone = 'light',
   className,
-  children,
-  ...props
+  children, ...props
 }: SelectHTMLAttributes<HTMLSelectElement> & { tone?: Tone }) {
   return (
     <select className={cx(tone === 'light' ? controlLight : controlDark, 'appearance-none', className)} {...props}>
       {children}
     </select>
   );
+}
+
+/** Screen inventory: a countdown module appears when the event is ≤ 7 days out. */
+export function countdownLine(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const start = new Date(iso).getTime();
+  const ms = start - Date.now();
+  if (Number.isNaN(start) || ms <= 0) return 'Happening now';
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 60) return `Starts in ${Math.max(1, minutes)}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Starts in ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days <= 1) return 'Tomorrow';
+  if (days <= 7) return `In ${days} days`;
+  return '';
 }
 
 export function Spinner({ className }: { className?: string }) {

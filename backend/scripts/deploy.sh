@@ -12,7 +12,7 @@ esac
 
 cd "$(dirname "$0")/.."
 FILE=".env.deploy.$STAGE"
-[ -f "$FILE" ] || { echo "!! $FILE not found — copy .env.deploy.example and fill it in"; exit 1; }
+[ -f "$FILE" ] || { echo "!! $FILE not found, copy .env.deploy.example and fill it in"; exit 1; }
 set -a; source "$FILE"; set +a
 
 : "${JWT_SECRET:?JWT_SECRET is required in $FILE}"
@@ -27,11 +27,11 @@ if [ -z "${STRIPE_WEBHOOK_SECRET:-}" ]; then
   # The Lambda refuses to boot without a webhook secret (NODE_ENV=production),
   # so first deploys use a placeholder; payments stay unfulfilled until the
   # real whsec_ from the Stripe webhook is set and you redeploy.
-  echo "!! STRIPE_WEBHOOK_SECRET empty — deploying with a placeholder. Webhooks will fail until you set it and redeploy."
+  echo "!! STRIPE_WEBHOOK_SECRET empty, deploying with a placeholder. Webhooks will fail until you set it and redeploy."
   STRIPE_WEBHOOK_SECRET="whsec_placeholder"
 fi
 
-aws sts get-caller-identity >/dev/null || { echo "!! No AWS credentials — run 'aws configure' or 'aws sso login'"; exit 1; }
+aws sts get-caller-identity >/dev/null || { echo "!! No AWS credentials, run 'aws configure' or 'aws sso login'"; exit 1; }
 
 sam build --config-env "$STAGE"
 sam deploy --config-env "$STAGE" --no-fail-on-empty-changeset \

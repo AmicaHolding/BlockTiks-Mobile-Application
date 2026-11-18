@@ -1,6 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
-import 'package:get/get.dart';
 
 import '../controllers/referrals_controller.dart';
 
@@ -13,6 +13,7 @@ class ReferralsView extends GetView<ReferralsController> {
       backgroundColor: ColorConstant.night,
       appBar: AppBar(
           backgroundColor: ColorConstant.night,
+          foregroundColor: ColorConstant.whiteA700,
           elevation: 0,
           title: Text('Referrals',
               style: sahraText(size: 22, weight: FontWeight.w800))),
@@ -44,7 +45,7 @@ class ReferralsView extends GetView<ReferralsController> {
               Text(
                   hasBonus
                       ? 'They get it on sign-up. You earn when they buy their first ticket.'
-                      : 'Share your code — friends get a welcome bonus at sign-up.',
+                      : 'Share your code, friends get a welcome bonus at sign-up.',
                   style: sahraText(color: ColorConstant.nightMuted, size: 15)),
               const SizedBox(height: 20),
               SahraCard(
@@ -188,10 +189,7 @@ class ReferralsView extends GetView<ReferralsController> {
     );
   }
 
-  String dateLabel(String? iso) {
-    final dt = DateTime.tryParse(iso ?? '');
-    if (dt == null) return '';
-    final local = dt.toLocal();
-    return '${local.day}/${local.month}/${local.year}';
-  }
+  /// e.g. "March 24, 2026"
+  String dateLabel(String? iso) =>
+      formatEventDate(iso, includeTime: false);
 }

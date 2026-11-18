@@ -1,0 +1,23 @@
+appId: com.amicaholding.blocktix
+---
+# W5: Profile -> Edit profile -> back chevron (exercises snackbar/back nav fix)
+- launchApp
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*For You[\s\S]*'
+    timeout: 20000
+- tapOn: '[\s\S]*Profile[\s\S]*'
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*(Edit|Sign out)[\s\S]*'
+    timeout: 10000
+- takeScreenshot: w5-profile
+- tapOn: '[\s\S]*Edit'
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*Edit Profile[\s\S]*'
+    timeout: 8000
+- takeScreenshot: w5-edit-profile
+- tapOn:
+    point: '6%,6%'
+- takeScreenshot: w5-after-back

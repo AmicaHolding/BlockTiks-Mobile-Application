@@ -1,0 +1,26 @@
+appId: com.amicaholding.blocktix
+env:
+  EMAIL: fan@test.com
+---
+# W8b: sign in from the get-started/sign-in screens. Run with -e EMAIL=...
+- launchApp
+- tapOn:
+    text: '[\s\S]*I have an account[\s\S]*'
+    optional: true
+- tapOn:
+    point: '50%,41%'   # email field (label tap doesn't focus the input)
+- inputText: ${EMAIL}
+- tapOn:
+    point: '50%,53%'   # password field (no placeholder text to select)
+- inputText: 'password123'
+- hideKeyboard:
+    optional: true   # XCUITest driver flakes here; submit works via keyboard anyway
+- tapOn:
+    text: 'Sign in'
+    index: 1           # the gold submit button, not the segmented tab
+    optional: true     # keyboard submit may already have logged in
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*(More coming up|For You|Dashboard|My events)[\s\S]*'
+    timeout: 25000
+- takeScreenshot: w8-signed-in

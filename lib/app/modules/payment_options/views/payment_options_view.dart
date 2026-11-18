@@ -1,6 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
-import 'package:get/get.dart';
 
 import '../controllers/payment_options_controller.dart';
 
@@ -13,6 +12,7 @@ class PaymentOptionsView extends GetView<PaymentOptionsController> {
       backgroundColor: ColorConstant.night,
       appBar: AppBar(
           backgroundColor: ColorConstant.night,
+          foregroundColor: ColorConstant.whiteA700,
           elevation: 0,
           title: Text('Payment options',
               style: sahraText(size: 22, weight: FontWeight.w800))),

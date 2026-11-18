@@ -190,7 +190,7 @@ class AskBidView extends GetView<AskBidController> {
                           style: sahraText(size: 15, weight: FontWeight.w600)),
                       const SizedBox(height: 3),
                       Text(
-                        '${formatEventDate(ticket['eventStartsAt']?.toString())} · ${ticket['eventLocation']?.toString().isNotEmpty == true ? ticket['eventLocation'] : 'Venue TBD'}',
+                        '${formatEventDate(ticket['eventStartsAt']?.toString(), tz: ticket['venueTimezone']?.toString())} · ${ticket['eventLocation']?.toString().isNotEmpty == true ? ticket['eventLocation'] : 'Venue TBD'}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: sahraText(
@@ -244,10 +244,44 @@ class AskBidView extends GetView<AskBidController> {
               );
             }),
             const SizedBox(height: 10),
-            Text(
-              'Each selected ticket is listed at this price. Paid out after the event. Cancel any time before it sells.',
-              style: sahraText(color: ColorConstant.nightMuted, size: 13),
-            ),
+            Obx(() {
+              controller.priceVersion.value;
+              if (controller.priceCents <= 0) {
+                return Text(
+                  'Each selected ticket is listed at this price. Paid out after the event. Cancel any time before it sells.',
+                  style: sahraText(color: ColorConstant.nightMuted, size: 13),
+                );
+              }
+              final cap = controller.capCents;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (controller.overCap)
+                    Text(
+                      'Over the resale cap, max ${controller.money(cap)} '
+                      '(110% of face value)',
+                      style: sahraText(
+                          color: ColorConstant.rumman,
+                          size: 13,
+                          weight: FontWeight.w600),
+                    )
+                  else ...[
+                    Text(
+                      'You’ll receive ${controller.money(controller.netCents)} per ticket (95%).',
+                      style: sahraText(color: ColorConstant.gold, size: 13),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      cap != null
+                          ? 'Max ${controller.money(cap)} (110% of face value). Paid out after the event. Cancel any time before it sells.'
+                          : 'Paid out after the event. Cancel any time before it sells.',
+                      style: sahraText(
+                          color: ColorConstant.nightMuted, size: 13),
+                    ),
+                  ],
+                ],
+              );
+            }),
           ],
         ),
       ),

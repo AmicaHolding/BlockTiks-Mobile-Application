@@ -62,7 +62,8 @@ class PlaceBidController extends GetxController {
       if (cur != null && cur.isNotEmpty) currency = cur.toLowerCase();
     }
     if (capCents <= 0 && faceCents > 0) {
-      capCents = (faceCents * 1.2).round();
+      // Resale ask cap is face x 1.10, watching above it can't match.
+      capCents = (faceCents * 1.1).round();
     }
     if (maxPriceCents.value <= 0) {
       maxPriceCents.value =
@@ -101,13 +102,13 @@ class PlaceBidController extends GetxController {
   }
 
   void changeQuantity(int delta) {
-    quantity.value = (quantity.value + delta).clamp(1, 10);
+    quantity.value = (quantity.value + delta).clamp(1, 6);
   }
 
   void changePrice(int deltaCents) {
     final next = maxPriceCents.value + deltaCents;
     if (next < 100) return;
-    if (capCents > 0 && next > capCents * 2) return;
+    if (capCents > 0 && next > capCents) return;
     maxPriceCents.value = next;
   }
 
@@ -124,11 +125,11 @@ class PlaceBidController extends GetxController {
         maxPriceCents: maxPriceCents.value,
         quantity: quantity.value,
       );
+      Get.back(closeOverlays: true);
       CustomSnackBar.showCustomSnackBar(
         title: 'Offer set',
         message: 'We will match you when a listing hits your price.',
       );
-      Get.back();
     } catch (e) {
       CustomSnackBar.showCustomErrorToast(
           message: e.toString().replaceFirst('Exception: ', ''));

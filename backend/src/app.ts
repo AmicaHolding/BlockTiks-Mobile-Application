@@ -7,16 +7,22 @@ import { env } from './env';
 import { authPlugin } from './plugins/auth';
 import { accountRoutes } from './routes/account';
 import { authRoutes } from './routes/auth';
+import { discoveryRoutes } from './routes/discovery';
 import { doorRoutes } from './routes/door';
 import { eventRoutes } from './routes/events';
 import { healthRoutes } from './routes/health';
+import { holdRoutes } from './routes/holds';
 import { listingRoutes } from './routes/listings';
+import { meRoutes } from './routes/me';
+import { moneyRoutes } from './routes/money';
 import { offerRoutes } from './routes/offers';
 import { orderRoutes } from './routes/orders';
+import { orgRoutes } from './routes/orgs';
 import { promoRoutes } from './routes/promos';
 import { ticketRoutes } from './routes/tickets';
+import { transferRoutes } from './routes/transfers';
 
-// Builds the Fastify app without listening — shared by the local dev server
+// Builds the Fastify app without listening, shared by the local dev server
 // (src/index.ts) and the Lambda handler (src/lambda.ts).
 // app.register() calls are intentionally not awaited: avvio loads plugins in
 // registration order, and listen()/ready() resolves them all.
@@ -56,10 +62,16 @@ export function buildApp() {
   void app.register(promoRoutes);
   void app.register(eventRoutes);
   void app.register(orderRoutes);
+  void app.register(holdRoutes);
   void app.register(offerRoutes);
   void app.register(ticketRoutes);
   void app.register(doorRoutes);
   void app.register(listingRoutes);
+  void app.register(meRoutes);
+  void app.register(discoveryRoutes);
+  void app.register(transferRoutes);
+  void app.register(orgRoutes);
+  void app.register(moneyRoutes);
 
   app.setErrorHandler((error: { statusCode?: number; message?: string }, _request, reply) => {
     const statusCode = error.statusCode ?? 500;

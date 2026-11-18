@@ -2,7 +2,7 @@ import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { env } from './env';
 
 // Transactional email via AWS SES. When SES_FROM_EMAIL is not configured
-// (local dev), messages are logged instead of sent — callers still work and
+// (local dev), messages are logged instead of sent, callers still work and
 // dev-only fallbacks (e.g. devCode) remain available in development.
 
 let ses: SESClient | null = null;

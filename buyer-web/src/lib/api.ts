@@ -34,10 +34,23 @@ export function setStoredReferralCode(code: string | null): void {
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
+}
+
+// Spec (02-api): every POST that moves money or inventory requires an
+// `Idempotency-Key`. Callers that can be retried (checkout) should generate
+// one key per user intent and reuse it across retries.
+export function newIdempotencyKey(): string {
+  return `web-${crypto.randomUUID()}`;
+}
+
+function idempotencyHeaders(key?: string): HeadersInit {
+  return { 'Idempotency-Key': key ?? newIdempotencyKey() };
 }
 
 interface AuthResponse {
@@ -97,7 +110,11 @@ async function request<T>(path: string, options: RequestInit = {}, retried = fal
       data && typeof data === 'object' && 'message' in data
         ? String((data as { message?: unknown }).message)
         : `Request failed (${res.status})`;
-    throw new ApiError(res.status, message);
+    const code =
+      data && typeof data === 'object' && 'code' in data
+        ? String((data as { code?: unknown }).code)
+        : undefined;
+    throw new ApiError(res.status, message, code);
   }
   return data as T;
 }
@@ -133,6 +150,8 @@ export interface Tier {
   sold: number;
   available?: number;
   remaining?: number;
+  saleStartsAt?: string; // spec: tier sale window (E4 drives "Remind me")
+  saleEndsAt?: string;
 }
 
 export interface VenueSection {
@@ -169,6 +188,12 @@ export interface SahraEvent {
   imageUrl?: string;
   currency?: string;
   status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED' | string;
+  // TODO(api-gap): spec Event carries on_sale_at (drives "Remind me" per E4),
+  // resale_enabled, resale_cap_pct (default 10) and venue IANA timezone,   // the backend EventItem has none of these yet.
+  onSaleAt?: string;
+  resaleEnabled?: boolean;
+  resaleCapPct?: number;
+  venueTimezone?: string;
   venueLayout?: { sections: VenueSection[] };
   tiers?: Tier[];
   venueSections?: VenueSection[];
@@ -178,6 +203,9 @@ export interface SahraEvent {
 export interface Listing {
   ticketCode: string;
   sellerId: string;
+  // TODO(api-gap): spec Listing carries ticket_ids[], split_rule (any/all/pairs)
+  // and face_minor for the R2 cap check, backend lists one ticket code per row
+  // and stores no face value or split rule.
   eventId: string;
   eventTitle: string;
   eventStartsAt: string;
@@ -229,6 +257,9 @@ export interface Offer {
 
 export interface Order {
   id: string;
+  // TODO(api-gap): spec orders carry a human code `SA-#####`; backend only has
+  // the uuid id, the UI renders a short id for now.
+  code?: string;
   userId: string;
   eventId: string;
   kind?: 'TICKET' | 'RESALE' | 'SEATED' | string;
@@ -407,6 +438,9 @@ export const api = {
   },
 
   // events (public)
+  // TODO(api-gap): spec discovery calls are `GET /feed?city=` (sectioned feed)
+  // and `GET /search?q=&type=events|venues|artists`. The backend only has
+  // `/events?q=&category=`, so venue/artist search is not wired.
   events(params: { category?: string; q?: string; limit?: number; cursor?: string } = {}) {
     const qs = new URLSearchParams();
     if (params.category) qs.set('category', params.category);
@@ -430,6 +464,10 @@ export const api = {
   },
 
   // orders / checkout
+  // TODO(api-gap): spec checkout is `POST /holds {event_id, lines[]}` then
+  // `POST /orders {hold_id, payment_method_id}`. The backend accepts ONE line
+  // per intent ({tierId|sectionId|listingCode, quantity}), so multi-tier carts
+  // are constrained to a single line in the UI for now.
   orderIntent(input: {
     eventId?: string;
     tierId?: string;
@@ -438,11 +476,70 @@ export const api = {
     quantity?: number;
     promoCode?: string;
     seats?: string[];
+    idempotencyKey?: string;
   }) {
+    const { idempotencyKey, ...body } = input;
     return request<OrderIntentResult>('/orders/intent', {
       method: 'POST',
-      body: JSON.stringify(input),
+      headers: idempotencyHeaders(idempotencyKey),
+      body: JSON.stringify(body),
     });
+  },
+  // TODO(api-gap): spec has `GET /holds/{id}/quote?promo=` for live promo
+  // validation. Backend only validates the promo inside /orders/intent, so
+  // promo feedback appears when the intent is created.
+  quoteHold() {
+    return Promise.reject(new ApiError(501, 'Hold quoting is not supported by this backend'));
+  },
+  // TODO(api-gap): spec "Remind me" is `PUT/DELETE /events/{id}/reminder`.
+  // No backend route exists, kept in localStorage so the UI behaves
+  // correctly and swaps to the real call when it lands.
+  reminder(eventId: string, on: boolean) {
+    try {
+      const raw = localStorage.getItem('sahra_reminders') ?? '[]';
+      const set = new Set(JSON.parse(raw) as string[]);
+      if (on) set.add(eventId);
+      else set.delete(eventId);
+      localStorage.setItem('sahra_reminders', JSON.stringify([...set]));
+    } catch {
+      // storage unavailable, reminders stay best-effort
+    }
+    return Promise.resolve({ ok: true });
+  },
+  reminders(): string[] {
+    try {
+      return JSON.parse(localStorage.getItem('sahra_reminders') ?? '[]') as string[];
+    } catch {
+      return [];
+    }
+  },
+  // TODO(api-gap): spec `GET /tickets/{id}/credential` returns
+  // {qr_payload, version, rotates_at} with rotation per decision-1. Backend
+  // issues no credential resource; the QR encodes the ticket code directly.
+  ticketCredential(code: string) {
+    return Promise.resolve({ qrPayload: code, version: 1, rotatesAt: null as string | null });
+  },
+  // TODO(api-gap): spec `POST /me/promos {code}` redeems a code into the
+  // account. The backend only exposes creator-side promo management and
+  // /account/promos (read), so redemption is not wired.
+  redeemPromo(_code: string) {
+    return Promise.reject(
+      new ApiError(501, 'Adding promo codes to your account is not supported yet')
+    );
+  },
+  // TODO(api-gap): spec transfers are claim-based (`POST /transfers`,
+  // `POST /transfers/{id}/claim`, 48h return per decision-14). The backend
+  // moves the ticket directly to an existing account by email, transfers to
+  // phone numbers or non-members are not wired.
+  claimTransfer(_id: string) {
+    return Promise.reject(new ApiError(501, 'Transfer claims are not supported yet'));
+  },
+  deleteAccount() {
+    // TODO(api-gap): rule A6 requires the server to reject deletion while the
+    // user has upcoming tickets, active listings, price watches, a balance,
+    // or is sole admin, the backend deletes unconditionally. The UI
+    // pre-checks client-side before calling this.
+    return request<{ ok: boolean }>('/auth/me', { method: 'DELETE' });
   },
   order(id: string) {
     return request<{ order: Order }>(`/orders/${id}`);
@@ -462,13 +559,21 @@ export const api = {
   transferTicket(code: string, recipientEmail: string) {
     return request<{ ticket: Ticket; recipient: { email: string; firstName: string } }>(
       `/tickets/${encodeURIComponent(code)}/transfer`,
-      { method: 'POST', body: JSON.stringify({ recipientEmail }) }
+      {
+        method: 'POST',
+        headers: idempotencyHeaders(),
+        body: JSON.stringify({ recipientEmail }),
+      }
     );
   },
   listTicket(code: string, priceCents: number) {
     return request<{ listing: Listing; matchedOffers?: Offer[] }>(
       `/tickets/${encodeURIComponent(code)}/list`,
-      { method: 'POST', body: JSON.stringify({ priceCents }) }
+      {
+        method: 'POST',
+        headers: idempotencyHeaders(),
+        body: JSON.stringify({ priceCents }),
+      }
     );
   },
   myListings(params: { cursor?: string; limit?: number } = {}) {
@@ -499,6 +604,7 @@ export const api = {
   }) {
     return request<{ offer: Offer }>('/offers', {
       method: 'POST',
+      headers: idempotencyHeaders(),
       body: JSON.stringify(input),
     });
   },
@@ -524,6 +630,7 @@ export const api = {
   withdraw(amountCents: number, currency = 'usd') {
     return request<{ ok: boolean; withdrawalId: string; status: string }>('/account/withdraw', {
       method: 'POST',
+      headers: idempotencyHeaders(),
       body: JSON.stringify({ amountCents, currency }),
     });
   },

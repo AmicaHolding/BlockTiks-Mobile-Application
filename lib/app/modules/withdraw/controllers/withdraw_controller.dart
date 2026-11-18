@@ -135,10 +135,7 @@ class WithdrawController extends GetxController {
     }
   }
 
-  String dateLabel(String? iso) {
-    final dt = DateTime.tryParse(iso ?? '');
-    if (dt == null) return '';
-    final local = dt.toLocal();
-    return '${local.day}/${local.month}/${local.year}';
-  }
+  /// e.g. "March 24, 2026"
+  String dateLabel(String? iso) =>
+      formatEventDate(iso, includeTime: false);
 }

@@ -8,122 +8,142 @@ class PaymentPageView extends GetView<PaymentPageController> {
 
   @override
   Widget build(BuildContext context) {
-    return BaseViewPageScreen(
-      bodyPadding: false,
-      hideAppBar: true,
-      sidePadding: false,
-      safeTopArea: false,
-      backgroundColor: ColorConstant.sand,
-      bottomNavigationBar: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (controller.hasBackendContext)
-              Container(
-                margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: ColorConstant.warningOrange.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color:
-                          ColorConstant.warningOrange.withValues(alpha: 0.4)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.science_outlined,
-                        size: 16, color: ColorConstant.warningOrange),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Test mode — pay with 4242 4242 4242 4242',
-                        style: sahraText(
-                            color: ColorConstant.warningOrange, size: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-              child: PrimaryPillButton(
-                text: controller.fromPlaceBid
-                    ? 'Place'
-                    : 'Pay ${controller.money(controller.estimatedTotalCents)}',
-                onTap: () => controller.checkout(),
-              ),
-            ),
-          ],
-        ),
+    // Plain Scaffold on the sand canvas: the shared BaseViewPageScreen forces
+    // a black status bar / light icons and stacks a second SafeArea under the
+    // CTA, which is what made this screen look unfitted to the device frame.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarIconBrightness: Brightness.dark,
       ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                SahraIconAction(
-                  icon: Icons.arrow_back_ios_new_rounded,
-                  color: ColorConstant.ink,
-                  onTap: Get.back,
+      child: Scaffold(
+        backgroundColor: ColorConstant.sand,
+        // Let the promo field slide above the keyboard instead of being covered.
+        resizeToAvoidBottomInset: true,
+        // CTA anchored to the bottom, safe-area handled exactly once here.
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (controller.hasBackendContext)
+                Container(
+                  margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: ColorConstant.warningOrange.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color:
+                            ColorConstant.warningOrange.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.science_outlined,
+                          size: 16, color: ColorConstant.warningOrange),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Test mode, pay with 4242 4242 4242 4242',
+                          style: sahraText(
+                              color: ColorConstant.warningOrange, size: 12),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const Spacer(),
-                Text('Step 2 of 2',
-                    style: sahraText(
-                        color: ColorConstant.ink.withValues(alpha: .55),
-                        size: 12)),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Text('Checkout',
-                style: sahraText(
-                    color: ColorConstant.ink,
-                    size: 30,
-                    weight: FontWeight.w700)),
-            const SizedBox(height: 6),
-            Text(
-              [controller.eventTitle, controller.eventType]
-                  .where((e) => e.isNotEmpty)
-                  .join(' · '),
-              style: sahraText(
-                  color: ColorConstant.ink.withValues(alpha: .6), size: 14),
-            ),
-            if ((controller.eventDate ?? '').isNotEmpty ||
-                (controller.eventVenue ?? '').isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                [controller.eventDate, controller.eventVenue]
-                    .whereType<String>()
-                    .where((e) => e.isNotEmpty)
-                    .join(' · '),
-                style: sahraText(
-                    color: ColorConstant.ink.withValues(alpha: .55), size: 12),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                child: PrimaryPillButton(
+                  text: controller.fromPlaceBid
+                      ? 'Place'
+                      : 'Pay ${controller.money(controller.estimatedTotalCents)}',
+                  onTap: () => controller.checkout(),
+                ),
               ),
             ],
-            const SizedBox(height: 22),
-            _summaryCard(),
-            const SizedBox(height: 16),
-            _paymentMethodCard(),
-            const SizedBox(height: 14),
-            Text(
-              controller.hasBackendContext
-                  ? 'Tickets appear in your Tickets tab instantly after payment.'
-                  : 'Simulated checkout — no real payment is processed.',
-              style: sahraText(
-                  color: ColorConstant.ink.withValues(alpha: .55),
-                  size: 12,
-                  height: 1.45),
-            ),
-          ],
+          ),
         ),
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              _header(),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _summaryCard(),
+                      const SizedBox(height: 16),
+                      Text('Pay with',
+                          style: sahraText(
+                              color: ColorConstant.ink,
+                              size: 13,
+                              weight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      _paymentMethodCard(),
+                      const SizedBox(height: 16),
+                      _promoCard(),
+                      const SizedBox(height: 14),
+                      Text(
+                        controller.hasBackendContext
+                            ? 'Tickets appear in your Tickets tab instantly after payment.'
+                            : 'Simulated checkout, no real payment is processed.',
+                        style: sahraText(
+                            color: ColorConstant.ink.withValues(alpha: .55),
+                            size: 12,
+                            height: 1.45),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Compact header per the prototype: back chevron + 17px "Checkout" title,
+  /// with the step indicator trailing on the right.
+  Widget _header() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 20, 0),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: Get.back,
+            icon: Icon(Icons.arrow_back_ios_new_rounded,
+                color: ColorConstant.ink, size: 20),
+          ),
+          Expanded(
+            child: Text('Checkout',
+                style: sahraText(
+                    color: ColorConstant.ink,
+                    size: 17,
+                    weight: FontWeight.w700)),
+          ),
+          Text('Step 2 of 2',
+              style: sahraText(
+                  color: ColorConstant.ink.withValues(alpha: .55), size: 12)),
+        ],
       ),
     );
   }
 
   Widget _summaryCard() {
     final lines = _orderLines();
+    final meta = [
+      controller.eventType,
+      controller.eventDate ?? '',
+      controller.eventVenue ?? '',
+    ].where((e) => e.isNotEmpty).join(' · ');
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -133,7 +153,23 @@ class PaymentPageView extends GetView<PaymentPageController> {
         border: Border.all(color: ColorConstant.dune),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (controller.eventTitle.isNotEmpty) ...[
+            Text(controller.eventTitle,
+                style: sahraText(
+                    color: ColorConstant.ink,
+                    size: 16,
+                    weight: FontWeight.w700)),
+            if (meta.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(meta,
+                  style: sahraText(
+                      color: ColorConstant.ink.withValues(alpha: .6),
+                      size: 13)),
+            ],
+            const SizedBox(height: 12),
+          ],
           ...lines.map((line) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Row(
@@ -155,8 +191,16 @@ class PaymentPageView extends GetView<PaymentPageController> {
                 ),
               )),
           Divider(height: 22, color: ColorConstant.dune),
-          _feeRow('Service fee (est.)',
+          _feeRow('Service fee (5%)',
               controller.money(controller.estimatedFeesCents)),
+          Obx(() => controller.appliedPromo.value == null
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: _feeRow(
+                      'Promo · ${controller.appliedPromo.value}, applied at payment',
+                      ''),
+                )),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -197,6 +241,93 @@ class PaymentPageView extends GetView<PaymentPageController> {
     );
   }
 
+  /// "Have a promo code?", free-form code, applied server-side at intent.
+  Widget _promoCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: ColorConstant.lightCard,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: ColorConstant.dune),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Have a promo code?',
+              style: sahraText(
+                  color: ColorConstant.ink,
+                  size: 15,
+                  weight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          Obx(() {
+            final applied = controller.appliedPromo.value;
+            if (applied != null) {
+              return Row(children: [
+                Icon(Icons.check_circle_rounded,
+                    color: ColorConstant.gold, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: Text(applied,
+                        style: sahraText(
+                            color: ColorConstant.ink,
+                            size: 15,
+                            weight: FontWeight.w600))),
+                GestureDetector(
+                  onTap: controller.clearPromo,
+                  child: Icon(Icons.close_rounded,
+                      color: ColorConstant.ink.withValues(alpha: .5),
+                      size: 20),
+                ),
+              ]);
+            }
+            return Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: controller.promoController,
+                  style: sahraText(color: ColorConstant.ink, size: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Promo code',
+                    hintStyle: sahraText(
+                        color: ColorConstant.ink.withValues(alpha: .4),
+                        size: 14),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide:
+                            BorderSide(color: ColorConstant.dune)),
+                    focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide:
+                            BorderSide(color: ColorConstant.gold)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: controller.applyPromo,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 18, vertical: 10),
+                  decoration: BoxDecoration(
+                      color: ColorConstant.night,
+                      borderRadius: BorderRadius.circular(10)),
+                  child: Text('Apply',
+                      style: sahraText(
+                          color: ColorConstant.gold,
+                          size: 14,
+                          weight: FontWeight.w700)),
+                ),
+              ),
+            ]);
+          }),
+        ],
+      ),
+    );
+  }
+
   Widget _paymentMethodCard() {
     return Container(
       width: double.infinity,
@@ -231,8 +362,8 @@ class PaymentPageView extends GetView<PaymentPageController> {
                 const SizedBox(height: 2),
                 Text(
                   controller.hasBackendContext
-                      ? 'Stripe PaymentSheet — Apple Pay / Google Pay when available'
-                      : 'Simulated checkout — no real payment',
+                      ? 'Stripe PaymentSheet · Apple Pay / Google Pay when available'
+                      : 'Simulated checkout, no real payment',
                   style: sahraText(
                       color: ColorConstant.ink.withValues(alpha: .55),
                       size: 12),
@@ -402,7 +533,7 @@ class CardWidget extends StatelessWidget {
   }
 }
 
-/// Sahra primary CTA: gold pill with Night text — the brand signature.
+/// Sahra primary CTA: gold pill with Night text, the brand signature.
 class PrimaryPillButton extends StatelessWidget {
   const PrimaryPillButton({
     super.key,

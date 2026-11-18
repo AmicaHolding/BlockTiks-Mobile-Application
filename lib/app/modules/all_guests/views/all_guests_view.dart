@@ -1,9 +1,7 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
-import 'package:flutter/material.dart';
 
-import 'package:get/get.dart';
 
 import '../controllers/all_guests_controller.dart';
 
@@ -200,11 +198,13 @@ class AllGuestsView extends GetView<AllGuestsController> {
         scrollDirection: Axis.horizontal,
         itemCount: controller.filter.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, index) => Obx(() => SahraChip(
-              label: '${controller.filter[index]} · ${_filterCount(index)}',
-              selected: controller.selectedFilter.value == index,
-              onTap: () => controller.selectedFilter.value = index,
-            )),
+        itemBuilder: (_, index) => Center(
+            child: Obx(() => SahraChip(
+                  label:
+                      '${controller.filter[index]} · ${_filterCount(index)}',
+                  selected: controller.selectedFilter.value == index,
+                  onTap: () => controller.selectedFilter.value = index,
+                ))),
       ),
     );
   }
@@ -275,9 +275,19 @@ class AllGuestsView extends GetView<AllGuestsController> {
           ),
           const SizedBox(width: 10),
           if (isIn)
-            SahraStatusPill('In',
-                color: ColorConstant.successGreen,
-                background: ColorConstant.successGreen.withValues(alpha: .14))
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              SahraStatusPill('In',
+                  color: ColorConstant.successGreen,
+                  background:
+                      ColorConstant.successGreen.withValues(alpha: .14)),
+              const SizedBox(width: 8),
+              // Undo check-in (spec 56), a mistaken tap is fixable.
+              GestureDetector(
+                onTap: checking ? null : () => controller.undoCheckIn(code),
+                child: Icon(Icons.undo_rounded,
+                    color: ColorConstant.nightMuted, size: 20),
+              ),
+            ])
           else
             GestureDetector(
               onTap: checking ? null : () => controller.checkIn(code),

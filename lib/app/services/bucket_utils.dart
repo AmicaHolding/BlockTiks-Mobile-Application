@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:http/http.dart' as http;
 

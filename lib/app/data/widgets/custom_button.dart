@@ -47,7 +47,9 @@ class CustomButton extends StatelessWidget {
 
   final RoundedLoadingButtonController? controller;
 
-  bool isTapCalled = false;
+  /// Debounce guard for the plain TextButton path, held in a ValueNotifier so
+  /// the widget stays immutable.
+  final ValueNotifier<bool> isTapCalled = ValueNotifier<bool>(false);
 
   @override
   Widget build(BuildContext context) {
@@ -80,12 +82,12 @@ class CustomButton extends StatelessWidget {
             )
           : TextButton(
               onPressed: () {
-                if (!isTapCalled) {
-                  isTapCalled = true;
+                if (!isTapCalled.value) {
+                  isTapCalled.value = true;
                   onTap!();
                   Future.delayed(
                     const Duration(seconds: 1),
-                    () => isTapCalled = false,
+                    () => isTapCalled.value = false,
                   );
                 }
               },
@@ -239,13 +241,6 @@ class CustomButton extends StatelessWidget {
       case ButtonVariant.OutlinePink:
         return BorderSide(
           color: ColorConstant.primaryPink,
-          width: getHorizontalSize(
-            1.00,
-          ),
-        );
-      case ButtonVariant.OutlineBluegray100:
-        return BorderSide(
-          color: ColorConstant.blueGray100,
           width: getHorizontalSize(
             1.00,
           ),

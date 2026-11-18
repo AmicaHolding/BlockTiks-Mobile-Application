@@ -80,7 +80,7 @@ class TransferView extends GetView<TransferController> {
                     overflow: TextOverflow.ellipsis,
                     style:
                         sahraText(color: ColorConstant.nightMuted, size: 13)),
-                Text('Send ticket',
+                Text('Send tickets',
                     style: sahraText(size: 26, weight: FontWeight.w800)),
               ],
             ),
@@ -140,7 +140,7 @@ class TransferView extends GetView<TransferController> {
       controller: controller.toController,
       style: sahraText(),
       decoration: InputDecoration(
-        hintText: 'Recipient email',
+        hintText: 'Email or phone number',
         hintStyle: sahraText(color: ColorConstant.nightMuted),
         filled: true,
         fillColor: ColorConstant.nightSurface,

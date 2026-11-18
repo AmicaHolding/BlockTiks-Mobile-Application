@@ -1,7 +1,7 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/services/api_service.dart';
-import 'package:get/get.dart';
 
 class NotificationsPageController extends GetxController {
   final RxList<Map<String, dynamic>> items = <Map<String, dynamic>>[].obs;
@@ -37,6 +37,13 @@ class NotificationsPageController extends GetxController {
   bool isRead(Map<String, dynamic> item) =>
       readIds.contains(item['id']?.toString());
 
+  void markRead(Map<String, dynamic> item) {
+    final id = item['id']?.toString() ?? '';
+    if (id.isEmpty || readIds.contains(id)) return;
+    readIds.add(id);
+    if (unreadCount.value > 0) unreadCount.value -= 1;
+  }
+
   Future<void> markAllRead() async {
     readIds.addAll(items.map((e) => e['id']?.toString() ?? ''));
     unreadCount.value = 0;
@@ -69,6 +76,6 @@ class NotificationsPageController extends GetxController {
     if (diff.inHours < 1) return '${diff.inMinutes}m';
     if (diff.inDays < 1) return '${diff.inHours}h';
     if (diff.inDays < 7) return '${diff.inDays}d';
-    return '${local.day}/${local.month}/${local.year}';
+    return formatEventDate(iso, includeTime: false);
   }
 }

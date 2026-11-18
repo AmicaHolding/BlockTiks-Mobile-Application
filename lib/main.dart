@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
@@ -100,9 +102,30 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   // final AppPreferences _appPreferences = AppPreferences();
 
+  final AppLinks _appLinks = AppLinks();
+  StreamSubscription<Uri>? _linkSub;
+
+  /// Routes `sahra://event/<id>` links into the event detail screen.
+  void _handleDeepLink(Uri uri) {
+    if (uri.scheme != 'sahra') return;
+    if (uri.host == 'event' && uri.pathSegments.isNotEmpty) {
+      Get.toNamed(Routes.EVENT_DETAIL,
+          arguments: {'id': uri.pathSegments.first});
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _linkSub = _appLinks.uriLinkStream.listen(_handleDeepLink,
+        onError: (_) {});
+    _appLinks.getInitialLink().then((uri) {
+      // Cold start: wait for the splash redirect to settle before pushing.
+      if (uri != null) {
+        Future.delayed(
+            const Duration(milliseconds: 1600), () => _handleDeepLink(uri));
+      }
+    }).catchError((_) {});
 
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.black,
@@ -179,6 +202,12 @@ class _MyAppState extends State<MyApp> {
     //   HelperFunction.navigateFromNotification(payload, false);
     // });
     // initializeFCM();
+  }
+
+  @override
+  void dispose() {
+    _linkSub?.cancel();
+    super.dispose();
   }
 
   // This widget is the root of your application.

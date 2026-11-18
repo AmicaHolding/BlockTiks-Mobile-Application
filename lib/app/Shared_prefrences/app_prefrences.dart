@@ -1,6 +1,3 @@
-import 'dart:convert';
-
-import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppPreferences {
@@ -62,6 +59,9 @@ class AppPreferences {
   static const String showUserQR = 'SHOW_QR';
 
   static const String prefRole = "ROLE";
+  static const String prefLastMode = "LAST_MODE";
+  static const String prefNumbers = "NUMBERS";
+  static const String prefDoorQueue = "DOOR_SCAN_QUEUE";
 
   static const String prefHasNotification = "HAS_NOTIFICATION";
   static const String prefNotificationPayload = "NOTIFICATION_PAYLOAD";
@@ -103,10 +103,6 @@ class AppPreferences {
   Future get isPreferenceReady => _isPreferenceInstanceReady;
 
   //--------------------------------------------------- Public Preference Methods -------------------------------------------------------------
-  void _removeValue(String key) {
-    //Remove String
-    _preferences.remove(key);
-  }
 
   void setDeviceId({required String deviceId}) => _setPreference(
       prefName: prefDeviceId, prefValue: deviceId, prefType: prefTypeString);
@@ -170,6 +166,32 @@ class AppPreferences {
 
   void setRole({required String role}) => _setPreference(
       prefName: prefRole, prefValue: role, prefType: prefTypeString);
+
+  /// Last app surface: 'fan' or 'creator'. Drives A4 last-mode landing,   /// signed-in users reopen on whichever mode they last used.
+  void setLastMode({required String mode}) => _setPreference(
+      prefName: prefLastMode, prefValue: mode, prefType: prefTypeString);
+
+  Future<String> getLastMode() async =>
+      await _getPreference(prefName: prefLastMode);
+
+  void setLanguage({required String language}) => _setPreference(
+      prefName: prefLanguage, prefValue: language, prefType: prefTypeString);
+
+  Future<String> getLanguage() async =>
+      await _getPreference(prefName: prefLanguage);
+
+  void setNumbers({required String numbers}) => _setPreference(
+      prefName: prefNumbers, prefValue: numbers, prefType: prefTypeString);
+
+  Future<String> getNumbers() async =>
+      await _getPreference(prefName: prefNumbers);
+
+  /// Door-mode offline scan queue (JSON list of {eventId, code, at}).
+  void setDoorQueue({required String queueJson}) => _setPreference(
+      prefName: prefDoorQueue, prefValue: queueJson, prefType: prefTypeString);
+
+  Future<String> getDoorQueue() async =>
+      await _getPreference(prefName: prefDoorQueue);
 
   void setUserPhoneNumber({required String phoneNumber}) => _setPreference(
       prefName: prefUserPhoneNumber,

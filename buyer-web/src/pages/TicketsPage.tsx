@@ -135,7 +135,7 @@ export default function TicketsPage() {
     <div className="mx-auto max-w-[1200px] px-6 pb-24 pt-8 lg:px-12">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-extrabold text-sand">Tickets</h1>
+          <h1 className="font-display text-3xl font-extrabold text-sand">My tickets</h1>
           {earnings ? (
             <div className="mt-2 flex items-center gap-3 text-sm">
               <span className="font-semibold text-gold">
@@ -213,13 +213,13 @@ export default function TicketsPage() {
 
           {groups.length === 0 ? (
             <EmptyState
-              title={tab === 'upcoming' ? 'No upcoming tickets' : 'No past tickets'}
+              title={tab === 'upcoming' ? 'Nothing booked yet. Your next sahra is waiting.' : 'No past tickets'}
               tone="dark"
             >
               {tab === 'upcoming' ? (
                 <>
                   Ready for a night out?{' '}
-                  <Link to="/explore" className="text-gold underline">Explore events</Link>.
+                  <Link to="/" className="text-gold underline">Browse events</Link>.
                 </>
               ) : null}
             </EmptyState>

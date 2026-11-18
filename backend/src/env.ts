@@ -6,7 +6,7 @@ function required(name: string, fallback?: string): string {
   return value;
 }
 
-// In production, secrets and origins must be explicit — never fall back to
+// In production, secrets and origins must be explicit, never fall back to
 // dev defaults. Local development keeps the fallbacks below.
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -23,7 +23,7 @@ function secret(name: string, devFallback: string): string {
 try {
   process.loadEnvFile();
 } catch {
-  // no .env file — rely on real env vars / fallbacks below
+  // no .env file, rely on real env vars / fallbacks below
 }
 
 export const env = {
@@ -51,7 +51,45 @@ export const env = {
         return {};
       })()
     : {}),
-  platformFeePercent: parseInt(process.env.PLATFORM_FEE_PERCENT ?? '12', 10),
+  // Buyer fee percent of subtotal (P1: spec says 5).
+  platformFeePercent: parseInt(process.env.PLATFORM_FEE_PERCENT ?? '5', 10),
+  // Resale economics (R2/R3/R4, decisions 7-8). resaleCapPct is a multiplier
+  // on face value in percent (110 = face x 1.10). The organiser royalty is
+  // taken out of the seller fee, so the seller nets 95% (TODO(decision-7)).
+  resaleCapPct: parseInt(process.env.RESALE_CAP_PCT ?? '110', 10),
+  sellerFeePercent: parseInt(process.env.SELLER_FEE_PERCENT ?? '5', 10),
+  royaltyPercent: parseInt(process.env.ROYALTY_PERCENT ?? '5', 10),
+  // Checkout holds (decision-16 default: 10-minute hold).
+  holdTtlMinutes: parseInt(process.env.HOLD_TTL_MINUTES ?? '10', 10),
+  // Unclaimed transfers return to the sender (decision-14 default: 48h,
+  // or doors-open if sooner — doors-open is applied at creation time).
+  transferTtlHours: parseInt(process.env.TRANSFER_TTL_HOURS ?? '48', 10),
+  // Org payout reserve (decision-3 default: 10% held until event end + 14d).
+  orgReservePct: parseInt(process.env.ORG_RESERVE_PCT ?? '10', 10),
+  orgReserveDays: parseInt(process.env.ORG_RESERVE_DAYS ?? '14', 10),
+  // SMS broadcast cost per recipient in fils (M2: AED 0.12).
+  smsCostFils: parseInt(process.env.SMS_COST_FILS ?? '12', 10),
+  // Door undo window (seconds) — TODO(decision): undo allowed briefly
+  // after admission so mis-scans can be corrected at the door.
+  doorUndoSeconds: parseInt(process.env.DOOR_UNDO_SECONDS ?? '300', 10),
+  // T2: member invites lapse after 7 days (decision-12 default).
+  inviteTtlDays: parseInt(process.env.INVITE_TTL_DAYS ?? '7', 10),
+  // Dev convenience: auto-approve org verification on submit. Off in prod,
+  // where the verification.decided path is operator-driven (O3).
+  orgVerifyAutoApprove:
+    (process.env.ORG_VERIFY_AUTO_APPROVE ?? (isProduction ? '0' : '1')) === '1',
+  // PriceWatch auto-charge on match (W2). Requires saved-method billing;
+  // locally the charge step is a marked stub (TODO(api-gap)).
+  priceWatchAutoCharge: process.env.PRICE_WATCH_AUTO_CHARGE === '1',
+  // VAT percent by event country (ISO 3166 alpha-2), P6 / decision-13.
+  // Orders in unmapped countries record taxMinor = 0.
+  taxRates: (() => {
+    try {
+      return JSON.parse(process.env.TAX_RATES ?? '{"AE":5,"SA":15}') as Record<string, number>;
+    } catch {
+      return {} as Record<string, number>;
+    }
+  })(),
   // Transactional email (SES). Empty = log-only dev mode.
   sesFromEmail: process.env.SES_FROM_EMAIL ?? '',
   sesRegion: process.env.SES_REGION ?? process.env.AWS_REGION ?? 'us-east-1',

@@ -2,7 +2,6 @@ import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/services/api_service.dart';
-import 'package:get/get.dart';
 
 class AskBidController extends GetxController {
   final RxList<Map<String, dynamic>> sellableTickets =
@@ -42,7 +41,40 @@ class AskBidController extends GetxController {
     return (dollars * 100).round();
   }
 
-  bool get canList => selectedCount > 0 && priceCents > 0 && !isListing.value;
+  /// Face value of a ticket in cents, when the API provides it.
+  /// TODO(api-gap: my-tickets payload doesn't expose a canonical faceCents
+  /// field, falls back to priceCents/paidCents)
+  static int? faceCentsOf(Map<String, dynamic> ticket) {
+    for (final key in ['faceCents', 'faceValueCents', 'priceCents', 'paidCents']) {
+      final v = ticket[key];
+      if (v is num && v > 0) return v.toInt();
+    }
+    return null;
+  }
+
+  /// Resale cap: face value × 1.10 (decision-8, organiser may lower but
+  /// not raise). Uses the lowest face across selected tickets, since all
+  /// are listed at the same price.
+  int? get capCents {
+    final selected = sellableTickets.where(
+        (t) => selectedCodes.contains(t['code']?.toString()));
+    int? lowest;
+    for (final t in selected) {
+      final face = faceCentsOf(t);
+      if (face == null) continue;
+      if (lowest == null || face < lowest) lowest = face;
+    }
+    return lowest == null ? null : (lowest * 110 / 100).floor();
+  }
+
+  bool get overCap => capCents != null && priceCents > capCents!;
+
+  /// Seller payout: 95% of the ask (decision-7, the 5% seller fee funds
+  /// the organiser royalty; Sahra earns from the separate 5% buyer fee).
+  int get netCents => (priceCents * 95 / 100).round();
+
+  bool get canList =>
+      selectedCount > 0 && priceCents > 0 && !overCap && !isListing.value;
 
   bool isSelected(String code) => selectedCodes.contains(code);
 
@@ -95,6 +127,11 @@ class AskBidController extends GetxController {
 
   Future<void> listSelected() async {
     if (!canList) return;
+    if (overCap) {
+      CustomSnackBar.showCustomErrorToast(
+          message: 'Price is over the resale cap (110% of face value)');
+      return;
+    }
     isListing.value = true;
     var listed = 0;
     try {

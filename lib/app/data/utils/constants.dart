@@ -1,6 +1,6 @@
 // ignore_for_file: constant_identifier_names
 
-import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:flutter/foundation.dart';
 
 class Constants {
   static bool isUserCreator = false;

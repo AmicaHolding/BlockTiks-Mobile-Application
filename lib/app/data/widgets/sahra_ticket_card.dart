@@ -4,7 +4,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 /// Sahra ticket pass (brand: "the ticket is a promise"). Gold stock, Night
 /// logo, dashed perforation with notches, QR on a Sand panel. Used for real
-/// tickets only — order confirmation and the Tickets tab.
+/// tickets only, order confirmation and the Tickets tab.
 class SahraTicketCard extends StatelessWidget {
   const SahraTicketCard({
     super.key,

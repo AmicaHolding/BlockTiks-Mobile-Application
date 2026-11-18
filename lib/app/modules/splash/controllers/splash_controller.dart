@@ -103,7 +103,7 @@ class SplashController extends GetxController with GetTickerProviderStateMixin {
       if (hasSession) {
         final role = await appPreferences.getRole();
         Constants.isUserCreator = role == 'creator';
-        ApiService.goToDashboard();
+        await ApiService.goToDashboard();
         return;
       }
     }

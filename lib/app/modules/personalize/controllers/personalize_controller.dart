@@ -32,6 +32,13 @@ class PersonalizeController extends GetxController {
     'Art',
   ];
 
+  /// Spec 24: the flow captures a city and exactly three interests.
+  /// (Skip bypasses the gate entirely.)
+  bool get canContinue =>
+      selectedCity.value.isNotEmpty &&
+      selectedInterests.length == 3 &&
+      !isSaving.value;
+
   @override
   void onInit() {
     super.onInit();

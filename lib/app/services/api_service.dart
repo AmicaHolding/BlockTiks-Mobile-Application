@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:block_tix/app/Shared_prefrences/app_prefrences.dart';
@@ -98,6 +99,7 @@ class ApiService {
     setRefreshToken(null);
     final prefs = AppPreferences();
     await prefs.clearAuthTokens();
+    prefs.setIsLoggedIn(loggedIn: false);
   }
 
   /// On 401, transparently refresh the session and retry the request once.
@@ -125,7 +127,7 @@ class ApiService {
           return handler.next(retryError);
         }
       }
-      // Refresh failed — the session is dead; clear local tokens so the
+      // Refresh failed, the session is dead; clear local tokens so the
       // next app boot routes to login instead of looping on 401s.
       await clearSession();
     }
@@ -136,6 +138,27 @@ class ApiService {
         headers: {
           if (_token != null && _token!.isNotEmpty)
             'Authorization': 'Bearer $_token',
+        },
+      );
+
+  /// Auth options plus an `Idempotency-Key` header. Required by the API
+  /// contract on every money-moving or inventory-changing POST
+  /// (orders, listings, transfers, offers, check-ins, broadcasts, payouts).
+  /// Each logical call gets a fresh key; callers that retry a failed request
+  /// should reuse the key so the backend can dedupe.
+  static String newIdempotencyKey() {
+    final rand = Random.secure();
+    final t = DateTime.now().toUtc().microsecondsSinceEpoch.toRadixString(36);
+    final r = List.generate(16, (_) => rand.nextInt(36).toRadixString(36))
+        .join();
+    return 'sahra-$t-$r';
+  }
+
+  static Options _idemOptions([String? key]) => Options(
+        headers: {
+          if (_token != null && _token!.isNotEmpty)
+            'Authorization': 'Bearer $_token',
+          'Idempotency-Key': key ?? newIdempotencyKey(),
         },
       );
 
@@ -201,7 +224,7 @@ class ApiService {
   /// automatic 401 retry (e.g. before a long-running flow).
   static Future<bool> refresh() => refreshSession();
 
-  /// POST /auth/verify-email/request — email a fresh verification link.
+  /// POST /auth/verify-email/request, email a fresh verification link.
   static Future<void> verifyEmailRequest() async {
     try {
       await _dio.post('/auth/verify-email/request', options: _authOptions);
@@ -220,7 +243,7 @@ class ApiService {
     }
   }
 
-  /// PATCH /auth/me — update profile fields.
+  /// PATCH /auth/me, update profile fields.
   static Future<Map<String, dynamic>> updateProfile(
       Map<String, dynamic> fields) async {
     try {
@@ -249,7 +272,7 @@ class ApiService {
     }
   }
 
-  /// POST /auth/logout — revokes the presented refresh token server-side,
+  /// POST /auth/logout, revokes the presented refresh token server-side,
   /// then clears local session state.
   static Future<void> logout() async {
     final refreshToken = _refreshToken;
@@ -261,7 +284,7 @@ class ApiService {
           },
           options: _authOptions);
     } catch (_) {
-      // Logout is best-effort — local session is cleared regardless.
+      // Logout is best-effort, local session is cleared regardless.
     }
     await clearSession();
   }
@@ -340,7 +363,7 @@ class ApiService {
     }
   }
 
-  /// POST /events — create a draft event with tiers.
+  /// POST /events, create a draft event with tiers.
   static Future<Map<String, dynamic>> createEvent(
       Map<String, dynamic> body) async {
     try {
@@ -363,7 +386,7 @@ class ApiService {
 
   // --------------------------------------------------------------- orders
 
-  /// POST /orders/intent -> { orderId, clientSecret, amountCents, ... }
+  /// POST /orders/intent -> { orderId, clientSecret, amountCents... }
   /// Three purchase kinds: GA tier (tierId), seated section (sectionId),
   /// or a resale listing (listingCode).
   static Future<Map<String, dynamic>> createOrderIntent({
@@ -374,6 +397,7 @@ class ApiService {
     int quantity = 1,
     String? promoCode,
     List<String>? seats,
+    String? idempotencyKey,
   }) async {
     try {
       final res = await _dio.post('/orders/intent',
@@ -387,7 +411,7 @@ class ApiService {
               'promoCode': promoCode,
             if (seats != null && seats.isNotEmpty) 'seats': seats,
           },
-          options: _authOptions);
+          options: _idemOptions(idempotencyKey));
       return Map<String, dynamic>.from(res.data as Map);
     } on DioException catch (e) {
       _throw(e);
@@ -474,13 +498,13 @@ class ApiService {
   /// POST /events/:id/checkin { code } -> { result, ticket? }
   /// result: OK | ALREADY_USED | WRONG_EVENT | NOT_FOUND | FORBIDDEN
   static Future<Map<String, dynamic>> checkInTicket(
-      String eventId, String code) async {
+      String eventId, String code, {String? idempotencyKey}) async {
     try {
       final res = await _dio.post('/events/$eventId/checkin',
-          data: {'code': code}, options: _authOptions);
+          data: {'code': code}, options: _idemOptions(idempotencyKey));
       return Map<String, dynamic>.from(res.data as Map);
     } on DioException catch (e) {
-      // ALREADY_USED comes back as 409 — surface the body, not just the message.
+      // ALREADY_USED comes back as 409, surface the body, not just the message.
       final data = e.response?.data;
       if (data is Map && data['result'] != null) {
         return Map<String, dynamic>.from(data);
@@ -537,17 +561,18 @@ class ApiService {
 
   /// POST /tickets/:code/list { priceCents }
   static Future<Map<String, dynamic>> createListing(
-      String ticketCode, int priceCents) async {
+      String ticketCode, int priceCents, {String? idempotencyKey}) async {
     try {
       final res = await _dio.post('/tickets/$ticketCode/list',
-          data: {'priceCents': priceCents}, options: _authOptions);
+          data: {'priceCents': priceCents},
+          options: _idemOptions(idempotencyKey));
       return Map<String, dynamic>.from(res.data['listing'] as Map);
     } on DioException catch (e) {
       _throw(e);
     }
   }
 
-  /// DELETE /listings/:code — cancel my ACTIVE listing.
+  /// DELETE /listings/:code, cancel my ACTIVE listing.
   static Future<void> cancelListing(String ticketCode) async {
     try {
       await _dio.delete('/listings/$ticketCode', options: _authOptions);
@@ -556,13 +581,37 @@ class ApiService {
     }
   }
 
-  /// POST /tickets/:code/transfer { recipientEmail }
+  /// DELETE /tickets/:id/check-in, undo a manual check-in (door mode).
+  /// Contract: `DELETE /tickets/{id}/check-in`.
+  // TODO(api-gap: manual check-in undo, verify the backend exposes
+  // DELETE /tickets/:id/check-in; guests list currently only supports
+  // POST /events/:id/checkin)
+  static Future<void> undoCheckIn(String ticketCode) async {
+    try {
+      await _dio.delete('/tickets/$ticketCode/check-in',
+          options: _authOptions);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /tickets/:code/transfer { recipientEmail } or { recipient } for
+  /// phone numbers. The spec contract is `POST /transfers {ticket_ids[],to}`
+  /// where `to` accepts email or phone with country code.
+  // TODO(api-gap: transfer accepts email or phone with country code via
+  // POST /transfers {ticket_ids[],to}; this MVP endpoint is per-ticket and
+  // email-first, phone numbers go through `recipient` until it ships)
   static Future<Map<String, dynamic>> transferTicket(
-      String ticketCode, String recipientEmail) async {
+      String ticketCode, String to,
+      {String? idempotencyKey}) async {
+    final trimmed = to.trim();
+    final isEmail = trimmed.contains('@');
     try {
       final res = await _dio.post('/tickets/$ticketCode/transfer',
-          data: {'recipientEmail': recipientEmail.trim().toLowerCase()},
-          options: _authOptions);
+          data: isEmail
+              ? {'recipientEmail': trimmed.toLowerCase()}
+              : {'recipient': trimmed},
+          options: _idemOptions(idempotencyKey));
       return Map<String, dynamic>.from(res.data as Map);
     } on DioException catch (e) {
       _throw(e);
@@ -595,6 +644,7 @@ class ApiService {
     String? sectionName,
     required int maxPriceCents,
     required int quantity,
+    String? idempotencyKey,
   }) async {
     try {
       final res = await _dio.post('/offers',
@@ -606,7 +656,7 @@ class ApiService {
             'maxPriceCents': maxPriceCents,
             'quantity': quantity,
           },
-          options: _authOptions);
+          options: _idemOptions(idempotencyKey));
       return Map<String, dynamic>.from(
           res.data['offer'] as Map? ?? res.data as Map);
     } on DioException catch (e) {
@@ -614,7 +664,7 @@ class ApiService {
     }
   }
 
-  /// DELETE /offers/:id — cancel my ACTIVE offer.
+  /// DELETE /offers/:id, cancel my ACTIVE offer.
   static Future<void> cancelOffer(String offerId) async {
     try {
       await _dio.delete('/offers/$offerId', options: _authOptions);
@@ -625,7 +675,7 @@ class ApiService {
 
   // ------------------------------------------------------ venue (creator)
 
-  /// PATCH /events/:id { venueLayout } — set seated-event sections.
+  /// PATCH /events/:id { venueLayout }, set seated-event sections.
   static Future<Map<String, dynamic>> setVenueLayout(
       String eventId, Map<String, dynamic> venueLayout) async {
     try {
@@ -683,7 +733,7 @@ class ApiService {
     }
   }
 
-  /// DELETE /auth/me — soft-delete the current account.
+  /// DELETE /auth/me, soft-delete the current account.
   static Future<void> deleteAccount() async {
     try {
       await _dio.delete('/auth/me', options: _authOptions);
@@ -734,14 +784,14 @@ class ApiService {
 
   /// POST /account/withdraw { amountCents, currency? }
   static Future<Map<String, dynamic>> withdraw(int amountCents,
-      {String? currency}) async {
+      {String? currency, String? idempotencyKey}) async {
     try {
       final res = await _dio.post('/account/withdraw',
           data: {
             'amountCents': amountCents,
             if (currency != null && currency.isNotEmpty) 'currency': currency,
           },
-          options: _authOptions);
+          options: _idemOptions(idempotencyKey));
       return Map<String, dynamic>.from(res.data as Map);
     } on DioException catch (e) {
       _throw(e);
@@ -769,7 +819,7 @@ class ApiService {
     }
   }
 
-  /// POST /account/payouts/refresh — re-check onboarding after Stripe return.
+  /// POST /account/payouts/refresh, re-check onboarding after Stripe return.
   static Future<Map<String, dynamic>> payoutsRefresh() async {
     try {
       final res =
@@ -780,7 +830,7 @@ class ApiService {
     }
   }
 
-  /// POST /account/referrals/apply { code } — existing users enter a code.
+  /// POST /account/referrals/apply { code }, existing users enter a code.
   static Future<void> applyReferral(String code) async {
     try {
       await _dio.post('/account/referrals/apply',
@@ -854,13 +904,14 @@ class ApiService {
     }
   }
 
-  /// POST /events/:id/broadcasts — creator attendee message.
+  /// POST /events/:id/broadcasts, creator attendee message.
   static Future<Map<String, dynamic>> createBroadcast(
     String eventId, {
     String? audience,
     required String message,
     Map<String, dynamic>? audienceFilter,
     Map<String, bool>? channels,
+    String? idempotencyKey,
   }) async {
     try {
       final res = await _dio.post('/events/$eventId/broadcasts',
@@ -870,14 +921,14 @@ class ApiService {
             if (audienceFilter != null) 'audienceFilter': audienceFilter,
             if (channels != null) 'channels': channels,
           },
-          options: _authOptions);
+          options: _idemOptions(idempotencyKey));
       return Map<String, dynamic>.from(res.data as Map);
     } on DioException catch (e) {
       _throw(e);
     }
   }
 
-  /// GET /events/:id/broadcasts — creator's sent attendee messages.
+  /// GET /events/:id/broadcasts, creator's sent attendee messages.
   static Future<List<Map<String, dynamic>>> eventBroadcasts(
       String eventId) async {
     try {
@@ -891,6 +942,107 @@ class ApiService {
   }
 
   // ------------------------------------------------------------ session
+
+  // ------------------------------------------ hosting / profile switcher
+
+  /// GET /me/memberships -> [{org,role,event_scope,verification_status}]
+  // TODO(api-gap: memberships endpoint not confirmed on this backend,   // creator role is currently inferred from user.role instead)
+  static Future<List<Map<String, dynamic>>> memberships() async {
+    try {
+      final res = await _dio.get('/me/memberships', options: _authOptions);
+      final list = (res.data['memberships'] as List?) ??
+          (res.data is List ? res.data as List : const []);
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// PUT /me/mode {mode,org_id?} -> {landing}, switch personal <-> org.
+  // TODO(api-gap: last-mode persistence, backend should return
+  // `landing:{mode:"personal"}|{mode:"org",org_id,role}` on sign-in)
+  static Future<Map<String, dynamic>> setMode(
+      {required String mode, String? orgId}) async {
+    try {
+      final res = await _dio.put('/me/mode',
+          data: {
+            'mode': mode,
+            if (orgId != null && orgId.isNotEmpty) 'orgId': orgId,
+          },
+          options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /orgs {name,type,city} -> {org}, host sign-up creates the org.
+  // TODO(api-gap: organisation creation, verify POST /orgs contract
+  // {name,type,city} exists on this backend)
+  static Future<Map<String, dynamic>> createOrg({
+    required String name,
+    required String type,
+    required String city,
+  }) async {
+    try {
+      final res = await _dio.post('/orgs',
+          data: {'name': name.trim(), 'type': type, 'city': city},
+          options: _authOptions);
+      return Map<String, dynamic>.from(
+          res.data['org'] as Map? ?? res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  // --------------------------------------------------- events / reminders
+
+  /// PUT /events/:id/reminder · "Remind me" for not-yet-on-sale events.
+  // TODO(api-gap: reminder endpoints PUT/DELETE /events/:id/reminder)
+  static Future<void> setReminder(String eventId) async {
+    try {
+      await _dio.put('/events/$eventId/reminder',
+          options: _authOptions);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// DELETE /events/:id/reminder
+  static Future<void> clearReminder(String eventId) async {
+    try {
+      await _dio.delete('/events/$eventId/reminder',
+          options: _authOptions);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /tickets/:id/credential -> {qr_payload,version,rotates_at}
+  // TODO(api-gap: rotating QR credential endpoint, tickets currently
+  // render their `code` directly into the QR instead of a signed payload)
+  static Future<Map<String, dynamic>> ticketCredential(
+      String ticketCode) async {
+    try {
+      final res = await _dio.get('/tickets/$ticketCode/credential',
+          options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// PATCH /me/notification-settings {push,email,sms,selling,remind,weekly}
+  // TODO(api-gap: notification settings persistence endpoint)
+  static Future<void> updateNotificationSettings(
+      Map<String, bool> settings) async {
+    try {
+      await _dio.patch('/me/notification-settings',
+          data: settings, options: _authOptions);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
 
   /// Persist a { token, user } auth response in the shape the existing
   /// profile/settings screens expect (SignupModel JSON), and attach the
@@ -942,12 +1094,32 @@ class ApiService {
     prefs.setUserName(userName: legacyUser['fullName'] as String);
   }
 
-  /// Route to the right dashboard after login/signup.
-  static void goToDashboard() {
-    if (Constants.isUserCreator) {
+  /// Route to the right dashboard after login/signup. A4 last-mode:
+  /// signed-in creators land back in door mode, fans land on For You.
+  /// TODO(api-gap: server `landing:{mode}` + memberships are the source of
+  /// truth for last-mode; we persist it locally until the contract ships)
+  static Future<void> goToDashboard() async {
+    String mode = Constants.isUserCreator ? 'creator' : 'fan';
+    try {
+      final prefs = AppPreferences();
+      await prefs.isPreferenceReady;
+      final saved = await prefs.getLastMode();
+      if (saved.isNotEmpty) mode = saved;
+    } catch (_) {}
+    await setLastModeLocal(mode);
+    if (mode == 'creator' && Constants.isUserCreator) {
       Get.offAllNamed(Routes.CREATOR_DASHBOARD);
     } else {
       Get.offAllNamed(Routes.USER_DASHBOARD);
     }
+  }
+
+  /// Persist the last-used mode locally (and optimistically to the server).
+  static Future<void> setLastModeLocal(String mode) async {
+    try {
+      final prefs = AppPreferences();
+      await prefs.isPreferenceReady;
+      prefs.setLastMode(mode: mode);
+    } catch (_) {}
   }
 }

@@ -1,19 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { api, ApiError, type SahraEvent } from '../lib/api';
-import { formatCents, formatEventDateTime } from '../lib/format';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { api, ApiError, type Listing, type SahraEvent } from '../lib/api';
+import { MAX_PER_ORDER, RESALE_CAP_PCT } from '../lib/config';
+import { formatEventDateTime, formatMoney } from '../lib/format';
+import type { CheckoutSelection } from './EventPage';
 import { Button, Card, Input, Spinner } from '../components/ui';
 import { ArrowLeftIcon, CheckIcon, MinusIcon, PlusIcon, TicketIcon } from '../components/icons';
 
 export default function OfferPage() {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const eventId = params.get('eventId') ?? '';
   const tierName = params.get('tierName') ?? '';
   const sectionName = params.get('sectionName') ?? undefined;
-  const initialQty = Math.min(8, Math.max(1, Number(params.get('quantity')) || 1));
+  const initialQty = Math.min(MAX_PER_ORDER, Math.max(1, Number(params.get('quantity')) || 1));
   const initialMax = Number(params.get('maxPrice')) || 0;
 
   const [event, setEvent] = useState<SahraEvent | null>(null);
+  const [listings, setListings] = useState<Listing[]>([]);
   const [quantity, setQuantity] = useState(initialQty);
   const [maxPrice, setMaxPrice] = useState(initialMax ? String(initialMax) : '');
   const [busy, setBusy] = useState(false);
@@ -31,6 +35,12 @@ export default function OfferPage() {
       .catch(() => {
         if (active) setEvent(null);
       });
+    api
+      .listings(eventId)
+      .then((res) => {
+        if (active) setListings(res.listings);
+      })
+      .catch(() => undefined);
     return () => {
       active = false;
     };
@@ -47,7 +57,41 @@ export default function OfferPage() {
   })();
 
   const maxCents = Math.round((Number(maxPrice) || 0) * 100);
-  const valid = eventId && tierName && maxCents >= 1;
+  const currency = event?.currency;
+  // W3/R2, a watch above the resale cap can never match; block it.
+  const capCents = faceCents != null ? Math.round(faceCents * (1 + RESALE_CAP_PCT / 100)) : null;
+  const aboveCap = capCents != null && maxCents > capCents;
+  const valid = Boolean(eventId && tierName && maxCents >= 1 && !aboveCap);
+
+  // W1, if a live listing already matches, go straight to checkout instead.
+  const matchingListing =
+    maxCents >= 1
+      ? listings
+          .filter(
+            (l) =>
+              l.status === 'ACTIVE' &&
+              l.priceCents <= maxCents &&
+              (l.tierName === tierName || (sectionName && l.tierName === sectionName))
+          )
+          .sort((a, b) => a.priceCents - b.priceCents)[0] ?? null
+      : null;
+
+  function buyNow(listing: Listing) {
+    if (!event) return;
+    const selection: CheckoutSelection = {
+      kind: 'resale',
+      eventId: event.id,
+      listingCode: listing.ticketCode,
+      tierName: listing.tierName,
+      priceCents: listing.priceCents,
+      quantity: 1,
+      currency: event.currency,
+      eventTitle: event.title,
+      eventStartsAt: event.startsAt,
+      eventLocation: event.location,
+    };
+    navigate('/checkout', { state: { selection } });
+  }
 
   async function submit() {
     if (!valid) return;
@@ -77,8 +121,8 @@ export default function OfferPage() {
         </div>
         <h1 className="mt-6 font-display text-3xl font-extrabold text-sand">Price set</h1>
         <p className="mt-2 text-night-muted">
-          We’ll flag any resale listing at or below {maxPrice ? formatCents(maxCents) : ''} in your Tickets — you confirm
-          the buy yourself, so you’re never charged automatically.
+          We’ll flag any resale listing at or below {maxPrice ? formatMoney(maxCents, currency) : ''} under “Waiting” in
+          My tickets, you confirm the buy yourself, so you’re never charged automatically.
         </p>
         <div className="mt-8 flex justify-center gap-3">
           <Link to="/tickets">
@@ -140,7 +184,7 @@ export default function OfferPage() {
             <button
               type="button"
               aria-label="Increase"
-              onClick={() => setQuantity((q) => Math.min(8, q + 1))}
+              onClick={() => setQuantity((q) => Math.min(MAX_PER_ORDER, q + 1))}
               className="flex h-9 w-9 items-center justify-center rounded-full border border-night-border text-sand transition hover:border-gold"
             >
               <PlusIcon size={15} />
@@ -151,7 +195,9 @@ export default function OfferPage() {
         <div className="mt-6">
           <div className="mb-1.5 text-sm font-semibold text-night-muted">Max price, each</div>
           <div className="flex items-center gap-2">
-            <span className="font-display text-lg font-extrabold text-sand">$</span>
+            <span className="font-display text-lg font-extrabold uppercase text-sand">
+              {(currency ?? 'usd').toUpperCase()}
+            </span>
             <Input
               tone="dark"
               type="number"
@@ -159,18 +205,41 @@ export default function OfferPage() {
               step="0.01"
               value={maxPrice}
               onChange={(e) => setMaxPrice(e.target.value)}
-              placeholder="900"
-              className="max-w-[200px]"
+              placeholder="0"
+              className="max-w-[200px] tnum"
             />
           </div>
           <div className="mt-2 flex flex-wrap gap-4 text-xs text-night-muted">
-            {faceCents != null ? <span>Face value {formatCents(faceCents)}</span> : null}
+            {faceCents != null ? (
+              <span>
+                Face value {formatMoney(faceCents, currency)}
+                {capCents != null ? ` · capped at ${formatMoney(capCents, currency)} (face +${RESALE_CAP_PCT}%)` : ''}
+              </span>
+            ) : null}
             <span>Offers stay active until the event starts</span>
           </div>
+          {aboveCap ? (
+            <p className="mt-2 text-xs font-semibold text-red-300">
+              Above the resale cap, listings can’t exceed face +{RESALE_CAP_PCT}%, so no watch over{' '}
+              {formatMoney(capCents, currency)} can match.
+            </p>
+          ) : null}
         </div>
 
+        {matchingListing ? (
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-gold bg-gold/10 px-4 py-3">
+            <div className="text-sm text-sand">
+              <span className="font-bold">One matches right now</span>, a fan is selling at{' '}
+              {formatMoney(matchingListing.priceCents, currency)}.
+            </div>
+            <Button variant="primary" className="px-4 py-2 text-xs" onClick={() => buyNow(matchingListing)}>
+              Buy it now
+            </Button>
+          </div>
+        ) : null}
+
         <div className="mt-6 rounded-xl bg-night-elevated/60 px-4 py-3 text-sm text-sand/80">
-          Set price · up to {maxPrice ? formatCents(maxCents * quantity) : '—'} total
+          Set price · up to {maxPrice ? formatMoney(maxCents * quantity, currency) : '-'} total
         </div>
 
         {error ? <div className="mt-4 text-sm font-semibold text-red-300">{error}</div> : null}

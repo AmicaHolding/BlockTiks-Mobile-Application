@@ -11,7 +11,9 @@ import {
     getPromoByCode,
     getSection,
     getUserById,
-    incrementPromoUsage,
+    getIdempotentResponse,
+    recordChargebackLedger,
+    recordIdempotentResponse,
     getTicketByCode,
     getTier,
     listUserOrders,
@@ -30,14 +32,14 @@ import { env } from '../env';
 import { getStripe } from '../stripe';
 
 export async function orderRoutes(app: FastifyInstance) {
-  // POST /orders/intent — create a pending order + Stripe PaymentIntent.
+  // POST /orders/intent, create a pending order + Stripe PaymentIntent.
   // The client confirms the PaymentIntent with the Stripe SDK/payment sheet,
   // then the webhook marks the order PAID and issues tickets.
   //
   // Three purchase kinds:
-  //   { eventId, tierId, quantity, promoCode? }  — GA tier tickets
-  //   { eventId, sectionId, quantity }           — seated venue sections
-  //   { listingCode }                            — resale ticket transfer
+  //   { eventId, tierId, quantity, promoCode? }  · GA tier tickets
+  //   { eventId, sectionId, quantity }          , seated venue sections
+  //   { listingCode }                           , resale ticket transfer
   app.post(
     '/orders/intent',
     {
@@ -50,10 +52,11 @@ export async function orderRoutes(app: FastifyInstance) {
             tierId: { type: 'string' },
             sectionId: { type: 'string' },
             listingCode: { type: 'string' },
-            quantity: { type: 'integer', minimum: 1, maximum: 8 },
+            // B1: max 6 tickets per order.
+            quantity: { type: 'integer', minimum: 1, maximum: 6 },
             promoCode: { type: 'string' },
             // Seat-level picking: specific seat labels within sectionId.
-            seats: { type: 'array', items: { type: 'string' }, maxItems: 8 },
+            seats: { type: 'array', items: { type: 'string' }, maxItems: 6 },
           },
         },
       },
@@ -68,6 +71,14 @@ export async function orderRoutes(app: FastifyInstance) {
         promoCode?: string;
         seats?: string[];
       };
+
+      // P4: honour the client Idempotency-Key — a retry returns the original
+      // response instead of minting a second order + PaymentIntent.
+      const idemKey = (request.headers['idempotency-key'] as string | undefined)?.trim();
+      if (idemKey) {
+        const prior = await getIdempotentResponse(request.user.sub, idemKey);
+        if (prior) return { ...prior.response, duplicate: true };
+      }
 
       const feesFor = (cents: number) =>
         Math.round((cents * env.platformFeePercent) / 100);
@@ -126,7 +137,7 @@ export async function orderRoutes(app: FastifyInstance) {
 
           await setOrderPaymentIntent(order.id, paymentIntent.id);
 
-          return {
+          const response = {
             orderId: order.id,
             clientSecret: paymentIntent.client_secret,
             amountCents: opts.totalCents,
@@ -135,6 +146,10 @@ export async function orderRoutes(app: FastifyInstance) {
             discountCents,
             feesCents,
           };
+          if (idemKey) {
+            await recordIdempotentResponse(request.user.sub, idemKey, order.id, response);
+          }
+          return response;
         } catch (err) {
           if (order) await releaseOrder(order.id, 'CANCELLED');
           else await opts.compensate();
@@ -274,7 +289,7 @@ export async function orderRoutes(app: FastifyInstance) {
         return reply.status(400).send({ message: 'Ticket sales for this tier have ended' });
       }
 
-      // Server-side pricing — never trust client amounts.
+      // Server-side pricing, never trust client amounts.
       const subtotalCents = tier.priceCents * quantity;
       let discountCents = 0;
       let promoCodeText: string | undefined;
@@ -335,13 +350,12 @@ export async function orderRoutes(app: FastifyInstance) {
           : Math.min(amountOffCents ?? 0, subtotalCents);
       }
 
-      const feesCents = Math.round(
-        ((subtotalCents - discountCents) * env.platformFeePercent) / 100
-      );
+      // P2: the promo discount applies to the subtotal only, the buyer fee
+      // is always computed on the FULL subtotal.
+      const feesCents = Math.round((subtotalCents * env.platformFeePercent) / 100);
       const totalCents = subtotalCents - discountCents + feesCents;
 
-      // Atomically reserve inventory before creating the PaymentIntent —
-      // the oversell guard. Buyers who lose the race get a 409 here.
+      // Atomically reserve inventory before creating the PaymentIntent,       // the oversell guard. Buyers who lose the race get a 409 here.
       const held = await reserveTickets(eventId, tierId, quantity);
       if (!held) {
         return reply.status(409).send({ message: 'Not enough tickets remaining' });
@@ -367,7 +381,7 @@ export async function orderRoutes(app: FastifyInstance) {
     }
   );
 
-  // GET /orders — current user's orders (?cursor=, ?limit=)
+  // GET /orders, current user's orders (?cursor=, ?limit=)
   app.get('/orders', { preHandler: app.authenticate }, async (request) => {
     const { cursor, limit } = request.query as { cursor?: string; limit?: string };
     const result = await listUserOrders(request.user.sub, {
@@ -377,7 +391,7 @@ export async function orderRoutes(app: FastifyInstance) {
     return { orders: result.items, nextCursor: result.nextCursor };
   });
 
-  // GET /orders/:id — order detail incl. issued tickets
+  // GET /orders/:id, order detail incl. issued tickets
   app.get('/orders/:id', { preHandler: app.authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const order = await getOrder(id);
@@ -387,7 +401,7 @@ export async function orderRoutes(app: FastifyInstance) {
     return { order };
   });
 
-  // POST /webhooks/stripe — payment confirmation → fulfill order.
+  // POST /webhooks/stripe, payment confirmation → fulfill order.
   // Configure in Stripe Dashboard (or `stripe listen` locally) to point here.
   app.post('/webhooks/stripe', async (request, reply) => {
     const signature = request.headers['stripe-signature'] as string | undefined;
@@ -417,16 +431,12 @@ export async function orderRoutes(app: FastifyInstance) {
       const pi = event.data.object;
       const orderId = pi.metadata?.orderId ?? (await getOrderIdByPaymentIntent(pi.id));
       if (orderId) {
-        const result = await fulfillOrder(orderId, pi.id);
-        if (result === 'fulfilled') {
-          const order = await getOrder(orderId);
-          if (order?.promoCodeText) {
-            await incrementPromoUsage(order.promoCodeText);
-          }
-          // Resale proceeds accrue to the seller's earnings balance and are
-          // paid out via /account/withdraw (Stripe Connect transfer), so no
-          // transfer happens here.
-        }
+        // P5: fulfillOrder's transaction already increments promo usedCount;
+        // do NOT increment here again (previously double-counted).
+        await fulfillOrder(orderId, pi.id);
+        // Resale proceeds accrue to the seller's earnings balance and are
+        // paid out via /account/withdraw (Stripe Connect transfer), so no
+        // transfer happens here.
       }
     } else if (
       event.type === 'payment_intent.payment_failed' ||
@@ -435,8 +445,24 @@ export async function orderRoutes(app: FastifyInstance) {
       const pi = event.data.object;
       const orderId = pi.metadata?.orderId ?? (await getOrderIdByPaymentIntent(pi.id));
       if (orderId) {
-        // Release the inventory hold — exactly-once via the PENDING condition.
+        // Release the inventory hold, exactly-once via the PENDING condition.
         await releaseOrder(orderId, 'FAILED');
+      }
+    } else if (event.type === 'charge.dispute.created') {
+      const dispute = event.data.object;
+      // P7: chargeback — debit the seller-side accounts that were credited
+      // by the sale, so the loss lands on the org/user balance, not the pool.
+      const piId = typeof dispute.payment_intent === 'string'
+        ? dispute.payment_intent
+        : dispute.payment_intent?.id;
+      const orderId = piId ? await getOrderIdByPaymentIntent(piId) : null;
+      if (orderId) {
+        const order = await getOrder(orderId);
+        if (order) {
+          await recordChargebackLedger(order, dispute.amount ?? 0, dispute.id).catch((e) =>
+            request.log.error(e, 'chargeback ledger post failed')
+          );
+        }
       }
     }
 

@@ -1,0 +1,36 @@
+appId: com.amicaholding.blocktix
+---
+# W8: sign out -> sign in with -e EMAIL=... -> lands on dashboard/feed.
+# NOTE: sign out is cosmetic; stored token survives cold relaunches.
+- launchApp
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*For You[\s\S]*'
+    timeout: 20000
+- tapOn: '[\s\S]*Profile[\s\S]*'
+- extendedWaitUntil:
+    visible: 'Sign out'
+    timeout: 10000
+- tapOn:
+    point: '11%,82%'   # Sign out text (GestureDetector wraps text only)
+- extendedWaitUntil:
+    visible:
+      text: 'Welcome back|Email or phone'
+    timeout: 12000
+- takeScreenshot: w8-signed-out
+- tapOn:
+    point: '50%,41%'   # email field (label tap doesn't focus the input)
+- inputText: creator@test.com
+- tapOn:
+    point: '50%,53%'   # password field
+- inputText: 'password123'
+- hideKeyboard
+- tapOn:
+    text: 'Sign in'
+    index: 1           # gold submit button, not the segmented tab
+    optional: true     # keyboard 'go' may already have submitted
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*(More coming up|For You|Dashboard|My events|Events)[\s\S]*'
+    timeout: 25000
+- takeScreenshot: w8-signed-in

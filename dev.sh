@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# BlockTiks local dev launcher — starts the MVP backend and the Flutter app.
+# BlockTiks local dev launcher, starts the MVP backend and the Flutter app.
 #
 # Usage:
 #   ./dev.sh                # backend + flutter run (asks for device)
@@ -47,7 +47,7 @@ JWT_SECRET=dev-only-secret-change-me
 JWT_EXPIRES_IN=7d
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
-PLATFORM_FEE_PERCENT=12
+PLATFORM_FEE_PERCENT=5
 RESERVATION_TTL_MINUTES=15
 EOF
   echo "    created .env"
@@ -84,7 +84,7 @@ else
       aws dynamodb wait table-exists --table-name blocktiks --region "$REGION"
     fi
   else
-    echo "!! aws CLI not found — backend needs DynamoDB access. Continuing anyway."
+    echo "!! aws CLI not found, backend needs DynamoDB access. Continuing anyway."
   fi
 fi
 
@@ -126,13 +126,13 @@ if ! $ALREADY; then
     curl -s "$HEALTH_URL" | grep -q "$WAIT_MARKER" && break
     sleep 1
   done
-  curl -s "$HEALTH_URL" | grep -q "$WAIT_MARKER" || { echo "!! Backend failed to start — see /tmp/blocktiks-backend.log"; exit 1; }
+  curl -s "$HEALTH_URL" | grep -q "$WAIT_MARKER" || { echo "!! Backend failed to start, see /tmp/blocktiks-backend.log"; exit 1; }
 fi
 
 API_HEALTH=$(curl -s "$API_URL/health")
 echo "    health: $API_HEALTH"
 echo "$API_HEALTH" | grep -q '"stripe":"missing"' && \
-  echo "!! STRIPE_SECRET_KEY not set — checkout will fail until you add a sk_test_ key to backend/.env"
+  echo "!! STRIPE_SECRET_KEY not set, checkout will fail until you add a sk_test_ key to backend/.env"
 
 # --- stripe webhook forwarder -------------------------------------------------
 if grep -q '^STRIPE_SECRET_KEY=sk_' .env && command -v stripe >/dev/null 2>&1; then

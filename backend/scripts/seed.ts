@@ -14,6 +14,7 @@ import {
   createEventWithTiers,
   createListing,
   createOffer,
+  createOrg,
   createPendingOrder,
   createPromo,
   createUser,
@@ -21,10 +22,19 @@ import {
   fulfillOrder,
   getOrder,
   getUserByEmail,
+  inviteMember,
+  linkEventToOrg,
+  listPublishedEvents,
   publishEvent,
   registerReferralCode,
   reserveTickets,
+  acceptMembership,
+  listInvitesForEmail,
+  setEventHost,
+  setOrgPayoutAccount,
+  setOrgVerificationStatus,
   setVenueLayout,
+  submitOrgVerification,
   type EventItem,
   type TicketTier,
   type User,
@@ -219,11 +229,116 @@ export async function seed(): Promise<{ skipped: boolean }> {
     quantity: 1,
   });
 
+  // --- Org/Studio demo (additive): creator owns "Noor Events", layla is a
+  // cohost member, org is verified + has a payout IBAN, and one event is
+  // org-owned so Studio/door flows have real data. ---
+  const org = await createOrg({
+    name: 'Noor Events',
+    type: 'promoter',
+    city: 'Dubai',
+    createdByUserId: creator.id,
+  });
+  await submitOrgVerification(org.id, {
+    legalName: 'Noor Events LLC',
+    licenceNo: 'DED-12345',
+    docs: ['trade-licence.pdf'],
+  });
+  await setOrgVerificationStatus(org.id, 'approved');
+  await setOrgPayoutAccount(org.id, { iban: 'AE070331234567890123456', holder: 'Noor Events LLC' });
+  const invite = await inviteMember({
+    orgId: org.id,
+    email: users.creator2.email,
+    role: 'cohost',
+    invitedBy: creator.id,
+  });
+  await acceptMembership(invite.id, users.creator2.id);
+  const orgEvent = await createEventWithTiers({
+    creatorId: creator.id,
+    ownerOrgId: org.id,
+    title: 'Desert Sessions',
+    description: 'Open-air desert rave under the stars.',
+    category: 'Music',
+    startsAt: daysFromNow(45, 22),
+    location: 'Al Marmoom',
+    tiers: [{ name: 'GA', priceCents: 20000, quantity: 100 }],
+  });
+  await linkEventToOrg(orgEvent.event.id, org.id);
+  await setEventHost({ eventId: orgEvent.event.id, orgId: org.id, role: 'owner', splitBps: 10000 });
+  await publishEvent(orgEvent.event.id, creator.id, 'CREATOR');
+
+  await seedExtraEvents(creator, users.creator2);
+
   return { skipped: false };
+}
+
+// Three extra published events (also runnable standalone via `--more`).
+// Skips titles that already exist so it is safe to re-run.
+export async function seedExtraEvents(creator: User, creator2: User): Promise<number> {
+  const published = await listPublishedEvents({ limit: 100 });
+  const existing = new Set(published.items.map((e) => e.event.title));
+  const defs: Parameters<typeof createEventWithTiers>[0][] = [
+    {
+      creatorId: creator.id,
+      title: 'Sahra Comedy Club: Arabic Stand-Up',
+      description: 'A bilingual stand-up night with the region\'s sharpest comics.',
+      category: 'Comedy',
+      startsAt: daysFromNow(3, 21),
+      location: 'The Laughter Factory, JBR',
+      address: 'Jumeirah Beach Residence',
+      country: 'AE',
+      venueTimezone: 'Asia/Dubai',
+      currency: 'aed',
+      tiers: [
+        { name: 'Standard', priceCents: 9500, quantity: 120 },
+        { name: 'Front Row', priceCents: 15000, quantity: 24 },
+      ],
+    },
+    {
+      creatorId: creator2.id,
+      title: 'Sunset Dhow Cruise Sessions',
+      description: 'Live acoustic sets aboard a traditional dhow at golden hour.',
+      category: 'Concerts',
+      startsAt: daysFromNow(5, 18),
+      location: 'Abu Dhabi Corniche Marina',
+      country: 'AE',
+      venueTimezone: 'Asia/Dubai',
+      currency: 'aed',
+      tiers: [
+        { name: 'Deck', priceCents: 18000, quantity: 60 },
+        { name: 'Upper Deck', description: 'Open seating with dinner', priceCents: 28000, quantity: 40 },
+      ],
+    },
+    {
+      creatorId: creator.id,
+      title: 'Bassment Riyadh: Warehouse Night',
+      description: 'Underground warehouse rave, international headliner TBA. 21+ only, ID at the door.',
+      category: 'Music',
+      startsAt: daysFromNow(12, 23),
+      doorsAt: daysFromNow(12, 22),
+      location: 'Warehouse 7, Industrial City',
+      country: 'SA',
+      venueTimezone: 'Asia/Riyadh',
+      currency: 'sar',
+      minAge: 21,
+      tiers: [
+        { name: 'Early Entry', priceCents: 12000, quantity: 150 },
+        { name: 'Regular', priceCents: 18000, quantity: 250 },
+      ],
+    },
+  ];
+  let created = 0;
+  for (const def of defs) {
+    if (existing.has(def.title)) continue;
+    const e = await createEventWithTiers(def);
+    await publishEvent(e.event.id, def.creatorId, 'CREATOR');
+    created++;
+  }
+  return created;
 }
 
 async function main() {
   const reset = process.argv.includes('--reset');
+  const more = process.argv.includes('--more');
   // Never seed production data with public demo credentials. Table names get
   // a plain substring check (destructive resets must not slip through names
   // like 'prodblue'); profiles only match 'prod' as a separate word so
@@ -237,23 +352,34 @@ async function main() {
   }
   if (!isLocal() && process.env.SEED_ALLOW_REMOTE !== '1') {
     throw new Error(
-      `Refusing to seed ${target()} — set DYNAMODB_ENDPOINT for local, or SEED_ALLOW_REMOTE=1 for a remote dev/staging table.`
+      `Refusing to seed ${target()}, set DYNAMODB_ENDPOINT for local, or SEED_ALLOW_REMOTE=1 for a remote dev/staging table.`
     );
   }
   if (reset && !isLocal() && process.env.RESET_CONFIRM !== env.tableName) {
-    throw new Error(`Refusing to wipe remote table — set RESET_CONFIRM=${env.tableName} to confirm.`);
+    throw new Error(`Refusing to wipe remote table, set RESET_CONFIRM=${env.tableName} to confirm.`);
   }
 
   console.log(`==> Target: ${target()}`);
   if ((await ensureTable()) === 'created') console.log('    created table');
   if (reset) console.log(`    wiped ${await clearAllItems()} items`);
 
+  if (more) {
+    const creator = await getUserByEmail('creator@test.com');
+    const creator2 = await getUserByEmail('layla@test.com');
+    if (!creator || !creator2) {
+      throw new Error('Base seed not present, run `npm run db:seed` first.');
+    }
+    const created = await seedExtraEvents(creator, creator2);
+    console.log(created > 0 ? `    added ${created} extra events` : '    extra events already present');
+    return;
+  }
+
   const { skipped } = await seed();
   if (skipped) {
     console.log('    already seeded (run `npm run db:reset` to wipe and reseed)');
     return;
   }
-  console.log('    seeded 4 users, 5 events (1 draft, 1 seated), 7 tickets, 1 resale listing, 1 offer, 1 promo');
+  console.log('    seeded 4 users, 9 events (1 draft, 1 seated, 1 org-owned, 1 age-gated), 7 tickets, 1 resale listing, 1 offer, 1 promo, 1 org (verified, payout IBAN, cohost member)');
   console.log(`\n    Accounts (password: ${SEED_PASSWORD})`);
   for (const u of SEED_USERS) console.log(`      ${u.role.padEnd(7)} ${u.email}`);
 }

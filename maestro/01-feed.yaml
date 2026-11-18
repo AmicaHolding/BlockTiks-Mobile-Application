@@ -1,0 +1,17 @@
+appId: com.amicaholding.blocktix
+---
+# W1: cold launch -> For You feed, hero carousel, city chip, upcoming list
+- launchApp
+- extendedWaitUntil:
+    visible:
+      text: '[\s\S]*For You[\s\S]*'
+    timeout: 20000
+- assertVisible: 'Dubai'
+- assertVisible: 'More coming up'
+- takeScreenshot: w1-feed
+- swipe:
+    direction: LEFT
+- takeScreenshot: w1-carousel
+- swipe:
+    direction: UP
+- takeScreenshot: w1-feed-scrolled

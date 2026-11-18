@@ -13,6 +13,7 @@ import {
   listUserWithdrawals,
   setUserStripeConnectAccount,
   setUserStripeCustomerId,
+  updateUser,
   updateUserStripeConnectStatus,
   updateWithdrawal,
 } from '../db';
@@ -145,6 +146,40 @@ export async function accountRoutes(app: FastifyInstance) {
 
   app.post('/notifications/read', { preHandler: app.authenticate }, async () => ({ ok: true }));
 
+  // PATCH /me/notification-settings — channel (push/email/sms) and category
+  // (selling/remind/weekly) toggles. Merged onto the user's notificationPrefs.
+  app.patch(
+    '/me/notification-settings',
+    {
+      preHandler: app.authenticate,
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            push: { type: 'boolean' },
+            email: { type: 'boolean' },
+            sms: { type: 'boolean' },
+            selling: { type: 'boolean' },
+            remind: { type: 'boolean' },
+            weekly: { type: 'boolean' },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const body = request.body as Record<string, boolean | undefined>;
+      const keys = ['push', 'email', 'sms', 'selling', 'remind', 'weekly'] as const;
+      const current = (await getUserById(request.user.sub))?.notificationPrefs ?? {};
+      const merged = { ...current };
+      for (const k of keys) {
+        if (typeof body[k] === 'boolean') merged[k] = body[k];
+      }
+      const user = await updateUser(request.user.sub, { notificationPrefs: merged });
+      if (!user) return reply.status(404).send({ message: 'User not found' });
+      return { notificationPrefs: user.notificationPrefs };
+    }
+  );
+
   app.get('/transactions', { preHandler: app.authenticate }, async (request) => {
     const [ordersResult, listingsResult] = await Promise.all([
       listUserOrders(request.user.sub, { limit: 200 }),
@@ -195,7 +230,7 @@ export async function accountRoutes(app: FastifyInstance) {
     return earningsSummary(request.user.sub);
   });
 
-  // POST /account/payouts/onboarding-link — Stripe Express onboarding for the
+  // POST /account/payouts/onboarding-link · Stripe Express onboarding for the
   // seller's payout account. Returns a hosted onboarding URL.
   app.post('/account/payouts/onboarding-link', { preHandler: app.authenticate }, async (request, reply) => {
     if (!env.stripeSecretKey) {
@@ -225,7 +260,7 @@ export async function accountRoutes(app: FastifyInstance) {
     return { url: link.url };
   });
 
-  // GET /account/payouts — current Connect account status.
+  // GET /account/payouts, current Connect account status.
   app.get('/account/payouts', { preHandler: app.authenticate }, async (request) => {
     const user = await getUserById(request.user.sub);
     if (!user?.stripeConnectAccountId || !env.stripeSecretKey) {
@@ -246,7 +281,7 @@ export async function accountRoutes(app: FastifyInstance) {
     };
   });
 
-  // POST /account/payouts/refresh — re-check onboarding status after return.
+  // POST /account/payouts/refresh, re-check onboarding status after return.
   app.post('/account/payouts/refresh', { preHandler: app.authenticate }, async (request) => {
     const user = await getUserById(request.user.sub);
     if (!user?.stripeConnectAccountId || !env.stripeSecretKey) {
@@ -266,7 +301,7 @@ export async function accountRoutes(app: FastifyInstance) {
     };
   });
 
-  // POST /account/withdraw — transfer available earnings to the seller's
+  // POST /account/withdraw, transfer available earnings to the seller's
   // connected Stripe account.
   app.post(
     '/account/withdraw',
@@ -438,7 +473,7 @@ export async function accountRoutes(app: FastifyInstance) {
     };
   });
 
-  // POST /account/referrals/apply — existing users can enter a referral code.
+  // POST /account/referrals/apply, existing users can enter a referral code.
   app.post(
     '/account/referrals/apply',
     {

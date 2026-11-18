@@ -3,9 +3,18 @@
 @tailwind utilities;
 
 html {
-  background: #f7f1e6;
+  background: #f7f1e6; /* sand */
 }
 
 body {
-  @apply bg-sand text-ink font-sans antialiased;
+  @apply bg-sand font-sans text-ink antialiased;
+}
+
+/* Numerals align in tables/KPIs; brand rule: never fake mono with fonts. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: #f2d9a0; /* gold */
 }

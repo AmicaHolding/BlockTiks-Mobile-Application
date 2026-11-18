@@ -2,6 +2,7 @@ import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
+import 'package:block_tix/app/modules/user_dashboard/controllers/user_dashboard_controller.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -34,19 +35,20 @@ class EventDetailView extends GetView<EventDetailController> {
             ),
           );
         }
-        return _page(child: _content());
+        return _page(child: _content(context));
       }),
     );
   }
 
   Widget _page({required Widget child}) {
-    return Column(
+    return Stack(
       children: [
-        _EventHero(event: controller.hasEvent ? controller.event : null),
-        Expanded(child: child),
+        child,
+        const _HeroActions(),
       ],
     );
   }
+
 
   Widget _bottomBar() {
     return Container(
@@ -58,12 +60,28 @@ class EventDetailView extends GetView<EventDetailController> {
           const SizedBox(width: 14),
           SizedBox(
             width: 138,
-            child: Obx(() => SahraPillButton(
-                  label: controller.isSeated ? 'Choose seats' : 'Get tickets',
-                  enabled:
-                      !controller.isFromCreator && controller.selectedCount > 0,
-                  onTap: _continueToCheckout,
-                )),
+            child: Obx(() => controller.alreadyHolds
+                ? SahraPillButton(
+                    label: 'View tickets',
+                    enabled: true,
+                    onTap: () {
+                      if (Get.isRegistered<UserDashboardController>()) {
+                        final d = Get.find<UserDashboardController>();
+                        d.selectedIndex.value = 2;
+                        d.changePage(2);
+                        Get.back();
+                      } else {
+                        Get.offAllNamed(Routes.USER_DASHBOARD,
+                            arguments: {'index': 2});
+                      }
+                    })
+                : SahraPillButton(
+                    label:
+                        controller.isSeated ? 'Choose seats' : 'Get tickets',
+                    enabled: !controller.isFromCreator &&
+                        controller.selectedCount > 0,
+                    onTap: _continueToCheckout,
+                  )),
           ),
         ],
       ),
@@ -114,7 +132,7 @@ class EventDetailView extends GetView<EventDetailController> {
     for (final l in controller.resaleListings) {
       consider(l['priceCents']);
     }
-    if (centsValues.isEmpty) return '—';
+    if (centsValues.isEmpty) return '-';
     centsValues.sort();
     return controller.moneyCents(centsValues.first);
   }
@@ -141,6 +159,32 @@ class EventDetailView extends GetView<EventDetailController> {
     });
   }
 
+  /// "Sold out → Get on the list" (spec 31), watches for new drops.
+  Widget _remindButton(Map<String, dynamic> tier) {
+    return Obx(() => GestureDetector(
+          onTap: controller.toggleRemind,
+          child: Row(
+            children: [
+              Icon(
+                  controller.reminded.value
+                      ? Icons.notifications_active_rounded
+                      : Icons.notifications_none_rounded,
+                  color: ColorConstant.gold,
+                  size: 18),
+              const SizedBox(width: 6),
+              Text(
+                  controller.reminded.value
+                      ? "You'll hear first"
+                      : 'Get on the list',
+                  style: sahraText(
+                      color: ColorConstant.gold,
+                      size: 14,
+                      weight: FontWeight.w700)),
+            ],
+          ),
+        ));
+  }
+
   Widget _setPriceButton(Map<String, dynamic> tier) {
     return GestureDetector(
       onTap: () => _setPrice(tier),
@@ -161,15 +205,19 @@ class EventDetailView extends GetView<EventDetailController> {
     );
   }
 
-  Widget _content() {
+  Widget _content(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      padding: EdgeInsets.fromLTRB(
+          20, 8, 20, 32 + MediaQuery.of(context).padding.bottom + 96),
       children: [
+        _EventHero(event: controller.hasEvent ? controller.event : null),
         _titleBlock(),
         const SizedBox(height: 18),
         _dateRow(),
         const SizedBox(height: 12),
         _venueRow(),
+        _heldBanner(),
+        _remindRow(),
         if (controller.descriptionText.isNotEmpty) ...[
           const SizedBox(height: 22),
           Text('About this event',
@@ -180,7 +228,7 @@ class EventDetailView extends GetView<EventDetailController> {
                   color: ColorConstant.nightMuted, size: 14, height: 1.55)),
         ],
         const SizedBox(height: 24),
-        if (!controller.isFromCreator) ...[
+        if (!controller.isFromCreator && !controller.alreadyHolds) ...[
           Padding(
             padding: const EdgeInsets.only(top: 14, bottom: 6),
             child: Text(
@@ -200,8 +248,7 @@ class EventDetailView extends GetView<EventDetailController> {
           if (controller.resaleListings.isNotEmpty) ...[
             if (controller.isSeated || controller.hasEvent)
               const SizedBox(height: 8),
-            _resaleHeader(),
-            ..._sortedListings().map(_resaleCard),
+            _resaleHeader(), ..._sortedListings().map(_resaleCard),
             const SizedBox(height: 10),
             Text(
               'Resale tickets are reissued to you with a new QR. Same entry, same guarantee.',
@@ -209,15 +256,70 @@ class EventDetailView extends GetView<EventDetailController> {
                   color: ColorConstant.nightMuted, size: 12, height: 1.45),
             ),
           ],
-        ] else
+        ] else if (controller.isFromCreator)
           SahraCard(
             child: Text(
-              'Preview mode — ticket sales are managed in Sahra Studio.',
+              'Preview mode, ticket sales are managed in Sahra Studio.',
               style: sahraText(color: ColorConstant.nightMuted, size: 13),
             ),
           ),
       ],
     );
+  }
+
+  /// Held-ticket state (spec 33), you already hold tickets here; buying
+  /// the same event twice is blocked (rule R10).
+  Widget _heldBanner() {
+    return Obx(() {
+      if (!controller.alreadyHolds) return const SizedBox.shrink();
+      final n = controller.heldTicketCount.value;
+      return Container(
+        margin: const EdgeInsets.only(top: 16),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+            color: ColorConstant.nightSurface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: ColorConstant.gold)),
+        child: Row(children: [
+          Icon(Icons.confirmation_number_outlined,
+              color: ColorConstant.gold, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Text(
+                  "You hold $n ticket${n == 1 ? '' : 's'} for this event · "
+                  "you can't buy it twice.",
+                  style: sahraText(size: 13.5, height: 1.4))),
+        ]),
+      );
+    });
+  }
+
+  /// "Remind me" icon-button (spec 24).
+  Widget _remindRow() {
+    return Obx(() => GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: controller.toggleRemind,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: Row(children: [
+              Icon(
+                  controller.reminded.value
+                      ? Icons.notifications_active_rounded
+                      : Icons.notifications_none_rounded,
+                  color: ColorConstant.gold,
+                  size: 20),
+              const SizedBox(width: 10),
+              Text(
+                  controller.reminded.value
+                      ? 'We’ll remind you, you’re on the list'
+                      : 'Remind me',
+                  style: sahraText(
+                      color: ColorConstant.gold,
+                      size: 14,
+                      weight: FontWeight.w600)),
+            ]),
+          ),
+        ));
   }
 
   Widget _titleBlock() {
@@ -251,9 +353,10 @@ class EventDetailView extends GetView<EventDetailController> {
   }
 
   Widget _dateRow() {
-    final dt = DateTime.tryParse(controller.startsAtText)?.toLocal();
-    final month = dt == null ? '—' : DateFormat('MMM').format(dt);
-    final day = dt == null ? '—' : DateFormat('d').format(dt);
+    final dt = parseEventDateTime(controller.startsAtText,
+        controller.event['venueTimezone']?.toString());
+    final month = dt == null ? '-' : DateFormat('MMM').format(dt);
+    final day = dt == null ? '-' : DateFormat('d').format(dt);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -270,8 +373,13 @@ class EventDetailView extends GetView<EventDetailController> {
                 style: sahraText(size: 15, weight: FontWeight.w600),
               ),
               const SizedBox(height: 3),
-              Text('Add to calendar',
-                  style: sahraText(color: ColorConstant.nightMuted, size: 12)),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _addToCalendar,
+                child: Text('Add to calendar',
+                    style:
+                        sahraText(color: ColorConstant.nightMuted, size: 12)),
+              ),
             ],
           ),
         ),
@@ -321,6 +429,36 @@ class EventDetailView extends GetView<EventDetailController> {
     );
   }
 
+  Future<void> _addToCalendar() async {
+    final start = DateTime.tryParse(
+        controller.event['startsAt']?.toString() ?? '');
+    if (start == null) {
+      CustomSnackBar.showCustomErrorToast(
+          message: 'Date not available yet');
+      return;
+    }
+    final end = DateTime.tryParse(
+            controller.event['endsAt']?.toString() ?? '') ??
+        start.add(const Duration(hours: 3));
+    String stamp(DateTime d) =>
+        DateFormat("yyyyMMdd'T'HHmmss'Z'").format(d.toUtc());
+    final uri = Uri.https('calendar.google.com', '/calendar/render', {
+      'action': 'TEMPLATE',
+      'text': controller.titleText,
+      'dates': '${stamp(start)}/${stamp(end)}',
+      if (controller.locationText.isNotEmpty)
+        'location': controller.locationText,
+      if ((controller.event['description']?.toString() ?? '').isNotEmpty)
+        'details': controller.event['description'].toString(),
+    });
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      CustomSnackBar.showCustomErrorToast(
+          message: 'Could not open calendar');
+    }
+  }
+
   Future<void> _openDirections(String location) async {
     final uri = Uri.parse(
         'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(location)}');
@@ -334,7 +472,7 @@ class EventDetailView extends GetView<EventDetailController> {
   Widget _tierCard(Map<String, dynamic> tier) {
     final id = tier['id']?.toString() ?? '';
     final remaining = controller.tierRemaining(tier);
-    final maxCount = remaining < 10 ? remaining : 10;
+    final maxCount = remaining < 6 ? remaining : 6;
     final soldOut = remaining <= 0;
     final priceLabel = _tierPriceLabel(tier);
     return Obx(() {
@@ -390,6 +528,7 @@ class EventDetailView extends GetView<EventDetailController> {
                     icon: Icons.remove_rounded,
                     enabled: count > 0 && !soldOut,
                     filled: false,
+                    semanticsLabel: 'Decrease ticket quantity',
                     onTap: () => controller.adjustTier(id, -1, maxCount),
                   ),
                   Padding(
@@ -401,12 +540,15 @@ class EventDetailView extends GetView<EventDetailController> {
                     icon: Icons.add_rounded,
                     enabled: count < maxCount && !soldOut,
                     filled: true,
+                    semanticsLabel: 'Increase ticket quantity',
                     onTap: () => controller.adjustTier(id, 1, maxCount),
                   ),
                 ],
               ),
               if (soldOut) ...[
                 const SizedBox(height: 10),
+                _remindButton(tier),
+                const SizedBox(height: 6),
                 _setPriceButton(tier),
               ],
             ],
@@ -421,7 +563,7 @@ class EventDetailView extends GetView<EventDetailController> {
     final cents = tier['priceCents'];
     if (cents is num) return controller.moneyCents(cents);
     if (price is num) return controller.moneyDollars(price);
-    return '—';
+    return '-';
   }
 
   int _tierPriceCents(Map<String, dynamic> tier) {
@@ -439,7 +581,7 @@ class EventDetailView extends GetView<EventDetailController> {
         children: [
           Text('Resale', style: sahraText(size: 15, weight: FontWeight.w700)),
           const SizedBox(width: 8),
-          Text('cheapest first',
+          Text('Cheapest available now',
               style: sahraText(color: ColorConstant.nightMuted, size: 12)),
         ],
       ),
@@ -461,7 +603,7 @@ class EventDetailView extends GetView<EventDetailController> {
     final cents = listing['priceCents'];
     final price = cents is num
         ? formatMoney(cents, listing['currency']?.toString())
-        : '—';
+        : '-';
     final tier = listing['tierName']?.toString() ?? 'Resale ticket';
     return Obx(() {
       final isSelected = controller.selectedListingCode.value == code;
@@ -546,9 +688,14 @@ class EventDetailView extends GetView<EventDetailController> {
     required IconData icon,
     required bool enabled,
     required bool filled,
+    String? semanticsLabel,
     VoidCallback? onTap,
   }) {
-    return GestureDetector(
+    return Semantics(
+      label: semanticsLabel,
+      button: true,
+      enabled: enabled,
+      child: GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: enabled ? onTap : null,
       child: Container(
@@ -571,6 +718,7 @@ class EventDetailView extends GetView<EventDetailController> {
               ? ColorConstant.night
               : (enabled ? ColorConstant.whiteA700 : ColorConstant.white60),
         ),
+        ),
       ),
     );
   }
@@ -584,7 +732,6 @@ class _EventHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = event == null ? null : eventImageUrl(event!);
-    final controller = Get.find<EventDetailController>();
     return SizedBox(
       height: 330,
       width: double.infinity,
@@ -611,32 +758,7 @@ class _EventHero extends StatelessWidget {
                   ColorConstant.night.withValues(alpha: .35),
                   ColorConstant.night,
                 ],
-                stops: const [0, .35, .72, 1],
-              ),
-            ),
-          ),
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Row(
-                children: [
-                  SahraIconAction(
-                    icon: Icons.arrow_back_ios_new_rounded,
-                    onTap: Get.back,
-                  ),
-                  const Spacer(),
-                  Obx(() => SahraIconAction(
-                        icon: controller.isFavorite.value
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        color: controller.isFavorite.value
-                            ? ColorConstant.gold
-                            : ColorConstant.whiteA700,
-                        onTap: () => controller.isFavorite.value =
-                            !controller.isFavorite.value,
-                      )),
-                ],
+                stops: const [0, 0.35, .72, 1],
               ),
             ),
           ),
@@ -657,6 +779,42 @@ class _EventHero extends StatelessWidget {
       child: Center(
         child: Icon(Icons.music_note_rounded,
             size: 72, color: ColorConstant.gold.withValues(alpha: .45)),
+      ),
+    );
+  }
+}
+
+class _HeroActions extends GetWidget<EventDetailController> {
+  const _HeroActions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+            16, MediaQuery.viewPaddingOf(context).top + 8, 16, 0),
+        child: Row(
+          children: [
+            SahraIconAction(
+              icon: Icons.arrow_back_ios_new_rounded,
+              onTap: () => Get.back(closeOverlays: true),
+            ),
+            const Spacer(),
+            Obx(() => SahraIconAction(
+                  icon: controller.isFavorite.value
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  color: controller.isFavorite.value
+                      ? ColorConstant.gold
+                      : ColorConstant.whiteA700,
+                  onTap: () => controller.isFavorite.value =
+                      !controller.isFavorite.value,
+                )),
+          ],
+        ),
       ),
     );
   }
@@ -692,7 +850,7 @@ class _VenueSections extends GetWidget<EventDetailController> {
                       Text('Reserved seating',
                           style: sahraText(size: 15, weight: FontWeight.w700)),
                       const SizedBox(height: 2),
-                      Text('Pick a section — seats are held at checkout',
+                      Text('Pick a section, seats are held at checkout',
                           style: sahraText(
                               color: ColorConstant.nightMuted, size: 12)),
                     ],
@@ -703,8 +861,7 @@ class _VenueSections extends GetWidget<EventDetailController> {
           ),
           const SizedBox(height: 12),
           _mapPreview(sections),
-          const SizedBox(height: 12),
-          ...sections.map(_sectionCard),
+          const SizedBox(height: 12), ...sections.map(_sectionCard),
         ],
       );
     });
@@ -775,7 +932,7 @@ class _VenueSections extends GetWidget<EventDetailController> {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 14),
                     child: Text(
-                      'Seat map unavailable — Sahra assigns seats in this section at checkout.',
+                      'Seat map unavailable · Sahra assigns seats in this section at checkout.',
                       style: sahraText(
                           color: ColorConstant.nightMuted,
                           size: 12,
