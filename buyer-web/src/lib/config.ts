@@ -44,3 +44,10 @@ export const ALL_IN_PRICING = true;
  * change of holder. Time-based rotating QR (option c) is deferred to launch.
  */
 export const QR_ROTATES_BY_TIME = false;
+
+// TODO(decision-20): invite abuse. Recommended default: a "Report" affordance
+// on every invite page plus send limits (limits are server-side).
+export const INVITE_REPORT_BUTTON = true;
+
+// Rule I5: plus-ones are 0–2 when the host allows them.
+export const MAX_PLUS_ONES = 2;

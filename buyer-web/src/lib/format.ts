@@ -93,3 +93,63 @@ export function initials(firstName?: string, lastName?: string, email?: string):
   if (a || b) return (a + b).toUpperCase();
   return (email ?? '?').charAt(0).toUpperCase();
 }
+
+/** Venue-time display (AGENTS invariant): times are UTC + venue IANA tz. */
+export function inTz(
+  iso: string | null | undefined,
+  tz: string | null | undefined,
+  opts: Intl.DateTimeFormatOptions
+): string {
+  const d = parseIso(iso);
+  if (!d) return '';
+  try {
+    return d.toLocaleString('en-GB', { ...opts, timeZone: tz || undefined });
+  } catch {
+    return d.toLocaleString('en-GB', opts);
+  }
+}
+
+export function venueDate(iso: string | null | undefined, tz?: string | null): string {
+  return inTz(iso, tz, { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+export function venueTime(iso: string | null | undefined, tz?: string | null): string {
+  return inTz(iso, tz, { hour: 'numeric', minute: '2-digit' });
+}
+
+export function venueDateTime(iso: string | null | undefined, tz?: string | null): string {
+  if (!iso) return '';
+  return `${venueDate(iso, tz)} · ${venueTime(iso, tz)}`;
+}
+
+/** YYYY-MM-DD of an instant in a given zone (for the Pick-a-night strip). */
+export function venueDayKey(iso: string | null | undefined, tz?: string | null): string {
+  const d = parseIso(iso);
+  if (!d) return '';
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz || undefined,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(d);
+  } catch {
+    return d.toISOString().slice(0, 10);
+  }
+}
+
+export function formatMinor(m: { amount_minor: number; currency: string } | null | undefined): string {
+  if (!m) return '';
+  return formatMoney(m.amount_minor, m.currency);
+}
+
+export function displayName(u: { name?: string; firstName?: string; lastName?: string; email?: string | null; phone?: string | null } | null | undefined): string {
+  if (!u) return '';
+  return u.name?.trim() || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.phone || '';
+}
+
+export function nameInitials(name: string | null | undefined): string {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  return (parts[0].charAt(0) + (parts[1]?.charAt(0) ?? '')).toUpperCase();
+}

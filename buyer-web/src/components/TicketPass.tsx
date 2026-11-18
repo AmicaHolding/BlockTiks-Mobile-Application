@@ -59,7 +59,7 @@ export default function TicketPass({
       setError('Phone transfers aren’t supported yet, send to their Sahra account email.');
       return;
     }
-    if (user && to.toLowerCase() === user.email.toLowerCase()) {
+    if (user?.email && to.toLowerCase() === user.email.toLowerCase()) {
       setError('That’s you, send it to a friend instead.');
       return;
     }

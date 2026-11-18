@@ -1,17 +1,21 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { api, setRefreshToken, setToken, type User } from '../lib/api';
+import { api, type User } from '../lib/api';
 import { STUDIO_URL } from '../lib/config';
-import { initials } from '../lib/format';
+import { displayName, nameInitials } from '../lib/format';
+import { useAuth } from '../lib/auth';
+import { useHost } from './HostFlow';
 import { BellIcon, GlobeIcon, SearchIcon } from './icons';
 
 const NAV = [
   { to: '/', label: 'Events', end: true },
-  { to: '/tickets', label: 'My tickets', end: false },
+  { to: '/plans', label: 'Plans', end: false },
 ];
 
 export default function SiteHeader({ user }: { user: User | null }) {
   const navigate = useNavigate();
+  const { requireAuth, logout } = useAuth();
+  const { openHost } = useHost();
   const { pathname } = useLocation();
   // Prototype hides the nav search on fHome, the hero carries its own.
   const navSearch = pathname !== '/';
@@ -48,16 +52,9 @@ export default function SiteHeader({ user }: { user: User | null }) {
     document.documentElement.lang = next ? 'ar' : 'en';
   }
 
-  async function handleLogout() {
-    try {
-      await api.logout();
-    } catch {
-      // token is cleared locally regardless
-    }
-    setToken(null);
-    setRefreshToken(null);
+  function handleLogout() {
+    logout();
     navigate('/');
-    window.location.reload();
   }
 
   return (
@@ -76,12 +73,12 @@ export default function SiteHeader({ user }: { user: User | null }) {
           }}
         >
           <div className="relative">
-            <SearchIcon size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-night-muted" />
+            <SearchIcon size={17} className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-night-muted" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search events, venues, artists"
-              className="h-11 w-full rounded-xl border-2 border-night-surface bg-night-surface pl-10 pr-4 text-[15px] text-sand outline-none transition placeholder:text-night-muted focus:border-gold"
+              className="h-11 w-full rounded-xl border-2 border-night-surface bg-night-surface ps-10 pe-4 text-[15px] text-sand outline-none transition placeholder:text-night-muted focus:border-gold"
             />
           </div>
         </form>
@@ -95,6 +92,12 @@ export default function SiteHeader({ user }: { user: User | null }) {
               key={item.to}
               to={item.to}
               end={item.end}
+              onClick={(e) => {
+                if (!user && item.to === '/plans') {
+                  e.preventDefault();
+                  requireAuth('plans', () => navigate('/plans'));
+                }
+              }}
               className={({ isActive }) =>
                 `transition ${isActive ? 'text-gold' : 'text-sand/85 hover:text-sand'}`
               }
@@ -118,14 +121,13 @@ export default function SiteHeader({ user }: { user: User | null }) {
             </Link>
           ) : null}
 
-          <a
-            href={STUDIO_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="hidden rounded-full border-[1.5px] border-night-border px-4 py-2 text-sm text-sand transition hover:bg-night-surface md:inline-block"
+          <button
+            type="button"
+            onClick={() => openHost()}
+            className="rounded-full border-[1.5px] border-night-border px-4 py-2 text-sm text-sand transition hover:bg-night-surface"
           >
-            Host events
-          </a>
+            + Host
+          </button>
 
           <button
             type="button"
@@ -144,9 +146,12 @@ export default function SiteHeader({ user }: { user: User | null }) {
                 aria-label="Account menu"
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-gold text-[14px] font-extrabold text-night"
               >
-                {initials(user.firstName, user.lastName, user.email)}
+                {nameInitials(displayName(user))}
               </button>
-              <div className="invisible absolute right-0 top-11 w-48 rounded-2xl border border-night-border bg-night-elevated p-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100">
+              <div className="invisible absolute end-0 top-11 w-48 rounded-2xl border border-night-border bg-night-elevated p-2 opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100">
+                <Link to="/tickets" className="block rounded-xl px-3 py-2 text-sm text-sand hover:bg-night-surface">
+                  My tickets
+                </Link>
                 <Link to="/account" className="block rounded-xl px-3 py-2 text-sm text-sand hover:bg-night-surface">
                   Account
                 </Link>
@@ -161,7 +166,7 @@ export default function SiteHeader({ user }: { user: User | null }) {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="block w-full rounded-xl px-3 py-2 text-left text-sm text-sand hover:bg-night-surface"
+                  className="block w-full rounded-xl px-3 py-2 text-start text-sm text-sand hover:bg-night-surface"
                 >
                   Sign out
                 </button>
@@ -170,7 +175,7 @@ export default function SiteHeader({ user }: { user: User | null }) {
           ) : (
             <button
               type="button"
-              onClick={() => navigate('/login')}
+              onClick={() => requireAuth('menu')}
               className="rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-night transition hover:brightness-95"
             >
               Sign in

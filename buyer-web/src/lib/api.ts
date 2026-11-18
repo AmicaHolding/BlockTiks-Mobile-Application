@@ -123,9 +123,12 @@ async function request<T>(path: string, options: RequestInit = {}, retried = fal
 
 export interface User {
   id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
+  // v2 (02-api): contact is email OR phone; name is the only required field.
+  email?: string | null;
+  name?: string;
+  intent?: Intent[];
+  firstName?: string;
+  lastName?: string;
   phone?: string;
   avatarUrl?: string;
   firstNameAr?: string;
@@ -137,7 +140,7 @@ export interface User {
   referralCode?: string;
   referredByCode?: string;
   referralCount?: number;
-  role: 'fan' | 'creator' | 'admin' | string;
+  role?: 'fan' | 'creator' | 'admin' | string;
 }
 
 export interface Tier {
@@ -373,45 +376,38 @@ export interface Faq {
 // ---- API ----
 
 export const api = {
-  // auth
-  async signup(input: {
-    firstName: string;
-    lastName?: string;
-    email: string;
-    phone?: string;
-    password: string;
-    referralCode?: string;
-  }): Promise<AuthResponse> {
-    const res = await request<AuthResponse>('/auth/signup', {
+  // auth (v2, rule A1): phone or email + 6-digit code. No passwords.
+  otpStart(contact: string) {
+    return request<OtpStart>('/auth/otp/start', {
       method: 'POST',
-      body: JSON.stringify(input),
+      body: JSON.stringify({ contact }),
     });
-    setRefreshToken(res.refreshToken);
-    setStoredReferralCode(null);
-    return res;
   },
-  async login(email: string, password: string): Promise<AuthResponse> {
-    const res = await request<AuthResponse>('/auth/login', {
+  otpVerify(challenge_id: string, code: string) {
+    return request<OtpVerify>('/auth/otp/verify', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ challenge_id, code }),
     });
-    setRefreshToken(res.refreshToken);
-    return res;
   },
+  // Assumption: the contract has no explicit read-me call; the existing
+  // `GET /auth/me` returns `{user}`.
   me() {
     return request<{ user: User }>('/auth/me');
   },
-  updateProfile(fields: Partial<User>) {
-    return request<{ user: User }>('/auth/me', {
+  /** `PATCH /me` returns `user` (02-api). */
+  updateProfile(fields: Partial<User> & { name?: string; intent?: Intent[] }) {
+    return request<User | { user: User }>('/me', {
       method: 'PATCH',
       body: JSON.stringify(fields),
-    });
+    }).then(unwrapUser);
   },
-  changePassword(currentPassword: string, newPassword: string) {
-    return request<{ ok?: boolean }>('/auth/change-password', {
-      method: 'POST',
-      body: JSON.stringify({ currentPassword, newPassword }),
-    });
+  sessions() {
+    return request<MeSession[] | { sessions: MeSession[] }>('/me/sessions').then((r) =>
+      Array.isArray(r) ? r : r.sessions ?? []
+    );
+  },
+  endSession(id: string) {
+    return request<null>(`/me/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
   async logout() {
     const refreshToken = getRefreshToken();
@@ -424,17 +420,6 @@ export const api = {
     } catch {
       // best effort
     }
-  },
-  verifyEmailRequest() {
-    return request<{ ok: boolean; alreadyVerified?: boolean }>('/auth/verify-email/request', {
-      method: 'POST',
-    });
-  },
-  verifyEmailConfirm(token: string) {
-    return request<{ ok: boolean; user: User }>('/auth/verify-email/confirm', {
-      method: 'POST',
-      body: JSON.stringify({ token }),
-    });
   },
 
   // events (public)
@@ -687,4 +672,233 @@ export const api = {
   faqs() {
     return request<{ categories: { name: string; faqs: Faq[] }[] }>('/faqs');
   },
+
+  // ---- v2 discovery / invites / plans (02-api) ----
+  home(city?: string) {
+    const qs = city ? `?city=${encodeURIComponent(city)}` : '';
+    return request<HomeResponse>(`/home${qs}`);
+  },
+  invite(code: string) {
+    return request<InvitePageResponse>(`/invites/${encodeURIComponent(code)}`);
+  },
+  createInvite(body: NewInviteBody) {
+    return request<{ invite: Invite; link: string }>('/invites', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
+  rsvp(inviteId: string, status: RsvpStatus, plus_ones = 0) {
+    // Capacity-bound (I4), so treated as an inventory POST.
+    return request<{ rsvp: InviteRsvp }>(`/invites/${encodeURIComponent(inviteId)}/rsvp`, {
+      method: 'POST',
+      headers: idempotencyHeaders(),
+      body: JSON.stringify({ status, plus_ones }),
+    });
+  },
+  inviteGuests(inviteId: string) {
+    return request<InviteGuests>(`/invites/${encodeURIComponent(inviteId)}/guests`);
+  },
+  decideRsvp(inviteId: string, userId: string, approve: boolean) {
+    return request<InviteRsvp>(
+      `/invites/${encodeURIComponent(inviteId)}/rsvps/${encodeURIComponent(userId)}/decision`,
+      { method: 'POST', body: JSON.stringify({ approve }) }
+    );
+  },
+  messageGuests(inviteId: string, body: string) {
+    return request<{ recipients: number }>(`/invites/${encodeURIComponent(inviteId)}/updates`, {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    });
+  },
+  cancelInvite(inviteId: string) {
+    return request<Invite>(`/invites/${encodeURIComponent(inviteId)}/cancel`, { method: 'POST' });
+  },
+  // TODO(decision-20): report button on every invite page. Not in 02-api yet;
+  // the brief names `POST /invites/{id}/report`.
+  reportInvite(inviteId: string, reason?: string) {
+    return request<null>(`/invites/${encodeURIComponent(inviteId)}/report`, {
+      method: 'POST',
+      body: JSON.stringify(reason ? { reason } : {}),
+    });
+  },
+  plans() {
+    return request<PlansResponse>('/me/plans');
+  },
 };
+
+// ---- v2 types (designs/handoff/01-data-model.md + 02-api.md) ----
+
+export type Intent = 'going_out' | 'hosting_friends' | 'running_events';
+
+export interface Money {
+  amount_minor: number;
+  currency: string;
+}
+
+export interface Membership {
+  org?: { id: string; name: string } | null;
+  org_id?: string;
+  role: 'admin' | 'cohost' | 'gate' | string;
+  event_scope?: string[] | null;
+  verification_status?: string;
+}
+
+export interface OtpStart {
+  challenge_id: string;
+  channel: 'sms' | 'whatsapp' | 'email' | string;
+  resend_after: number | string;
+}
+
+export interface OtpVerify {
+  token: string;
+  user: User;
+  is_new: boolean;
+  memberships: Membership[];
+  landing: string | { mode?: string; org_id?: string; screen?: string } | null;
+  refreshToken?: string;
+}
+
+export interface MeSession {
+  id: string;
+  device?: string;
+  created_at?: string;
+  last_seen_at?: string;
+  current?: boolean;
+}
+
+/** `EventCard` as returned by /home and /feed. The contract leaves the card
+ *  shape open, so both the v2 snake_case and the current camelCase fields are
+ *  read. */
+export interface EventCardData {
+  id: string;
+  title: string;
+  category?: string;
+  starts_at?: string;
+  startsAt?: string;
+  tz?: string;
+  venue_timezone?: string;
+  venueTimezone?: string;
+  venue?: { name?: string; timezone?: string } | string | null;
+  location?: string;
+  about?: string;
+  description?: string;
+  cover_url?: string;
+  imageUrl?: string;
+  currency?: string;
+  status?: string;
+  state?: string;
+  from_price?: Money | null;
+  fromPriceCents?: number | null;
+  left?: number | null;
+  sold_out?: boolean;
+  tiers?: Tier[];
+}
+
+export interface HomeResponse {
+  featured: EventCardData[];
+  days: { date: string; count: number }[];
+  categories: { name: string; count: number }[];
+  lineup: EventCardData[];
+}
+
+export interface Invite {
+  id: string;
+  code: string;
+  host_user_id?: string;
+  title: string;
+  starts_at: string;
+  tz?: string;
+  place_text?: string;
+  area?: string;
+  cover?: string | null;
+  note?: string;
+  approve_guests: boolean;
+  allow_plus_ones: boolean;
+  guest_cap?: number | null;
+  show_guest_list: boolean;
+  hide_address_until_going: boolean;
+  status: 'active' | 'cancelled' | 'moved' | string;
+  moved_to_event_id?: string;
+}
+
+export type RsvpStatus = 'going' | 'maybe' | 'no' | 'requested' | 'declined';
+
+export interface InviteRsvp {
+  invite_id?: string;
+  user_id?: string;
+  name?: string;
+  status: RsvpStatus;
+  plus_ones: number;
+  checked_in_at?: string | null;
+}
+
+export interface InvitePageResponse extends Partial<Invite> {
+  invite?: Invite;
+  host: { name: string; initials: string };
+  counts?: Partial<Record<'going' | 'maybe' | 'requested' | 'no', number>> & { plus_ones?: number };
+  faces?: (string | { initials?: string; name?: string })[];
+  updates?: { id?: string; body: string; sent_at: string }[];
+  my_rsvp?: InviteRsvp | null;
+  is_host?: boolean;
+}
+
+export interface NewInviteBody {
+  title: string;
+  starts_at: string;
+  place_text: string;
+  cover: string | null;
+  note: string;
+  approve_guests: boolean;
+  allow_plus_ones: boolean;
+  guest_cap: number | null;
+  show_guest_list: boolean;
+  hide_address_until_going: boolean;
+}
+
+export interface InviteGuests {
+  going: InviteRsvp[];
+  maybe: InviteRsvp[];
+  requested: InviteRsvp[];
+  no: InviteRsvp[];
+  checked_in: number | InviteRsvp[];
+}
+
+export interface PlanItem {
+  kind: 'ticket' | 'rsvp' | 'hosting';
+  starts_at: string;
+  tz?: string;
+  title?: string;
+  event_id?: string;
+  event?: EventCardData;
+  invite?: Partial<Invite>;
+  code?: string;
+  status?: string;
+  qty?: number;
+  tier?: string;
+  place_text?: string;
+  venue?: string;
+  counts?: InvitePageResponse['counts'];
+}
+
+export interface PriceWatch {
+  id: string;
+  event_id: string;
+  tier_id?: string;
+  event?: EventCardData;
+  tier?: string;
+  qty: number;
+  max_each?: Money;
+  max_each_minor?: number;
+  status: string;
+}
+
+export interface PlansResponse {
+  waiting_on_you: (Partial<Invite> & { host?: { name: string; initials?: string } })[];
+  upcoming: PlanItem[];
+  waiting: PriceWatch[];
+  past: PlanItem[];
+}
+
+function unwrapUser(r: User | { user: User }): User {
+  return 'user' in r && r.user ? r.user : (r as User);
+}

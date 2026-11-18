@@ -1,349 +1,256 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import type { SahraEvent } from '../lib/api';
-import { fetchAvailableEvents } from '../lib/events';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { ApiError, api, type EventCardData, type HomeResponse } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { STUDIO_URL } from '../lib/config';
-import { formatEventDate, formatMoney, isThisWeekend } from '../lib/format';
-import EventCard, { eventSoldOut, lowestPrice } from '../components/EventCard';
+import { cardImage, cardPrice, cardStart, cardTz, cardVenue } from '../lib/cards';
+import { inTz, venueDateTime, venueDayKey } from '../lib/format';
+import { EVENT_MEDIA_GRADIENT } from '../components/EventCard';
+import LineupCard from '../components/LineupCard';
+import { useHost } from '../components/HostFlow';
 import { EmptyState, Spinner } from '../components/ui';
-import { SearchIcon, TicketIcon } from '../components/icons';
+import { SearchIcon } from '../components/icons';
 
-const CITY_CHIPS = ['Dubai', 'Abu Dhabi', 'Riyadh', 'Doha'];
-const CITY_KEY = 'sahra_home_city';
-const DEFAULT_CATEGORIES = ['Concerts', 'Comedy', 'Festivals', 'Football', 'Theatre', 'Nightlife', 'Arts'];
-// data-rise stagger from the prototype: 80 + i*90 ms
-const RISE = [80, 170, 260, 350];
+const CITIES = ['Dubai', 'Abu Dhabi', 'Riyadh', 'Jeddah', 'Doha', 'Manama'];
+const HERO_MS = 6500;
 
-function calm(): boolean {
-  return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function Hero({ featured }: { featured: EventCardData[] }) {
+  const [i, setI] = useState(0);
+  const items = featured.slice(0, 3);
+  useEffect(() => {
+    if (items.length < 2) return;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) return;
+    const t = window.setInterval(() => setI((n) => (n + 1) % items.length), HERO_MS);
+    return () => window.clearInterval(t);
+  }, [items.length]);
+  if (!items.length) return null;
+  const e = items[Math.min(i, items.length - 1)];
+  const img = cardImage(e);
+  return (
+    <section className="relative overflow-hidden rounded-card bg-night-deep">
+      <div className={`absolute inset-0 bg-gradient-to-br ${EVENT_MEDIA_GRADIENT}`}>
+        {img ? <img src={img} alt="" className="h-full w-full object-cover opacity-60" /> : null}
+      </div>
+      <div className="absolute inset-0 bg-gradient-to-t from-night via-night/60 to-transparent" />
+      <div className="relative flex min-h-[380px] flex-col justify-end p-6 sm:min-h-[440px] sm:p-10">
+        <span className="text-xs font-bold uppercase tracking-[0.2em] text-gold">Featured · {e.category}</span>
+        <h1 className="mt-2 max-w-2xl font-display text-4xl font-extrabold leading-tight text-sand sm:text-5xl">{e.title}</h1>
+        <p className="mt-2 text-sm text-sand/80">
+          {[venueDateTime(cardStart(e), cardTz(e)), cardVenue(e)].filter(Boolean).join(' · ')}
+        </p>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <Link to={`/events/${e.id}`} className="rounded-full bg-gold px-6 py-3 text-sm font-bold text-night hover:brightness-95">
+            Get tickets
+          </Link>
+          {cardPrice(e) ? <span className="text-sm font-semibold text-sand">{cardPrice(e)}</span> : null}
+        </div>
+        {items.length > 1 ? (
+          <div className="mt-6 flex gap-2" role="tablist" aria-label="Featured events">
+            {items.map((it, n) => (
+              <button
+                key={it.id}
+                type="button"
+                role="tab"
+                aria-selected={n === i}
+                aria-label={it.title}
+                onClick={() => setI(n)}
+                className={`h-1.5 rounded-full transition-all ${n === i ? 'w-10 bg-gold' : 'w-5 bg-sand/30 hover:bg-sand/50'}`}
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
 }
 
+/** v2 front door: `GET /home?city=` (02-api). Works signed out (A8). */
 export default function HomePage() {
   const { user } = useAuth();
+  const { openHost } = useHost();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const [events, setEvents] = useState<SahraEvent[]>([]);
+  const city = params.get('city') ?? user?.city ?? 'Dubai';
+  const [data, setData] = useState<HomeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const allRef = useRef<HTMLDivElement>(null);
-  const bandRef = useRef<HTMLElement>(null);
-  const [bandRevealed, setBandRevealed] = useState(false);
-  // First mount → weekend section rises at 520ms; later city changes → 450ms slide.
-  const mounted = useRef(false);
-  useEffect(() => {
-    mounted.current = true;
-  }, []);
-
-  const category = params.get('category') ?? 'All';
-  const q = (params.get('q') ?? '').trim();
-  const [heroInput, setHeroInput] = useState(q);
-
-  // fcity, city chips are defined-but-unrendered in the prototype model;
-  // we render them alongside the category chips in the all-events header.
-  const [citySel, setCitySel] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem(CITY_KEY);
-    } catch {
-      return null;
-    }
-  });
-  const city = citySel ?? user?.city ?? 'Dubai';
-  const noCityEvents = city !== 'Dubai';
-
-  function pickCity(name: string) {
-    setCitySel(name);
-    try {
-      localStorage.setItem(CITY_KEY, name);
-    } catch {
-      /* best effort */
-    }
-  }
-
-  useEffect(() => setHeroInput(q), [q]);
+  const [day, setDay] = useState<string | null>(null);
+  const [category, setCategory] = useState<string | null>(null);
+  const [q, setQ] = useState('');
 
   useEffect(() => {
-    let active = true;
-    fetchAvailableEvents({ limit: 100 })
-      .then((events) => {
-        if (active) setEvents(events);
-      })
-      .catch((e) => {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load events');
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    let live = true;
+    setLoading(true);
+    setError(null);
+    api
+      .home(city)
+      .then((res) => live && setData(res))
+      .catch((e) => live && setError(e instanceof ApiError ? e.message : 'Could not load events'))
+      .finally(() => live && setLoading(false));
     return () => {
-      active = false;
+      live = false;
     };
-  }, []);
+  }, [city]);
 
-  // IntersectionObserver reveal on the hosting band (threshold .25, proto watchBand).
-  useEffect(() => {
-    const el = bandRef.current;
-    if (!el || calm() || !('IntersectionObserver' in window)) {
-      setBandRevealed(true);
-      return;
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setBandRevealed(true);
-          io.disconnect();
-        }
-      },
-      { threshold: 0.25 }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
+  const days = data?.days ?? [];
+  const categories = (data?.categories ?? []).filter((c) => c.count > 0);
 
-  const categories = useMemo(() => {
-    const set = new Set(DEFAULT_CATEGORIES);
-    for (const e of events) if (e.category) set.add(e.category);
-    return ['All', ...set];
-  }, [events]);
+  const lineup = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return (data?.lineup ?? []).filter((e) => {
+      if (day && venueDayKey(cardStart(e), cardTz(e)) !== day) return false;
+      if (category && (e.category ?? '').toLowerCase() !== category.toLowerCase()) return false;
+      if (needle && !`${e.title} ${cardVenue(e)} ${e.category ?? ''}`.toLowerCase().includes(needle)) return false;
+      return true;
+    });
+  }, [data, day, category, q]);
 
-  const filtered = useMemo(() => {
-    const needle = q.toLowerCase();
-    return events.filter(
-      (e) =>
-        (category === 'All' || e.category === category) &&
-        (!needle || `${e.title} ${e.category} ${e.location}`.toLowerCase().includes(needle))
-    );
-  }, [events, category, q]);
-
-  // "This weekend in {city}" · Dubai only, no query, All category.
-  // Up to 3 in-stock weekend events, leaving at least one in the grid.
-  const weekend = useMemo(() => {
-    if (city !== 'Dubai' || q || category !== 'All') return [];
-    const pool = filtered.filter((e) => !eventSoldOut(e) && isThisWeekend(e.startsAt));
-    return pool.slice(0, Math.max(0, Math.min(3, filtered.length - 1)));
-  }, [filtered, city, q, category]);
-
-  const weekendIds = useMemo(() => new Set(weekend.map((e) => e.id)), [weekend]);
-  const gridEvents = filtered.filter((e) => !weekendIds.has(e.id));
-  const allTitle = q ? 'Results' : weekend.length ? 'More events' : 'All events';
-
-  function setParam(key: string, value: string | null) {
-    const next = new URLSearchParams(params);
-    if (value == null || value === '' || value === 'All') next.delete(key);
-    else next.set(key, value);
-    setParams(next, { replace: true });
-  }
-
-  function heroSearch() {
-    setParam('q', heroInput.trim() || null);
-    allRef.current?.scrollIntoView({ behavior: calm() ? 'auto' : 'smooth', block: 'start' });
+  function onSearch(e: FormEvent) {
+    e.preventDefault();
+    if (q.trim()) navigate(`/search?q=${encodeURIComponent(q.trim())}`);
   }
 
   return (
-    <div className="flex flex-col pb-0">
-      {/* hero */}
-      <section className="relative isolate overflow-hidden border-b border-night-surface px-6 pb-14 pt-[72px] text-center lg:px-8">
-        <div className="mx-auto flex max-w-[760px] flex-col items-center gap-[22px]">
-          <span
-            className="sahra-rise text-xs font-semibold uppercase tracking-[0.16em] text-gold"
-            style={{ '--rise-delay': `${RISE[0]}ms` } as CSSProperties}
-          >
-            Tickets across the Gulf
-          </span>
-          <h1
-            className="sahra-rise font-display text-[40px] font-extrabold leading-[1.02] tracking-[-0.035em] text-sand sm:text-[56px]"
-            style={{ '--rise-delay': `${RISE[1]}ms` } as CSSProperties}
-          >
-            Every night out, in one place.
-          </h1>
-          <p
-            className="sahra-rise max-w-[520px] text-lg leading-relaxed text-night-subtle"
-            style={{ '--rise-delay': `${RISE[2]}ms` } as CSSProperties}
-          >
-            Concerts, comedy, nightlife and sport across {city}. Buy, send and resell tickets safely.
-          </p>
-          <form
-            className="sahra-rise flex w-full max-w-[620px] items-center gap-2 rounded-full bg-night-surface py-1.5 pl-5 pr-1.5"
-            style={{ '--rise-delay': `${RISE[3]}ms` } as CSSProperties}
-            onSubmit={(e) => {
-              e.preventDefault();
-              heroSearch();
-            }}
-          >
-            <SearchIcon size={17} className="shrink-0 text-night-muted" />
-            <input
-              value={heroInput}
-              onChange={(e) => {
-                setHeroInput(e.target.value);
-                setParam('q', e.target.value.trim() || null);
-              }}
-              placeholder={`Search events in ${city}`}
-              className="min-w-0 flex-1 bg-transparent py-2.5 text-base text-sand outline-none placeholder:text-night-muted"
-            />
+    <div className="mx-auto max-w-6xl space-y-10 px-4 py-6 sm:px-6 sm:py-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-2" aria-label="City">
+          {CITIES.map((c) => (
             <button
-              type="submit"
-              className="shrink-0 rounded-full bg-gold px-[22px] py-3 text-[15px] font-semibold text-night transition hover:brightness-95"
+              key={c}
+              type="button"
+              aria-pressed={c === city}
+              onClick={() => {
+                const next = new URLSearchParams(params);
+                next.set('city', c);
+                setParams(next, { replace: true });
+                setDay(null);
+                setCategory(null);
+              }}
+              className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${c === city ? 'bg-gold text-night' : 'bg-night-surface text-sand/80 hover:bg-night-elevated'}`}
             >
-              Find events
+              {c}
             </button>
-          </form>
+          ))}
         </div>
-      </section>
-
-      <div className="mx-auto w-full max-w-[1440px]">
-        {/* this weekend */}
-        {loading ? (
-          <div className="flex min-h-[40vh] items-center justify-center">
-            <Spinner />
-          </div>
-        ) : error ? (
-          <div className="px-6 py-24 text-center lg:px-8">
-            <EmptyState title="Couldn’t load events">{error}</EmptyState>
-          </div>
-        ) : (
-          <>
-            {weekend.length > 0 ? (
-              <div key={city} className={mounted.current ? 'sahra-city-change' : ''}>
-                <section
-                  className={`flex flex-col gap-5 px-6 pb-2 pt-10 lg:px-8 ${
-                    mounted.current ? '' : 'sahra-city-in'
-                  }`}
-                >
-                  <h2 className="font-display text-3xl font-extrabold tracking-[-0.03em] text-sand">
-                    This weekend in {city}
-                  </h2>
-                  <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
-                    {weekend.map((event) => (
-                      <WeekendCard key={event.id} event={event} />
-                    ))}
-                  </div>
-                </section>
-              </div>
-            ) : null}
-
-            {/* all events */}
-            <section ref={allRef} className="flex scroll-mt-4 flex-col gap-6 px-6 pb-10 pt-10 lg:px-8">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <h2 className="font-display text-3xl font-extrabold tracking-[-0.03em] text-sand">{allTitle}</h2>
-                <div className="flex flex-wrap items-center gap-2">
-                  {CITY_CHIPS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => pickCity(c)}
-                      className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                        city === c
-                          ? 'bg-gold text-night'
-                          : 'border border-night-border bg-transparent text-sand hover:bg-night-surface'
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                  <span className="mx-1 hidden h-6 w-px bg-night-border sm:block" aria-hidden />
-                  {categories.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setParam('category', cat === 'All' ? null : cat)}
-                      className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                        category === cat ? 'bg-gold text-night' : 'bg-night-surface text-sand hover:bg-night-elevated'
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {noCityEvents ? (
-                <div className="flex items-center gap-4 rounded-card border-2 border-dashed border-night-border px-8 py-10 text-night-muted">
-                  <TicketIcon size={28} className="shrink-0 text-night-muted" />
-                  <span>
-                    Nothing on in {city} yet, your city’s sahra is coming.{' '}
-                    <button type="button" onClick={() => pickCity('Dubai')} className="font-semibold text-gold hover:underline">
-                      See what’s on in Dubai
-                    </button>
-                  </span>
-                </div>
-              ) : gridEvents.length === 0 ? (
-                <div className="flex items-center gap-4 rounded-card border-2 border-dashed border-night-border px-8 py-10 text-night-muted">
-                  <TicketIcon size={28} className="shrink-0 text-night-muted" />
-                  <span>
-                    {events.length === 0
-                      ? 'No events yet · Sahra is almost ready. Check back soon for nights out across the region.'
-                      : 'Nothing matches. Try another search or category.'}
-                  </span>
-                </div>
-              ) : (
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {gridEvents.map((event) => (
-                    <EventCard key={event.id} event={event} />
-                  ))}
-                </div>
-              )}
-            </section>
-          </>
-        )}
-
-        {/* hosting band */}
-        <section
-          ref={bandRef}
-          style={!bandRevealed ? { opacity: 0 } : undefined}
-          className={`mx-6 mb-10 flex flex-wrap items-center justify-between gap-6 rounded-[22px] bg-gold px-8 py-7 text-night lg:mx-8 lg:px-9 ${
-            bandRevealed && !calm() ? 'sahra-band-in' : ''
-          }`}
-        >
-          <div className="flex max-w-[560px] flex-col gap-2">
-            <strong className="font-display text-[28px] font-extrabold leading-[1.1] tracking-[-0.03em]">
-              Hosting events?
-            </strong>
-            <span className="text-[15px] leading-relaxed">
-              Sell tickets, control resale and run your door from the same Sahra account.
-            </span>
-          </div>
-          <a
-            href={STUDIO_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-full bg-night px-6 py-3 text-[15px] font-semibold text-gold transition hover:brightness-125"
-          >
-            Start hosting
-          </a>
-        </section>
+        <form onSubmit={onSearch} className="relative w-full sm:w-80">
+          <SearchIcon className="pointer-events-none absolute start-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-night-muted" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search events, venues, artists"
+            aria-label="Search"
+            className="w-full rounded-full border border-night-border bg-night-surface py-2.5 pe-4 ps-10 text-sm text-sand outline-none placeholder:text-night-muted focus:border-gold"
+          />
+        </form>
       </div>
+
+      {loading ? (
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <Spinner />
+        </div>
+      ) : error ? (
+        <EmptyState title="Couldn’t load events">{error}</EmptyState>
+      ) : (
+        <>
+          <Hero featured={data?.featured ?? []} />
+
+          <section aria-labelledby="pick-night">
+            <div className="flex items-end justify-between">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-[0.2em] text-night-muted">The next three weeks</span>
+                <h2 id="pick-night" className="font-display text-2xl font-extrabold text-sand sm:text-3xl">Pick a night.</h2>
+              </div>
+              {day ? (
+                <button type="button" onClick={() => setDay(null)} className="text-sm font-semibold text-gold">
+                  Any night
+                </button>
+              ) : null}
+            </div>
+            <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+              {days.slice(0, 21).map((d) => {
+                const on = d.date === day;
+                const empty = d.count === 0;
+                const noon = `${d.date}T12:00:00Z`;
+                return (
+                  <button
+                    key={d.date}
+                    type="button"
+                    aria-pressed={on}
+                    disabled={empty}
+                    onClick={() => setDay(on ? null : d.date)}
+                    className={`flex w-16 shrink-0 flex-col items-center rounded-xl border py-2.5 transition ${
+                      on
+                        ? 'border-gold bg-gold text-night'
+                        : empty
+                          ? 'border-night-border/40 bg-night-deep text-night-muted/50'
+                          : 'border-night-border bg-night-surface text-sand hover:border-gold/50'
+                    }`}
+                  >
+                    <span className="text-[10px] font-bold uppercase">{inTz(noon, 'UTC', { weekday: 'short' })}</span>
+                    <span className="font-display text-xl font-extrabold leading-tight">{inTz(noon, 'UTC', { day: 'numeric' })}</span>
+                    <span className={`text-[10px] font-semibold ${on ? 'text-night/70' : 'text-night-muted'}`}>
+                      {empty ? '–' : `${d.count}`}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {categories.length ? (
+            <section aria-label="Categories" className="flex flex-wrap gap-2">
+              {categories.map((c) => {
+                const on = category === c.name;
+                return (
+                  <button
+                    key={c.name}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setCategory(on ? null : c.name)}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${on ? 'bg-sand text-night' : 'bg-night-surface text-sand/80 hover:bg-night-elevated'}`}
+                  >
+                    {c.name} <span className={on ? 'text-night/60' : 'text-night-muted'}>{c.count}</span>
+                  </button>
+                );
+              })}
+            </section>
+          ) : null}
+
+          <section aria-labelledby="lineup">
+            <h2 id="lineup" className="font-display text-2xl font-extrabold text-sand">
+              {day ? `On ${inTz(`${day}T12:00:00Z`, 'UTC', { weekday: 'long', day: 'numeric', month: 'short' })}` : `The lineup in ${city}`}
+            </h2>
+            <div className="mt-4 space-y-3">
+              {lineup.length ? (
+                lineup.map((e) => <LineupCard key={e.id} event={e} />)
+              ) : (
+                <EmptyState title="Nothing matches yet">Try another night or category.</EmptyState>
+              )}
+            </div>
+          </section>
+
+          <section className="grid gap-4 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => openHost('personal')}
+              className="rounded-card border border-night-border bg-night-surface p-6 text-start transition hover:border-gold/50"
+            >
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-gold">Hosted by you</span>
+              <div className="mt-2 font-display text-xl font-extrabold text-sand">Having people over?</div>
+              <p className="mt-1 text-sm text-night-muted">Make a free invite, share the link, see who’s coming.</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => openHost('public')}
+              className="rounded-card border border-night-border bg-night-surface p-6 text-start transition hover:border-gold/50"
+            >
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-gold">Hosted by an organisation</span>
+              <div className="mt-2 font-display text-xl font-extrabold text-sand">Selling tickets?</div>
+              <p className="mt-1 text-sm text-night-muted">Open Sahra Studio to build your event and sell tickets.</p>
+            </button>
+          </section>
+        </>
+      )}
     </div>
   );
 }
-
-/* weekend card: 240px, striped cover, bottom gradient overlay */
-function WeekendCard({ event }: { event: SahraEvent }) {
-  const price = lowestPrice(event.tiers);
-  return (
-    <Link
-      to={`/events/${event.id}`}
-      style={{ '--lift': '-6px' } as CSSProperties}
-      className="sahra-card sahra-card-lg group relative block h-72 overflow-hidden rounded-[20px] text-left"
-    >
-      {event.imageUrl ? (
-        <img src={event.imageUrl} alt={event.title} className="absolute inset-0 h-full w-full object-cover" />
-      ) : (
-        <div className={`absolute inset-0 ${STRIPE_BG}`} />
-      )}
-      <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 bg-gradient-to-t from-[#16263bf2] via-[#16263bf2]/60 to-transparent p-5 pt-14">
-        <strong className="font-display text-2xl font-bold tracking-[-0.02em] text-sand group-hover:text-gold">
-          {event.title}
-        </strong>
-        <span className="text-[15px] text-night-subtle">
-          {formatEventDate(event.startsAt)} · {event.location}
-        </span>
-        <span className="tnum text-[15px] font-semibold text-gold">
-          {price != null ? (price === 0 ? 'Free' : `From ${formatMoney(price, event.currency)}`) : 'Tickets'}
-        </span>
-      </div>
-    </Link>
-  );
-}
-
-// Diagonal stripe texture on the Night surface scale (prototype cover treatment).
-const STRIPE_BG =
-  'bg-[repeating-linear-gradient(135deg,#22344d_0_16px,#2a3b52_16px_32px)]';
