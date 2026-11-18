@@ -70,6 +70,44 @@ function HostPanel({ invite, onChanged }: { invite: Invite; onChanged: () => voi
     }
   }
 
+  // I7: move into an org the host admins, then open the draft in Studio.
+  async function sellInstead() {
+    setBusy(true);
+    setNote(null);
+    try {
+      const orgs = (await api.memberships())
+        .filter((m) => m.role === 'admin')
+        .map((m) => ({ id: m.org?.id ?? m.org_id ?? '', name: m.org?.name ?? 'your organisation' }))
+        .filter((o) => o.id);
+      if (!orgs.length) {
+        // Requires admin of an org, or creating one first (I7).
+        window.location.href = `${STUDIO_URL}/setup`;
+        return;
+      }
+      let org = orgs[0];
+      if (orgs.length > 1) {
+        const pick = window.prompt(
+          `Move into which organisation?\n${orgs.map((o, i) => `${i + 1}. ${o.name}`).join('\n')}`,
+          '1'
+        );
+        if (pick == null) return;
+        org = orgs[Math.max(0, Math.min(orgs.length - 1, Number(pick) - 1 || 0))];
+      }
+      if (!window.confirm(`Move “${invite.title}” into ${org.name} as a draft ticketed event? Going guests keep free spots.`)) return;
+      const { event_id } = await api.moveInvite(invite.id, org.id);
+      window.location.href = `${STUDIO_URL}/events/${encodeURIComponent(event_id)}`;
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 404 || e.status === 405 || e.status === 501)) {
+        // Endpoint not live yet: fall back to plain Studio.
+        window.location.href = STUDIO_URL;
+        return;
+      }
+      setNote(e instanceof ApiError && e.code === 'already_moved' ? 'This invite was already moved.' : errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const bucket = (title: string, rows: InviteRsvp[] | undefined, approvable = false) =>
     rows && rows.length ? (
       <div>
@@ -136,9 +174,9 @@ function HostPanel({ invite, onChanged }: { invite: Invite; onChanged: () => voi
         </Button>
       </div>
       <div className="flex flex-wrap gap-2 border-t border-ink/10 pt-4">
-        <a href={STUDIO_URL} className="inline-flex items-center rounded-full border border-ink/20 px-4 py-2 text-sm font-semibold text-ink hover:bg-dune/60">
+        <Button variant="outline" tone="light" disabled={busy} onClick={() => void sellInstead()}>
           Sell tickets instead
-        </a>
+        </Button>
         <Button
           variant="danger"
           disabled={busy}
@@ -166,6 +204,7 @@ export default function InvitePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reported, setReported] = useState(false);
+  const [reportErr, setReportErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -357,16 +396,18 @@ export default function InvitePage() {
               onClick={() =>
                 requireAuth('other', () => {
                   if (!window.confirm('Report this invite to Sahra?')) return;
+                  setReportErr(null);
                   api
                     .reportInvite(invite.id)
                     .then(() => setReported(true))
-                    .catch(() => setReported(true));
+                    .catch((e) => setReportErr(e instanceof ApiError ? e.message : 'Couldn’t send the report. Try again.'));
                 })
               }
               className="text-xs font-semibold text-night-muted underline disabled:no-underline"
             >
               {reported ? 'Thanks, we’ll take a look' : 'Report this invite'}
             </button>
+            {reportErr ? <p role="alert" className="mt-1 text-xs font-semibold text-red-200">{reportErr}</p> : null}
           </div>
         ) : null}
       </div>

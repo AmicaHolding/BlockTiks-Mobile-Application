@@ -25,7 +25,7 @@ const REASON_COPY: Record<SignInReason, string> = {
   other: 'Sign in to continue.',
 };
 
-type Step = 'contact' | 'code' | 'name' | 'intent' | 'city';
+type Step = 'contact' | 'code' | 'name' | 'intent' | 'city' | 'org';
 
 function errorText(e: unknown): string {
   if (!(e instanceof ApiError)) return 'Something went wrong. Try again.';
@@ -145,7 +145,9 @@ export default function SignInModal({
     run(async () => {
       const u = await api.updateProfile({ intent, city, interests });
       setUser(u);
-      finish(verified);
+      // A3: "Running events" leads to a skippable Create organisation step.
+      if (intent.includes('running_events')) setStep('org');
+      else finish(verified);
     });
 
   function submit(e: FormEvent) {
@@ -155,7 +157,7 @@ export default function SignInModal({
     else if (step === 'code') void verify(code);
     else if (step === 'name') void saveName();
     else if (step === 'intent') setStep('city');
-    else void saveOnboarding();
+    else if (step === 'city') void saveOnboarding();
   }
 
   const channelLabel = challenge?.channel === 'email' ? 'email' : challenge?.channel === 'whatsapp' ? 'WhatsApp' : 'text';
@@ -311,6 +313,25 @@ export default function SignInModal({
             <Button type="submit" className="w-full" disabled={busy || !city || interests.length === 0}>
               {busy ? <Spinner className="border-night border-t-transparent" /> : null}
               Start exploring
+            </Button>
+          </>
+        ) : null}
+
+        {step === 'org' ? (
+          <>
+            <div>
+              <div className="font-display text-2xl font-extrabold">Set up your organisation</div>
+              <p className="mt-1 text-sm text-ink/60">Create it in Sahra Studio to build events and sell tickets. You can do this later.</p>
+            </div>
+            <a
+              href={`${STUDIO_URL}/setup`}
+              onClick={() => onDone()}
+              className="inline-flex w-full items-center justify-center rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-night hover:brightness-95"
+            >
+              Create organisation
+            </a>
+            <Button type="button" variant="outline" tone="light" className="w-full" onClick={() => finish(null)}>
+              Skip for now
             </Button>
           </>
         ) : null}

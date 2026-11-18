@@ -13,7 +13,7 @@ function itemTitle(p: PlanItem): string {
 }
 
 function itemPlace(p: PlanItem): string {
-  return p.venue ?? (p.event ? cardVenue(p.event) : '') ?? p.place_text ?? p.invite?.place_text ?? '';
+  return p.venue || (p.event ? cardVenue(p.event) : '') || p.place_text || p.invite?.place_text || '';
 }
 
 function itemHref(p: PlanItem): string {

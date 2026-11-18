@@ -122,10 +122,12 @@ export default function EventPage() {
   function buy() {
     if (!selection || !event) return;
     // A2: sign in over the page, then continue straight to checkout.
-    if (!user) {
-      requireAuth('buy', () => buy());
-      return;
-    }
+    // requireAuth runs the continuation immediately when already signed in.
+    requireAuth('buy', goToCheckout);
+  }
+
+  function goToCheckout() {
+    if (!selection || !event) return;
     const base = {
       eventId: event.id,
       currency: event.currency,

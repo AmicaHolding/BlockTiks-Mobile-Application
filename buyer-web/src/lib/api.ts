@@ -701,13 +701,27 @@ export const api = {
   decideRsvp(inviteId: string, userId: string, approve: boolean) {
     return request<InviteRsvp>(
       `/invites/${encodeURIComponent(inviteId)}/rsvps/${encodeURIComponent(userId)}/decision`,
-      { method: 'POST', body: JSON.stringify({ approve }) }
+      { method: 'POST', headers: idempotencyHeaders(), body: JSON.stringify({ approve }) }
     );
   },
   messageGuests(inviteId: string, body: string) {
     return request<{ recipients: number }>(`/invites/${encodeURIComponent(inviteId)}/updates`, {
       method: 'POST',
       body: JSON.stringify({ body }),
+    });
+  },
+  memberships() {
+    return request<Membership[] | { memberships: Membership[] }>('/me/memberships').then((r) =>
+      Array.isArray(r) ? r : r.memberships ?? []
+    );
+  },
+  /** I7 "Sell tickets instead": draft event in the org; Going guests become
+   *  comp tickets, so it is an inventory POST. */
+  moveInvite(inviteId: string, org_id: string) {
+    return request<{ event_id: string }>(`/invites/${encodeURIComponent(inviteId)}/move`, {
+      method: 'POST',
+      headers: idempotencyHeaders(),
+      body: JSON.stringify({ org_id }),
     });
   },
   cancelInvite(inviteId: string) {
