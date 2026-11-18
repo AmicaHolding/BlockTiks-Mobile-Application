@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import '../controllers/get_started_controller.dart';
@@ -94,29 +95,44 @@ class GetStartedView extends GetView<GetStartedController> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
               child: Column(children: [
-                SahraPillButton(
-                    label: 'Create account',
-                    onTap: () => Get.toNamed(Routes.SIGN_UP)),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => Get.toNamed(Routes.SIGN_IN),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: ColorConstant.gold,
-                      backgroundColor: Colors.transparent,
-                      side: BorderSide(color: ColorConstant.gold, width: 1.5),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: const StadiumBorder(),
+                // v2 get-started: three options — Apple, phone-or-email, look
+                // around first (A8 signed-out browse).
+                if (Platform.isIOS)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => Get.toNamed(Routes.SIGN_IN),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: ColorConstant.whiteA700,
+                          backgroundColor: Colors.transparent,
+                          side: BorderSide(
+                              color: ColorConstant.nightBorder, width: 1.5),
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: const StadiumBorder(),
+                        ),
+                        child: Text('Continue with Apple',
+                            style: sahraText(
+                                color: ColorConstant.whiteA700,
+                                size: 16,
+                                weight: FontWeight.w700)),
+                      ),
                     ),
-                    child: Text('I have an account',
-                        style: sahraText(
-                            color: ColorConstant.gold,
-                            size: 16,
-                            weight: FontWeight.w700)),
                   ),
+                SahraPillButton(
+                    label: 'Continue with phone or email',
+                    onTap: () => Get.toNamed(Routes.SIGN_IN)),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () =>
+                      Get.offAllNamed(Routes.USER_DASHBOARD),
+                  child: Text('Look around first',
+                      style: sahraText(
+                          color: ColorConstant.nightMuted,
+                          size: 15,
+                          weight: FontWeight.w600)),
                 ),
-
               ]),
             ),
           ],

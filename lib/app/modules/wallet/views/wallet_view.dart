@@ -37,6 +37,13 @@ class WalletView extends GetView<WalletController> {
             return SliverList(
                 delegate: SliverChildListDelegate([
               _summary(),
+              // Plans: invites "waiting on you" come first (I-rules).
+              if (controller.invites.isNotEmpty) ...[
+                SahraSectionLabel('Waiting on you',
+                    trailing: Text('${controller.invites.length} invites',
+                        style: sahraText(
+                            color: ColorConstant.nightMuted, size: 12))), ...controller.invites.map(_inviteTile),
+              ],
               SahraSectionLabel('Holding',
                   trailing: Text('${controller.validTickets.length} active',
                       style: sahraText(
@@ -75,7 +82,7 @@ class WalletView extends GetView<WalletController> {
     return const Padding(
         padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Tickets',
+          Text('Plans',
               style: TextStyle(
                   color: Color(0xFFF2D9A0),
                   fontSize: 13,
@@ -275,6 +282,43 @@ class WalletView extends GetView<WalletController> {
                           size: 13,
                           weight: FontWeight.w600))),
             ])));
+  }
+
+  /// Personal invite row — opens the `/i/{code}` guest landing.
+  Widget _inviteTile(Map<String, dynamic> invite) {
+    final name = invite['org_name']?.toString() ??
+        invite['event_title']?.toString() ??
+        invite['title']?.toString() ??
+        'Invite';
+    final role = invite['role']?.toString() ?? '';
+    final code = invite['code']?.toString() ?? invite['id']?.toString() ?? '';
+    return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: GestureDetector(
+            onTap: () =>
+                code.isNotEmpty ? Get.toNamed('/i/$code') : null,
+            child: SahraCard(
+                padding: const EdgeInsets.all(14),
+                child: Row(children: [
+                  Icon(Icons.mail_outline_rounded,
+                      color: ColorConstant.gold, size: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        Text(name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                sahraText(size: 15, weight: FontWeight.w600)),
+                        Text(role.isEmpty ? 'Personal invite' : 'Invite · $role',
+                            style: sahraText(
+                                color: ColorConstant.nightMuted, size: 12)),
+                      ])),
+                  Icon(Icons.chevron_right,
+                      color: ColorConstant.nightMuted, size: 20),
+                ]))));
   }
 
   Future<void> _cancelOffer(Map<String, dynamic> offer) async {

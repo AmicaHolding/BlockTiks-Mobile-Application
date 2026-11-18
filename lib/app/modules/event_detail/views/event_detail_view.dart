@@ -3,6 +3,7 @@ import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:block_tix/app/modules/user_dashboard/controllers/user_dashboard_controller.dart';
+import 'package:block_tix/app/services/api_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -137,12 +138,14 @@ class EventDetailView extends GetView<EventDetailController> {
     return controller.moneyCents(centsValues.first);
   }
 
-  void _continueToCheckout() {
+  void _continueToCheckout() async {
     if (controller.selectedCount <= 0) {
       CustomSnackBar.showCustomErrorToast(
           message: 'Please select at least one ticket');
       return;
     }
+    // A8/A2: checkout is a gated action — sign in first, then return here.
+    if (!await ApiService.requireAuth(comingFrom: 'checkout')) return;
     Get.toNamed(Routes.PAYMENT_PAGE, arguments: controller.paymentArguments());
   }
 

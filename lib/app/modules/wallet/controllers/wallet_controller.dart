@@ -6,6 +6,8 @@ class WalletController extends GetxController {
   final RxList<Map<String, dynamic>> tickets = <Map<String, dynamic>>[].obs;
   final RxList<Map<String, dynamic>> listings = <Map<String, dynamic>>[].obs;
   final RxList<Map<String, dynamic>> offers = <Map<String, dynamic>>[].obs;
+  // Plans tab: personal invites waiting on you, shown on top (I-rules).
+  final RxList<Map<String, dynamic>> invites = <Map<String, dynamic>>[].obs;
   final RxBool isLoading = true.obs;
   final Rxn<String> loadError = Rxn<String>();
 
@@ -41,6 +43,16 @@ class WalletController extends GetxController {
       tickets.value = results[0];
       listings.value = results[1];
       offers.value = results[2];
+      try {
+        final m = await ApiService.meMemberships();
+        final pending = (m['invites'] as List? ?? [])
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        invites.value = pending;
+      } catch (_) {
+        invites.value = [];
+      }
     } catch (e) {
       loadError.value = e.toString().replaceFirst('Exception: ', '');
     } finally {

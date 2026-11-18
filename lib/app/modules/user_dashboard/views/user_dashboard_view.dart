@@ -1,4 +1,5 @@
 import 'package:block_tix/app/data/widgets/base/baseview_process_screen.dart';
+import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:block_tix/app/data/widgets/custom_bottom_bar.dart';
 import 'package:block_tix/app/data/widgets/custom_dialogue.dart';
 import 'package:block_tix/app/modules/for_you/views/for_you_view.dart';
@@ -56,17 +57,34 @@ class UserDashboardView extends GetView<UserDashboardController> {
           safeAreaTop: !(controller.selectedIndex.value == 0 ||controller.selectedIndex.value == 3),
           isAgent: false,
           isServices: false,
-          child: PageView(
-            scrollDirection: Axis.horizontal,
-            controller: controller.pageController,
-            physics: const NeverScrollableScrollPhysics(),
-            children: [
-              ForYouView(),
-              const SearchView(embedded: true),
-              WalletView(),
-              ProfileTabView(),
-            ],
-          ),
+          child: Column(children: [
+            if (Constants.appEnv != 'prod')
+              Container(
+                width: double.infinity,
+                color: ColorConstant.rumman.withValues(alpha: .9),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 3, horizontal: 12),
+                child: Text('TEST MODE — ${Constants.appEnv} data only',
+                    textAlign: TextAlign.center,
+                    style: sahraText(
+                        color: ColorConstant.whiteA700,
+                        size: 11,
+                        weight: FontWeight.w700)),
+              ),
+            Expanded(
+              child: PageView(
+                scrollDirection: Axis.horizontal,
+                controller: controller.pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  ForYouView(),
+                  const SearchView(embedded: true),
+                  WalletView(),
+                  ProfileTabView(),
+                ],
+              ),
+            ),
+          ]),
         ),
       ),
     );

@@ -6,8 +6,6 @@ import '../modules/ask_bid/bindings/ask_bid_binding.dart';
 import '../modules/ask_bid/views/ask_bid_view.dart';
 import '../modules/broadcast_message/bindings/broadcast_message_binding.dart';
 import '../modules/broadcast_message/views/broadcast_message_view.dart';
-import '../modules/change_password/bindings/change_password_binding.dart';
-import '../modules/change_password/views/change_password_view.dart';
 import '../modules/creator_dashboard/bindings/creator_dashboard_binding.dart';
 import '../modules/creator_dashboard/views/creator_dashboard_view.dart';
 import '../modules/creator_event/bindings/creator_event_binding.dart';
@@ -22,8 +20,6 @@ import '../modules/faqs/bindings/faqs_binding.dart';
 import '../modules/faqs/views/faqs_view.dart';
 import '../modules/for_you/bindings/for_you_binding.dart';
 import '../modules/for_you/views/for_you_view.dart';
-import '../modules/forget_password/bindings/forget_password_binding.dart';
-import '../modules/forget_password/views/forget_password_view.dart';
 import '../modules/get_started/bindings/get_started_binding.dart';
 import '../modules/get_started/views/get_started_view.dart';
 import '../modules/host_intro/bindings/host_intro_binding.dart';
@@ -32,11 +28,16 @@ import '../modules/host_org/bindings/host_org_binding.dart';
 import '../modules/host_org/views/host_org_view.dart';
 import '../modules/language_settings/bindings/language_settings_binding.dart';
 import '../modules/language_settings/views/language_settings_view.dart';
+import '../modules/invite/bindings/invite_binding.dart';
+import '../modules/invite/views/invite_create_view.dart';
+import '../modules/invite/views/invite_view.dart';
 import '../modules/media_preview/bindings/media_preview_binding.dart';
 import '../modules/media_preview/views/media_preview_view.dart';
 import '../modules/my_scanner/bindings/my_scanner_binding.dart';
 import '../modules/my_scanner/views/my_scanner_view.dart';
 import '../modules/notification_settings/bindings/notification_settings_binding.dart';
+import '../modules/onboarding_name/bindings/onboarding_name_binding.dart';
+import '../modules/onboarding_name/views/onboarding_name_view.dart';
 import '../modules/notification_settings/views/notification_settings_view.dart';
 import '../modules/notifications_page/bindings/notifications_page_binding.dart';
 import '../modules/notifications_page/views/notifications_page_view.dart';
@@ -60,16 +61,12 @@ import '../modules/purchased_ticket/bindings/purchased_ticket_binding.dart';
 import '../modules/purchased_ticket/views/purchased_ticket_view.dart';
 import '../modules/referrals/bindings/referrals_binding.dart';
 import '../modules/referrals/views/referrals_view.dart';
-import '../modules/reset_password_screen/bindings/reset_password_screen_binding.dart';
-import '../modules/reset_password_screen/views/reset_password_screen_view.dart';
 import '../modules/search/bindings/search_binding.dart';
 import '../modules/security_settings/bindings/security_settings_binding.dart';
 import '../modules/security_settings/views/security_settings_view.dart';
 import '../modules/search/views/search_view.dart';
 import '../modules/sign_in/bindings/sign_in_binding.dart';
 import '../modules/sign_in/views/sign_in_view.dart';
-import '../modules/sign_up/bindings/sign_up_binding.dart';
-import '../modules/sign_up/views/sign_up_view.dart';
 import '../modules/splash/bindings/splash_binding.dart';
 import '../modules/splash/views/splash_view.dart';
 import '../modules/transactions/bindings/transactions_binding.dart';
@@ -109,9 +106,10 @@ class AppPages {
       binding: SignInBinding(),
     ),
     GetPage(
+      // v2: sign_up merged into sign_in — one OTP entry (A1).
       name: _Paths.SIGN_UP,
-      page: () => SignUpView(),
-      binding: SignUpBinding(),
+      page: () => SignInView(),
+      binding: SignInBinding(),
     ),
     GetPage(
       name: _Paths.NOTIFICATIONS_PAGE,
@@ -119,9 +117,10 @@ class AppPages {
       binding: NotificationsPageBinding(),
     ),
     GetPage(
+      // v2: passwords removed — route kept so deep links fall back to OTP sign-in.
       name: _Paths.CHANGE_PASSWORD,
-      page: () => ChangePasswordView(),
-      binding: ChangePasswordBinding(),
+      page: () => SignInView(),
+      binding: SignInBinding(),
     ),
     GetPage(
       name: _Paths.FAQS,
@@ -129,9 +128,10 @@ class AppPages {
       binding: FaqsBinding(),
     ),
     GetPage(
+      // v2: passwords removed — route kept so deep links fall back to OTP sign-in.
       name: _Paths.FORGET_PASSWORD,
-      page: () => ForgetPasswordView(),
-      binding: ForgetPasswordBinding(),
+      page: () => SignInView(),
+      binding: SignInBinding(),
     ),
     GetPage(
       name: _Paths.OTP_VERIFICATION_SCREEN,
@@ -139,9 +139,10 @@ class AppPages {
       binding: OtpVerificationScreenBinding(),
     ),
     GetPage(
+      // v2: passwords removed — route kept so deep links fall back to OTP sign-in.
       name: _Paths.RESET_PASSWORD_SCREEN,
-      page: () => ResetPasswordScreenView(),
-      binding: ResetPasswordScreenBinding(),
+      page: () => SignInView(),
+      binding: SignInBinding(),
     ),
     GetPage(
       name: _Paths.USER_DASHBOARD,
@@ -167,6 +168,21 @@ class AppPages {
       name: _Paths.PAYMENT_OPTIONS,
       page: () => const PaymentOptionsView(),
       binding: PaymentOptionsBinding(),
+    ),
+    GetPage(
+      name: _Paths.INVITE,
+      page: () => const InviteView(),
+      binding: InviteBinding(),
+    ),
+    GetPage(
+      name: _Paths.INVITE_NEW,
+      page: () => InviteCreateView(),
+      binding: InviteBinding(),
+    ),
+    GetPage(
+      name: _Paths.ONBOARDING_NAME,
+      page: () => const OnboardingNameView(),
+      binding: OnboardingNameBinding(),
     ),
     GetPage(
       name: _Paths.PERSONALIZE,

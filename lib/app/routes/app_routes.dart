@@ -21,6 +21,7 @@ abstract class Routes {
   static const MEDIA_PREVIEW = _Paths.MEDIA_PREVIEW;
   static const PAYMENT_OPTIONS = _Paths.PAYMENT_OPTIONS;
   static const PERSONALIZE = _Paths.PERSONALIZE;
+  static const ONBOARDING_NAME = _Paths.ONBOARDING_NAME;
   static const FOR_YOU = _Paths.FOR_YOU;
   static const EVENT_DETAIL = _Paths.EVENT_DETAIL;
   static const PAYMENT_PAGE = _Paths.PAYMENT_PAGE;
@@ -47,6 +48,8 @@ abstract class Routes {
   static const NOTIFICATION_SETTINGS = _Paths.NOTIFICATION_SETTINGS;
   static const LANGUAGE_SETTINGS = _Paths.LANGUAGE_SETTINGS;
   static const SECURITY_SETTINGS = _Paths.SECURITY_SETTINGS;
+  static const INVITE = _Paths.INVITE;
+  static const INVITE_NEW = _Paths.INVITE_NEW;
 }
 
 abstract class _Paths {
@@ -68,6 +71,7 @@ abstract class _Paths {
   static const MEDIA_PREVIEW = '/media-preview';
   static const PAYMENT_OPTIONS = '/payment-options';
   static const PERSONALIZE = '/personalize';
+  static const ONBOARDING_NAME = '/onboarding-name';
   static const FOR_YOU = '/for-you';
   static const EVENT_DETAIL = '/event-detail';
   static const PAYMENT_PAGE = '/payment-page';
@@ -94,4 +98,6 @@ abstract class _Paths {
   static const NOTIFICATION_SETTINGS = '/notification-settings';
   static const LANGUAGE_SETTINGS = '/language';
   static const SECURITY_SETTINGS = '/sign-in-security';
+  static const INVITE = '/i/:code';
+  static const INVITE_NEW = '/invite-new';
 }

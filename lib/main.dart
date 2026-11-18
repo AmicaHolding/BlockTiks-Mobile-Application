@@ -105,12 +105,14 @@ class _MyAppState extends State<MyApp> {
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSub;
 
-  /// Routes `sahra://event/<id>` links into the event detail screen.
+  /// Routes `sahra://event/<id>` and `sahra://i/<code>` invite links.
   void _handleDeepLink(Uri uri) {
     if (uri.scheme != 'sahra') return;
     if (uri.host == 'event' && uri.pathSegments.isNotEmpty) {
       Get.toNamed(Routes.EVENT_DETAIL,
           arguments: {'id': uri.pathSegments.first});
+    } else if (uri.host == 'i' && uri.pathSegments.isNotEmpty) {
+      Get.toNamed('/i/${uri.pathSegments.first}');
     }
   }
 
