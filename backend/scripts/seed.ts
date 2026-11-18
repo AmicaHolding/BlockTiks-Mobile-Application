@@ -17,7 +17,10 @@ import {
   createOrg,
   createPendingOrder,
   createPromo,
+  createInvite,
+  createInviteRsvp,
   createUser,
+  markInviteSeen,
   deleteExpireIndex,
   fulfillOrder,
   getOrder,
@@ -40,15 +43,17 @@ import {
   type User,
 } from '../src/db';
 import { env } from '../src/env';
-import { hashPassword } from '../src/passwords';
 import { ensureTable, isLocal, target } from './table';
 
-export const SEED_PASSWORD = 'password123';
+// No passwords (v2): sign in with POST /auth/otp/start {contact} then
+// /auth/otp/verify with the code logged by the server, or OTP_DEV_CODE
+// (default 000000) whenever the backend runs against DynamoDB Local.
+export const SEED_OTP_CODE = env.otpDevCode;
 
 export const SEED_USERS = [
   { key: 'creator', email: 'creator@test.com', firstName: 'Demo', lastName: 'Creator', role: 'CREATOR' },
   { key: 'creator2', email: 'layla@test.com', firstName: 'Layla', lastName: 'Haddad', role: 'CREATOR' },
-  { key: 'fan', email: 'fan@test.com', firstName: 'Sam', lastName: 'Rivera', role: 'FAN' },
+  { key: 'fan', email: 'fan@test.com', phone: '+971500000001', firstName: 'Sam', lastName: 'Rivera', role: 'FAN' },
   { key: 'fan2', email: 'noor@test.com', firstName: 'Noor', lastName: 'Ali', role: 'FAN' },
 ] as const;
 
@@ -123,13 +128,15 @@ export async function seed(): Promise<{ skipped: boolean }> {
   if (await getUserByEmail(SEED_USERS[0].email)) return { skipped: true };
 
   const users = {} as Record<UserKey, User>;
-  const passwordHash = hashPassword(SEED_PASSWORD);
+  const verifiedAt = new Date().toISOString();
   for (const u of SEED_USERS) {
+    const phone = 'phone' in u ? u.phone : undefined;
     const user = await createUser({
       email: u.email,
-      passwordHash,
-      firstName: u.firstName,
-      lastName: u.lastName,
+      phone,
+      emailVerifiedAt: verifiedAt,
+      phoneVerifiedAt: phone ? verifiedAt : undefined,
+      name: `${u.firstName} ${u.lastName}`,
       role: u.role,
     });
     if (user.referralCode) await registerReferralCode(user.id, user.referralCode);
@@ -220,7 +227,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
   await buy(users.fan2, rooftop.event, rooftop.tiers[0], 2, { code: 'WELCOME10', percentOff: 10 });
   await buy(users.fan2, mixer.event, mixer.tiers[0], 1);
 
-  await createListing({ sellerId: users.fan.id, ticketCode: fanGa[0], priceCents: 6000 });
+  await createListing({ sellerId: users.fan.id, ticketCode: fanGa[0], priceCents: 4900 });
   await createOffer({
     buyerId: users.fan2.id,
     eventId: neon.event.id,
@@ -247,7 +254,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
   await setOrgPayoutAccount(org.id, { iban: 'AE070331234567890123456', holder: 'Noor Events LLC' });
   const invite = await inviteMember({
     orgId: org.id,
-    email: users.creator2.email,
+    email: users.creator2.email!,
     role: 'cohost',
     invitedBy: creator.id,
   });
@@ -267,6 +274,40 @@ export async function seed(): Promise<{ skipped: boolean }> {
   await publishEvent(orgEvent.event.id, creator.id, 'CREATOR');
 
   await seedExtraEvents(creator, users.creator2);
+
+  // Personal invites (v2): Noor hosts a dinner, Sam is going, the creator
+  // opened the link without answering (shows under "Waiting on you").
+  const dinner = await createInvite({
+    hostUserId: users.fan2.id,
+    title: 'Rooftop dinner at Noor\'s',
+    startsAt: daysFromNow(5, 16),
+    tz: 'Asia/Dubai',
+    placeText: 'Marina Gate 2, Apt 3104',
+    area: 'Dubai Marina',
+    cover: { tone: 'gold' },
+    note: 'Bring something sweet.',
+    approveGuests: false,
+    allowPlusOnes: true,
+    guestCap: 12,
+    showGuestList: true,
+    hideAddressUntilGoing: true,
+  });
+  await createInviteRsvp(dinner, users.fan.id, { status: 'going', plusOnes: 1 });
+  await markInviteSeen(dinner, users.creator.id);
+  const games = await createInvite({
+    hostUserId: users.fan.id,
+    title: 'Board games night',
+    startsAt: daysFromNow(9, 17),
+    tz: 'Asia/Dubai',
+    placeText: 'JLT Cluster D, 1402',
+    area: 'JLT',
+    approveGuests: true,
+    allowPlusOnes: false,
+    guestCap: null,
+    showGuestList: false,
+    hideAddressUntilGoing: false,
+  });
+  await createInviteRsvp(games, users.fan2.id, { status: 'requested', plusOnes: 0 });
 
   return { skipped: false };
 }
@@ -380,8 +421,10 @@ async function main() {
     return;
   }
   console.log('    seeded 4 users, 9 events (1 draft, 1 seated, 1 org-owned, 1 age-gated), 7 tickets, 1 resale listing, 1 offer, 1 promo, 1 org (verified, payout IBAN, cohost member)');
-  console.log(`\n    Accounts (password: ${SEED_PASSWORD})`);
-  for (const u of SEED_USERS) console.log(`      ${u.role.padEnd(7)} ${u.email}`);
+  console.log('    + 2 personal invites (Noor hosts a dinner; Sam hosts games night with approval on)');
+  console.log(`\n    Accounts (no passwords; sign in with a one-time code, dev code: ${SEED_OTP_CODE})`);
+  for (const u of SEED_USERS) console.log(`      ${u.role.padEnd(7)} ${u.email}${'phone' in u ? `  ${u.phone}` : ''}`);
+  console.log('\n    POST /auth/otp/start {"contact":"fan@test.com"} -> POST /auth/otp/verify {"challenge_id","code":"' + SEED_OTP_CODE + '"}');
 }
 
 if (require.main === module) {

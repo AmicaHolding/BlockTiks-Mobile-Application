@@ -4,7 +4,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { api, ApiError } from '../lib/api';
 import { BUYER_FEE_PCT, CHECKOUT_HOLD_COUNTDOWN } from '../lib/config';
-import { formatMoney, formatShortDateTime } from '../lib/format';
+import { displayName, formatMoney, formatShortDateTime } from '../lib/format';
 import type { CheckoutSelection } from './EventPage';
 import { Badge, Button, Card, EmptyState, Input, Spinner } from '../components/ui';
 import { ArrowLeftIcon, CheckIcon, ClockIcon, ShieldIcon, TicketIcon } from '../components/icons';
@@ -176,7 +176,7 @@ export default function CheckoutPage() {
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <div>
                   <div className="mb-1.5 text-sm font-semibold text-ink">Full name</div>
-                  <Input tone="light" value={[user?.firstName, user?.lastName].filter(Boolean).join(' ')} readOnly />
+                  <Input tone="light" value={displayName(user)} readOnly />
                 </div>
                 <div>
                   <div className="mb-1.5 text-sm font-semibold text-ink">Email</div>

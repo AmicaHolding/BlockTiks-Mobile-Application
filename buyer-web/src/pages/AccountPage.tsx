@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
-import { api, ApiError, type Earnings, type Faq, type NotificationItem, type PaymentMethod, type Promo, type TransactionRow, type User } from '../lib/api';
+import { api, ApiError, type MeSession, type Earnings, type Faq, type NotificationItem, type PaymentMethod, type Promo, type TransactionRow, type User } from '../lib/api';
 import { STUDIO_URL } from '../lib/config';
 import { useAuth } from '../lib/auth';
-import { formatCents, formatShortDateTime, initials } from '../lib/format';
+import { displayName, formatCents, formatShortDateTime, nameInitials } from '../lib/format';
 import { Badge, Button, Card, Field, Input, Select, Spinner } from '../components/ui';
 import {
   BellIcon,
@@ -134,8 +134,7 @@ function SectionShell({ title, subtitle, children }: { title: string; subtitle?:
 }
 
 function ProfileSection({ user, onSaved }: { user: User | null; onSaved: () => Promise<void> }) {
-  const [firstName, setFirstName] = useState(user?.firstName ?? '');
-  const [lastName, setLastName] = useState(user?.lastName ?? '');
+  const [name, setName] = useState(displayName(user));
   const [phone, setPhone] = useState(user?.phone ?? '');
   const [city, setCity] = useState(user?.city ?? '');
   const [dob, setDob] = useState(user?.dateOfBirth ? user.dateOfBirth.slice(0, 10) : '');
@@ -143,8 +142,7 @@ function ProfileSection({ user, onSaved }: { user: User | null; onSaved: () => P
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
-    setFirstName(user?.firstName ?? '');
-    setLastName(user?.lastName ?? '');
+    setName(displayName(user));
     setPhone(user?.phone ?? '');
     setCity(user?.city ?? '');
     setDob(user?.dateOfBirth ? user.dateOfBirth.slice(0, 10) : '');
@@ -155,8 +153,7 @@ function ProfileSection({ user, onSaved }: { user: User | null; onSaved: () => P
     setMsg(null);
     try {
       await api.updateProfile({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
+        name: name.trim(),
         phone: phone.trim(),
         city: city.trim(),
         dateOfBirth: dob || undefined,
@@ -174,19 +171,16 @@ function ProfileSection({ user, onSaved }: { user: User | null; onSaved: () => P
     <SectionShell title="Profile" subtitle="How you appear to organizers and friends.">
       <div className="flex items-center gap-4">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-night font-display text-xl font-extrabold text-gold">
-          {initials(user?.firstName, user?.lastName, user?.email)}
+          {nameInitials(displayName(user))}
         </div>
         <div>
-          <div className="font-display text-lg font-extrabold text-ink">{user?.firstName} {user?.lastName}</div>
+          <div className="font-display text-lg font-extrabold text-ink">{displayName(user)}</div>
           <div className="text-sm text-ink/60">{user?.email}</div>
         </div>
       </div>
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <Field label="First name">
-          <Input tone="light" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-        </Field>
-        <Field label="Last name">
-          <Input tone="light" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+        <Field label="Name">
+          <Input tone="light" value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field label="Email">
           <Input tone="light" value={user?.email ?? ''} readOnly />
@@ -476,11 +470,8 @@ function LanguageSection() {
 function SecuritySection() {
   const { logout } = useAuth();
   const navigate = useNavigate();
-  const [current, setCurrent] = useState('');
-  const [next, setNext] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [sessions, setSessions] = useState<MeSession[] | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
   const [delBusy, setDelBusy] = useState(false);
   const [delMsg, setDelMsg] = useState<string | null>(null);
 
@@ -525,53 +516,46 @@ function SecuritySection() {
     }
   }
 
-  async function change() {
+  useEffect(() => {
+    api.sessions().then(setSessions).catch(() => setSessions([]));
+  }, []);
+
+  async function endSession(id: string) {
     setMsg(null);
-    if (next.length < 8) {
-      setMsg({ ok: false, text: 'New password must be at least 8 characters' });
-      return;
-    }
-    if (next !== confirm) {
-      setMsg({ ok: false, text: 'Passwords don’t match' });
-      return;
-    }
-    setBusy(true);
     try {
-      await api.changePassword(current, next);
-      setCurrent('');
-      setNext('');
-      setConfirm('');
-      setMsg({ ok: true, text: 'Password changed.' });
+      await api.endSession(id);
+      setSessions((cur) => (cur ?? []).filter((x) => x.id !== id));
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof ApiError ? e.message : 'Could not change password' });
-    } finally {
-      setBusy(false);
+      setMsg(e instanceof ApiError ? e.message : 'Could not sign out that device');
     }
   }
 
   return (
-    <SectionShell title="Security" subtitle="Manage your password.">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Current password">
-          <Input tone="light" type="password" value={current} onChange={(e) => setCurrent(e.target.value)} />
-        </Field>
-        <Field label="New password">
-          <Input tone="light" type="password" value={next} onChange={(e) => setNext(e.target.value)} />
-        </Field>
-        <Field label="Confirm new password">
-          <Input tone="light" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-        </Field>
-      </div>
-      <div className="mt-5 flex items-center gap-3">
-        <Button variant="primary" onClick={change} disabled={busy || !current || !next || !confirm}>
-          {busy ? <Spinner className="border-night border-t-transparent" /> : null}
-          Change password
-        </Button>
-        {msg ? <span className={`text-sm font-semibold ${msg.ok ? 'text-emerald-700' : 'text-rumman'}`}>{msg.text}</span> : null}
-      </div>
-      <p className="mt-6 text-xs leading-relaxed text-ink/50">
-        There’s no SMS verification yet, if you lose access, contact support from Help.
-      </p>
+    <SectionShell title="Security" subtitle="Sahra has no passwords. You sign in with a 6-digit code.">
+      <div className="text-sm font-bold text-ink">Signed-in devices</div>
+      {sessions == null ? (
+        <Spinner className="mt-3 border-night border-t-transparent" />
+      ) : sessions.length === 0 ? (
+        <p className="mt-2 text-sm text-ink/60">Only this device.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-ink/10 rounded-xl border border-ink/10 bg-white">
+          {sessions.map((x) => (
+            <li key={x.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+              <span>
+                <span className="font-semibold text-ink">{x.device ?? 'Device'}</span>
+                {x.current ? <span className="ms-2 text-xs text-ink/50">This device</span> : null}
+                {x.last_seen_at ? <span className="block text-xs text-ink/50">{formatShortDateTime(x.last_seen_at)}</span> : null}
+              </span>
+              {!x.current ? (
+                <Button variant="outline" tone="light" className="px-3 py-1" onClick={() => endSession(x.id)}>
+                  Sign out
+                </Button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      {msg ? <p className="mt-3 text-sm font-semibold text-rumman">{msg}</p> : null}
 
       <div className="mt-8 rounded-xl border border-rumman/30 bg-rumman/5 p-5">
         <div className="text-sm font-bold text-ink">Delete account</div>

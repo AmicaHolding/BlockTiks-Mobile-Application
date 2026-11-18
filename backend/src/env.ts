@@ -97,6 +97,26 @@ export const env = {
   publicWebUrl: process.env.PUBLIC_WEB_URL ?? 'http://localhost:5174',
   // Referral bonus paid to the referrer per successful referral (cents). 0 = tracking only.
   referralBonusCents: parseInt(process.env.REFERRAL_BONUS_CENTS ?? '0', 10),
+  // ---------- v2: OTP sign-in (A1) ----------
+  // Dev mode = DynamoDB Local or NODE_ENV=development: the code is logged and
+  // OTP_DEV_CODE (default 000000) is accepted so seeded accounts can sign in.
+  otpDevMode: Boolean(process.env.DYNAMODB_ENDPOINT) || (process.env.NODE_ENV ?? 'development') === 'development',
+  otpDevCode: process.env.OTP_DEV_CODE ?? '000000',
+  otpTtlMinutes: parseInt(process.env.OTP_TTL_MINUTES ?? '10', 10),
+  otpMaxAttempts: parseInt(process.env.OTP_MAX_ATTEMPTS ?? '5', 10),
+  otpMaxSendsPerHour: parseInt(process.env.OTP_MAX_SENDS_PER_HOUR ?? '5', 10),
+  otpResendAfterSeconds: parseInt(process.env.OTP_RESEND_AFTER_SECONDS ?? '30', 10),
+  // TODO(decision-17): SMS vs WhatsApp per country is undecided. Phone
+  // numbers starting with one of these prefixes get channel=whatsapp.
+  otpWhatsappPrefixes: (process.env.OTP_WHATSAPP_PREFIXES ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+  // Sign in with Apple: accepted `aud` values (bundle id / services id).
+  appleClientIds: (process.env.APPLE_CLIENT_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+  // ---------- v2: personal invites (decision-20 defaults) ----------
+  // TODO(decision-20): abuse limits are a recommended default, not policy.
+  invitesPerDay: parseInt(process.env.INVITES_PER_DAY ?? '5', 10),
+  inviteUpdatesPerDay: parseInt(process.env.INVITE_UPDATES_PER_DAY ?? '3', 10),
+  inviteReviewGuests: parseInt(process.env.INVITE_REVIEW_GUESTS ?? '150', 10),
+  inviteMaxPlusOnes: 2,
   // How long a PENDING order holds ticket inventory before the sweeper
   // releases it (covers abandoned Stripe checkout sheets).
   reservationTtlMinutes: parseInt(process.env.RESERVATION_TTL_MINUTES ?? '15', 10),

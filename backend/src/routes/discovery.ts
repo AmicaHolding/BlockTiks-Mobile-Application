@@ -12,21 +12,27 @@ import {
   type TicketTier,
 } from '../db';
 import { specError } from '../errors';
+import { listPendingInviteCards } from './invites';
 
 function eventCard(event: EventItem, tiers: TicketTier[]) {
+  const fromPrice = tiers.length ? Math.min(...tiers.map((t) => t.priceCents)) : null;
   return {
     id: event.id,
     title: event.title,
     category: event.category,
     startsAt: event.startsAt,
     starts_at: event.startsAt,
+    tz: event.venueTimezone ?? null,
+    venue_timezone: event.venueTimezone ?? null,
     endsAt: event.endsAt,
     location: event.location,
     address: event.address,
     imageUrl: event.imageUrl,
+    cover_url: event.imageUrl ?? null,
     currency: event.currency ?? 'usd',
     state: eventLifecycleState(event, tiers),
-    fromPriceCents: tiers.length ? Math.min(...tiers.map((t) => t.priceCents)) : null,
+    fromPriceCents: fromPrice,
+    from_price: fromPrice === null ? null : { amount_minor: fromPrice, currency: event.currency ?? 'usd' },
   };
 }
 
@@ -98,7 +104,68 @@ export async function discoveryRoutes(app: FastifyInstance) {
       });
     }
 
-    return { sections };
+    const invitesPending = request.user?.sub ? await listPendingInviteCards(request.user.sub) : [];
+    return { invites_pending: invitesPending, sections };
+  });
+
+  // GET /home?city=&date=&category= — web front door: featured hero, "Pick a
+  // night" (21 days), categories with counts (empty omitted), lineup.
+  app.get('/home', { preHandler: app.authenticateOptional }, async (request) => {
+    const { city, date, category } = request.query as { city?: string; date?: string; category?: string };
+    const { items } = await listPublishedEvents({ limit: 200 });
+    const nowMs = Date.now();
+    const needle = city?.trim().toLowerCase();
+    const pool = items
+      .filter(({ event }) => Date.parse(event.startsAt) >= nowMs || Date.parse(event.endsAt ?? '') >= nowMs)
+      .filter(({ event }) => !needle || `${event.location} ${event.address ?? ''}`.toLowerCase().includes(needle))
+      .sort((a, b) => a.event.startsAt.localeCompare(b.event.startsAt));
+
+    // Days are bucketed in each venue's timezone; "today" uses the most common
+    // venue tz in the result (events are always shown in venue time).
+    const localDate = (iso: string, tz?: string) => {
+      try {
+        return new Intl.DateTimeFormat('en-CA', { timeZone: tz || 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
+      } catch {
+        return iso.slice(0, 10);
+      }
+    };
+    const tzCounts = new Map<string, number>();
+    for (const { event } of pool) {
+      const tz = event.venueTimezone ?? 'UTC';
+      tzCounts.set(tz, (tzCounts.get(tz) ?? 0) + 1);
+    }
+    const homeTz = [...tzCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'UTC';
+    const dayCounts = new Map<string, number>();
+    for (const { event } of pool) {
+      const d = localDate(event.startsAt, event.venueTimezone);
+      dayCounts.set(d, (dayCounts.get(d) ?? 0) + 1);
+    }
+    const days = Array.from({ length: 21 }, (_, i) => {
+      const d = localDate(new Date(nowMs + i * 24 * 3600_000).toISOString(), homeTz);
+      return { date: d, count: dayCounts.get(d) ?? 0 };
+    });
+
+    const catCounts = new Map<string, number>();
+    for (const { event } of pool) catCounts.set(event.category, (catCounts.get(event.category) ?? 0) + 1);
+    const categories = [...catCounts.entries()]
+      .filter(([, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([name, count]) => ({ name, count }));
+
+    // TODO(api-gap): no editorial "featured" flag in the data model — pick
+    // the next on-sale events, preferring ones with a cover image.
+    const onSale = pool.filter(({ event, tiers }) => eventLifecycleState(event, tiers) === 'on_sale');
+    const featured = [...onSale.filter(({ event }) => event.imageUrl), ...onSale.filter(({ event }) => !event.imageUrl)]
+      .slice(0, 3)
+      .map(({ event, tiers }) => eventCard(event, tiers));
+
+    const lineup = pool
+      .filter(({ event }) => !date || localDate(event.startsAt, event.venueTimezone) === date)
+      .filter(({ event }) => !category || event.category.toLowerCase() === category.toLowerCase())
+      .slice(0, 60)
+      .map(({ event, tiers }) => eventCard(event, tiers));
+
+    return { city: city ?? null, tz: homeTz, featured, days, categories, lineup };
   });
 
   // GET /search?q=&type=events|venues|artists

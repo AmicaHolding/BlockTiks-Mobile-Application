@@ -34,7 +34,7 @@ type Selection =
 export default function EventPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, requireAuth } = useAuth();
 
   const [event, setEvent] = useState<SahraEvent | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
@@ -121,10 +121,13 @@ export default function EventPage() {
 
   function buy() {
     if (!selection || !event) return;
-    if (!user) {
-      navigate(`/login?next=${encodeURIComponent(`/events/${event.id}`)}`);
-      return;
-    }
+    // A2: sign in over the page, then continue straight to checkout.
+    // requireAuth runs the continuation immediately when already signed in.
+    requireAuth('buy', goToCheckout);
+  }
+
+  function goToCheckout() {
+    if (!selection || !event) return;
     const base = {
       eventId: event.id,
       currency: event.currency,

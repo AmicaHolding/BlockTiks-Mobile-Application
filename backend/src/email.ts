@@ -44,11 +44,3 @@ export async function sendVerificationEmail(to: string, link: string): Promise<v
     text: `Confirm your email address by opening this link (valid for 24 hours):\n\n${link}\n\nIf you did not request this, you can ignore this email.`,
   });
 }
-
-export async function sendPasswordResetEmail(to: string, code: string): Promise<void> {
-  await sendEmail({
-    to,
-    subject: 'Your Sahra password reset code',
-    text: `Your Sahra password reset code is ${code}. It expires in 10 minutes.\n\nIf you did not request this, you can ignore this email.`,
-  });
-}
