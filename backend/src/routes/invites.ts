@@ -535,32 +535,35 @@ export async function inviteRoutes(app: FastifyInstance) {
       });
     }
 
-    const going = (await listInviteRsvps(invite.id)).filter((r) => r.status === 'going');
-    const compSeats = going.reduce((n, r) => n + rsvpSeats(r), 0);
-    const { event, tiers } = await createEventWithTiers({
-      creatorId: request.user.sub,
-      ownerOrgId: orgId,
-      title: invite.title,
-      description: invite.note ?? '',
-      category: 'Social',
-      startsAt: invite.startsAt,
-      location: invite.placeText,
-      address: invite.area,
-      venueTimezone: invite.tz,
-      imageUrl: invite.cover?.image_url,
-      currency: 'aed',
-      // Comp tier for existing Going guests; the organiser adds paid tiers in Studio.
-      tiers: [{ name: 'Guest list', description: 'Free spots kept from the invite', priceCents: 0, quantity: Math.max(compSeats, 1) }],
-    });
+    let event: Awaited<ReturnType<typeof createEventWithTiers>>['event'];
     let compTickets: Awaited<ReturnType<typeof issueCompTickets>>;
+    let going: InviteRsvp[] = [];
     try {
+      going = (await listInviteRsvps(invite.id)).filter((r) => r.status === 'going');
+      const compSeats = going.reduce((n, r) => n + rsvpSeats(r), 0);
+      const created = await createEventWithTiers({
+        creatorId: request.user.sub,
+        ownerOrgId: orgId,
+        title: invite.title,
+        description: invite.note ?? '',
+        category: 'Social',
+        startsAt: invite.startsAt,
+        location: invite.placeText,
+        address: invite.area,
+        venueTimezone: invite.tz,
+        imageUrl: invite.cover?.image_url,
+        currency: 'aed',
+        // Comp tier for existing Going guests; the organiser adds paid tiers in Studio.
+        tiers: [{ name: 'Guest list', description: 'Free spots kept from the invite', priceCents: 0, quantity: Math.max(compSeats, 1) }],
+      });
+      event = created.event;
       await linkEventToOrg(event.id, orgId);
       await setEventHost({ eventId: event.id, orgId, role: 'owner', splitBps: 10000 });
       // Issue comp tickets BEFORE marking moved: on failure releaseInviteMove
       // rolls the claim back to `active` so the host can retry.
       compTickets = await issueCompTickets(
         event,
-        tiers[0],
+        created.tiers[0],
         going.map((r) => ({ userId: r.userId, qty: rsvpSeats(r) })),
         invite.id
       );
