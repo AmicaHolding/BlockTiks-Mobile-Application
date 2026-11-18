@@ -5,6 +5,8 @@ Conventions: `id` is a UUID, `*_at` is a UTC timestamp, money is `*_minor` (inte
 ## Relationships at a glance
 
 ```
+User 1─* Session            User 1─* OtpChallenge (by contact)
+User 1─* Invite (host) 1─* InviteRsvp *─0..1 User    Invite 1─* InviteUpdate    Invite 0..1─1 Event (after move)
 User 1─* Membership *─1 Organisation
 Organisation 1─* Event *─1 Venue
 Event 1─* Tier            Event 1─* EventHost (co-host splits) *─1 Organisation
@@ -23,9 +25,11 @@ Event 1─* ScanEvent *─1 Device               Event 1─* Broadcast
 **User**
 | field | type | notes |
 |---|---|---|
-| id, email (unique, lowercased), phone (E.164, unique, nullable) | | phone OTP later |
-| name, city, interests[] | | interests ≥ 3 at onboarding |
-| password_hash, email_verified_at | | |
+| id, email (unique, lowercased, nullable), phone (E.164, unique, nullable) | | at least one is required; both verified by OTP |
+| email_verified_at, phone_verified_at | | set on first successful code |
+| name, city (nullable), interests[] (may be empty) | | name is the only field required at creation (rule A2) |
+| intent[] `going_out` / `hosting_friends` / `running_events` | | from onboarding; only changes what's shown first |
+| apple_sub (nullable, unique) | | Sign in with Apple |
 | locale (`en`/`ar`), numerals (`latn`/`arab`) | | |
 | dob (nullable) | | needed if age-gating is adopted (decision 15) |
 | last_mode (`personal` / org_id) | | drives landing after sign-in (rule A4) |
@@ -48,6 +52,28 @@ Event 1─* ScanEvent *─1 Device               Event 1─* Broadcast
 | role `admin` / `cohost` / `gate` | per org |
 | event_scope (null = all events, or event_id[]) | gate staff per event |
 | status `invited → active → revoked / left`, invited_by, expires_at | rule T2 |
+
+**OtpChallenge**: id, contact (email or E.164), channel `sms`/`whatsapp`/`email`, code_hash, attempts, expires_at (10 min), consumed_at, ip, device_id. Max 5 attempts; max 5 sends per contact per hour (rule A1).
+
+**Session**: id, user_id, device, created_at, last_seen_at, revoked_at.
+
+## Invites (personal hosting)
+
+**Invite** (owned by a person, never listed or searchable)
+| field | notes |
+|---|---|
+| id, host_user_id, code (short, unguessable, used in `/i/{code}`) | |
+| title, starts_at + tz, place_text, area, cover (tone or image_url), note | |
+| approve_guests (bool), allow_plus_ones (bool, max 2), guest_cap (nullable), show_guest_list (bool), hide_address_until_going (bool) | |
+| status `active → cancelled` · `moved` (moved_to_event_id, moved_to_org_id) | rule I7 |
+
+**InviteRsvp**
+| field | notes |
+|---|---|
+| invite_id, user_id, status `going`/`maybe`/`no`/`requested`/`declined` | one per user per invite |
+| plus_ones (0–2), checked_in_at, decided_by, decided_at | |
+
+**InviteUpdate**: id, invite_id, body (≤ 240), sent_at, recipient_count, channels[] (push, sms)
 
 ## Events & inventory
 
@@ -120,5 +146,5 @@ Event 1─* ScanEvent *─1 Device               Event 1─* Broadcast
 **Broadcast**: id, event_id, sender_id, audience (`all`/`checked_in`/`not_arrived`/tier_id), channels[], recipient_count, sms_cost_minor, sent_at (max 3 per event)
 
 ## Activity
-**Notification**: id, user_id, type, title, body, link, read_at
+**Notification**: id, user_id, type, title, body, link (event, order, invite), read_at
 **Reminder**: user_id, event_id (on-sale alert)

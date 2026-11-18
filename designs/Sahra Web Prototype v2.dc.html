@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#ece4d6;font-family:'Bricolage Grotesque',sans-serif;color:#241c14}a{color:#b8323a}a:hover{color:#16263b}input,select,button,textarea{font-family:inherit}@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}</style>
+</helmet>
+<div style="display:flex;flex-direction:column;gap:20px;padding:32px;max-width:1440px;margin:0 auto">
+
+<div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between">
+<div style="display:flex;flex-direction:column;gap:6px;max-width:620px"><span style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#b8323a;font-weight:600">Sahra · Web prototype</span><strong style="font-size:34px;letter-spacing:-.03em;line-height:1.05;color:#16263b">v2 · A grander front door, invites and no passwords</strong><span style="font-size:15px;line-height:1.55;opacity:.75;text-wrap:pretty">Publish an event in Studio and it appears on the fan site. Buy on the fan site and the order shows in Studio. Promo codes made in Studio work at checkout. Logic tree: <a href="Sahra Web Logic Map v2.dc.html">Web logic map v2</a>.</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+<div style="display:flex;background:#fbf7ef;border:1px solid #e3d9c6;border-radius:99px;padding:4px"><sc-for list="{{ surfBtns }}" as="m" hint-placeholder-count="2"><button onClick="{{ m.on }}" style="border:none;border-radius:99px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;background:{{ m.bg }};color:{{ m.fg }}">{{ m.n }}</button></sc-for></div>
+<sc-if value="{{ isStudio }}" hint-placeholder-val="{{ false }}"><div style="display:flex;background:#fbf7ef;border:1px solid #e3d9c6;border-radius:99px;padding:4px"><sc-for list="{{ roleBtns }}" as="m" hint-placeholder-count="3"><button onClick="{{ m.on }}" style="border:none;border-radius:99px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;background:{{ m.bg }};color:{{ m.fg }}">{{ m.n }}</button></sc-for></div></sc-if>
+<sc-for list="{{ demo }}" as="d" hint-placeholder-count="2"><button onClick="{{ d.on }}" title="{{ d.s }}" style="background:#fbf7ef;border:1px solid #e3d9c6;border-radius:99px;padding:9px 14px;font-size:13px;font-weight:600;color:#16263b;cursor:pointer;opacity:{{ d.op }}" style-hover="border-color:#16263b">{{ d.n }}</button></sc-for>
+<button onClick="{{ reset }}" style="background:none;border:none;color:#b8323a;font-weight:600;font-size:13px;cursor:pointer">Reset</button>
+</div></div>
+
+<div style="border-radius:14px;overflow:hidden;box-shadow:0 24px 60px #16263b2a;background:#fff;display:flex;flex-direction:column">
+<div style="height:44px;background:#e3d9c6;display:flex;align-items:center;gap:14px;padding:0 16px;flex:none"><span style="display:flex;gap:7px"><span style="width:12px;height:12px;border-radius:50%;background:#e0626a"></span><span style="width:12px;height:12px;border-radius:50%;background:#f2d9a0"></span><span style="width:12px;height:12px;border-radius:50%;background:#9fb0c6"></span></span><span style="flex:1;max-width:520px;background:#f7f1e6;border-radius:8px;padding:6px 12px;font-size:13px;color:#16263b">{{ url }}</span></div>
+<div style="position:relative;min-height:760px;display:flex;flex-direction:column">
+
+<sc-if value="{{ isFan }}" hint-placeholder-val="{{ true }}"><div style="flex:1;background:#16263b;color:#f7f1e6;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:20px;padding:16px 32px;border-bottom:1px solid #22344d;flex-wrap:wrap">
+<button onClick="{{ fGoHome }}" style="background:none;border:none;cursor:pointer;padding:0"><img src="brand/png/sahra-logo-gold.png" alt="Sahra" style="width:64px;display:block"></img></button>
+<sc-if value="{{ navSearch }}" hint-placeholder-val="{{ false }}"><input value="{{ f.q }}" onChange="{{ on.q }}" placeholder="Search events, venues, artists" style="flex:1;min-width:200px;max-width:420px;background:#22344d;border:1.5px solid #22344d;border-radius:12px;padding:11px 14px;font-size:15px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input></sc-if>
+<span style="flex:1"></span>
+<button onClick="{{ fGoHome }}" style="background:none;border:none;color:{{ navHomeC }};font-size:15px;font-weight:600;cursor:pointer">Events</button>
+<button onClick="{{ fGoTickets }}" style="background:none;border:none;color:{{ navTixC }};font-size:15px;font-weight:600;cursor:pointer">My tickets</button>
+<button onClick="{{ hostFromFan }}" style="background:none;border:1.5px solid #3a506c;border-radius:99px;color:#f7f1e6;font-size:14px;font-weight:600;padding:8px 14px;cursor:pointer">Host</button>
+<sc-if value="{{ fAuthed }}" hint-placeholder-val="{{ false }}"><button onClick="{{ fSignOut }}" title="Sign out" style="width:38px;height:38px;border-radius:50%;background:#f2d9a0;color:#16263b;border:none;font-weight:800;cursor:pointer">LA</button></sc-if>
+<sc-if value="{{ fGuest }}" hint-placeholder-val="{{ true }}"><button onClick="{{ openAuth }}" style="background:#f2d9a0;color:#16263b;border:none;border-radius:99px;padding:10px 18px;font-weight:600;cursor:pointer">Sign in</button></sc-if>
+</div>
+
+<sc-if value="{{ is.fHome }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column">
+<div ref="{{ heroRef }}" style="position:relative;min-height:660px;overflow:hidden;isolation:isolate;display:flex;flex-direction:column;justify-content:flex-end;background:repeating-linear-gradient(135deg,{{ hs.tone }} 0 26px,#1d2e45 26px 52px)">
+<div style="position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#16263b 0%,#16263bf2 36%,#16263b99 64%,#16263b33 100%),linear-gradient(0deg,#16263b 0%,#16263b00 50%)"></div>
+<span aria-hidden="true" style="position:absolute;right:-30px;top:-10px;z-index:-1;font-family:'IBM Plex Sans Arabic',sans-serif;font-weight:600;font-size:320px;line-height:1.1;color:#f2d9a0;opacity:.13;pointer-events:none;white-space:nowrap">الليلة</span>
+<div data-rise="1" style="position:absolute;right:56px;top:72px;display:flex;flex-direction:column;align-items:flex-end;gap:2px"><span style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:600;color:#f2d9a0">{{ hs.dowMon }}</span><strong style="font-size:200px;line-height:.82;letter-spacing:-.06em;color:#f2d9a0">{{ hs.day }}</strong></div>
+<div ref="{{ heroTxtRef }}" style="padding:0 56px 36px;display:flex;flex-direction:column;gap:18px;max-width:820px">
+<span data-rise="1" style="display:flex;gap:10px;align-items:center;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:600;color:#f2d9a0"><span style="width:8px;height:8px;border-radius:50%;background:#f2d9a0"></span>{{ hs.kicker }}</span>
+<strong data-rise="1" style="font-size:104px;line-height:.9;letter-spacing:-.05em;text-wrap:balance">{{ hs.t }}</strong>
+<span data-rise="1" style="font-size:19px;color:#c9d3df;line-height:1.5;max-width:540px;text-wrap:pretty">{{ hs.about }}</span>
+<div data-rise="1" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding-top:6px"><button onClick="{{ hs.on }}" style="background:#f2d9a0;color:#16263b;border:none;border-radius:99px;font-weight:600;cursor:pointer;padding:17px 30px;font-size:17px" style-hover="background:#f7f1e6">Get tickets · {{ hs.price }}</button><span style="font-size:15px;color:#c9d3df">{{ hs.v }}</span></div>
+</div>
+<div data-rise="1" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;padding:0 56px 84px"><sc-for list="{{ heroBars }}" as="b" hint-placeholder-count="3"><button onClick="{{ b.on }}" style="display:flex;flex-direction:column;gap:10px;background:none;border:none;padding:0;color:{{ b.fg }};text-align:left;cursor:pointer"><span style="height:3px;border-radius:2px;background:#f7f1e62e;position:relative;overflow:hidden"><span data-cur="{{ b.cur }}" style="position:absolute;left:0;top:0;bottom:0;width:{{ b.w }};background:#f2d9a0"></span></span><span style="display:flex;justify-content:space-between;gap:12px;font-size:14px"><strong style="font-weight:600">{{ b.t }}</strong><span style="opacity:.75">{{ b.d }}</span></span></button></sc-for></div>
+</div>
+<div style="position:relative;z-index:2;margin:-44px 56px 0;background:#f7f1e6;color:#16263b;border-radius:24px;padding:10px 10px 10px 26px;display:flex;align-items:center;gap:16px;box-shadow:0 30px 70px #0b142099;flex-wrap:wrap">
+<span style="display:flex;flex-direction:column;flex:1;min-width:220px;gap:2px"><span style="font-size:12px;font-weight:600;letter-spacing:.06em;opacity:.6">WHAT ARE YOU AFTER?</span><input value="{{ f.q }}" onChange="{{ on.q }}" placeholder="An artist, a venue, a vibe" style="background:none;border:none;font-size:19px;color:#16263b;outline:none;padding:4px 0;font-family:inherit"></input></span>
+<span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span style="font-size:13px;opacity:.6">Popular:</span><sc-for list="{{ popular }}" as="p" hint-placeholder-count="3"><button onClick="{{ p.on }}" style="background:#ece4d6;border:none;border-radius:99px;padding:8px 13px;font-size:13px;font-weight:600;color:#16263b;cursor:pointer" style-hover="background:#e3d9c6">{{ p.n }}</button></sc-for></span>
+<button onClick="{{ heroSearch }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:18px;padding:18px 28px;font-weight:600;font-size:16px;cursor:pointer">Find events</button>
+</div>
+<div ref="{{ cityRef }}" style="padding:64px 56px 0;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap"><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:600;color:#f2d9a0">The next three weeks</span><strong style="font-size:44px;letter-spacing:-.035em;line-height:1">Pick a night.</strong></div><span style="font-size:14px;color:#9fb0c6">{{ dayHint }}</span></div>
+<div style="display:grid;grid-template-columns:repeat(21,minmax(0,1fr));gap:6px"><sc-for list="{{ days }}" as="d" hint-placeholder-count="21"><button onClick="{{ d.on }}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0 10px;border-radius:14px;border:1.5px solid {{ d.bd }};background:{{ d.bg }};color:{{ d.fg }};cursor:{{ d.cur }};opacity:{{ d.op }};transition:transform .2s" style-hover="transform:translateY(-2px)"><span style="font-size:10px;letter-spacing:.1em;font-weight:600">{{ d.w }}</span><strong style="font-size:21px;letter-spacing:-.02em">{{ d.n }}</strong><span style="width:6px;height:6px;border-radius:50%;background:{{ d.dot }}"></span></button></sc-for></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding-top:12px"><sc-for list="{{ catTiles }}" as="c" hint-placeholder-count="6"><button onClick="{{ c.on }}" style="height:110px;border-radius:18px;border:1.5px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};text-align:left;padding:14px 16px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .25s cubic-bezier(.2,.7,.2,1)" style-hover="transform:translateY(-3px)"><span style="font-size:13px;font-weight:600;opacity:.75">{{ c.count }}</span><strong style="font-size:24px;letter-spacing:-.03em">{{ c.n }}</strong></button></sc-for></div>
+</div>
+<div ref="{{ allRef }}" style="padding:56px 56px 24px;display:flex;flex-direction:column">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;padding-bottom:20px;flex-wrap:wrap"><strong style="font-size:44px;letter-spacing:-.035em;line-height:1">{{ allTitle }}</strong><sc-if value="{{ hasFilter }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearFilters }}" style="background:none;border:1.5px solid #3a506c;color:#f7f1e6;border-radius:99px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer">Clear filters</button></sc-if></div>
+<sc-for list="{{ lineup }}" as="e" hint-placeholder-count="4"><button onClick="{{ e.on }}" style="display:grid;grid-template-columns:110px minmax(0,1fr) 150px 170px;gap:28px;align-items:center;padding:22px 12px;border:none;border-top:1px solid #2a3b52;background:transparent;color:#f7f1e6;text-align:left;cursor:pointer;transition:background .25s,padding .25s" style-hover="background:#1d2e45;padding-left:24px">
+<span style="display:flex;flex-direction:column;gap:4px"><strong style="font-size:56px;line-height:.85;letter-spacing:-.05em;color:#f2d9a0">{{ e.day }}</strong><span style="font-size:11px;letter-spacing:.16em;font-weight:600;color:#9fb0c6">{{ e.dowMon }}</span></span>
+<span style="display:flex;flex-direction:column;gap:6px;min-width:0"><strong style="font-size:34px;letter-spacing:-.03em;line-height:1.05">{{ e.t }}</strong><span style="font-size:15px;color:#9fb0c6">{{ e.v }} · {{ e.cat }}</span></span>
+<span style="height:80px;border-radius:14px;background:repeating-linear-gradient(135deg,{{ e.tone }} 0 10px,#2a3b52 10px 20px)"></span>
+<span style="display:flex;flex-direction:column;align-items:flex-end;gap:8px"><span style="font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px;background:{{ e.chipBg }};color:{{ e.chipFg }}">{{ e.chip }}</span><strong style="font-size:17px">{{ e.price }}</strong></span>
+</button></sc-for>
+<sc-if value="{{ lineupEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:40px;border:1.5px dashed #3a506c;border-radius:18px;text-align:center;color:#c9d3df">Nothing matches that. Try another night or clear the filters.</div></sc-if>
+</div>
+<div ref="{{ bandRef }}" style="margin:32px 56px 56px;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">
+<div style="background:#f2d9a0;color:#16263b;border-radius:26px;padding:40px;display:flex;flex-direction:column;gap:22px;justify-content:space-between;min-height:260px"><div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:600">Hosting friends</span><strong style="font-size:44px;letter-spacing:-.035em;line-height:1">Throw something.</strong><span style="font-size:16px;line-height:1.5;max-width:440px">Dinners, birthdays, run clubs. A private invite with RSVPs and a guest list. Guests reply with just their phone number.</span></div><button onClick="{{ whoPersonal }}" style="align-self:flex-start;background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:15px 26px;font-weight:600;font-size:16px;cursor:pointer">Create an invite</button></div>
+<div style="background:#22344d;border:1.5px solid #3a506c;border-radius:26px;padding:40px;display:flex;flex-direction:column;gap:22px;justify-content:space-between;min-height:260px"><div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:600;color:#f2d9a0">Selling tickets</span><strong style="font-size:44px;letter-spacing:-.035em;line-height:1">Run the night.</strong><span style="font-size:16px;line-height:1.5;color:#c9d3df;max-width:440px">Promoters, venues and artists. Paid tickets, capped resale, a door team and payouts in Studio.</span></div><button onClick="{{ whoPublic }}" style="align-self:flex-start;background:#f2d9a0;color:#16263b;border:none;border-radius:99px;font-weight:600;cursor:pointer;padding:15px 26px;font-size:16px">Open Studio</button></div>
+</div>
+<div style="border-top:1px solid #22344d;padding:36px 56px 44px;display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap"><img src="brand/png/sahra-logo-gold.png" alt="Sahra" style="width:150px"></img><div style="display:flex;gap:24px;font-size:14px;color:#9fb0c6;flex-wrap:wrap"><span>Dubai</span><span>Help</span><span>العربية</span></div></div>
+</div></sc-if>
+
+<sc-if value="{{ is.fEvent }}" hint-placeholder-val="{{ false }}"><div style="padding:28px 32px 40px;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(300px,1fr);gap:32px;align-items:start">
+<div style="display:flex;flex-direction:column;gap:16px"><button onClick="{{ fGoHome }}" style="align-self:flex-start;background:none;border:none;color:#9fb0c6;cursor:pointer;padding:0;font-size:14px">← All events</button><div style="height:300px;border-radius:20px;background:repeating-linear-gradient(135deg,{{ fe.tone }} 0 14px,#2a3b52 14px 28px)"></div><strong style="font-size:36px;letter-spacing:-.03em;line-height:1.05">{{ fe.t }}</strong><span style="font-size:16px;color:#c9d3df">{{ fe.d }} · {{ fe.v }}</span><span style="font-size:16px;line-height:1.6;color:#c9d3df;max-width:640px">{{ fe.about }}</span></div>
+<div style="background:#22344d;border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:12px;position:sticky;top:20px">
+<strong style="font-size:20px">Tickets</strong>
+<sc-if value="{{ fe.paused }}" hint-placeholder-val="{{ false }}"><div style="background:#16263b;border-radius:12px;padding:14px;font-size:14px;color:#f2d9a0">Sales are paused by the organiser. Check back soon.</div></sc-if>
+<sc-for list="{{ feTiers }}" as="t" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #3a506c"><span style="display:flex;flex-direction:column;gap:2px"><strong>{{ t.n }}</strong><span style="font-size:13px;color:{{ t.noteC }}">{{ t.note }}</span></span><sc-if value="{{ t.avail }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:10px"><strong>{{ t.price }}</strong><button onClick="{{ t.dec }}" style="width:32px;height:32px;border-radius:50%;border:1.5px solid #3a506c;background:none;color:#f7f1e6;cursor:pointer">−</button><strong style="width:14px;text-align:center">{{ t.qty }}</strong><button onClick="{{ t.inc }}" style="width:32px;height:32px;border-radius:50%;border:none;background:#f2d9a0;color:#16263b;cursor:pointer">+</button></span></sc-if><sc-if value="{{ t.out }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px;background:#3a506c">Sold out</span></sc-if></div></sc-for>
+<div style="display:flex;justify-content:space-between;font-size:18px;font-weight:800;padding-top:6px"><span>Total</span><span>{{ fCartTotal }}</span></div>
+<button onClick="{{ fBuy }}" style="background:#f2d9a0;color:#16263b;border:none;border-radius:99px;padding:15px;font-weight:600;font-size:16px;cursor:pointer;opacity:{{ fBuyOp }}">{{ fBuyLabel }}</button>
+<span style="font-size:12px;color:#9fb0c6">Max 6 per order · resale capped at face +{{ fe.cap }}%</span>
+</div></div></sc-if>
+
+<sc-if value="{{ is.fConfirm }}" hint-placeholder-val="{{ false }}"><div style="padding:60px 32px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center"><span style="width:64px;height:64px;border-radius:50%;background:#f2d9a0;color:#16263b;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800">✓</span><strong style="font-size:34px;letter-spacing:-.03em">You’re going.</strong><span style="font-size:16px;color:#c9d3df;max-width:460px;line-height:1.5">{{ lastOrder }}. Tickets are in My tickets here and in the Sahra app. Show the QR at the gate.</span><div style="display:flex;gap:10px;padding-top:8px"><button onClick="{{ fGoTickets }}" style="background:#f2d9a0;color:#16263b;border:none;border-radius:99px;padding:13px 22px;font-weight:600;cursor:pointer">View my tickets</button><button onClick="{{ fGoHome }}" style="background:none;border:1.5px solid #3a506c;color:#f7f1e6;border-radius:99px;padding:12px 22px;font-weight:600;cursor:pointer">Keep browsing</button></div></div></sc-if>
+
+<sc-if value="{{ is.fInvite }}" hint-placeholder-val="{{ false }}"><div style="padding:32px 56px 56px;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,1fr);gap:44px;align-items:start">
+<div style="display:flex;flex-direction:column;gap:18px">
+<sc-if value="{{ wiHost }}" hint-placeholder-val="{{ false }}"><div style="background:#f2d9a0;color:#16263b;border-radius:16px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-size:15px"><strong>You’re hosting.</strong> This is exactly what guests see.</span><span style="display:flex;gap:10px;align-items:center"><span style="font-size:14px;font-weight:600">{{ wi.link }}</span><button onClick="{{ copyLink }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:8px 14px;font-weight:600;font-size:13px;cursor:pointer">Copy link</button></span></div></sc-if>
+<div style="height:380px;border-radius:26px;display:flex;align-items:flex-end;padding:22px;box-sizing:border-box;background:repeating-linear-gradient(135deg,{{ wi.tone }} 0 18px,#2a3b52 18px 36px)"><span style="display:flex;align-items:center;gap:10px;background:#16263bdd;padding:6px 16px 6px 6px;border-radius:99px;font-size:15px;font-weight:600"><span style="width:34px;height:34px;border-radius:50%;flex:none;background:#f2d9a0;color:#16263b;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center">{{ wi.hostIni }}</span>{{ wi.host }} invited you</span></div>
+<strong style="font-size:60px;letter-spacing:-.04em;line-height:.98;padding-top:6px">{{ wi.t }}</strong>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:18px;color:#c9d3df"><span>{{ wi.when }}</span><span style="color:{{ wi.whereC }}">{{ wi.where }}</span></div>
+<sc-if value="{{ wi.about }}" hint-placeholder-val="{{ false }}"><span style="font-size:17px;line-height:1.6;color:#c9d3df;max-width:620px">{{ wi.about }}</span></sc-if>
+<sc-if value="{{ wiHasUpd }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:600;color:#9fb0c6;padding-top:8px">From {{ wi.host }}</span><sc-for list="{{ wi.updates }}" as="u" hint-placeholder-count="1"><div style="background:#22344d;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;max-width:620px"><span style="font-size:16px;line-height:1.45">{{ u.m }}</span><span style="font-size:12px;color:#9fb0c6">{{ u.w }}</span></div></sc-for></sc-if>
+</div>
+<div style="background:#22344d;border-radius:24px;padding:26px;display:flex;flex-direction:column;gap:16px;position:sticky;top:20px">
+<strong style="font-size:24px;letter-spacing:-.02em">{{ wiCardTitle }}</strong>
+<sc-if value="{{ wiShowList }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;gap:12px"><div style="display:flex;padding-right:8px"><sc-for list="{{ wi.faces }}" as="fc" hint-placeholder-count="4"><span style="width:38px;height:38px;border-radius:50%;margin-right:-9px;border:2px solid #22344d;background:{{ fc.bg }};color:#16263b;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center">{{ fc.i }}</span></sc-for></div><span style="font-size:15px;color:#c9d3df">{{ wi.countTxt }}</span></div></sc-if>
+<sc-if value="{{ wiHost }}" hint-placeholder-val="{{ false }}"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"><sc-for list="{{ wiStats }}" as="x" hint-placeholder-count="3"><div style="background:#16263b;border-radius:14px;padding:14px 8px;display:flex;flex-direction:column;align-items:center;gap:2px"><strong style="font-size:26px">{{ x.v }}</strong><span style="font-size:12px;color:#9fb0c6">{{ x.n }}</span></div></sc-for></div><span style="font-size:14px;line-height:1.5;color:#c9d3df">Approve requests, message guests and check people in from the Sahra app.</span></sc-if>
+<sc-if value="{{ wi.status }}" hint-placeholder-val="{{ false }}"><div style="background:#16263b;border:1.5px solid #f2d9a0;border-radius:14px;padding:13px 15px;font-size:15px;font-weight:600;color:#f2d9a0">{{ wi.status }}</div></sc-if>
+<sc-if value="{{ wiSegShow }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><sc-for list="{{ wiSeg }}" as="b" hint-placeholder-count="3"><button onClick="{{ b.on }}" style="border:1.5px solid {{ b.bd }};border-radius:99px;padding:14px 6px;font-weight:600;font-size:15px;cursor:pointer;background:{{ b.bg }};color:{{ b.fg }}">{{ b.n }}</button></sc-for></div></sc-if>
+<sc-if value="{{ wiReq }}" hint-placeholder-val="{{ false }}"><button onClick="{{ wiReqOn }}" style="width:100%;border:none;border-radius:99px;padding:15px;font-weight:600;font-size:16px;cursor:pointer;background:{{ wiReqBg }};color:{{ wiReqFg }}">{{ wiReqLbl }}</button></sc-if>
+<span style="font-size:13px;line-height:1.5;color:#9fb0c6">{{ wiNote }}</span>
+</div>
+</div></sc-if>
+
+<sc-if value="{{ is.fTickets }}" hint-placeholder-val="{{ false }}"><div style="padding:28px 32px 40px;display:flex;flex-direction:column;gap:16px;max-width:860px">
+<strong style="font-size:34px;letter-spacing:-.03em">My tickets</strong>
+<sc-if value="{{ fGuest }}" hint-placeholder-val="{{ false }}"><div style="padding:32px;border:1.5px dashed #3a506c;border-radius:18px;display:flex;flex-direction:column;gap:12px;align-items:flex-start"><strong style="font-size:18px">Sign in to see your tickets</strong><button onClick="{{ openAuth }}" style="background:#f2d9a0;color:#16263b;border:none;border-radius:99px;padding:10px 18px;font-weight:600;cursor:pointer">Sign in</button></div></sc-if>
+<sc-if value="{{ fTixEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:32px;border:1.5px dashed #3a506c;border-radius:18px;color:#c9d3df">No tickets yet. Anything you buy lands here.</div></sc-if>
+<sc-for list="{{ fTix }}" as="t" hint-placeholder-count="1"><div style="background:#22344d;border-radius:18px;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap"><span style="display:flex;flex-direction:column;gap:4px"><span style="display:flex;gap:10px;align-items:center"><strong style="font-size:18px">{{ t.t }}</strong><span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;background:{{ t.cbg }};color:{{ t.cfg }}">{{ t.chip }}</span></span><span style="font-size:14px;color:#9fb0c6">{{ t.sub }}</span></span><sc-if value="{{ t.canAct }}" hint-placeholder-val="{{ true }}"><span style="display:flex;gap:8px"><button onClick="{{ t.send }}" style="background:none;border:1.5px solid #3a506c;color:#f7f1e6;border-radius:99px;padding:9px 16px;font-weight:600;cursor:pointer">Send</button><button onClick="{{ t.sell }}" style="background:#f2d9a0;color:#16263b;border:none;border-radius:99px;padding:10px 16px;font-weight:600;cursor:pointer">Sell</button></span></sc-if></div></sc-for>
+</div></sc-if>
+</div></sc-if>
+
+<sc-if value="{{ isStudio }}" hint-placeholder-val="{{ false }}"><div style="flex:1;display:flex;background:#f7f1e6;color:#241c14">
+<sc-if value="{{ studioIn }}" hint-placeholder-val="{{ true }}"><div style="width:220px;background:#16263b;color:#f7f1e6;padding:22px 14px;display:flex;flex-direction:column;gap:20px;flex:none">
+<div style="display:flex;align-items:center;gap:10px;padding:0 8px"><img src="brand/png/sahra-logo-gold.png" alt="" style="width:44px"></img><span style="font-size:13px;letter-spacing:.14em;color:#9fb0c6">STUDIO</span></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding-bottom:14px;border-bottom:1px solid #22344d"><span style="font-size:11px;letter-spacing:.12em;color:#6f84a0;padding:0 12px 4px">ORGANISATION</span><sc-for list="{{ orgList }}" as="o" hint-placeholder-count="1"><button onClick="{{ o.on }}" style="text-align:left;border:none;border-radius:10px;padding:9px 12px;font-size:14px;font-weight:600;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.n }}</button></sc-for><button onClick="{{ newOrg }}" style="text-align:left;border:none;background:none;padding:8px 12px;font-size:13px;color:#9fb0c6;cursor:pointer">+ New organisation</button></div>
+<sc-if value="{{ notGate }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;gap:2px"><sc-for list="{{ nav }}" as="n" hint-placeholder-count="8"><button onClick="{{ n.on }}" style="text-align:left;border:none;border-radius:10px;padding:10px 12px;font-size:15px;cursor:pointer;background:{{ n.bg }};color:{{ n.fg }}">{{ n.n }}</button></sc-for></div></sc-if>
+<span style="flex:1"></span>
+<div style="padding:0 8px;font-size:13px;color:#9fb0c6;line-height:1.5">{{ O.n }}<br>You · {{ roleName }}</div>
+</div></sc-if>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column">
+
+<sc-if value="{{ is.sSignup }}" hint-placeholder-val="{{ false }}"><div style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px 24px"><div style="width:440px;max-width:100%;display:flex;flex-direction:column;gap:14px">
+<img src="brand/png/sahra-logo-night.png" alt="Sahra" style="width:64px"></img><span style="font-size:12px;letter-spacing:.14em;color:#b8323a;font-weight:600">STEP 1 OF 2 · YOUR ACCOUNT</span><strong style="font-size:32px;letter-spacing:-.03em;line-height:1.05;color:#16263b">Host on Sahra</strong><span style="font-size:15px;line-height:1.5;opacity:.75">One Sahra account for everything. You can still buy tickets with it.</span>
+<sc-if value="{{ canContinue }}" hint-placeholder-val="{{ false }}"><button onClick="{{ continueAsFan }}" style="display:flex;align-items:center;gap:12px;background:#16263b;color:#f7f1e6;border:none;border-radius:14px;padding:14px 16px;text-align:left;cursor:pointer"><span style="width:40px;height:40px;border-radius:50%;background:#f2d9a0;color:#16263b;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">LA</span><span style="display:flex;flex-direction:column;gap:2px;flex:1"><strong>Continue as Layla Al-Amin</strong><span style="font-size:13px;color:#9fb0c6">Use your existing fan account</span></span><span style="color:#f2d9a0">→</span></button><span style="font-size:13px;opacity:.6;text-align:center">or create a separate account</span></sc-if>
+<input value="{{ f.sname }}" onChange="{{ on.sname }}" placeholder="Your name" style="background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;font-weight:400;outline:none"></input><input value="{{ f.semail }}" onChange="{{ on.semail }}" placeholder="Work email" style="background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;font-weight:400;outline:none"></input><input type="password" value="{{ f.spw }}" onChange="{{ on.spw }}" placeholder="Password (8+ characters)" style="background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;font-weight:400;outline:none"></input>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#b8323a">{{ err }}</span></sc-if>
+<button onClick="{{ studioSignup }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:14px;font-weight:600;font-size:16px;cursor:pointer">Create account</button>
+<button onClick="{{ signInHost }}" style="background:none;border:none;color:#16263b;font-size:14px;cursor:pointer;text-decoration:underline">Already hosting? Sign in</button>
+</div></div></sc-if>
+
+<sc-if value="{{ is.sOrg }}" hint-placeholder-val="{{ false }}"><div style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px 24px"><div style="width:480px;max-width:100%;display:flex;flex-direction:column;gap:14px">
+<span style="font-size:12px;letter-spacing:.14em;color:#b8323a;font-weight:600;text-transform:uppercase">{{ orgStepTxt }} · Organisation</span><strong style="font-size:32px;letter-spacing:-.03em;line-height:1.05;color:#16263b">Who’s hosting?</strong><span style="font-size:15px;line-height:1.5;opacity:.75">The name fans see on your events. Your team joins this, not your personal account.</span>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#16263b">Organisation name<input value="{{ f.oname }}" onChange="{{ on.oname }}" placeholder="e.g. Mawja Live Productions" style="background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;font-weight:400;outline:none"></input></label>
+<span style="font-size:13px;font-weight:600;color:#16263b">Based in</span><div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ sCityChips }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.on }}" style="border:1.5px solid #16263b;border-radius:99px;padding:7px 14px;font-size:14px;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</button></sc-for></div>
+<span style="font-size:13px;font-weight:600;color:#16263b">What describes you best?</span><div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ sTypeChips }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.on }}" style="border:1.5px solid #16263b;border-radius:99px;padding:7px 14px;font-size:14px;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</button></sc-for></div>
+<div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.5">You can draft events right away. We’ll ask for ID and a trade licence before your first event goes on sale, and a bank account before your first payout.</div>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#b8323a">{{ err }}</span></sc-if>
+<button onClick="{{ createOrg }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:14px;font-weight:600;font-size:16px;cursor:pointer">Create organisation</button>
+</div></div></sc-if>
+
+<sc-if value="{{ gate }}" hint-placeholder-val="{{ false }}"><div style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px"><div style="max-width:420px;display:flex;flex-direction:column;gap:12px;text-align:center;align-items:center"><strong style="font-size:26px;color:#16263b">Gate staff don’t use Studio</strong><span style="font-size:15px;line-height:1.55;opacity:.75">Your role is scanning tickets and checking the guest list. Open door mode in the Sahra app.</span><button onClick="{{ openDoor }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:12px 20px;font-weight:600;cursor:pointer">Open door mode</button></div></div></sc-if>
+
+<sc-if value="{{ is.overview }}" hint-placeholder-val="{{ true }}"><sc-if value="{{ notGate }}" hint-placeholder-val="{{ true }}"><div style="padding:24px 32px;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;justify-content:space-between;align-items:center"><span style="display:flex;gap:10px;align-items:center"><strong style="font-size:26px;color:#16263b">{{ O.n }}</strong><span style="font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px;background:{{ O.vBg }};color:{{ O.vFg }}">{{ O.vTxt }}</span></span><button onClick="{{ goCreate }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:11px 18px;font-weight:600;cursor:pointer">+ New event</button></div>
+<sc-if value="{{ showChecklist }}" hint-placeholder-val="{{ false }}"><div style="background:#fff9ef;border:1.5px solid #16263b;border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:4px"><strong style="font-size:18px;color:#16263b;padding-bottom:6px">Get ready to sell</strong><sc-for list="{{ checklist }}" as="c" hint-placeholder-count="5"><div style="display:flex;align-items:center;gap:14px;padding:10px 0;border-top:1px solid #ece4d6;opacity:{{ c.op }}"><span style="width:24px;height:24px;border-radius:50%;background:{{ c.bg }};color:#f7f1e6;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none">{{ c.i }}</span><span style="display:flex;flex-direction:column;gap:2px;flex:1"><strong style="font-size:15px;color:#16263b">{{ c.n }}</strong><span style="font-size:13px;opacity:.7">{{ c.d }}</span></span><sc-if value="{{ c.showBtn }}" hint-placeholder-val="{{ false }}"><button onClick="{{ c.act }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:8px 14px;font-weight:600;font-size:13px;cursor:pointer">{{ c.btn }}</button></sc-if></div></sc-for></div></sc-if>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px"><sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4"><div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;opacity:.65">{{ k.n }}</span><strong style="font-size:26px;color:#16263b;letter-spacing:-.02em">{{ k.v }}</strong></div></sc-for></div>
+<div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px">
+<div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column"><strong style="color:#16263b;padding-bottom:8px">Events</strong><sc-for list="{{ sEvents }}" as="e" hint-placeholder-count="3"><button onClick="{{ e.on }}" style="display:grid;grid-template-columns:minmax(0,1fr) 140px 90px;gap:12px;align-items:center;padding:12px 0;border:none;border-top:1px solid #ece4d6;background:none;text-align:left;cursor:pointer;color:#241c14"><span style="display:flex;flex-direction:column;gap:2px"><strong style="font-size:15px;color:#16263b">{{ e.t }}</strong><span style="font-size:13px;opacity:.65">{{ e.d }}</span></span><span style="display:flex;flex-direction:column;gap:4px;font-size:12px">{{ e.sold }}<span style="height:5px;border-radius:99px;background:#ece4d6;overflow:hidden"><span style="display:block;height:100%;background:#16263b;width:{{ e.w }}"></span></span></span><span style="justify-self:end;font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;background:{{ e.cbg }};color:{{ e.cfg }}">{{ e.chip }}</span></button></sc-for></div>
+<div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column"><strong style="color:#16263b;padding-bottom:8px">Latest orders</strong><sc-for list="{{ recent }}" as="o" hint-placeholder-count="4"><div style="display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid #ece4d6;font-size:14px"><span style="display:flex;flex-direction:column;gap:2px"><strong style="color:#16263b">{{ o.buyer }}</strong><span style="font-size:12px;opacity:.65">{{ o.ev }} · {{ o.when }}</span></span><strong style="color:{{ o.c }}">{{ o.total }}</strong></div></sc-for></div>
+</div></div></sc-if></sc-if>
+
+<sc-if value="{{ is.events }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 32px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:26px;color:#16263b">Events</strong><button onClick="{{ goCreate }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:11px 18px;font-weight:600;cursor:pointer">+ New event</button></div>
+<sc-if value="{{ noEvents }}" hint-placeholder-val="{{ false }}"><div style="padding:32px;border:1.5px dashed #d8cdb9;border-radius:16px;font-size:15px;opacity:.8">No events yet. Create one; it stays a draft until you publish.</div></sc-if>
+<div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:4px 18px"><sc-for list="{{ sEvents }}" as="e" hint-placeholder-count="3"><button onClick="{{ e.on }}" style="width:100%;display:grid;grid-template-columns:minmax(0,1fr) 160px 130px 90px;gap:16px;align-items:center;padding:14px 0;border:none;border-bottom:1px solid #ece4d6;background:none;text-align:left;cursor:pointer;color:#241c14"><span style="display:flex;flex-direction:column;gap:2px"><strong style="font-size:16px;color:#16263b">{{ e.t }}</strong><span style="font-size:13px;opacity:.65">{{ e.d }}</span></span><span style="display:flex;flex-direction:column;gap:4px;font-size:13px">{{ e.sold }}<span style="height:5px;border-radius:99px;background:#ece4d6;overflow:hidden"><span style="display:block;height:100%;background:#16263b;width:{{ e.w }}"></span></span></span><strong style="font-size:14px;color:#16263b">{{ e.rev }}</strong><span style="justify-self:end;font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;background:{{ e.cbg }};color:{{ e.cfg }}">{{ e.chip }}</span></button></sc-for></div>
+</div></sc-if>
+
+<sc-if value="{{ is.create }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 32px;display:flex;flex-direction:column;gap:18px;max-width:860px">
+<div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:26px;color:#16263b">New event</strong><button onClick="{{ cancelCreate }}" style="background:none;border:none;color:#b8323a;font-weight:600;cursor:pointer">Cancel</button></div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px"><sc-for list="{{ steps }}" as="t" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:6px;font-size:14px;color:#16263b;font-weight:{{ t.w }}"><span style="height:4px;border-radius:99px;background:{{ t.bar }}"></span>{{ t.n }}</div></sc-for></div>
+<div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:16px">
+<sc-if value="{{ st0 }}" hint-placeholder-val="{{ true }}">
+<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#16263b">Event name<input value="{{ d.t }}" onChange="{{ dOn.t }}" placeholder="e.g. Nour Haddad: Winter Night" style="background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;font-weight:400;outline:none" style-focus="border-color:#16263b"></input></label>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px"><label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#16263b">Date<input value="{{ d.d }}" onChange="{{ dOn.d }}" placeholder="e.g. Sat 13 Dec" style="background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;font-weight:400;outline:none" style-focus="border-color:#16263b"></input></label>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#16263b">Venue<select value="{{ d.venue }}" onChange="{{ dOn.venue }}" style="background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;font-weight:400"><sc-for list="{{ venueOpts }}" as="v" hint-placeholder-count="3"><option value="{{ v.id }}">{{ v.n }}</option></sc-for></select></label></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#16263b">Category<div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ dCats }}" as="c" hint-placeholder-count="5"><button onClick="{{ c.on }}" style="border:1.5px solid #16263b;border-radius:99px;padding:7px 14px;font-size:14px;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</button></sc-for></div></div>
+<div style="height:120px;border:1.5px dashed #d8cdb9;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:14px;opacity:.6">Drop a cover image (16:9)</div>
+</sc-if>
+<sc-if value="{{ st1 }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;justify-content:space-between;font-size:14px;color:#16263b"><span>{{ d.vName }} holds <strong>{{ d.vCap }}</strong></span><span>Tiers total <strong>{{ d.tierTotal }}</strong></span></div>
+<sc-if value="{{ d.seated }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;opacity:.7;margin-top:-8px">Seated venue: one tier per section, quantities come from the layout. Edit the layout in Venues.</span></sc-if>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 120px 30px;gap:10px;font-size:12px;font-weight:600;opacity:.6"><span>Tier</span><span>Price (AED)</span><span>Quantity</span><span></span></div>
+<sc-for list="{{ dTiers }}" as="t" hint-placeholder-count="1"><div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 120px 30px;gap:10px;align-items:center"><input value="{{ t.n }}" onChange="{{ t.onN }}" placeholder="Tier name" style="min-width:0;background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:10px 12px;font-size:15px;outline:none"></input><input value="{{ t.p }}" onChange="{{ t.onP }}" inputMode="numeric" style="min-width:0;background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:10px 12px;font-size:15px;outline:none"></input><input value="{{ t.cap }}" onChange="{{ t.onC }}" inputMode="numeric" style="min-width:0;background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:10px 12px;font-size:15px;outline:none"></input><button onClick="{{ t.del }}" style="background:none;border:none;font-size:18px;opacity:.5;cursor:pointer">×</button></div></sc-for>
+<button onClick="{{ addTier }}" style="align-self:flex-start;background:none;border:1.5px dashed #16263b;color:#16263b;border-radius:99px;padding:8px 14px;font-weight:600;cursor:pointer">+ Add tier</button>
+</sc-if>
+<sc-if value="{{ st2 }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600;color:#16263b">Resale<div style="display:flex;gap:8px"><sc-for list="{{ dResale }}" as="c" hint-placeholder-count="2"><button onClick="{{ c.on }}" style="border:1.5px solid #16263b;border-radius:99px;padding:7px 14px;font-size:14px;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</button></sc-for></div></div>
+<sc-if value="{{ d.resale }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600;color:#16263b">Price cap above face value<div style="display:flex;gap:8px"><sc-for list="{{ dCaps }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.on }}" style="border:1.5px solid #16263b;border-radius:99px;padding:7px 14px;font-size:14px;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</button></sc-for></div><span style="font-weight:400;opacity:.7">You earn a 5% royalty on every resale.</span></div></sc-if>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#16263b">Launch promo code (optional, 15% off)<input value="{{ d.promo }}" onChange="{{ dOn.promo }}" placeholder="e.g. EARLY15" style="max-width:280px;background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;font-weight:400;outline:none;text-transform:uppercase"></input></label>
+</sc-if>
+<sc-if value="{{ st3 }}" hint-placeholder-val="{{ false }}">
+<div style="display:grid;grid-template-columns:140px 1fr;gap:10px 16px;font-size:15px"><span style="opacity:.6">Name</span><strong style="color:#16263b">{{ d.t }}</strong><span style="opacity:.6">When</span><span>{{ d.d }}</span><span style="opacity:.6">Venue</span><span>{{ d.vName }} · {{ d.cat }}</span><span style="opacity:.6">Tickets</span><span>{{ d.tierTotal }} across tiers</span><span style="opacity:.6">Resale</span><span>{{ d.resaleTxt }}</span><span style="opacity:.6">Promo</span><span>{{ d.promoTxt }}</span></div>
+<span style="font-size:13px;opacity:.7">Publishing puts it on sahra.app and in the app right away. You can pause sales any time.</span>
+</sc-if>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#b8323a">{{ err }}</span></sc-if>
+</div>
+<div style="display:flex;justify-content:space-between;gap:10px"><sc-if value="{{ notFirst }}" hint-placeholder-val="{{ false }}"><button onClick="{{ prevStep }}" style="background:none;border:1.5px solid #16263b;color:#16263b;border-radius:99px;padding:11px 20px;font-weight:600;cursor:pointer">Back</button></sc-if><span style="flex:1"></span>
+<sc-if value="{{ notLast }}" hint-placeholder-val="{{ true }}"><button onClick="{{ nextStep }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:12px 22px;font-weight:600;cursor:pointer">Continue</button></sc-if>
+<sc-if value="{{ st3 }}" hint-placeholder-val="{{ false }}"><button onClick="{{ saveDraft }}" style="background:none;border:1.5px solid #16263b;color:#16263b;border-radius:99px;padding:11px 20px;font-weight:600;cursor:pointer">Save draft</button><button onClick="{{ publish }}" style="background:#b8323a;color:#f7f1e6;border:none;border-radius:99px;padding:12px 22px;font-weight:600;cursor:pointer">Publish</button></sc-if></div>
+</div></sc-if>
+
+<sc-if value="{{ is.manage }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 32px;display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><span style="display:flex;flex-direction:column;gap:4px"><span style="display:flex;gap:10px;align-items:center"><strong style="font-size:26px;color:#16263b">{{ me.t }}</strong><span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;background:{{ me.cbg }};color:{{ me.cfg }}">{{ me.chip }}</span></span><span style="font-size:14px;opacity:.65">{{ me.d }} · {{ me.v }}</span></span>
+<span style="display:flex;gap:8px"><button onClick="{{ viewOnSite }}" style="background:none;border:1.5px solid #16263b;color:#16263b;border-radius:99px;padding:10px 16px;font-weight:600;cursor:pointer">View on sahra.app ↗</button><sc-if value="{{ me.live }}" hint-placeholder-val="{{ true }}"><button onClick="{{ pauseSales }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:11px 16px;font-weight:600;cursor:pointer">Pause sales</button></sc-if><sc-if value="{{ me.paused }}" hint-placeholder-val="{{ false }}"><button onClick="{{ resumeSales }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:11px 16px;font-weight:600;cursor:pointer">Resume sales</button></sc-if><sc-if value="{{ me.draft }}" hint-placeholder-val="{{ false }}"><button onClick="{{ publishMe }}" style="background:#b8323a;color:#f7f1e6;border:none;border-radius:99px;padding:11px 16px;font-weight:600;cursor:pointer">Publish</button></sc-if></span></div>
+<div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:20px">
+<div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;padding-bottom:8px"><strong style="color:#16263b">Tiers</strong><span style="font-size:14px">{{ me.sold }} / {{ me.cap }} sold</span></div>
+<sc-for list="{{ meTiers }}" as="t" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:minmax(0,1fr) 100px 150px;gap:14px;align-items:center;padding:10px 0;border-top:1px solid #ece4d6;font-size:14px"><strong style="color:#16263b">{{ t.n }}</strong><span>{{ t.p }}</span><span style="display:flex;flex-direction:column;gap:4px;font-size:12px">{{ t.s }}<span style="height:5px;border-radius:99px;background:#ece4d6;overflow:hidden"><span style="display:block;height:100%;background:#16263b;width:{{ t.w }}"></span></span></span></div></sc-for>
+<sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}"><div style="display:flex;justify-content:space-between;padding-top:12px;border-top:1px solid #ece4d6;font-size:15px"><span>Gross revenue</span><strong style="color:#16263b">{{ me.rev }}</strong></div></sc-if></div>
+<div style="display:flex;flex-direction:column;gap:20px">
+<div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:12px"><div style="display:flex;justify-content:space-between;align-items:center"><strong style="color:#16263b">Resale</strong><button onClick="{{ toggleResale }}" style="background:none;border:1.5px solid #16263b;border-radius:99px;padding:6px 12px;font-weight:600;color:#16263b;cursor:pointer">{{ me.resaleTxt }}</button></div><sc-if value="{{ me.resale }}" hint-placeholder-val="{{ true }}"><div style="display:flex;gap:8px;align-items:center;font-size:13px">Cap<sc-for list="{{ meCaps }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.on }}" style="border:1.5px solid #16263b;border-radius:99px;padding:5px 12px;font-size:13px;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</button></sc-for></div></sc-if></div>
+<div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column"><strong style="color:#16263b;padding-bottom:6px">Orders</strong><sc-for list="{{ meOrders }}" as="o" hint-placeholder-count="2"><div style="display:flex;justify-content:space-between;padding:9px 0;border-top:1px solid #ece4d6;font-size:14px"><span>{{ o.buyer }} · {{ o.qty }}×</span><strong style="color:{{ o.c }}">{{ o.total }}</strong></div></sc-for></div>
+</div></div></div></sc-if>
+
+<sc-if value="{{ is.orders }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 32px;display:flex;flex-direction:column;gap:16px">
+<strong style="font-size:26px;color:#16263b">Orders</strong>
+<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><input value="{{ f.oq }}" onChange="{{ on.oq }}" placeholder="Search name or order #" style="width:280px;background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:10px 12px;font-size:15px;outline:none" style-focus="border-color:#16263b"></input><sc-for list="{{ oFilters }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.on }}" style="border:1.5px solid #16263b;border-radius:99px;padding:7px 14px;font-size:14px;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</button></sc-for></div>
+<div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:4px 18px">
+<div style="display:grid;grid-template-columns:110px minmax(0,1fr) minmax(0,1fr) 110px 90px 90px;gap:12px;padding:12px 0;font-size:12px;font-weight:600;opacity:.6"><span>Order</span><span>Buyer</span><span>Event</span><span>Total</span><span>Status</span><span></span></div>
+<sc-for list="{{ orderRows }}" as="o" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:110px minmax(0,1fr) minmax(0,1fr) 110px 90px 90px;gap:12px;padding:12px 0;border-top:1px solid #ece4d6;font-size:14px;align-items:center"><span style="font-weight:600">{{ o.id }}</span><span style="display:flex;flex-direction:column"><strong style="color:#16263b">{{ o.buyer }}</strong><span style="font-size:12px;opacity:.6">{{ o.when }}</span></span><span>{{ o.ev }} · {{ o.qty }}× {{ o.tier }}</span><strong>{{ o.total }}</strong><span style="font-weight:600;color:{{ o.c }};text-transform:capitalize">{{ o.status }}</span><sc-if value="{{ o.paid }}" hint-placeholder-val="{{ false }}"><button onClick="{{ o.refund }}" style="background:none;border:none;color:#b8323a;font-weight:600;cursor:pointer;text-align:right">Refund</button></sc-if></div></sc-for>
+<sc-if value="{{ noOrders }}" hint-placeholder-val="{{ false }}"><div style="padding:20px 0;opacity:.6">No orders match.</div></sc-if></div>
+</div></sc-if>
+
+<sc-if value="{{ is.analytics }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 32px;display:flex;flex-direction:column;gap:16px">
+<strong style="font-size:26px;color:#16263b">Analytics</strong>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px"><sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4"><div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;opacity:.65">{{ k.n }}</span><strong style="font-size:26px;color:#16263b">{{ k.v }}</strong></div></sc-for></div>
+<sc-for list="{{ bars }}" as="b" hint-placeholder-count="2"><div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:10px"><strong style="color:#16263b">{{ b.t }} · sell-through by tier</strong><sc-for list="{{ b.tiers }}" as="t" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:160px minmax(0,1fr) 120px;gap:12px;align-items:center;font-size:14px"><span>{{ t.n }}</span><span style="height:14px;border-radius:99px;background:#ece4d6;overflow:hidden"><span style="display:block;height:100%;border-radius:99px;background:{{ t.c }};width:{{ t.w }}"></span></span><span style="text-align:right">{{ t.v }}</span></div></sc-for></div></sc-for>
+</div></sc-if>
+
+<sc-if value="{{ is.promos }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 32px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:26px;color:#16263b">Promo codes</strong><button onClick="{{ openPromo }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:11px 18px;font-weight:600;cursor:pointer">+ New code</button></div>
+<div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:4px 18px">
+<div style="display:grid;grid-template-columns:120px 70px minmax(0,1fr) 100px 80px 80px 90px;gap:12px;padding:12px 0;font-size:12px;font-weight:600;opacity:.6"><span>Code</span><span>Off</span><span>Applies to</span><span>Used</span><span>Resale</span><span>Status</span><span></span></div>
+<sc-for list="{{ promoRows }}" as="p" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:120px 70px minmax(0,1fr) 100px 80px 80px 90px;gap:12px;padding:12px 0;border-top:1px solid #ece4d6;font-size:14px;align-items:center"><strong style="letter-spacing:.06em;color:#16263b">{{ p.c }}</strong><span>{{ p.pct }}</span><span>{{ p.evN }}</span><span>{{ p.uses }}</span><span>{{ p.resaleTxt }}</span><span style="font-weight:600;color:{{ p.stC }}">{{ p.stTxt }}</span><button onClick="{{ p.toggle }}" style="background:none;border:none;color:#16263b;font-weight:600;cursor:pointer;text-align:right;text-decoration:underline">{{ p.tBtn }}</button></div></sc-for></div>
+</div></sc-if>
+
+<sc-if value="{{ is.venues }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 32px;display:flex;flex-direction:column;gap:16px">
+<strong style="font-size:26px;color:#16263b">Venues</strong>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ venueTabs }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.on }}" style="border:1.5px solid #16263b;border-radius:99px;padding:7px 14px;font-size:14px;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</button></sc-for></div>
+<div style="display:flex;justify-content:space-between;font-size:14px;color:#16263b;flex-wrap:wrap;gap:8px"><span>Capacity <strong>{{ V.cap }}</strong> · used by {{ V.usage }}</span><sc-if value="{{ V.over }}" hint-placeholder-val="{{ false }}"><span style="color:#b8323a;font-weight:600">Tiers on sale ({{ V.tierCap }}) exceed this layout. Fix before the event.</span></sc-if></div>
+<sc-if value="{{ V.standing }}" hint-placeholder-val="{{ false }}"><div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:24px;font-size:15px">Standing venue. Capacity is a single number; fans don’t pick seats.</div></sc-if>
+<sc-if value="{{ V.seated }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:220px minmax(0,1fr) 240px;gap:16px;align-items:start">
+<div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:6px"><sc-for list="{{ vSecs }}" as="x" hint-placeholder-count="3"><button onClick="{{ x.on }}" style="display:flex;justify-content:space-between;align-items:center;gap:8px;border:1.5px solid {{ x.bd }};background:#fff;border-radius:10px;padding:10px;font-size:14px;cursor:pointer;color:#16263b"><span style="display:flex;gap:8px;align-items:center"><span style="width:12px;height:12px;border-radius:3px;background:{{ x.c }}"></span>{{ x.n }}</span><span style="opacity:.6">{{ x.seats }}</span></button></sc-for><button onClick="{{ addSec }}" style="border:1.5px dashed #16263b;background:none;border-radius:10px;padding:9px;font-weight:600;color:#16263b;cursor:pointer">+ Section</button></div>
+<div style="background:#16263b;border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px;align-items:center;min-height:300px"><span style="font-size:11px;letter-spacing:.2em;color:#9fb0c6;background:#0b1420;padding:6px 60px;border-radius:6px">STAGE</span><div style="display:flex;gap:10px;align-items:flex-end;width:100%;flex:1"><sc-for list="{{ vSecs }}" as="x" hint-placeholder-count="3"><button onClick="{{ x.on }}" style="flex:{{ x.flex }};min-height:120px;border-radius:10px;border:3px solid {{ x.bd }};background:{{ x.c }};color:#16263b;font-weight:700;font-size:13px;cursor:pointer;outline:2px solid #16263b">{{ x.n }}</button></sc-for></div></div>
+<sc-if value="{{ hasVS }}" hint-placeholder-val="{{ true }}"><div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:14px"><strong style="color:#16263b">{{ VS.n }}</strong>
+<div style="display:flex;justify-content:space-between;align-items:center;font-size:14px"><span>Rows</span><span style="display:flex;gap:10px;align-items:center"><button onClick="{{ rowsDown }}" style="width:30px;height:30px;border-radius:50%;border:1.5px solid #16263b;background:none;cursor:pointer">−</button><strong>{{ VS.rows }}</strong><button onClick="{{ rowsUp }}" style="width:30px;height:30px;border-radius:50%;border:none;background:#16263b;color:#f2d9a0;cursor:pointer">+</button></span></div>
+<div style="display:flex;justify-content:space-between;align-items:center;font-size:14px"><span>Seats per row</span><span style="display:flex;gap:10px;align-items:center"><button onClick="{{ colsDown }}" style="width:30px;height:30px;border-radius:50%;border:1.5px solid #16263b;background:none;cursor:pointer">−</button><strong>{{ VS.cols }}</strong><button onClick="{{ colsUp }}" style="width:30px;height:30px;border-radius:50%;border:none;background:#16263b;color:#f2d9a0;cursor:pointer">+</button></span></div>
+<div style="display:flex;justify-content:space-between;font-size:15px;border-top:1px solid #ece4d6;padding-top:12px"><span>Seats</span><strong style="color:#16263b">{{ VS.seats }}</strong></div>
+<button onClick="{{ delSec }}" style="background:none;border:none;color:#b8323a;font-weight:600;cursor:pointer;text-align:left;padding:0">Delete section</button></div></sc-if>
+</div></sc-if>
+</div></sc-if>
+
+<sc-if value="{{ is.payouts }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 32px;display:flex;flex-direction:column;gap:16px;max-width:820px">
+<strong style="font-size:26px;color:#16263b">Payouts</strong>
+<sc-if value="{{ needBank }}" hint-placeholder-val="{{ false }}"><div style="background:#fff9ef;border:1.5px solid #16263b;border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:12px;max-width:520px"><strong style="font-size:18px;color:#16263b">Add a business bank account</strong><span style="font-size:14px;opacity:.75;line-height:1.5">Ticket money is held until you add one. It must match the name on your trade licence.</span><input value="{{ f.iban }}" onChange="{{ on.iban }}" placeholder="IBAN, e.g. AE07 0331 2345 6789 0123 456" style="background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;font-weight:400;outline:none"></input><sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#b8323a">{{ err }}</span></sc-if><button onClick="{{ addBank }}" style="align-self:flex-start;background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:12px 20px;font-weight:600;cursor:pointer">Save bank account</button></div></sc-if>
+<sc-if value="{{ hasBank }}" hint-placeholder-val="{{ true }}"><div style="background:#16263b;color:#f7f1e6;border-radius:18px;padding:22px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap"><span style="display:flex;flex-direction:column;gap:4px"><span style="font-size:14px;color:#9fb0c6">Available now</span><strong style="font-size:34px;letter-spacing:-.02em">{{ avail }}</strong><span style="font-size:13px;color:#9fb0c6">Automatic payout {{ pay.next }} · to {{ bankName }}</span></span><button onClick="{{ requestPayout }}" style="background:#f2d9a0;color:#16263b;border:none;border-radius:99px;padding:13px 20px;font-weight:600;cursor:pointer">Pay out now</button></div></sc-if>
+<div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:4px 18px"><sc-for list="{{ payoutRows }}" as="p" hint-placeholder-count="1"><div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #ece4d6;font-size:14px"><span>{{ p.d }}</span><strong style="color:#16263b">{{ p.a }}</strong><span>{{ p.st }}</span></div></sc-for></div>
+</div></sc-if>
+
+<sc-if value="{{ is.team }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 32px;display:flex;flex-direction:column;gap:16px;max-width:860px">
+<div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:26px;color:#16263b">Team</strong><button onClick="{{ openInvite }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:11px 18px;font-weight:600;cursor:pointer">+ Invite</button></div>
+<div style="background:#fff9ef;border:1px solid #ece4d6;border-radius:16px;padding:4px 18px"><sc-for list="{{ teamRows }}" as="m" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 90px 80px;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid #ece4d6;font-size:14px"><span style="display:flex;flex-direction:column"><strong style="color:#16263b">{{ m.n }}</strong><span style="font-size:12px;opacity:.6">{{ m.e }}</span></span><span>{{ m.role }}</span><span style="opacity:.7">{{ m.st }}</span><sc-if value="{{ m.notMe }}" hint-placeholder-val="{{ true }}"><button onClick="{{ m.remove }}" style="background:none;border:none;color:#b8323a;font-weight:600;cursor:pointer;text-align:right">Remove</button></sc-if><sc-if value="{{ m.me }}" hint-placeholder-val="{{ false }}"><span style="text-align:right;opacity:.5">You</span></sc-if></div></sc-for></div>
+</div></sc-if>
+
+</div></div></sc-if>
+
+<sc-if value="{{ authOpen }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#0b1420aa;display:flex;align-items:center;justify-content:center;z-index:20"><div style="width:420px;max-width:90%;background:#16263b;color:#f7f1e6;border-radius:22px;padding:28px;display:flex;flex-direction:column;gap:14px"><div style="display:flex;justify-content:space-between;gap:12px"><strong style="font-size:23px;letter-spacing:-.02em;line-height:1.15">{{ authTitle }}</strong><button onClick="{{ closeAuth }}" style="background:none;border:none;color:#9fb0c6;font-size:22px;cursor:pointer;align-self:flex-start">×</button></div><span style="font-size:14px;line-height:1.5;color:#9fb0c6">{{ authSub }}</span>
+<sc-if value="{{ authId }}" hint-placeholder-val="{{ true }}"><input value="{{ f.email }}" onChange="{{ on.email }}" placeholder="+971 50 123 4567 or you@email.com" style="background:#22344d;border:1.5px solid #22344d;border-radius:12px;padding:13px 14px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input></sc-if>
+<sc-if value="{{ authCode }}" hint-placeholder-val="{{ false }}"><input value="{{ f.otp }}" onChange="{{ on.otp }}" inputMode="numeric" maxLength="6" placeholder="••••••" style="background:#22344d;border:1.5px solid #22344d;border-radius:12px;padding:14px;font-size:26px;letter-spacing:.5em;text-align:center;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input><button onClick="{{ authBack }}" style="align-self:flex-start;background:none;border:none;color:#f2d9a0;font-size:14px;cursor:pointer;padding:0">Use a different number or email</button></sc-if>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#e0626a">{{ err }}</span></sc-if><button onClick="{{ signIn }}" style="background:#f2d9a0;color:#16263b;border:none;border-radius:99px;font-weight:600;cursor:pointer;padding:15px;font-size:16px">{{ authCta }}</button><span style="font-size:12px;color:#6f84a0">Prototype: any phone or email, then any 6 digits. No passwords anywhere.</span></div></div></sc-if>
+<sc-if value="{{ whoOpen }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#0b1420aa;display:flex;align-items:center;justify-content:center;z-index:20"><div style="width:760px;max-width:92%;background:#16263b;color:#f7f1e6;border-radius:26px;padding:30px;display:flex;flex-direction:column;gap:18px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="display:flex;flex-direction:column;gap:6px"><strong style="font-size:34px;letter-spacing:-.03em">Who’s it for?</strong><span style="font-size:15px;color:#c9d3df">Pick by audience, not size. A 300-person wedding is still invite-only.</span></div><button onClick="{{ closeModal }}" style="background:none;border:none;color:#9fb0c6;font-size:22px;cursor:pointer">×</button></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px"><button onClick="{{ whoPersonal }}" style="display:flex;flex-direction:column;gap:10px;text-align:left;background:#f2d9a0;color:#16263b;border:none;border-radius:20px;padding:22px;cursor:pointer"><span style="font-size:12px;font-weight:700;letter-spacing:.1em">HOSTED BY YOU</span><strong style="font-size:24px;letter-spacing:-.02em">People I invite</strong><span style="font-size:14px;line-height:1.5">Dinners, birthdays, run clubs, house parties. A private link, RSVPs and a guest list. Free.</span></button><button onClick="{{ whoPublic }}" style="display:flex;flex-direction:column;gap:10px;text-align:left;background:#22344d;color:#f7f1e6;border:1.5px solid #3a506c;border-radius:20px;padding:22px;cursor:pointer"><span style="font-size:12px;font-weight:700;letter-spacing:.1em;color:#f2d9a0">HOSTED BY AN ORGANISATION</span><strong style="font-size:24px;letter-spacing:-.02em">Anyone, with tickets</strong><span style="font-size:14px;line-height:1.5;color:#c9d3df">Concerts, club nights, comedy, festivals. Listed on Sahra, paid tickets and payouts. Verify before you sell.</span></button></div>
+<span style="font-size:13px;color:#9fb0c6">Any invite can move to an organisation later if you decide to charge. Guests keep their spot.</span></div></div></sc-if>
+<sc-if value="{{ newInvOpen }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#0b1420aa;display:flex;align-items:center;justify-content:center;z-index:20"><div style="width:480px;max-width:92%;background:#16263b;color:#f7f1e6;border-radius:24px;padding:28px;display:flex;flex-direction:column;gap:14px"><div style="display:flex;justify-content:space-between"><strong style="font-size:26px;letter-spacing:-.02em">New invite</strong><button onClick="{{ closeModal }}" style="background:none;border:none;color:#9fb0c6;font-size:22px;cursor:pointer">×</button></div>
+<input value="{{ f.it }}" onChange="{{ on.it }}" placeholder="What’s happening? e.g. Friday rooftop dinner" style="background:#22344d;border:1.5px solid #22344d;border-radius:12px;padding:13px 14px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input>
+<div style="display:grid;grid-template-columns:1.4fr 1fr;gap:10px"><label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#9fb0c6">Date<input type="date" min="2025-11-18" value="{{ f.idate }}" onChange="{{ on.idate }}" style="background:#22344d;border:1.5px solid #22344d;border-radius:12px;padding:12px 14px;font-size:16px;color:#f7f1e6;outline:none;color-scheme:dark;font-family:inherit;min-width:0" style-focus="border-color:#f2d9a0"></input></label><label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#9fb0c6">Starts<input type="time" step="900" value="{{ f.itime }}" onChange="{{ on.itime }}" style="background:#22344d;border:1.5px solid #22344d;border-radius:12px;padding:12px 14px;font-size:16px;color:#f7f1e6;outline:none;color-scheme:dark;font-family:inherit;min-width:0" style-focus="border-color:#f2d9a0"></input></label></div>
+<span style="font-size:13px;color:#c9d3df;margin-top:-6px">{{ iWhenTxt }}</span>
+<input value="{{ f.iw }}" onChange="{{ on.iw }}" placeholder="Where? Address or place name" style="background:#22344d;border:1.5px solid #22344d;border-radius:12px;padding:13px 14px;font-size:16px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ iOpts }}" as="c" hint-placeholder-count="2"><button onClick="{{ c.on }}" style="border:1.5px solid {{ c.bd }};border-radius:99px;padding:8px 14px;font-size:14px;font-weight:500;cursor:pointer;background:transparent;color:#f7f1e6">{{ c.mark }} {{ c.n }}</button></sc-for></div>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#e0626a">{{ err }}</span></sc-if>
+<button onClick="{{ createInvite }}" style="background:#f2d9a0;color:#16263b;border:none;border-radius:99px;font-weight:600;cursor:pointer;padding:15px;font-size:16px">Create invite</button><span style="font-size:12px;color:#6f84a0">Free, link-only and never listed on Sahra. Guest limits, plus-ones and messages are in the app.</span></div></div></sc-if>
+
+<sc-if value="{{ isCheckout }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#0b1420aa;display:flex;align-items:center;justify-content:center;z-index:20"><div style="width:440px;max-width:90%;background:#f7f1e6;color:#241c14;border-radius:20px;padding:26px;display:flex;flex-direction:column;gap:14px"><div style="display:flex;justify-content:space-between"><strong style="font-size:22px;color:#16263b">Checkout</strong><button onClick="{{ closeModal }}" style="background:none;border:none;font-size:20px;cursor:pointer;opacity:.6">×</button></div>
+<strong style="color:#16263b">{{ co.ev }}</strong><sc-for list="{{ co.lines }}" as="l" hint-placeholder-count="1"><div style="display:flex;justify-content:space-between;font-size:15px"><span>{{ l.label }}</span><span>{{ l.amt }}</span></div></sc-for>
+<div style="display:flex;gap:8px"><input value="{{ f.promo }}" onChange="{{ on.promo }}" placeholder="Promo code" style="flex:1;min-width:0;background:#fff9ef;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;text-transform:uppercase;outline:none"></input><button onClick="{{ applyPromo }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:0 18px;font-weight:600;cursor:pointer">Apply</button></div><span style="font-size:13px;opacity:.75;margin-top:-6px">{{ promoMsg }}</span>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:15px;border-top:1px solid #e3d9c6;padding-top:12px"><div style="display:flex;justify-content:space-between"><span>Subtotal</span><span>{{ co.sub }}</span></div><div style="display:flex;justify-content:space-between"><span>Service fee (5%)</span><span>{{ co.fee }}</span></div><sc-if value="{{ co.hasDisc }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:space-between;color:#2f7a4f"><span>Promo</span><span>{{ co.disc }}</span></div></sc-if><div style="display:flex;justify-content:space-between;font-weight:800;font-size:18px;color:#16263b"><span>Total</span><span>{{ co.total }}</span></div></div>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><div style="background:#b8323a14;border:1.5px solid #b8323a;color:#b8323a;border-radius:10px;padding:10px 12px;font-size:14px">{{ err }}</div></sc-if>
+<button onClick="{{ pay }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:15px;font-weight:600;font-size:16px;cursor:pointer">{{ payLabel }}</button><span style="font-size:12px;opacity:.6;text-align:center">Apple Pay · Visa ··4242 · Stripe test mode</span></div></div></sc-if>
+
+<sc-if value="{{ isSend }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#0b1420aa;display:flex;align-items:center;justify-content:center;z-index:20"><div style="width:400px;max-width:90%;background:#16263b;color:#f7f1e6;border-radius:20px;padding:26px;display:flex;flex-direction:column;gap:14px"><div style="display:flex;justify-content:space-between"><strong style="font-size:22px">Send tickets</strong><button onClick="{{ closeModal }}" style="background:none;border:none;color:#9fb0c6;font-size:20px;cursor:pointer">×</button></div><input value="{{ f.to }}" onChange="{{ on.to }}" placeholder="Their email" style="background:#22344d;border:1.5px solid #22344d;border-radius:12px;padding:12px 14px;font-size:15px;color:#f7f1e6;outline:none" style-focus="border-color:#f2d9a0"></input><sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#e0626a">{{ err }}</span></sc-if><span style="font-size:13px;color:#9fb0c6">Your QR stops working once they accept.</span><button onClick="{{ doSend }}" style="background:#f2d9a0;color:#16263b;border:none;border-radius:99px;padding:14px;font-weight:600;cursor:pointer">Send</button></div></div></sc-if>
+
+<sc-if value="{{ isSell }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#0b1420aa;display:flex;align-items:center;justify-content:center;z-index:20"><div style="width:400px;max-width:90%;background:#16263b;color:#f7f1e6;border-radius:20px;padding:26px;display:flex;flex-direction:column;gap:14px"><div style="display:flex;justify-content:space-between"><strong style="font-size:22px">Sell tickets</strong><button onClick="{{ closeModal }}" style="background:none;border:none;color:#9fb0c6;font-size:20px;cursor:pointer">×</button></div><div style="display:flex;justify-content:space-between;align-items:center"><span>Price each</span><span style="display:flex;gap:12px;align-items:center"><button onClick="{{ sellDown }}" style="width:32px;height:32px;border-radius:50%;border:1.5px solid #3a506c;background:none;color:#f7f1e6;cursor:pointer">−</button><strong>{{ sellPrice }}</strong><button onClick="{{ sellUp }}" style="width:32px;height:32px;border-radius:50%;border:none;background:#f2d9a0;color:#16263b;cursor:pointer">+</button></span></div><span style="font-size:13px;color:#9fb0c6">{{ sellCapText }}</span><span style="font-size:15px;color:#f2d9a0;font-weight:600">{{ sellPayout }}</span><sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#e0626a">{{ err }}</span></sc-if><button onClick="{{ doSell }}" style="background:#f2d9a0;color:#16263b;border:none;border-radius:99px;padding:14px;font-weight:600;cursor:pointer">List for sale</button></div></div></sc-if>
+
+<sc-if value="{{ isPromo }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#16263b88;display:flex;align-items:center;justify-content:center;z-index:20"><div style="width:440px;max-width:90%;background:#f7f1e6;border-radius:20px;padding:26px;display:flex;flex-direction:column;gap:14px;color:#241c14"><div style="display:flex;justify-content:space-between"><strong style="font-size:22px;color:#16263b">New promo code</strong><button onClick="{{ closeModal }}" style="background:none;border:none;font-size:20px;cursor:pointer;opacity:.6">×</button></div>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Code<input value="{{ f.code }}" onChange="{{ on.code }}" placeholder="e.g. WINTER25" style="background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;font-weight:400;text-transform:uppercase;outline:none"></input></label>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">% off<input value="{{ f.pct }}" onChange="{{ on.pct }}" style="min-width:0;background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;font-weight:400;outline:none"></input></label><label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Max uses<input value="{{ f.pmax }}" onChange="{{ on.pmax }}" style="min-width:0;background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;font-weight:400;outline:none"></input></label></div>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Event<select onChange="{{ pEvChange }}" style="background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;font-weight:400"><sc-for list="{{ pEvOpts }}" as="o" hint-placeholder-count="3"><option value="{{ o.id }}">{{ o.n }}</option></sc-for></select></label>
+<button onClick="{{ togglePResale }}" style="display:flex;justify-content:space-between;align-items:center;background:#fff9ef;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:14px;cursor:pointer;color:#241c14"><span>{{ pResaleTxt }}</span><strong style="color:#16263b">Change</strong></button>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#b8323a">{{ err }}</span></sc-if>
+<button onClick="{{ createPromo }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:14px;font-weight:600;cursor:pointer">Create code</button></div></div></sc-if>
+
+<sc-if value="{{ isVerify }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#16263b88;display:flex;align-items:center;justify-content:center;z-index:20"><div style="width:460px;max-width:90%;background:#f7f1e6;border-radius:20px;padding:26px;display:flex;flex-direction:column;gap:14px;color:#241c14"><div style="display:flex;justify-content:space-between"><strong style="font-size:22px;color:#16263b">Verify {{ O.n }}</strong><button onClick="{{ closeModal }}" style="background:none;border:none;font-size:20px;cursor:pointer;opacity:.6">×</button></div><span style="font-size:14px;line-height:1.5;opacity:.75">Required by law before tickets go on sale. Your draft is saved; it publishes once you’re approved.</span>
+<input value="{{ f.legal }}" onChange="{{ on.legal }}" placeholder="Legal name on trade licence" style="background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;font-weight:400;outline:none"></input><input value="{{ f.lic }}" onChange="{{ on.lic }}" placeholder="Trade licence number" style="background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;font-weight:400;outline:none"></input>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div style="border:1.5px dashed #d8cdb9;border-radius:10px;padding:14px;font-size:13px;text-align:center;opacity:.7">Trade licence (PDF)</div><div style="border:1.5px dashed #d8cdb9;border-radius:10px;padding:14px;font-size:13px;text-align:center;opacity:.7">Emirates ID / passport</div></div>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#b8323a">{{ err }}</span></sc-if>
+<button onClick="{{ submitVerify }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:14px;font-weight:600;cursor:pointer">Submit for review</button></div></div></sc-if>
+
+<sc-if value="{{ isInvite }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#16263b88;display:flex;align-items:center;justify-content:center;z-index:20"><div style="width:460px;max-width:90%;background:#f7f1e6;border-radius:20px;padding:26px;display:flex;flex-direction:column;gap:14px;color:#241c14"><div style="display:flex;justify-content:space-between"><strong style="font-size:22px;color:#16263b">Invite to Mawja Live</strong><button onClick="{{ closeModal }}" style="background:none;border:none;font-size:20px;cursor:pointer;opacity:.6">×</button></div>
+<input value="{{ f.inv }}" onChange="{{ on.inv }}" placeholder="Email" style="background:#fff;border:1.5px solid #d8cdb9;border-radius:10px;padding:11px 13px;font-size:15px;outline:none"></input>
+<sc-for list="{{ roleOpts }}" as="r" hint-placeholder-count="3"><button onClick="{{ r.on }}" style="display:flex;gap:12px;align-items:center;background:#fff9ef;border:1.5px solid {{ r.bd }};border-radius:12px;padding:12px 14px;text-align:left;cursor:pointer;color:#241c14"><span style="width:16px;height:16px;border-radius:50%;border:2px solid #16263b;background:{{ r.dot }};flex:none;box-sizing:border-box"></span><span style="display:flex;flex-direction:column;gap:2px"><strong style="color:#16263b">{{ r.n }}</strong><span style="font-size:13px;opacity:.7">{{ r.dsc }}</span></span></button></sc-for>
+<sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#b8323a">{{ err }}</span></sc-if>
+<button onClick="{{ invite }}" style="background:#16263b;color:#f2d9a0;border:none;border-radius:99px;padding:14px;font-weight:600;cursor:pointer">Send invite</button></div></div></sc-if>
+
+<sc-if value="{{ hasConfirm }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:#0b1420aa;display:flex;align-items:center;justify-content:center;z-index:25"><div style="width:420px;max-width:90%;background:#f7f1e6;color:#241c14;border-radius:20px;padding:26px;display:flex;flex-direction:column;gap:12px"><strong style="font-size:22px;color:#16263b">{{ confirm.t }}</strong><span style="font-size:15px;line-height:1.5;opacity:.8">{{ confirm.b }}</span><div style="display:flex;gap:10px;justify-content:flex-end;padding-top:6px"><button onClick="{{ confirmCancel }}" style="background:none;border:1.5px solid #16263b;color:#16263b;border-radius:99px;padding:10px 18px;font-weight:600;cursor:pointer">Cancel</button><button onClick="{{ confirmOk }}" style="border:none;border-radius:99px;padding:11px 18px;font-weight:600;cursor:pointer;background:{{ cBg }};color:{{ cFg }}">{{ confirm.ok }}</button></div></div></div></sc-if>
+
+<sc-if value="{{ toastMsg }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:30;background:#16263b;color:#f2d9a0;border-radius:99px;padding:11px 20px;font-size:14px;font-weight:600;box-shadow:0 10px 30px #0b142055">{{ toastMsg }}</div></sc-if>
+</div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const clone = x => JSON.parse(JSON.stringify(x));
+const VEN0 = [
+  { id: 'v1', n: 'Opera House', secs: [{ id: 's1', n: 'Section 104', rows: 12, cols: 20 }, { id: 's2', n: 'Golden Circle', rows: 6, cols: 24 }, { id: 's3', n: 'Section 102', rows: 12, cols: 20 }] },
+  { id: 'v2', n: 'Al Qudra grounds', ga: true, cap: 5000, secs: [] },
+  { id: 'v3', n: 'Dubai Comedy Club', ga: true, cap: 340, secs: [] },
+  { id: 'v4', n: 'Al Maktoum Stadium', ga: true, cap: 8200, secs: [] },
+  { id: 'v5', n: 'Kave Terrace', ga: true, cap: 520, secs: [] },
+  { id: 'v6', n: 'Coca-Cola Arena', ga: true, cap: 9000, secs: [] }
+];
+const EV0 = [
+  { id: 'e1', t: 'Nour Haddad Live', venue: 'v1', d: 'Thu 20 Nov', cat: 'Concerts', status: 'live', resale: true, cap: 10, tone: '#2f4560', about: 'New songs and old favourites with a full string section. Doors 7 PM.', tiers: [{ n: 'Section 104', p: 310, cap: 240, sold: 212 }, { n: 'Golden Circle', p: 650, cap: 144, sold: 144 }, { n: 'Section 102', p: 420, cap: 240, sold: 198 }] },
+  { id: 'e2', t: 'Desert Bass Festival', venue: 'v2', d: 'Sat 29 Nov', cat: 'Festivals', status: 'live', resale: true, cap: 10, tone: '#6f84a0', about: 'Twelve hours, three stages, one desert. Free shuttles from Al Quoz.', tiers: [{ n: 'Early bird', p: 150, cap: 1000, sold: 1000 }, { n: 'General admission', p: 195, cap: 3000, sold: 2760 }, { n: 'VIP deck', p: 450, cap: 200, sold: 194 }] },
+  { id: 'e4', t: 'Derby Night', venue: 'v4', d: 'Thu 4 Dec', cat: 'Football', status: 'live', resale: true, cap: 10, tone: '#2f7a4f', about: 'The city derby under the lights. Gates open 90 minutes before kick-off.', tiers: [{ n: 'East Stand', p: 85, cap: 4000, sold: 3100 }, { n: 'West Stand', p: 120, cap: 4000, sold: 3992 }, { n: 'Hospitality', p: 450, cap: 200, sold: 120 }] },
+  { id: 'e5', t: 'Kave Friday Sessions', venue: 'v5', d: 'Fri 21 Nov', cat: 'Nightlife', status: 'live', resale: false, cap: 0, tone: '#b8323a', about: 'House and Arabic disco on the terrace until 3. 21+, ID at the door.', tiers: [{ n: 'Entry', p: 90, cap: 500, sold: 380 }, { n: 'Table for 6', p: 1500, cap: 20, sold: 17 }] },
+  { id: 'e6', t: 'Oud & Orchestra', venue: 'v6', d: 'Sat 6 Dec', cat: 'Concerts', status: 'live', resale: true, cap: 10, tone: '#8a6d3b', about: 'Sixty musicians, one oud. A night of new Khaleeji arrangements.', tiers: [{ n: 'Floor', p: 340, cap: 3000, sold: 1800 }, { n: 'Lower bowl', p: 260, cap: 6000, sold: 2100 }] },
+  { id: 'e3', t: 'Ali Al Sayed: Stand-up', venue: 'v3', d: 'Fri 5 Dec', cat: 'Comedy', status: 'draft', resale: true, cap: 10, tone: '#8a6d3b', about: 'A brand-new hour, in Arabic and English. Ages 16+.', tiers: [{ n: 'Standard', p: 120, cap: 300, sold: 0 }, { n: 'Front rows', p: 220, cap: 40, sold: 0 }] }
+];
+const ORD0 = [
+  { id: 'SA-48213', ev: 'e1', buyer: 'Omar Khalid', tier: 'Golden Circle', qty: 2, total: 1365, status: 'paid', when: 'Today 10:42' },
+  { id: 'SA-48190', ev: 'e2', buyer: 'Fatima Al-Zahra', tier: 'VIP deck', qty: 1, total: 473, status: 'paid', when: 'Today 09:15' },
+  { id: 'SA-48177', ev: 'e1', buyer: 'Rami Nassar', tier: 'Section 102', qty: 4, total: 1764, status: 'paid', when: 'Yesterday' },
+  { id: 'SA-47702', ev: 'e2', buyer: 'Sami Haddad', tier: 'General admission', qty: 2, total: 410, status: 'refunded', when: '15 Nov' }
+];
+const RS = (names, st) => names.map(n => ({ n, st, plus: 0 }));
+const PE0 = [{ id: 'pe1', code: 'om4k2', t: 'Rooftop dinner', host: 'Omar Khalid', me: false, d: 'Fri 21 Nov', time: '8:00 PM', place: 'Omar’s rooftop, Cluster D', area: 'JLT', tone: '#8a6d3b', approve: false, cap: 16, showList: true, hide: true, about: 'Bring nothing but an appetite. Grill’s on from 8.', rsvps: [...RS(['Sara Haddad', 'Yousef Darwish', 'Mariam Nasser', 'Rami Nassar', 'Huda Saleh', 'Khalid Mansour'], 'going'), ...RS(['Noor Abbas', 'Ali Hassan'], 'maybe')], my: null, updates: [{ m: 'Parking is in the basement, level B2.', w: 'Today' }] }];
+const init0 = () => ({
+  heroIdx: 0, day: null, authStep: 'id', pevents: clone(PE0), pe: 'pe1', iWhen: 'Fri 21 Nov', iApprove: false, iHide: true,
+  surf: 'fan', role: 'admin', fr: 'fHome', sr: 'overview', ev: 'e1', sev: 'e1', fAuthed: false, authOpen: false, after: null, toast: null, confirm: null, modal: null, err: null, payFail: false, paying: false,
+  events: clone(EV0), venues: clone(VEN0), orders: clone(ORD0), cat: 'All', fq: {}, lastOrder: '', myTix: [], tixAct: null, sellPrice: 0,
+  promos: [{ c: 'NOUR20', pct: 20, ev: 'e1', uses: 41, max: 100, active: true, resale: false }, { c: 'SAHRA10', pct: 10, ev: 'all', uses: 212, max: 500, active: true, resale: true }],
+  team: [{ n: 'Layla Al-Amin', e: 'layla@mawja.ae', role: 'Admin', st: 'Active' }, { n: 'Karim Fares', e: 'karim@mawja.ae', role: 'Co-host', st: 'Active' }, { n: 'Sara Hamdan', e: 'sara@mawja.ae', role: 'Gate staff', st: 'Active' }],
+  paidOut: 0, payouts: [{ d: '1 Nov', a: 96400, st: 'Paid' }], payoutBase: 182400, venue: 'v1', vsec: 's1',
+  step: 0, draft: null, oq: '', oFilter: 'all',
+  f: { q: '', email: '', otp: '', it: '', iw: '', idate: '2025-11-21', itime: '20:00', pw: '', promo: '', to: '', name: '', date: '', code: '', pct: '15', pmax: '100', inv: '', invRole: 'Co-host', oq: '' }, promoApplied: null, promoMsg: ''
+});
+const MAWJA = { id: 'mawja', n: 'Mawja Live Productions', verified: 'yes', bank: true };
+const init = () => { const s = init0(); return { ...s, events: s.events.map(e => ({ ...e, org: 'mawja' })), promos: s.promos.map(p => ({ ...p, org: 'mawja' })), team: s.team.map(m => ({ ...m, org: 'mawja' })), payouts: s.payouts.map(p => ({ ...p, org: 'mawja' })), studioAuthed: true, orgs: [{ ...MAWJA }], org: 'mawja', otype: 'Promoter', ocity: 'Dubai', f: { ...s.f, sname: '', semail: '', spw: '', oname: '', iban: '', lic: '', legal: '' } }; };
+const newDraft = () => ({ t: '', venue: 'v3', d: '', cat: 'Concerts', tiers: [{ n: 'General admission', p: 150, cap: 300 }], resale: true, cap: 10, promo: '' });
+
+class Component extends DCLogic {
+  state = init();
+  timers = [];
+  allRef = React.createRef(); heroTxtRef = React.createRef(); heroRef = React.createRef(); cityRef = React.createRef(); bandRef = React.createRef();
+  componentWillUnmount() { this.timers.forEach(clearTimeout); this.io && this.io.disconnect(); clearInterval(this.hT); }
+  isHome() { return this.state.surf !== 'studio' && this.state.fr === 'fHome'; }
+  componentDidMount() { this._wasHome = this.isHome(); this._hi = this.state.heroIdx; this.runHero(); this.hT = setInterval(() => { if (this.isHome() && !this.calm() && !this.state.modal && !this.state.authOpen) this.setState(s => ({ heroIdx: (s.heroIdx + 1) % 3 })); }, 6500); }
+  runProg() { const el = this.heroRef.current; if (!el || this.calm()) return; const b = el.querySelector('[data-cur="1"]'); b && b.animate([{ width: '0%' }, { width: '100%' }], { duration: 6500, easing: 'linear', fill: 'forwards' }); }
+  componentDidUpdate() {
+    const home = this.isHome();
+    if (home && !this._wasHome) this.runHero();
+    if (home && this._hi !== this.state.heroIdx) { this._hi = this.state.heroIdx; requestAnimationFrame(() => { const t = this.heroTxtRef.current; if (t && !this.calm()) t.animate([{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], { duration: 600, easing: 'cubic-bezier(.2,.7,.2,1)' }); this.runProg(); }); }
+    this._wasHome = home;
+  }
+  calm() { return window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; }
+  runHero() {
+    requestAnimationFrame(() => {
+      const el = this.heroRef.current; if (!el || this.calm()) return;
+      el.querySelectorAll('[data-rise]').forEach((n, i) => n.animate([{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'none' }], { duration: 700, delay: 80 + i * 90, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'backwards' }));
+      const c = this.cityRef.current; c && c.animate([{ opacity: 0, transform: 'translateY(24px)' }, { opacity: 1, transform: 'none' }], { duration: 700, delay: 520, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'backwards' });
+      this.watchBand(); this.runProg();
+    });
+  }
+  runCity() {
+    requestAnimationFrame(() => {
+      const c = this.cityRef.current; if (!c || this.calm()) return;
+      c.animate([{ opacity: 0, transform: 'translateX(-14px)' }, { opacity: 1, transform: 'none' }], { duration: 450, easing: 'cubic-bezier(.2,.7,.2,1)' });
+    });
+  }
+  watchBand() {
+    const b = this.bandRef.current; if (!b || !window.IntersectionObserver) return;
+    this.io && this.io.disconnect();
+    b.style.opacity = 0;
+    this.io = new IntersectionObserver(es => es.forEach(e => { if (!e.isIntersecting) return; this.io.disconnect(); b.style.opacity = ''; b.animate([{ opacity: 0, transform: 'translateY(28px) scale(.98)' }, { opacity: 1, transform: 'none' }], { duration: 700, easing: 'cubic-bezier(.2,.7,.2,1)' }); }), { threshold: 0.25 });
+    this.io.observe(b);
+  }
+  later(fn, ms) { this.timers.push(setTimeout(fn, ms)); }
+  toast = m => { this.setState({ toast: m }); this.later(() => this.setState(s => s.toast === m ? { toast: null } : null), 2600); };
+  ask = (t, b, ok, fn, danger) => this.setState({ confirm: { t, b, ok, fn, danger } });
+  setF = (k, v) => this.setState(s => ({ f: { ...s.f, [k]: v }, err: null }));
+  aed = n => 'AED ' + Math.round(n).toLocaleString('en-US');
+  curOrg() { return this.state.orgs.find(o => o.id === this.state.org) || this.state.orgs[0]; }
+  studioSignup = () => {
+    const { sname, semail, spw } = this.state.f;
+    if (!sname.trim()) return this.setState({ err: 'Add your name.' });
+    if (!/^\S+@\S+\.\S+$/.test(semail)) return this.setState({ err: 'Enter a valid email.' });
+    if (spw.length < 8) return this.setState({ err: 'Password needs 8+ characters.' });
+    if (semail.trim().toLowerCase() === 'layla.alamin@gmail.com') return this.setState({ err: 'You already have a Sahra account with this email. Use “Already hosting? Sign in” or continue from the fan site.' });
+    this.setState({ sr: 'sOrg', err: null, me: sname.trim() });
+  };
+  createOrg = () => {
+    const s = this.state, n = s.f.oname.trim();
+    if (n.length < 2) return this.setState({ err: 'Give your organisation a name.' });
+    if (s.orgs.some(o => o.n.toLowerCase() === n.toLowerCase())) return this.setState({ err: 'You’re already in an organisation called ' + n + '.' });
+    const id = 'o' + Date.now();
+    this.setState({ orgs: [...s.orgs, { id, n, verified: 'none', bank: false, fresh: true, type: s.otype, city: s.ocity }], org: id, studioAuthed: true, sr: 'overview', role: 'admin', err: null, team: [...s.team, { n: s.me || 'Layla Al-Amin', e: s.f.semail || 'layla.alamin@gmail.com', role: 'Admin', st: 'Active', org: id, you: true }], f: { ...s.f, oname: '' } });
+    this.toast(n + ' created. Draft your first event.');
+  };
+  submitVerify = () => {
+    const { legal, lic } = this.state.f;
+    if (!legal.trim()) return this.setState({ err: 'Add the legal name on the licence.' });
+    if (!/^\d{5,}$/.test(lic.replace(/\D/g, ''))) return this.setState({ err: 'Trade licence number looks too short.' });
+    this.setState(s => ({ orgs: s.orgs.map(o => o.id === s.org ? { ...o, verified: 'review' } : o), modal: null, err: null }));
+    this.toast('Submitted. Usually approved within 24 hours.');
+  };
+  addBank = () => {
+    const iban = this.state.f.iban.replace(/\s/g, '').toUpperCase();
+    if (!/^AE\d{21}$/.test(iban)) return this.setState({ err: 'UAE IBANs are AE + 21 digits.' });
+    this.setState(s => ({ orgs: s.orgs.map(o => o.id === s.org ? { ...o, bank: true, iban: '··' + iban.slice(-4) } : o), err: null }));
+    this.toast('Bank account added');
+  };
+  evById = id => this.state.events.find(e => e.id === id);
+  venueCap = v => v.ga ? v.cap : v.secs.reduce((a, x) => a + x.rows * x.cols, 0);
+  setDraft = patch => this.setState(s => ({ draft: { ...s.draft, ...patch }, err: null }));
+
+  fBuy = () => {
+    const s = this.state, e = this.evById(s.ev), q = s.fq, lines = e.tiers.map((t, i) => ({ i, n: t.n, p: t.p, qty: q[i] || 0 })).filter(l => l.qty);
+    if (e.status !== 'live') return;
+    if (!lines.length) return this.toast('Pick at least one ticket');
+    if (!s.fAuthed) return this.setState({ authOpen: true, after: 'checkout' });
+    this.setState({ modal: 'checkout', promoApplied: null, promoMsg: '', f: { ...s.f, promo: '' } });
+  };
+  signIn = () => {
+    const s = this.state;
+    if (s.authStep !== 'code') { const v = s.f.email.trim(); if (!/^\S+@\S+\.\S+$/.test(v) && !/^\+?[\d\s]{9,}$/.test(v)) return this.setState({ err: 'Enter a phone number with country code, or an email.' }); return this.setState({ authStep: 'code', err: null, f: { ...s.f, otp: '' } }); }
+    if (!/^\d{6}$/.test(s.f.otp)) return this.setState({ err: 'Enter all 6 digits.' });
+    const after = s.after || '';
+    this.setState({ fAuthed: true, authOpen: false, authStep: 'id', after: null, err: null, modal: after === 'checkout' ? 'checkout' : after === 'newInvite' ? 'newInvite' : null, fr: after === 'tickets' ? 'fTickets' : s.fr });
+    if (after.startsWith('rsvp:')) this.later(() => this.wRsvp(after.slice(5)), 30);
+    this.toast(after === 'checkout' ? 'Confirmed. Finish your order.' : after.startsWith('rsvp:') ? 'Confirmed. Saving your reply.' : 'Signed in as Layla');
+  };
+  wRsvp = st => {
+    const s = this.state; if (!s.fAuthed) return this.setState({ authOpen: true, authStep: 'id', after: 'rsvp:' + st, err: null });
+    const p = s.pevents.find(x => x.id === s.pe); if (!p || p.me) return;
+    const g = p.rsvps.filter(r => r.st === 'going').length, host = p.host.split(' ')[0];
+    if (st === 'going' && p.my !== 'going' && p.cap && g + 1 > p.cap) return this.toast('It’s full. Ask ' + host + ' to make space.');
+    const next = st === 'going' && p.approve && p.my !== 'going' ? 'pending' : st;
+    this.setState(x => ({ pevents: x.pevents.map(q => q.id === p.id ? { ...q, my: next } : q) }));
+    this.toast({ going: 'You’re going. It’s in your Plans in the app.', maybe: 'Marked maybe. We’ll text you the day before.', no: host + ' will see you can’t make it.', pending: 'Request sent to ' + host + '.' }[next]);
+  };
+  whoPersonal = () => { const s = this.state; if (!s.fAuthed) return this.setState({ modal: null, authOpen: true, authStep: 'id', after: 'newInvite', err: null }); this.setState({ modal: 'newInvite', err: null, f: { ...s.f, it: '', iw: '', idate: '2025-11-21', itime: '20:00' } }); };
+  createInvite = () => {
+    const s = this.state, t = s.f.it.trim(), w = s.f.iw.trim();
+    if (t.length < 2) return this.setState({ err: 'Give it a name.' });
+    if (!w) return this.setState({ err: 'Add where it is. You can hide it until people say yes.' });
+    if (!s.f.idate || !s.f.itime) return this.setState({ err: 'Pick a date and a start time.' });
+    if (s.f.idate < '2025-11-18') return this.setState({ err: 'That date has passed. Pick a later one.' });
+    const W = this.whenW(s.f.idate, s.f.itime);
+    const id = 'pe' + Date.now(), pe = { id, code: Math.random().toString(36).slice(2, 7), t, host: 'Layla Al-Amin', me: true, d: W.d, time: W.t, place: w, area: '', tone: '#2f4560', approve: s.iApprove, cap: 0, showList: true, hide: s.iHide, about: '', rsvps: [], my: 'host', updates: [] };
+    this.setState(st => ({ pevents: [pe, ...st.pevents], pe: id, modal: null, fr: 'fInvite', surf: 'fan', err: null }));
+    this.toast('Invite created. Copy the link and send it.');
+  };
+  wDemo() {
+    const s = this.state, mine = s.pevents.find(p => p.me);
+    return [
+      { n: 'Open Omar’s invite link', s: 'What a guest sees from WhatsApp, no app needed', on: () => this.setState({ surf: 'fan', fr: 'fInvite', pe: 'pe1', modal: null }), op: 1 },
+      { n: 'Friends reply to your invite', s: 'Needs an invite you created', op: mine ? 1 : .45, on: () => { if (!mine) return; this.setState(st => ({ pevents: st.pevents.map(p => p.id === mine.id ? { ...p, rsvps: [...p.rsvps, ...RS(['Dana Saleh', 'Faris Odeh', 'Lina Haddad'], 'going'), ...RS(['Maya Khoury'], 'maybe'), ...(p.approve ? RS(['Jad Karam'], 'pending') : [])] } : p) })); this.toast('New replies to ' + mine.t); } }
+    ];
+  }
+  whenW(iso, tm) { const d = new Date(iso + 'T12:00:00'), [hh, mm] = (tm || '0:0').split(':').map(Number); return { d: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()] + ' ' + d.getDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()], t: ((hh + 11) % 12 + 1) + ':' + String(mm).padStart(2, '0') + ' ' + (hh < 12 ? 'AM' : 'PM'), y: d.getFullYear() }; }
+  dkey(d) { const p = (d || '').split(' '); return p[1] + ' ' + p[2]; }
+  dord(d) { const p = (d || '').split(' '); return (p[2] === 'Dec' ? 1200 : 1100) + +p[1]; }
+  wvals(s, f, fEvents, aed) {
+    const feat = ['e1', 'e2', 'e4'].map(id => s.events.find(e => e.id === id)).filter(e => e && e.status === 'live');
+    const idx = s.heroIdx % Math.max(1, feat.length), he = feat[idx] || s.events[0], vn = id => (s.venues.find(v => v.id === id) || {}).n;
+    const minP = e => { const a = e.tiers.filter(t => t.sold < t.cap); return a.length ? 'from ' + aed(Math.min(...a.map(t => t.p))) : 'resale only'; };
+    const dp = d => { const p = d.split(' '); return { day: p[1], dowMon: (p[0] + ' · ' + p[2]).toUpperCase() }; };
+    const DOW = ['TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN', 'MON'];
+    const vis = s.events.filter(e => e.status !== 'draft');
+    const days = Array.from({ length: 21 }, (_, i) => { const n = 18 + i, day = n > 30 ? n - 30 : n, mon = n > 30 ? 'Dec' : 'Nov', key = day + ' ' + mon, c = vis.filter(e => this.dkey(e.d) === key).length, sel = s.day === key; return { n: day, w: day === 1 ? 'DEC' : DOW[i % 7], dot: c ? (sel ? '#16263b' : '#f2d9a0') : 'transparent', bg: sel ? '#f2d9a0' : c ? '#22344d' : 'transparent', fg: sel ? '#16263b' : '#f7f1e6', bd: sel ? '#f2d9a0' : c ? '#3a506c' : '#22344d', op: c ? 1 : .45, cur: c ? 'pointer' : 'default', on: () => c && this.setState({ day: sel ? null : key }) }; });
+    const lineup = fEvents.filter(e => !s.day || this.dkey(e.d) === s.day).sort((a, b) => this.dord(a.d) - this.dord(b.d)).map(e => ({ ...e, ...dp(e.d) }));
+    const cats = ['All', 'Concerts', 'Comedy', 'Football', 'Festivals', 'Nightlife'];
+    const hasFilter = !!(f.q || s.day || s.cat !== 'All');
+    const pe = s.pevents.find(p => p.id === s.pe) || { rsvps: [], updates: [], host: '', t: '', d: '', time: '', place: '', tone: '#3a506c' };
+    const g = pe.rsvps.filter(r => r.st === 'going'), mb = pe.rsvps.filter(r => r.st === 'maybe'), pend = pe.rsvps.filter(r => r.st === 'pending'), my = pe.my, first = (pe.host || '').split(' ')[0];
+    const total = g.length + (!pe.me && my === 'going' ? 1 : 0), hide = pe.hide && my !== 'going' && !pe.me, ini = n => (n || '').split(' ').map(w => w[0]).slice(0, 2).join('');
+    const faceBg = ['#f2d9a0', '#c9d3df', '#9fb0c6', '#e3d9c6', '#f7f1e6'];
+    const ctx = s.after || '';
+    return {
+      heroTxtRef: this.heroTxtRef,
+      hs: { t: he.t, about: he.about, tone: he.tone, kicker: 'Featured · ' + he.cat, price: minP(he), v: vn(he.venue) + ' · ' + he.d, ...dp(he.d), on: () => this.setState({ fr: 'fEvent', ev: he.id, fq: {} }) },
+      heroBars: feat.map((e, i) => ({ t: e.t, d: e.d, cur: i === idx ? '1' : '0', w: i < idx ? '100%' : '0%', fg: i === idx ? '#f7f1e6' : '#9fb0c6', on: () => this.setState({ heroIdx: i }) })),
+      popular: feat.map(e => ({ n: e.t, on: () => this.setState({ fr: 'fEvent', ev: e.id, fq: {} }) })),
+      days, dayHint: s.day ? 'Showing ' + s.day + '. Tap it again to clear.' : 'Gold dot means something’s on.',
+      catTiles: cats.filter(n => n === 'All' || vis.some(e => e.cat === n)).map(n => { const sel = s.cat === n, c = n === 'All' ? vis.length : vis.filter(e => e.cat === n).length; return { n, count: c + (c === 1 ? ' event' : ' events'), on: () => this.setState({ cat: n }), bg: sel ? '#f2d9a0' : '#1d2e45', fg: sel ? '#16263b' : '#f7f1e6', bd: sel ? '#f2d9a0' : '#2a3b52' }; }),
+      lineup, lineupEmpty: !lineup.length, allTitle: hasFilter ? lineup.length + (lineup.length === 1 ? ' result' : ' results') : 'On the calendar', hasFilter, clearFilters: () => this.setState({ cat: 'All', day: null, f: { ...f, q: '' } }),
+      hostFromFan: () => this.setState({ modal: 'who', err: null }), whoOpen: s.modal === 'who', newInvOpen: s.modal === 'newInvite', closeModal: () => this.setState({ modal: null, err: null }), whoPersonal: this.whoPersonal, createInvite: this.createInvite,
+      iWhenTxt: f.idate && f.itime ? (() => { const W = this.whenW(f.idate, f.itime); return W.d + ', ' + W.y + ' at ' + W.t; })() : 'Pick a date and time',
+      iOpts: [['iApprove', 'Approve each guest'], ['iHide', 'Hide address until going']].map(([k, n]) => ({ n, mark: s[k] ? '✓' : '+', bd: s[k] ? '#f2d9a0' : '#3a506c', on: () => this.setState(st => ({ [k]: !st[k] })) })),
+      authTitle: ctx === 'checkout' ? 'Where should we send your tickets?' : ctx.startsWith('rsvp:') ? 'Let ' + first + ' know it’s you' : ctx === 'newInvite' ? 'Sign in to host' : 'Sign in or create an account',
+      authSub: s.authStep === 'code' ? 'Sent to ' + f.email + '. Enter the 6-digit code.' : ctx.startsWith('rsvp:') ? 'No app needed. Your phone number is enough; we text you a code and any updates.' : 'Your phone or email. We send a one-time code. New or returning, it’s the same step.',
+      authId: s.authStep !== 'code', authCode: s.authStep === 'code', authCta: s.authStep === 'code' ? 'Confirm' : 'Send code', authBack: () => this.setState({ authStep: 'id', err: null }),
+      closeAuth: () => this.setState({ authOpen: false, after: null, authStep: 'id', err: null }), openAuth: () => this.setState({ authOpen: true, authStep: 'id', after: s.fr === 'fTickets' ? 'tickets' : null, err: null }),
+      fBuyLabel: 'Checkout',
+      wi: { t: pe.t, tone: pe.tone, host: first, hostIni: ini(pe.host), link: 'sahra.app/i/' + (pe.code || ''), when: pe.d + ' · ' + pe.time, where: hide ? 'Address shared once you’re going' : pe.place + (pe.area ? ' · ' + pe.area : ''), whereC: hide ? '#9fb0c6' : '#c9d3df', about: pe.about || '', faces: g.slice(0, 6).map((r, i) => ({ i: ini(r.n), bg: faceBg[i % 5] })), countTxt: total + ' going' + (mb.length ? ' · ' + mb.length + ' maybe' : ''), updates: pe.updates, status: pe.me ? '' : my === 'going' ? 'You’re going. It’s in your Plans in the app.' : my === 'maybe' ? 'You said maybe. We’ll text you the day before.' : my === 'no' ? 'You said you can’t go. Change your mind below.' : my === 'pending' ? 'Request sent. ' + first + ' will let you know.' : '' },
+      wiHost: !!pe.me, wiHasUpd: pe.updates.length > 0, wiShowList: !!pe.showList && g.length > 0, wiCardTitle: pe.me ? 'Replies so far' : 'Are you coming?',
+      wiStats: [['Going', g.length], ['Maybe', mb.length], ['Asking', pend.length]].map(([n, v]) => ({ n, v })),
+      wiSegShow: !pe.me && (!pe.approve || my === 'going'), wiSeg: [['going', 'Going'], ['maybe', 'Maybe'], ['no', 'Can’t go']].map(([k, n]) => ({ n, on: () => this.wRsvp(k), bg: my === k ? '#f2d9a0' : 'transparent', fg: my === k ? '#16263b' : '#f7f1e6', bd: my === k ? '#f2d9a0' : '#3a506c' })),
+      wiReq: !pe.me && !!pe.approve && my !== 'going', wiReqLbl: my === 'pending' ? 'Requested · waiting for ' + first : 'Request to join', wiReqBg: my === 'pending' ? '#16263b' : '#f2d9a0', wiReqFg: my === 'pending' ? '#f2d9a0' : '#16263b', wiReqOn: () => my === 'pending' ? this.toast('We’ll text you when ' + first + ' replies') : this.wRsvp('going'),
+      wiNote: pe.me ? 'Only people with the link can see this page.' : s.fAuthed ? (pe.cap ? Math.max(0, pe.cap - total) + ' spots left. ' : '') + 'Get the Sahra app to see this next to your tickets.' : 'No app or account needed. We’ll text you a code to confirm it’s you.',
+      copyLink: () => this.toast('Link copied')
+    };
+  }
+  cart() {
+    const s = this.state, e = this.evById(s.ev), lines = e.tiers.map((t, i) => ({ i, n: t.n, p: t.p, qty: s.fq[i] || 0 })).filter(l => l.qty);
+    const sub = lines.reduce((a, l) => a + l.p * l.qty, 0), fee = Math.round(sub * 0.05), disc = s.promoApplied ? Math.round(sub * s.promoApplied.pct / 100) : 0;
+    return { e, lines, sub, fee, disc, total: sub + fee - disc, qty: lines.reduce((a, l) => a + l.qty, 0) };
+  }
+  applyPromo = () => {
+    const c = this.state.f.promo.trim().toUpperCase(), p = this.state.promos.find(x => x.c === c);
+    if (!p) return this.setState({ promoMsg: 'Code not found.', promoApplied: null });
+    if (!p.active) return this.setState({ promoMsg: c + ' is switched off by the organiser.', promoApplied: null });
+    if (p.org && p.org !== (this.evById(this.state.ev) || {}).org) return this.setState({ promoMsg: c + ' isn’t valid for this organiser’s events.', promoApplied: null });
+    if (p.ev !== 'all' && p.ev !== this.state.ev) return this.setState({ promoMsg: c + ' doesn’t apply to this event.', promoApplied: null });
+    if (p.uses >= p.max) return this.setState({ promoMsg: c + ' has run out.', promoApplied: null });
+    this.setState({ promoApplied: p, promoMsg: c + ' applied: ' + p.pct + '% off' });
+  };
+  pay = () => {
+    if (this.state.paying) return;
+    this.setState({ paying: true });
+    this.later(() => {
+      if (this.state.payFail) return this.setState({ paying: false, payFail: false, err: 'Card declined. Nothing was charged.' });
+      const s = this.state, C = this.cart(), id = 'SA-' + (48300 + Math.floor(Math.random() * 600));
+      const events = s.events.map(e => e.id !== s.ev ? e : { ...e, tiers: e.tiers.map((t, i) => ({ ...t, sold: t.sold + (s.fq[i] || 0) })) });
+      const bad = C.e.status !== 'live' ? { n: 'Sales' } : C.lines.find(l => C.e.tiers[l.i].cap - C.e.tiers[l.i].sold < l.qty);
+      if (bad) return this.setState({ paying: false, err: bad.n === 'Sales' ? 'The organiser paused sales while you were checking out. You weren’t charged.' : bad.n + ' sold out while you were checking out. You weren’t charged.' });
+      const tierTxt = C.lines.map(l => l.qty + '× ' + l.n).join(', ');
+      this.setState({
+        paying: false, modal: null, events, fq: {}, fr: 'fConfirm', lastOrder: 'Order ' + id + ' · ' + C.e.t + ' · ' + tierTxt,
+        orders: [{ id, ev: s.ev, buyer: 'Layla Al-Amin', tier: C.lines.map(l => l.n).join(', '), lines: C.lines.map(l => ({ n: l.n, qty: l.qty })), qty: C.qty, total: C.total, status: 'paid', when: 'Just now' + (s.promoApplied ? ' · ' + s.promoApplied.c : '') }, ...s.orders],
+        promos: s.promoApplied ? s.promos.map(p => p.c === s.promoApplied.c ? { ...p, uses: p.uses + 1 } : p) : s.promos, promoApplied: null,
+        myTix: [{ id, ev: s.ev, tier: tierTxt, qty: C.qty, status: 'holding', face: C.lines[0].p }, ...s.myTix]
+      });
+    }, 1100);
+  };
+  refund = o => this.ask('Refund ' + o.id + '?', o.buyer + ' gets ' + this.aed(o.total) + ' back in 5–10 days. Their QR stops working right away.', 'Refund order', () => {
+    this.setState(s => ({ orders: s.orders.map(x => x.id === o.id ? { ...x, status: 'refunded' } : x), myTix: s.myTix.map(t => t.id === o.id ? { ...t, status: 'refunded' } : t), events: s.events.map(e => e.id !== o.ev ? e : { ...e, tiers: e.tiers.map(t => { const q = o.lines ? (o.lines.find(l => l.n === t.n) || { qty: 0 }).qty : (o.tier === t.n ? o.qty : 0); return q ? { ...t, sold: Math.max(0, t.sold - q) } : t; }) }) }));
+    this.toast('Refunded ' + o.id);
+  }, true);
+  publish = asDraft => {
+    const d = this.state.draft, gated = !asDraft && (this.curOrg() || {}).verified !== 'yes';
+    const id = 'e' + Date.now();
+    this.setState(s => ({ events: [...s.events, { id, t: d.t, venue: d.venue, d: d.d, cat: d.cat, status: asDraft || gated ? 'draft' : 'live', pending: gated, org: s.org, resale: d.resale, cap: d.cap, tone: '#3a506c', about: 'New event from Studio.', tiers: d.tiers.map(t => ({ ...t, p: +t.p, cap: +t.cap, sold: 0 })) }], promos: d.promo ? [{ c: d.promo, pct: 15, ev: id, org: s.org, uses: 0, max: 100, active: true, resale: false }, ...s.promos] : s.promos, draft: null, step: 0, sr: 'manage', sev: id, modal: gated && (this.curOrg() || {}).verified === 'none' ? 'verify' : null, err: null }));
+    this.toast(gated ? ((this.curOrg() || {}).verified === 'review' ? 'Saved. Publishes automatically once verification is approved.' : 'Saved as draft. Verify your organisation to publish.') : asDraft ? 'Saved as draft' : 'Published. It’s live on sahra.app');
+  };
+  nextStep = () => {
+    const d = this.state.draft, st = this.state.step;
+    if (st === 0) { if (!d.t.trim()) return this.setState({ err: 'Give the event a name.' }); if (!d.d.trim()) return this.setState({ err: 'Add a date.' }); }
+    if (st === 1) {
+      if (!d.tiers.length) return this.setState({ err: 'Add at least one ticket tier.' });
+      if (d.tiers.some(t => !t.n.trim() || !(+t.p > 0) || !(+t.cap > 0))) return this.setState({ err: 'Every tier needs a name, price and quantity.' });
+      const v = this.state.venues.find(x => x.id === d.venue), cap = this.venueCap(v), tot = d.tiers.reduce((a, t) => a + +t.cap, 0);
+      if (tot > cap) return this.setState({ err: 'Tiers add up to ' + tot + ' but ' + v.n + ' holds ' + cap + '.' });
+    }
+    if (st === 2 && d.promo && !/^[A-Z0-9]{4,12}$/.test(d.promo)) return this.setState({ err: 'Promo codes are 4–12 letters or numbers.' });
+    this.setState({ step: st + 1, err: null });
+  };
+  createPromo = () => {
+    const { code, pct, pmax } = this.state.f, c = code.trim().toUpperCase();
+    if (!/^[A-Z0-9]{4,12}$/.test(c)) return this.setState({ err: 'Use 4–12 letters or numbers.' });
+    if (this.state.promos.some(p => p.c === c)) return this.setState({ err: c + ' already exists.' });
+    if (!(+pct > 0 && +pct <= 100)) return this.setState({ err: 'Discount must be 1–100%.' });
+    this.setState(s => ({ promos: [{ c, pct: +pct, ev: s.pEv || 'all', org: s.org, uses: 0, max: +pmax || 100, active: true, resale: !!s.pResale }, ...s.promos], modal: null, f: { ...s.f, code: '' } }));
+    this.toast(c + ' created. Try it on the fan site.');
+  };
+  invite = () => {
+    const { inv, invRole } = this.state.f;
+    if (!/^\S+@\S+\.\S+$/.test(inv)) return this.setState({ err: 'Enter a valid email.' });
+    if (this.state.team.some(m => m.e === inv)) return this.setState({ err: 'Already on the team.' });
+    this.setState(s => ({ team: [...s.team, { n: inv.split('@')[0], e: inv, role: invRole, st: 'Invited', org: s.org }], modal: null, f: { ...s.f, inv: '' } }));
+    this.toast('Invite sent to ' + inv);
+  };
+  simSales = () => {
+    const n = 25, e = this.evById('e2'), ga = e.tiers[1];
+    if (e.status !== 'live') return this.toast('Desert Bass sales are paused');
+    const add = Math.min(n, ga.cap - ga.sold);
+    this.setState(s => ({ events: s.events.map(x => x.id !== 'e2' ? x : { ...x, tiers: x.tiers.map((t, i) => i === 1 ? { ...t, sold: t.sold + add } : t) }), orders: [...Array.from({ length: 3 }, (_, i) => ({ id: 'SA-' + (49000 + Math.floor(Math.random() * 900)), ev: 'e2', buyer: ['Huda Saleh', 'Yousef Darwish', 'Noor Abbas'][i], tier: 'General admission', qty: [2, 4, 1][i], total: [410, 819, 205][i], status: 'paid', when: 'Just now' })), ...s.orders] }));
+    this.toast(add + ' tickets sold on Desert Bass');
+  };
+
+  renderVals() {
+    const s = this.state, f = s.f, aed = this.aed, fan = s.surf === 'fan';
+    const on = {}; Object.keys(f).forEach(k => { on[k] = e => this.setF(k, e.target.value); });
+    const chip = (a) => ({ bg: a ? '#f2d9a0' : '#22344d', fg: a ? '#16263b' : '#f7f1e6' });
+    const schip = (a) => ({ bg: a ? '#16263b' : 'transparent', fg: a ? '#f2d9a0' : '#16263b' });
+    const fe0 = this.evById(s.ev), C = this.cart();
+    const visible = s.events.filter(e => e.status !== 'draft');
+    const q = f.q.toLowerCase();
+    const fCity = s.fcity || 'Dubai';
+    const fEvents = visible.filter(e => (s.cat === 'All' || e.cat === s.cat) && (!q || (e.t + e.cat).toLowerCase().includes(q))).map(e => {
+      const avail = e.tiers.filter(t => t.sold < t.cap), soldOut = !avail.length;
+      return { ...e, v: (s.venues.find(v => v.id === e.venue) || {}).n, price: soldOut ? 'Sold out' : 'From ' + aed(Math.min(...avail.map(t => t.p))), chip: e.status === 'paused' ? 'Paused' : soldOut ? 'Sold out' : avail.some(t => t.cap - t.sold <= 10) ? 'Selling fast' : e.cat, chipBg: e.status === 'paused' || soldOut ? '#3a506c' : '#f2d9a0', chipFg: e.status === 'paused' || soldOut ? '#f7f1e6' : '#16263b', on: () => this.setState({ fr: 'fEvent', ev: e.id, fq: {} }) };
+    });
+    const wkPool = fEvents.filter(e => e.chip !== 'Sold out');
+    const wk = fCity === 'Dubai' && !q && s.cat === 'All' ? wkPool.slice(0, Math.min(3, fEvents.length - 1)) : [];
+    const isAdmin = s.role === 'admin';
+    const mine = s.events.filter(e => e.org === s.org), myOrders = s.orders.filter(o => (this.evById(o.ev) || {}).org === s.org), O = this.curOrg() || { n: '', verified: 'none', bank: false };
+    const nav = [['overview', 'Overview'], ['events', 'Events'], ['orders', 'Orders'], ['analytics', 'Analytics'], ['promos', 'Promo codes'], ['venues', 'Venues'], ['payouts', 'Payouts', 1], ['team', 'Team', 1]].filter(n => isAdmin || !n[2]);
+    const curNav = ['create', 'manage'].includes(s.sr) ? 'events' : s.sr;
+    const evRev = e => e.tiers.reduce((a, t) => a + t.sold * t.p, 0), evSold = e => e.tiers.reduce((a, t) => a + t.sold, 0), evCap = e => e.tiers.reduce((a, t) => a + t.cap, 0);
+    const totalSold = mine.reduce((a, e) => a + evSold(e), 0), totalRev = mine.reduce((a, e) => a + evRev(e), 0);
+    const avail = (s.org === 'mawja' ? s.payoutBase - s.paidOut : 0) + myOrders.filter(o => o.status === 'paid' && o.when.startsWith('Just')).reduce((a, o) => a + Math.round(o.total * 0.95), 0);
+    const stChip = st => ({ live: ['On sale', '#2f7a4f', '#f7f1e6'], draft: ['Draft', '#ece4d6', '#16263b'], paused: ['Paused', '#f2d9a0', '#16263b'] })[st];
+    const me = mine.find(e => e.id === s.sev) || mine[0] || s.events[0];
+    const d = s.draft, dv = d ? s.venues.find(v => v.id === d.venue) : null;
+    const oq = f.oq.toLowerCase();
+    const orders = myOrders.filter(o => (s.oFilter === 'all' || o.status === s.oFilter) && (!oq || (o.id + o.buyer).toLowerCase().includes(oq)));
+    const V = s.venues.find(v => v.id === s.venue), VS = V.secs.find(x => x.id === s.vsec);
+    const vEvents = s.events.filter(e => e.venue === V.id);
+    const tierCapForVenue = vEvents.length ? Math.max(...vEvents.map(evCap)) : 0;
+    const secPalette = ['#6f84a0', '#f2d9a0', '#9fb0c6', '#c9d3df', '#8a6d3b'];
+    const url = fan ? 'sahra.app' + ({ fHome: '/', fEvent: '/e/' + (fe0 ? fe0.t.toLowerCase().replace(/[^a-z]+/g, '-') : ''), fConfirm: '/order/confirmed', fTickets: '/my-tickets', fInvite: '/i/' + ((s.pevents.find(p => p.id === s.pe) || {}).code || '') })[s.fr] : 'studio.sahra.app/' + ({ sSignup: 'signup', sOrg: 'setup' }[s.sr] || s.sr) + (s.sr === 'manage' ? '/' + me.id : '');
+    const WV = this.wvals(s, f, fEvents, aed);
+    return {
+      url, isFan: fan, isStudio: !fan, is: { [fan ? s.fr : s.sr]: true }, f, on, err: s.err,
+      surfBtns: [['fan', 'Fan web'], ['studio', 'Studio']].map(([k, n]) => ({ n, on: () => this.setState({ surf: k, modal: null, confirm: null }), ...schip(s.surf === k) })),
+      roleBtns: [['admin', 'Admin'], ['cohost', 'Co-host'], ['gate', 'Gate staff']].map(([k, n]) => ({ n, on: () => this.setState({ role: k, sr: 'overview' }), ...schip(s.role === k) })),
+      demo: [...this.wDemo(), { n: 'New host signs up', s: 'Fresh Studio account, no organisation', on: () => this.setState({ surf: 'studio', studioAuthed: false, fAuthed: false, orgs: [], org: null, sr: 'sSignup', err: null, modal: null }), op: 1 }, { n: 'Fan starts hosting', s: 'Signed-in fan with no organisation', on: () => this.setState({ surf: 'fan', fr: 'fHome', studioAuthed: false, fAuthed: true, orgs: [], org: null, err: null, modal: null }), op: 1 }, { n: 'Approve verification', s: 'Ops approves the pending review', on: () => { const ids = s.orgs.filter(o => o.verified === 'review').map(o => o.id), n = s.events.filter(e => e.pending && ids.includes(e.org)).length; this.setState({ orgs: s.orgs.map(o => ids.includes(o.id) ? { ...o, verified: 'yes' } : o), events: s.events.map(e => e.pending && ids.includes(e.org) ? { ...e, pending: false, status: 'live' } : e) }); this.toast('Verification approved' + (n ? '. ' + n + ' event' + (n > 1 ? 's' : '') + ' published.' : '')); }, op: s.orgs.some(o => o.verified === 'review') ? 1 : .45 }, { n: (s.payFail ? '✓ ' : '') + 'Next payment fails', s: 'Card declined at checkout', on: () => this.setState({ payFail: !s.payFail }), op: 1 }, { n: 'Simulate 25 sales', s: 'Desert Bass GA', on: this.simSales, op: 1 }],
+      reset: () => this.setState(init()),
+      toastMsg: s.toast, hasConfirm: !!s.confirm, confirm: s.confirm || {}, cBg: s.confirm && s.confirm.danger ? '#b8323a' : '#16263b', cFg: s.confirm && s.confirm.danger ? '#f7f1e6' : '#f2d9a0',
+      confirmOk: () => { const fn = s.confirm.fn; this.setState({ confirm: null }); fn(); }, confirmCancel: () => this.setState({ confirm: null }),
+      // fan
+      fCity, fCityChips: ['Dubai', 'Abu Dhabi', 'Riyadh', 'Doha'].map(n => ({ n, on: () => this.setState({ fcity: n }), bg: fCity === n ? '#f2d9a0' : 'transparent', fg: fCity === n ? '#16263b' : '#f7f1e6', bd: fCity === n ? '#f2d9a0' : '#3a506c' })),
+      heroPh: 'Search events in ' + fCity, heroSearch: () => { const el = this.allRef.current; if (!el) return; let p = el.parentElement; while (p && !(/auto|scroll/.test(getComputedStyle(p).overflowY) && p.scrollHeight > p.clientHeight)) p = p.parentElement; const sc = p || document.scrollingElement; sc.scrollTo({ top: el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 16, behavior: 'smooth' }); },
+      allRef: this.allRef, heroRef: this.heroRef, cityRef: this.cityRef, bandRef: this.bandRef, navSearch: s.fr !== 'fHome',
+      weekend: wk, hasWeekend: wk.length > 0, gridEvents: fEvents.filter(e => !wk.includes(e)), allTitle: q ? 'Results' : wk.length ? 'More events' : 'All events', noCityEvents: fCity !== 'Dubai',
+      fGoHome: () => this.setState({ fr: 'fHome' }), fGoTickets: () => this.setState({ fr: 'fTickets' }), navHomeC: s.fr === 'fTickets' ? '#c9d3df' : '#f2d9a0', navTixC: s.fr === 'fTickets' ? '#f2d9a0' : '#c9d3df',
+      fAuthed: s.fAuthed, fGuest: !s.fAuthed, openAuth: () => this.setState({ authOpen: true, after: s.fr === 'fTickets' ? 'tickets' : null, err: null }), fSignOut: () => this.ask('Sign out?', 'You can sign back in any time.', 'Sign out', () => this.setState({ fAuthed: false, fr: 'fHome' })),
+      authOpen: s.authOpen, signIn: this.signIn, closeAuth: () => this.setState({ authOpen: false, after: null, err: null }),
+      catChips: ['All', 'Concerts', 'Comedy', 'Festivals'].map(n => ({ n, on: () => this.setState({ cat: n }), ...chip(s.cat === n) })), fEvents, fNoResults: !fEvents.length,
+      fe: fe0 ? { ...fe0, v: (s.venues.find(v => v.id === fe0.venue) || {}).n, paused: fe0.status === 'paused' } : {},
+      feTiers: fe0 ? fe0.tiers.map((t, i) => { const left = t.cap - t.sold; return { n: t.n, price: aed(t.p), qty: s.fq[i] || 0, avail: left > 0 && fe0.status === 'live', out: left <= 0, note: left <= 0 ? 'Set your price in the app' : left <= 10 ? 'Only ' + left + ' left' : 'Face value', noteC: left > 0 && left <= 10 ? '#f2d9a0' : '#9fb0c6', inc: () => this.setState(st => { const tot = Object.values(st.fq).reduce((a, b) => a + b, 0), cur = st.fq[i] || 0; if (tot >= 6) { this.toast('Max 6 per order'); return null; } if (cur >= left) { this.toast('Only ' + left + ' left'); return null; } return { fq: { ...st.fq, [i]: cur + 1 } }; }), dec: () => this.setState(st => ({ fq: { ...st.fq, [i]: Math.max(0, (st.fq[i] || 0) - 1) } })) }; }) : [],
+      fCartTotal: aed(C.sub), fBuy: this.fBuy, fBuyOp: C.qty && fe0.status === 'live' ? 1 : .4, fBuyLabel: s.fAuthed ? 'Checkout' : 'Sign in to buy',
+      lastOrder: s.lastOrder,
+      fTix: s.fAuthed ? s.myTix.map(t => { const e = this.evById(t.ev), c = { holding: ['Ready', '#2f7a4f', '#f7f1e6'], selling: ['Selling', '#f2d9a0', '#16263b'], sent: ['Sent', '#3a506c', '#f7f1e6'], refunded: ['Refunded', '#b8323a', '#f7f1e6'] }[t.status]; return { t: e.t, sub: e.d + ' · ' + t.tier + ' · ' + t.id, chip: c[0], cbg: c[1], cfg: c[2], canAct: t.status === 'holding', send: () => this.setState({ modal: 'send', tixAct: t.id, err: null }), sell: () => this.setState({ modal: 'sell', tixAct: t.id, sellPrice: t.face, err: null }) }; }) : [],
+      fTixEmpty: s.fAuthed && !s.myTix.length,
+      isCheckout: s.modal === 'checkout', co: { ev: fe0 ? fe0.t : '', lines: C.lines.map(l => ({ label: l.qty + '× ' + l.n, amt: aed(l.qty * l.p) })), sub: aed(C.sub), fee: aed(C.fee), hasDisc: C.disc > 0, disc: '− ' + aed(C.disc), total: aed(C.total) },
+      applyPromo: this.applyPromo, promoMsg: s.promoMsg || 'Codes from organisers work here.', pay: this.pay, payLabel: s.paying ? 'Processing…' : 'Pay ' + aed(C.total), closeModal: () => this.setState({ modal: null, err: null }),
+      isSend: s.modal === 'send', isSell: s.modal === 'sell',
+      doSend: () => { if (!/^\S+@\S+\.\S+$/.test(f.to)) return this.setState({ err: 'Enter their email.' }); this.setState(st => ({ myTix: st.myTix.map(t => t.id === st.tixAct ? { ...t, status: 'sent' } : t), modal: null, f: { ...st.f, to: '' } })); this.toast('Sent to ' + f.to); },
+      sellPrice: aed(s.sellPrice), sellCapText: (() => { const t = s.myTix.find(x => x.id === s.tixAct); if (!t) return ''; const e = this.evById(t.ev); return 'Face ' + aed(t.face) + ' · organiser cap +' + e.cap + '% = ' + aed(t.face * (1 + e.cap / 100)); })(),
+      sellUp: () => { const t = s.myTix.find(x => x.id === s.tixAct), e = this.evById(t.ev), cap = t.face * (1 + e.cap / 100); if (s.sellPrice + 5 > cap) return this.toast('That’s above the organiser’s cap'); this.setState({ sellPrice: s.sellPrice + 5 }); },
+      sellDown: () => this.setState({ sellPrice: Math.max(10, s.sellPrice - 5) }), sellPayout: aed(s.sellPrice * 0.95) + ' each after 5% fee',
+      doSell: () => { const t = s.myTix.find(x => x.id === s.tixAct), e = this.evById(t.ev); if (!e.resale) return this.setState({ err: 'The organiser turned resale off for this event.' }); this.setState(st => ({ myTix: st.myTix.map(x => x.id === st.tixAct ? { ...x, status: 'selling' } : x), modal: null })); this.toast('Listed on ' + e.t); },
+      // studio
+      gate: s.role === 'gate' && s.studioAuthed, notGate: s.role !== 'gate', studioIn: s.studioAuthed,
+      O: { ...O, vTxt: { none: 'Not verified', review: 'Verification in review', yes: 'Verified' }[O.verified], vBg: O.verified === 'yes' ? '#2f7a4f' : O.verified === 'review' ? '#f2d9a0' : '#ece4d6', vFg: O.verified === 'yes' ? '#f7f1e6' : '#16263b' },
+      orgList: s.orgs.map(o => ({ n: o.n, on: () => this.setState({ org: o.id, sr: 'overview', role: o.id === 'mawja' ? s.role : 'admin' }), bg: o.id === s.org ? '#22344d' : 'transparent', fg: o.id === s.org ? '#f2d9a0' : '#c9d3df' })), newOrg: () => this.setState({ sr: 'sOrg', err: null }),
+      checklist: [{ n: 'Create your organisation', d: (O.type || 'Promoter') + ' · ' + (O.city || 'Dubai'), ok: true }, { n: 'Draft your first event', d: 'Details, tickets, promotion', ok: mine.length > 0, btn: 'Create event', act: () => this.setState({ sr: 'create', step: 0, draft: newDraft(), err: null }) }, { n: 'Verify ID and trade licence', d: O.verified === 'review' ? 'In review · usually under 24h' : 'Required before an event goes on sale', ok: O.verified === 'yes', btn: O.verified === 'none' ? 'Verify' : '', act: () => this.setState({ modal: 'verify', err: null }) }, { n: 'Add a business bank account', d: 'Required before your first payout', ok: !!O.bank, btn: 'Add bank', act: () => this.setState({ sr: 'payouts' }) }, { n: 'Invite your team', d: 'Co-hosts and gate staff', ok: s.team.filter(m => m.org === s.org).length > 1, btn: 'Invite', act: () => this.setState({ sr: 'team', modal: 'invite', err: null }) }].map(x => ({ ...x, i: x.ok ? '✓' : '', bg: x.ok ? '#2f7a4f' : '#ece4d6', showBtn: !x.ok && !!x.btn, op: x.ok ? .55 : 1 })),
+      showChecklist: !!O.fresh, isVerify: s.modal === 'verify', submitVerify: this.submitVerify, needBank: !O.bank, hasBank: !!O.bank, addBank: this.addBank, bankName: O.iban ? 'Business account ' + O.iban : 'Emirates NBD ··7710',
+      studioSignup: this.studioSignup, canContinue: s.fAuthed, continueAsFan: () => this.setState({ sr: 'sOrg', err: null, me: 'Layla Al-Amin' }), createOrg: this.createOrg, signInHost: () => this.setState({ studioAuthed: true, orgs: s.orgs.length ? s.orgs : [{ ...MAWJA }], org: 'mawja', sr: 'overview' }),
+      sTypeChips: ['Promoter', 'Venue', 'Artist', 'Community'].map(n => ({ n, on: () => this.setState({ otype: n }), ...schip(s.otype === n) })), sCityChips: ['Dubai', 'Abu Dhabi', 'Riyadh', 'Doha'].map(n => ({ n, on: () => this.setState({ ocity: n }), ...schip(s.ocity === n) })),
+      orgStepTxt: s.studioAuthed ? 'New organisation' : 'Step 2 of 2', hostFromFanOrig: () => this.setState({ modal: null }) || this.setState(s.studioAuthed ? { surf: 'studio', sr: 'overview' } : { surf: 'studio', sr: 'sSignup', err: null }), nav: nav.map(([k, n]) => ({ n, on: () => this.setState({ sr: k, err: null }), bg: curNav === k ? '#22344d' : 'transparent', fg: curNav === k ? '#f2d9a0' : '#c9d3df' })),
+      roleName: { admin: 'Admin', cohost: 'Co-host', gate: 'Gate staff' }[s.role], isAdmin, notAdmin: !isAdmin,
+      kpis: [{ n: 'Tickets sold', v: totalSold.toLocaleString('en-US') }, { n: isAdmin ? 'Gross revenue' : 'Orders', v: isAdmin ? aed(totalRev) : myOrders.length + '' }, { n: 'Live events', v: mine.filter(e => e.status === 'live').length + '' }, { n: 'Refunds', v: myOrders.filter(o => o.status === 'refunded').length + '' }],
+      sEvents: mine.map(e => { const c = e.pending ? ['Awaiting verification', '#f2d9a0', '#16263b'] : stChip(e.status); return { t: e.t, d: e.d + ' · ' + (s.venues.find(v => v.id === e.venue) || {}).n, sold: evSold(e).toLocaleString('en-US') + ' / ' + evCap(e).toLocaleString('en-US'), w: Math.round(evSold(e) / Math.max(1, evCap(e)) * 100) + '%', rev: isAdmin ? aed(evRev(e)) : '—', chip: c[0], cbg: c[1], cfg: c[2], on: () => this.setState({ sr: 'manage', sev: e.id }) }; }),
+      recent: myOrders.slice(0, 5).map(o => ({ ...o, ev: this.evById(o.ev).t, total: isAdmin ? aed(o.total) : o.qty + ' tix', c: o.status === 'refunded' ? '#b8323a' : '#16263b' })),
+      goCreate: () => this.setState({ sr: 'create', step: 0, draft: newDraft(), err: null }),
+      steps: ['Details', 'Tickets', 'Promotion', 'Publish'].map((n, i) => ({ n: (i + 1) + '. ' + n, bar: i <= s.step ? '#16263b' : '#d8cdb9', w: i === s.step ? 700 : 400 })),
+      st0: s.step === 0, st1: s.step === 1, st2: s.step === 2, st3: s.step === 3, notFirst: s.step > 0, notLast: s.step < 3,
+      d: d ? { ...d, vName: dv.n, vCap: this.venueCap(dv).toLocaleString('en-US'), seated: !dv.ga, tierTotal: d.tiers.reduce((a, t) => a + (+t.cap || 0), 0).toLocaleString('en-US'), capOk: d.tiers.reduce((a, t) => a + (+t.cap || 0), 0) <= this.venueCap(dv), resaleTxt: d.resale ? 'On · cap face +' + d.cap + '%' : 'Off', promoTxt: d.promo || 'None' } : {},
+      dOn: d ? { t: e => this.setDraft({ t: e.target.value }), d: e => this.setDraft({ d: e.target.value }), promo: e => this.setDraft({ promo: e.target.value.toUpperCase() }), venue: e => { const v = s.venues.find(x => x.id === e.target.value); this.setDraft({ venue: v.id, tiers: v.ga ? d.tiers : v.secs.map(x => ({ n: x.n, p: 200, cap: x.rows * x.cols })) }); } } : {},
+      venueOpts: s.venues.map(v => ({ id: v.id, n: v.n + (v.ga ? ' (standing)' : ' (seated)') })),
+      dCats: ['Concerts', 'Comedy', 'Festivals', 'Football', 'Theatre'].map(n => ({ n, on: () => this.setDraft({ cat: n }), ...schip(d && d.cat === n) })),
+      dTiers: d ? d.tiers.map((t, i) => { const up = (k, v) => this.setDraft({ tiers: d.tiers.map((x, j) => j === i ? { ...x, [k]: v } : x) }); return { ...t, onN: e => up('n', e.target.value), onP: e => up('p', e.target.value), onC: e => up('cap', e.target.value), del: () => this.setDraft({ tiers: d.tiers.filter((_, j) => j !== i) }) }; }) : [],
+      addTier: () => this.setDraft({ tiers: [...d.tiers, { n: '', p: 100, cap: 50 }] }),
+      dResale: d ? [[true, 'Allow resale'], [false, 'No resale']].map(([v, n]) => ({ n, on: () => this.setDraft({ resale: v }), ...schip(d.resale === v) })) : [],
+      dCaps: d ? [0, 10, 20].map(v => ({ n: '+' + v + '%', on: () => this.setDraft({ cap: v }), ...schip(d.cap === v) })) : [],
+      nextStep: this.nextStep, prevStep: () => this.setState({ step: s.step - 1, err: null }), publish: () => this.publish(false), saveDraft: () => this.publish(true), cancelCreate: () => this.setState({ sr: 'events', draft: null }),
+      me: { ...me, v: (s.venues.find(v => v.id === me.venue) || {}).n, sold: evSold(me).toLocaleString('en-US'), cap: evCap(me).toLocaleString('en-US'), rev: aed(evRev(me)), chip: me.pending ? 'Awaiting verification' : stChip(me.status)[0], cbg: me.pending ? '#f2d9a0' : stChip(me.status)[1], cfg: me.pending ? '#16263b' : stChip(me.status)[2], live: me.status === 'live', paused: me.status === 'paused', draft: me.status === 'draft' && !me.pending, resaleTxt: me.resale ? 'On' : 'Off' },
+      meTiers: me.tiers.map(t => ({ n: t.n, p: aed(t.p), s: t.sold + ' / ' + t.cap, w: Math.round(t.sold / t.cap * 100) + '%', full: t.sold >= t.cap })),
+      meOrders: s.orders.filter(o => o.ev === me.id).slice(0, 5).map(o => ({ ...o, total: isAdmin ? aed(o.total) : o.qty + ' tix', c: o.status === 'refunded' ? '#b8323a' : '#16263b' })),
+      pauseSales: () => this.ask('Pause sales?', 'Fans see “Sales paused”. Existing tickets keep working.', 'Pause sales', () => this.setState(st => ({ events: st.events.map(e => e.id === me.id ? { ...e, status: 'paused' } : e) }))),
+      resumeSales: () => this.setState(st => ({ events: st.events.map(e => e.id === me.id ? { ...e, status: 'live' } : e) }), () => this.toast('Sales resumed')),
+      publishMe: () => { if (O.verified !== 'yes') { this.setState(st => ({ events: st.events.map(e => e.id === me.id ? { ...e, pending: true } : e), modal: O.verified === 'none' ? 'verify' : null, err: null })); if (O.verified === 'review') this.toast('Publishes automatically once verification is approved'); return; } this.setState(st => ({ events: st.events.map(e => e.id === me.id ? { ...e, status: 'live' } : e) })); this.toast('Published. It’s live on sahra.app'); },
+      toggleResale: () => this.setState(st => ({ events: st.events.map(e => e.id === me.id ? { ...e, resale: !e.resale } : e) })),
+      meCaps: [0, 10, 20].map(v => ({ n: '+' + v + '%', on: () => this.setState(st => ({ events: st.events.map(e => e.id === me.id ? { ...e, cap: v } : e) })), ...schip(me.cap === v) })),
+      viewOnSite: () => this.setState({ surf: 'fan', fr: 'fEvent', ev: me.id, fq: {} }), openDoor: () => this.toast('Door mode is in the Sahra app (see mobile prototype)'),
+      oFilters: [['all', 'All'], ['paid', 'Paid'], ['refunded', 'Refunded']].map(([k, n]) => ({ n, on: () => this.setState({ oFilter: k }), ...schip(s.oFilter === k) })),
+      orderRows: orders.map(o => ({ ...o, ev: this.evById(o.ev).t, total: isAdmin ? aed(o.total) : '—', paid: o.status === 'paid' && isAdmin, c: o.status === 'refunded' ? '#b8323a' : '#2f7a4f', refund: () => this.refund(o) })), noOrders: !orders.length, noEvents: !mine.length,
+      bars: mine.filter(e => e.status !== 'draft').map(e => ({ t: e.t, tiers: e.tiers.map((t, i) => ({ n: t.n, w: Math.round(t.sold / t.cap * 100) + '%', v: t.sold.toLocaleString('en-US') + ' / ' + t.cap.toLocaleString('en-US'), c: secPalette[i % 5] })) })),
+      promoRows: s.promos.filter(p => p.org === s.org).map(p => ({ ...p, pct: p.pct + '%', evN: p.ev === 'all' ? 'All events' : (this.evById(p.ev) || {}).t, uses: p.uses + ' / ' + p.max, resaleTxt: p.resale ? 'Yes' : 'No', stTxt: p.active ? 'Active' : 'Off', stC: p.active ? '#2f7a4f' : '#8a7d68', toggle: () => this.setState(st => ({ promos: st.promos.map(x => x.c === p.c ? { ...x, active: !x.active } : x) })), tBtn: p.active ? 'Turn off' : 'Turn on' })),
+      openPromo: () => this.setState({ modal: 'promo', err: null, pEv: 'all', pResale: false }), isPromo: s.modal === 'promo', createPromo: this.createPromo,
+      pEvOpts: [{ id: 'all', n: 'All events' }, ...mine.map(e => ({ id: e.id, n: e.t }))], pEvChange: e => this.setState({ pEv: e.target.value }), pResale: !!s.pResale, pResaleTxt: s.pResale ? 'Also works on resale tickets' : 'Official tickets only', togglePResale: () => this.setState({ pResale: !s.pResale }),
+      venueTabs: s.venues.map(v => ({ n: v.n, on: () => this.setState({ venue: v.id, vsec: (v.secs[0] || {}).id }), ...schip(s.venue === v.id) })),
+      V: { ...V, cap: this.venueCap(V).toLocaleString('en-US'), seated: !V.ga, standing: !!V.ga, usage: vEvents.map(e => e.t).join(', ') || 'No events yet', over: tierCapForVenue > this.venueCap(V), tierCap: tierCapForVenue.toLocaleString('en-US') },
+      vSecs: V.secs.map((x, i) => ({ ...x, seats: (x.rows * x.cols).toLocaleString('en-US'), c: secPalette[i % 5], bd: x.id === s.vsec ? '#16263b' : 'transparent', on: () => this.setState({ vsec: x.id }), flex: x.rows * x.cols })),
+      VS: VS ? { ...VS, seats: VS.rows * VS.cols } : {}, hasVS: !!VS,
+      vAdj: (k, dlt) => null,
+      rowsUp: () => this.adjSec('rows', 1), rowsDown: () => this.adjSec('rows', -1), colsUp: () => this.adjSec('cols', 2), colsDown: () => this.adjSec('cols', -2),
+      addSec: () => this.setState(st => { const id = 's' + Date.now(); return { venues: st.venues.map(v => v.id === st.venue ? { ...v, secs: [...v.secs, { id, n: 'Section ' + (100 + v.secs.length * 2 + 2), rows: 8, cols: 16 }] } : v), vsec: id }; }),
+      delSec: () => VS && this.ask('Delete ' + VS.n + '?', 'Tiers mapped to it lose their seats.', 'Delete section', () => this.setState(st => ({ venues: st.venues.map(v => v.id === st.venue ? { ...v, secs: v.secs.filter(x => x.id !== VS.id) } : v), vsec: (V.secs.find(x => x.id !== VS.id) || {}).id })), true),
+      avail: aed(avail), pay: { next: 'Mon 24 Nov', bank: 'Emirates NBD ··7710' }, payoutRows: s.payouts.filter(p => p.org === s.org).map(p => ({ ...p, a: aed(p.a) })),
+      requestPayout: () => !O.bank ? this.toast('Add a bank account first') : O.verified !== 'yes' ? this.toast('Payouts start once verification is approved') : avail < 1000 ? this.toast('Minimum payout is AED 1,000') : this.ask('Pay out ' + aed(avail) + '?', 'To Emirates NBD ··7710. Arrives in 1–2 working days. Refunds after this come out of your next payout.', 'Request payout', () => { this.setState(st => ({ paidOut: st.paidOut + avail, payouts: [{ d: 'Today', a: avail, st: 'Processing', org: st.org }, ...st.payouts] })); this.toast('Payout requested'); }),
+      teamRows: s.team.filter(m => m.org === s.org).map(m => ({ ...m, me: m.e === 'layla@mawja.ae' || !!m.you, notMe: !(m.e === 'layla@mawja.ae' || m.you), remove: () => this.ask('Remove ' + m.n + '?', 'They lose access to Studio and door mode right away.', 'Remove', () => this.setState(st => ({ team: st.team.filter(x => x.e !== m.e) })), true) })),
+      openInvite: () => this.setState({ modal: 'invite', err: null }), isInvite: s.modal === 'invite', invite: this.invite,
+      roleOpts: [['Admin', 'Everything, incl. payouts and team'], ['Co-host', 'Events, orders, promo codes. No money or team.'], ['Gate staff', 'Door mode only: scan and guest list']].map(([n, dsc]) => ({ n, dsc, on: () => this.setF('invRole', n), bd: f.invRole === n ? '#16263b' : '#e3d9c6', dot: f.invRole === n ? '#16263b' : 'transparent' })),
+      ...WV
+    };
+  }
+  adjSec(k, dlt) { this.setState(s => ({ venues: s.venues.map(v => v.id !== s.venue ? v : { ...v, secs: v.secs.map(x => x.id === s.vsec ? { ...x, [k]: Math.max(1, Math.min(60, x[k] + dlt)) } : x) }) })); }
+}
+</script>
+</body>
+</html>

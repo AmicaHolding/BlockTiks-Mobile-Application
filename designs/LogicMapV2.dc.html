@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#ece4d6;font-family:'Bricolage Grotesque',sans-serif;color:#241c14}a{color:#b8323a}a:hover{color:#16263b}</style>
+</helmet>
+<div style="display:flex;flex-direction:column;gap:44px;padding:48px;max-width:1600px;margin:0 auto;box-sizing:border-box">
+
+<div style="display:flex;flex-direction:column;gap:10px;max-width:920px">
+<span style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#b8323a;font-weight:600">Sahra · Logic map</span>
+<strong style="font-size:52px;letter-spacing:-.03em;line-height:1;color:#16263b">{{ title }}</strong>
+<span style="font-size:17px;line-height:1.55;opacity:.75;text-wrap:pretty">{{ intro }}</span>
+<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:15px;font-weight:600"><a href="{{ protoHref }}">Open the prototype →</a><a href="{{ otherHref }}">{{ otherLabel }}</a></div>
+</div>
+
+<section data-screen-label="Accounts" style="display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;flex-direction:column;gap:4px"><strong style="font-size:30px;letter-spacing:-.02em;color:#16263b">0 · One account, many hats</strong><span style="font-size:15px;opacity:.7">Every way in creates the same kind of account. Hosting friends needs nothing extra; selling tickets adds an organisation. Never a second login, never a password.</span></div>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 60px minmax(0,1.1fr);gap:0;align-items:center;background:#fbf7ef;border:1px solid #e3d9c6;border-radius:22px;padding:24px">
+<div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.55">Ways in</span>
+<sc-for list="{{ entries }}" as="e" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:4px;border-radius:14px;padding:12px 14px;background:{{ e.bg }};color:{{ e.fg }}"><span style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><strong style="font-size:15px">{{ e.t }}</strong><span style="font-size:11px;font-weight:700;letter-spacing:.06em;opacity:.75">{{ e.id }}</span></span><span style="font-size:13px;opacity:.85">{{ e.s }}</span><span style="font-size:13px;font-weight:600">→ {{ e.r }}</span></div></sc-for></div>
+<div style="display:flex;justify-content:center"><svg width="44" height="160" viewBox="0 0 44 160" fill="none" stroke="#16263b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.5"><path d="M4 10c20 0 20 70 34 70M4 150c20 0 20-70 34-70M4 55c14 0 18 25 34 25M4 105c14 0 18-25 34-25M30 74l8 6-8 6"></path></svg></div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="background:#16263b;color:#f7f1e6;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;font-weight:700;letter-spacing:.1em;color:#f2d9a0">PERSON ACCOUNT · ALWAYS ONE</span><strong style="font-size:18px">Layla Al-Amin</strong><span style="font-size:14px;color:#c9d3df;line-height:1.5">Code sign-in · tickets · invites she hosts or answered · resale earnings to her own bank · promo codes</span></div>
+<div style="display:flex;align-items:center;gap:10px;padding-left:18px;font-size:13px;font-weight:600;color:#16263b"><span style="width:2px;height:22px;background:#16263b55"></span>member of 0, 1 or many</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px"><sc-for list="{{ orgCards }}" as="o" hint-placeholder-count="3"><div style="border:1.5px solid #16263b;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;background:#fff9ef"><span style="font-size:11px;font-weight:700;letter-spacing:.08em;color:#b8323a">ORGANISATION</span><strong style="font-size:15px;color:#16263b">{{ o.n }}</strong><span style="font-size:13px">Her role: <strong>{{ o.role }}</strong></span><span style="font-size:12px;opacity:.7">{{ o.sees }}</span></div></sc-for></div>
+<span style="font-size:13px;opacity:.75;line-height:1.5">Organisations own events, orders, payouts (to the business bank) and the team. Verification (ID + trade licence) is per organisation and only blocks publishing; a bank account only blocks payouts.</span>
+</div></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px"><sc-for list="{{ acctRules }}" as="r" hint-placeholder-count="4"><div style="background:#fbf7ef;border:1px solid #e3d9c6;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:4px"><strong style="font-size:15px;color:#16263b">{{ r.t }}</strong><span style="font-size:14px;line-height:1.5;opacity:.8">{{ r.d }}</span></div></sc-for></div>
+</section>
+
+<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:#fbf7ef;border:1px solid #e3d9c6;border-radius:16px;padding:14px 18px">
+<strong style="font-size:14px;color:#16263b;margin-right:6px">Key</strong>
+<sc-for list="{{ legend }}" as="k" hint-placeholder-count="6"><span style="display:flex;align-items:center;gap:8px;font-size:13px;margin-right:8px"><span style="padding:5px 10px;font-size:11px;font-weight:700;letter-spacing:.06em;background:{{ k.bg }};color:{{ k.fg }};border:{{ k.bd }};border-radius:{{ k.r }}">{{ k.tag }}</span>{{ k.n }}</span></sc-for>
+</div>
+
+<section data-screen-label="Flows" style="display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;flex-direction:column;gap:4px"><strong style="font-size:30px;letter-spacing:-.02em;color:#16263b">1 · Flows, checks and outcomes</strong><span style="font-size:15px;opacity:.7">Read each card top to bottom. Gold boxes are checks; the branches under them show each outcome. Host flows come first.</span></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:20px;align-items:start">
+<sc-for list="{{ flows }}" as="fl" hint-placeholder-count="4"><div style="background:#fbf7ef;border-radius:20px;padding:20px;display:flex;flex-direction:column;border:{{ fl.bd }}">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding-bottom:14px"><strong style="font-size:19px;color:#16263b">{{ fl.id }} · {{ fl.t }}</strong><span style="font-size:12px;opacity:.6;text-align:right">Starts at: {{ fl.from }}</span></div>
+<sc-for list="{{ fl.nodes }}" as="n" hint-placeholder-count="4"><div style="display:flex;flex-direction:column">
+<sc-if value="{{ n.line }}" hint-placeholder-val="{{ true }}"><span style="width:2px;height:14px;background:#16263b55;margin-left:22px"></span></sc-if>
+<div style="align-self:flex-start;max-width:100%;box-sizing:border-box;display:flex;gap:8px;align-items:baseline;padding:9px 12px;font-size:14px;line-height:1.35;background:{{ n.bg }};color:{{ n.fg }};border:{{ n.bd }};border-radius:{{ n.r }}"><span style="font-size:10px;font-weight:700;letter-spacing:.08em;opacity:.7;flex:none">{{ n.tag }}</span><span style="font-weight:{{ n.w }}">{{ n.l }}</span></div>
+<sc-if value="{{ n.hasBr }}" hint-placeholder-val="{{ false }}"><div style="display:grid;grid-template-columns:repeat({{ n.cols }},minmax(0,1fr));gap:10px;margin-left:22px;padding:12px 0 0 14px;border-left:2px solid #16263b55">
+<sc-for list="{{ n.br }}" as="b" hint-placeholder-count="2"><div style="display:flex;flex-direction:column;gap:6px;min-width:0"><span style="align-self:flex-start;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#16263b;background:#ece4d6;padding:3px 8px;border-radius:99px">{{ b.lab }}</span>
+<sc-for list="{{ b.nodes }}" as="m" hint-placeholder-count="2"><div style="display:flex;gap:6px;align-items:baseline;padding:7px 10px;font-size:13px;line-height:1.35;background:{{ m.bg }};color:{{ m.fg }};border:{{ m.bd }};border-radius:{{ m.r }}"><span style="font-size:9px;font-weight:700;letter-spacing:.08em;opacity:.7;flex:none">{{ m.tag }}</span><span>{{ m.l }}</span></div></sc-for>
+</div></sc-for></div></sc-if>
+</div></sc-for>
+</div></sc-for>
+</div>
+</section>
+
+<section data-screen-label="Conditions" style="display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;flex-direction:column;gap:4px"><strong style="font-size:30px;letter-spacing:-.02em;color:#16263b">2 · Conditions</strong><span style="font-size:15px;opacity:.7">Every gold check in the flows comes from one of these.</span></div>
+<div style="background:#fbf7ef;border:1px solid #e3d9c6;border-radius:20px;padding:6px 22px">
+<div style="display:grid;grid-template-columns:220px minmax(0,1fr) minmax(0,1.4fr);gap:16px;padding:12px 0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;opacity:.55"><span>Condition</span><span>Checked at</span><span>True → / False →</span></div>
+<sc-for list="{{ conds }}" as="c" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:220px minmax(0,1fr) minmax(0,1.4fr);gap:16px;padding:13px 0;border-top:1px solid #e3d9c6;font-size:14px;line-height:1.45"><strong style="color:#16263b">{{ c.c }}</strong><span>{{ c.w }}</span><span>{{ c.e }}</span></div></sc-for>
+</div>
+</section>
+
+<section data-screen-label="Errors and empty states" style="display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;flex-direction:column;gap:4px"><strong style="font-size:30px;letter-spacing:-.02em;color:#16263b">3 · Errors and empty states</strong><span style="font-size:15px;opacity:.7">What people see, and how they get out of it.</span></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px">
+<sc-for list="{{ errs }}" as="e" hint-placeholder-count="6"><div style="background:#fbf7ef;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;border:{{ e.bd }}"><span style="display:flex;justify-content:space-between;gap:10px;font-size:12px"><strong style="letter-spacing:.06em;color:{{ e.c }}">{{ e.tag }}</strong><span style="opacity:.6;text-align:right">{{ e.w }}</span></span><strong style="font-size:15px;color:#16263b">“{{ e.m }}”</strong><span style="font-size:13px;opacity:.75;line-height:1.45">Way out: {{ e.o }}</span></div></sc-for>
+</div>
+</section>
+
+<section data-screen-label="Backend events" style="display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;flex-direction:column;gap:4px"><strong style="font-size:30px;letter-spacing:-.02em;color:#16263b">4 · Backend events</strong><span style="font-size:15px;opacity:.7">What the server does when something happens, and who hears about it.</span></div>
+<div style="background:#fbf7ef;border:1px solid #e3d9c6;border-radius:20px;padding:6px 22px">
+<div style="display:grid;grid-template-columns:200px minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr);gap:16px;padding:12px 0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;opacity:.55"><span>Event</span><span>Triggered by</span><span>Changes</span><span>Notifies</span></div>
+<sc-for list="{{ events }}" as="e" hint-placeholder-count="8"><div style="display:grid;grid-template-columns:200px minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr);gap:16px;padding:12px 0;border-top:1px solid #e3d9c6;font-size:14px;line-height:1.45"><code style="font-size:13px;font-weight:600;color:#16263b">{{ e.n }}</code><span>{{ e.b }}</span><span>{{ e.c }}</span><span>{{ e.t }}</span></div></sc-for>
+</div>
+</section>
+
+<section data-screen-label="Roles" style="display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;flex-direction:column;gap:4px"><strong style="font-size:30px;letter-spacing:-.02em;color:#16263b">5 · Who can do what</strong><span style="font-size:15px;opacity:.7">{{ rolesNote }}</span></div>
+<div style="background:#fbf7ef;border:1px solid #e3d9c6;border-radius:20px;padding:6px 22px;overflow-x:auto">
+<div style="display:grid;grid-template-columns:minmax(240px,1.8fr) repeat(4,minmax(90px,1fr));gap:12px;padding:12px 0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#16263b"><span style="opacity:.55">Capability</span><sc-for list="{{ roleHeads }}" as="h" hint-placeholder-count="4"><span style="text-align:center">{{ h.n }}</span></sc-for></div>
+<sc-for list="{{ roles }}" as="r" hint-placeholder-count="8"><div style="display:grid;grid-template-columns:minmax(240px,1.8fr) repeat(4,minmax(90px,1fr));gap:12px;padding:11px 0;border-top:1px solid #e3d9c6;font-size:14px;align-items:center"><span>{{ r.n }}</span><sc-for list="{{ r.v }}" as="v" hint-placeholder-count="4"><span style="text-align:center;font-weight:700;color:{{ v.c }}">{{ v.t }}</span></sc-for></div></sc-for>
+</div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;platform&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;mobile&quot;,&quot;web&quot;],&quot;default&quot;:&quot;mobile&quot;,&quot;tsType&quot;:&quot;'mobile' | 'web'&quot;}}">
+const K = {
+  screen: { tag: 'SCREEN', bg: '#16263b', fg: '#f7f1e6', bd: '1.5px solid #16263b', r: '10px', w: 600, n: 'Screen or sheet' },
+  check: { tag: 'CHECK', bg: '#f2d9a0', fg: '#16263b', bd: '1.5px solid #16263b', r: '18px', w: 600, n: 'Condition the app checks' },
+  tap: { tag: 'TAP', bg: '#ece4d6', fg: '#241c14', bd: '1.5px solid #ece4d6', r: '99px', w: 500, n: 'What the person does' },
+  server: { tag: 'SERVER', bg: '#fff9ef', fg: '#16263b', bd: '1.5px dashed #16263b', r: '6px', w: 500, n: 'Backend event' },
+  error: { tag: 'ERROR', bg: '#fbeaea', fg: '#8f2129', bd: '1.5px solid #b8323a', r: '6px', w: 500, n: 'Error state' },
+  empty: { tag: 'EMPTY', bg: 'transparent', fg: '#5c5142', bd: '1.5px dashed #8a7d68', r: '6px', w: 500, n: 'Empty state' }
+};
+const S = l => ['screen', l], C = (l, br) => ['check', l, br], T = l => ['tap', l], V = l => ['server', l], E = l => ['error', l], M = l => ['empty', l];
+const Y = '✓', N = '—';
+
+const DATA = {
+  mobile: {
+    title: 'Mobile app v2: going out and hosting',
+    intro: 'One account, no passwords. M1–M3 get people in (or let them look first), M4 is Plans, M5–M8 cover hosting: invites for people you know, organisations for anyone with tickets. The rest follow a fan from discovery to the gate.',
+    protoHref: 'Sahra Mobile Prototype v2.dc.html', otherHref: 'Sahra Web Logic Map v2.dc.html', otherLabel: 'Web logic map v2 →',
+    flows: [
+      ['M1', 'Cold start', 'App icon', [S('Splash · 1.2s · skipped on resume or Reduce Motion'), C('Signed in?', [['No', [S('Get started'), T('Continue with Apple · Continue with phone or email → M2'), T('Look around first → M3')]], ['Yes', [S('Last profile used'), S('Personal → For You'), S('Organisation → door mode')]]])]],
+      ['M2', 'One step in (no passwords)', 'Get started', [S('Your phone or email'), C('Phone with country code, or a valid email?', [['No', [E('Enter a phone number with country code, or an email.')]], ['Yes', [V('otp.sent')]]]), S('Enter the code'), C('6 digits and correct?', [['No', [E('Enter all 6 digits · Resend code')]], ['Yes', [C('Account for this phone or email?')]]]), C('Which account?', [['Fan or fan + host', [S('Personal · For You')]], ['Host only', [S('Organisation · door mode')]], ['New', [S('Name'), S('What brings you here? Going out · Hosting friends · Running events'), S('City + 1 or more interests'), V('user.created · WELCOME10')]]]), C('Picked Running events?', [['Yes', [S('Name your organisation · or skip')]], ['No', [S('For You')]]])], 1],
+      ['M3', 'Look around first', 'Get started › Look around first', [S('For You, Search and event pages are open'), M('Sign in pill replaces the bell'), C('Taps Get tickets, Remind me, RSVP, + Host, Plans or Profile?', [['Yes', [S('One-step sign-in, titled “Sign in to keep going”')]], ['No', [S('Keeps browsing')]]]), C('New account?', [['Yes', [S('Name only'), M('Interests skipped; asked later')]], ['No', [S('Signed in')]]]), S('Back on the same screen; the action carries on')], 1],
+      ['M4', 'Plans', 'Plans tab', [C('Invites nobody has answered?', [['Yes', [S('Waiting on you: Going / Request to join · Can’t go')]], ['No', [M('Section hidden')]]]), S('Upcoming, by date: tickets (gold) · RSVPs (Going / Maybe / Requested) · things you host (dashed)'), C('Anything at all?', [['No', [M('Nothing planned yet'), T('Find something · Host something')]], ['Yes', [T('Card → ticket pass / invite / host view')]]]), S('Waiting for tickets · Sold & sent')], 1],
+      ['M5', 'Who’s it for?', 'Plans › + Host · Profile › Hosting · Settings', [C('Signed in?', [['No', [S('One-step sign-in → M3')]], ['Yes', [S('Who’s it for?')]]]), C('Audience?', [['People I invite', [S('New invite → M6')]], ['Anyone, with tickets', [C('Admin or Co-host somewhere?'), S('Yes → that organisation’s door mode'), S('No → hosting intro → name organisation')]]])], 1],
+      ['M6', 'Host a personal invite', 'Who’s it for › People I invite', [S('New invite: name, when, where, cover, note, guest limit, approve, plus-ones, show who’s going, hide address'), C('Name and place filled?', [['No', [E('Give it a name · Add where it is')]], ['Yes', [V('invite.created · link-only, never listed')]]]), S('Invite ready: WhatsApp · contacts · copy link'), S('Host view: Going · Maybe · Asking · Can’t'), C('Approval on and someone asked?', [['Yes', [T('Approve / Decline'), V('rsvp.approved / declined')]], ['No', [M('No replies yet')]]]), T('Message guests → push + SMS · Check in · Cancel'), V('invite.cancelled → everyone who replied is told')], 1],
+      ['M7', 'Answer an invite', 'Link · notification · Plans › Waiting on you', [S('Invite page: host, when, faces, note, host updates'), C('Address hidden until going?', [['Yes', [M('Address shared once you’re going')]], ['No', [S('Address shown')]]]), C('Host approves guests?', [['Yes', [S('Request to join → Requested'), V('rsvp.requested → host approves')]], ['No', [S('Going · Maybe · Can’t go')]]]), C('Full?', [['Yes', [E('It’s full. Ask the host to make space.')]], ['No', [V('rsvp.saved')]]]), S('Going → plus-ones 0–2 · lands in Plans'), M('Not signed in → one-step sign-in first (M3)')]],
+      ['M8', 'Invite becomes a ticketed event', 'Host view › Sell tickets instead', [C('Admin of an organisation?', [['Yes', [V('invite.moved → draft event in that organisation')]], ['No', [S('Hosting intro → name organisation'), V('org.created + invite.moved')]]]), S('Current guests keep free spots'), S('Tiers and pricing finished in Studio (web)'), M('Selling still needs verification')]],
+      ['M9', 'Discover', 'For You · Search', [S('For You: city, bell, featured, list'), C('Events in this city?', [['No', [M('Nothing in Riyadh yet'), T('Show Dubai')]], ['Yes', [S('Event cards')]]]), T('Bell → notification inbox'), S('Search: text + category'), C('Any results?', [['No', [M('No events match'), T('Clear search')]], ['Yes', [S('Results')]]]), S('Event detail'), C('Holding tickets for it?', [['Yes', [S('“You have N tickets” → ticket pass')]], ['No', [M('Nothing extra')]]])]],
+      ['M10', 'Choose tickets', 'Event detail', [C('On sale?', [['No', [T('Remind me (toggle)'), V('sale.opened → reminder push')]], ['Yes', [T('Get tickets'), C('Signed in?', [['No', [S('One-step sign-in → M3')]], ['Yes', [S('Continue')]]])]]]), C('Seated venue?', [['Seated', [S('Section map → seat picker'), E('Taken seats disabled · max 6')]], ['Standing', [S('Tier picker'), E('Max 6 · only N left')]]]), C('Tier sold out?', [['Yes', [S('Resale listings, cheapest first'), C('Listing is yours?'), M('Shows “Your listing”, not buyable'), T('Buy a listing → M11'), T('Set your price → M12')]], ['No', [T('Continue → M11')]]])]],
+      ['M11', 'Checkout & pay', 'Tier or seat picker', [S('Checkout (Sand): summary, method, promo'), C('Promo valid, right event, allowed on resale?', [['No', [E('Not recognised · already used · only for X · not on resale')]], ['Yes', [S('Discount line added')]]]), T('Pay'), C('Still in stock / listing still there?', [['No', [E('Sold out while you were checking out. Not charged.'), T('Back to pick another')]], ['Yes', [S('Charge card')]]]), C('Payment succeeded?', [['No', [E('Bank declined. Nothing charged.'), T('Retry or switch method')]], ['Yes', [V('order.paid · stock reduced · promo used'), S('Ticket pass'), S('Plans › Upcoming')]]])]],
+      ['M12', 'After you buy: send, sell, auto-buy', 'Plans › ticket pass', [C('Ticket status?', [['Ready', [T('Send'), T('I can’t go · Sell')]], ['Selling', [T('Stop selling')]]]), S('Send: how many + phone/email'), C('Valid phone or email, and not you?', [['No', [E('Enter an email or phone · That’s your own account')]], ['Yes', [V('ticket.transferred'), S('Moves to Sold & sent')]]]), C('Resale allowed for this event?', [['No', [E('Resale is off. You can still send.')]], ['Yes', [S('Sell: how many + price')]]]), C('Price ≤ face value +10% (face, not what you paid)?', [['No', [E('Cap toast')]], ['Yes', [V('listing.created → shows in the tier as “Your listing”'), V('listing.sold → earnings pending')]]]), S('Set your price: qty + max (max ≤ cap)'), C('A listing already matches?', [['Yes', [S('Straight to checkout for it')]], ['No', [V('autobuy.created → autobuy.filled')]]])]],
+      ['M13', 'Earnings & withdraw', 'Profile › earnings card', [C('Any resale yet?', [['No', [M('Earnings card hidden on Profile')]], ['Yes', [S('Earnings: ready, pending, sales')]]]), C('Ready > 0?', [['No', [E('Nothing ready yet; releases after the event')]], ['Yes', [S('Withdraw'), V('payout.requested → payout.sent')]]])]],
+      ['M14', 'Profile & settings', 'Profile tab', [S('Profile: name card, earnings, Money, Rewards'), T('Name card → Edit profile · gear → Settings'), S('Settings: Notifications · Language & numbers · Sign-in methods (no password) · Hosting · Help · Sign out'), C('Delete account: tickets, auto-buys, earnings, admin of an org?', [['Any', [E('Can’t delete yet + the reason')]], ['None', [V('user.deleted'), S('Get started')]]]), T('Sign out → confirm → Get started')]],
+      ['M15', 'Door: scan', 'Door mode › Scan', [S('Viewfinder + live checked-in count'), C('Scan result?', [['Valid', [S('Admit N'), V('ticket.checked_in')]], ['Used', [E('Already used at 8:14 PM. Don’t admit.')]], ['Wrong / refunded', [E('Wrong event · Refunded')]]]), C('Online?', [['No', [S('Queued check-ins banner'), V('sync on reconnect')]], ['Yes', [S('Instant')]]])]],
+      ['M16', 'Door: guests & message', 'Door mode › Guests · Events', [S('Guests: search + All / Checked in / Not yet'), C('Any match?', [['No', [M('No guests match')]], ['Yes', [S('Guest sheet → manual check-in / undo')]]]), S('Event snapshot → Message guests'), C('Role allows it? Sends left today?', [['No', [E('Daily limit reached')]], ['Yes', [S('Audience · message · push / SMS cost'), V('broadcast.sent')]]])]]
+    ],
+    conds: [
+      ['Signed in', 'Launch, Tickets, buying', 'Home for last profile / Get started'],
+      ['In an organisation', 'Settings › Hosting, Profile header', 'Switch profile + Create another / Host events on Sahra'],
+      ['Role in organisation', 'Switching profile', 'Admin & Co-host get Events tab; Gate staff start on Scan'],
+      ['Organisation verified', 'Door mode Events', 'Normal list / “Get ready to sell” checklist'],
+      ['City has events', 'For You', 'Feed / empty state + Show Dubai'],
+      ['Event on sale', 'Event detail CTA', 'Get tickets / Remind me'],
+      ['Seated venue', 'Get tickets', 'Section map + seats / tier steppers'],
+      ['Tier sold out', 'Tier picker', 'Resale listings + Set your price / steppers'],
+      ['≤ 6 per order, ≤ stock', 'Steppers, seat taps', 'Allowed / toast'],
+      ['Promo valid & unused', 'Checkout', 'Discount line / inline error'],
+      ['Payment succeeds', 'Checkout', 'Ticket pass / declined banner'],
+      ['Resale price ≤ cap', 'Sell', 'List / cap toast'],
+      ['Has resold', 'Profile', 'Earnings card / hidden'],
+      ['Ready balance > 0', 'Earnings', 'Withdraw / explanation toast'],
+      ['Holds upcoming tickets', 'Delete account', 'Blocked / deleted'],
+      ['Device online', 'Scanner', 'Instant / queued check-ins; offline scans only know this phone’s list'],
+      ['Phone or email has an account', 'Code step', 'Lands on last profile / new-account steps'],
+      ['Came from a gated action', 'Code step', 'Back to that screen and the action runs / For You'],
+      ['Invite needs approval', 'Invite page', 'Request to join / Going · Maybe · Can’t'],
+      ['Invite is full', 'Reply Going', 'Toast / saved'],
+      ['Address hidden and not going', 'Invite page', '“Shared once you’re going” / address'],
+      ['You host the invite', 'Plans card, link', 'Host view / guest view'],
+      ['Admin or Co-host somewhere', 'Who’s it for › Anyone', 'Door mode / hosting intro'],
+      ['Promo fits the cart', 'Checkout', 'Event-specific codes and resale rules enforced'],
+      ['Stock still there at Pay', 'Checkout', 'Charge / sold-out error, not charged'],
+      ['Listing is yours', 'Tier picker', '“Your listing”, not buyable / Buy'],
+      ['Resale allowed for event', 'Sell, event detail', 'Sell / “Resale is off” + Send instead'],
+      ['Auto-buy max ≤ resale cap', 'Set your price', 'Stepper stops at cap'],
+      ['Listing already matches max', 'Start auto-buy', 'Checkout now / waiting order'],
+      ['Organisation has a live event', 'Scan, Guests', 'Normal / “No live event”'],
+      ['Broadcasts left today', 'Message guests', 'Send / limit reached']
+    ],
+    errs: [
+      ['ERROR', 'Phone or email', 'Enter a phone number with country code, or an email.', 'Fix the field'],
+      ['ERROR', 'Enter the code', 'Enter all 6 digits.', 'Retype or Resend code'],
+      ['ERROR', 'New invite', 'Give it a name. · Add where it is.', 'Fill the field'],
+      ['ERROR', 'Invite page', 'It’s full. Ask Omar to make space.', 'Message the host'],
+      ['ERROR', 'Message guests (invite)', 'No one has replied yet. Share the link first.', 'Share invite'],
+      ['EMPTY', 'Plans', 'Nothing planned yet', 'Find something · Host something'],
+      ['EMPTY', 'Host view', 'No replies yet. Share the link.', 'Share link'],
+      ['ERROR', 'Your organisation', 'Give your organisation a name.', 'Type a name'],
+      ['ERROR', 'Checkout', 'Your bank declined this payment. Nothing was charged.', 'Retry or choose another method'],
+      ['ERROR', 'Checkout', 'We don’t recognise that code.', 'Edit the code or pay without one'],
+      ['ERROR', 'Sell', 'Cap is AED 94 (face +10%).', 'Lower the price'],
+      ['ERROR', 'Send', 'Enter an email or a phone number with country code.', 'Fix the recipient'],
+      ['ERROR', 'Delete account', 'Sell or send your upcoming tickets first.', 'Go to Tickets'],
+      ['ERROR', 'Scanner', 'Already used at 8:14 PM. Don’t admit.', 'Send to help desk · Scan next'],
+      ['ERROR', 'Message guests', 'Daily limit reached.', 'Resets at midnight'],
+      ['ERROR', 'Checkout', 'VIP deck sold out while you were checking out. You weren’t charged.', 'Back to pick another tier'],
+      ['ERROR', 'Checkout', 'NOUR20 only works for Nour Haddad Live.', 'Remove the code'],
+      ['ERROR', 'Ticket pass', 'Resale is off for this event.', 'Send to a friend instead'],
+      ['ERROR', 'Send', 'That’s your own account.', 'Enter a friend’s phone or email'],
+      ['ERROR', 'Delete account', 'You’re the admin of Mawja Live. Make someone else admin first.', 'Studio › Team'],
+      ['EMPTY', 'Door mode › Scan (new org)', 'No live event', 'Publish an event first'],
+      ['EMPTY', 'For You', 'Nothing in Riyadh yet', 'Show Dubai'],
+      ['EMPTY', 'Search', 'No events match “…”', 'Clear search'],
+      ['EMPTY', 'Door mode › Events (new org)', 'No events yet', 'Build your first event on the web'],
+      ['EMPTY', 'Notifications', 'You’re all caught up.', 'Back']
+    ],
+    events: [
+      ['otp.sent / session.created', 'Code step (M2, M3)', 'Signs in, or creates the account if new', 'SMS or email code'],
+      ['user.created', 'New account (M2, M3)', 'Person account; WELCOME10 issued', 'Welcome message'],
+      ['invite.created', 'New invite (M6)', 'Link-only invite owned by the person', '—'],
+      ['rsvp.saved / requested / approved', 'Invite page, host view (M6, M7)', 'Guest list and Plans update', 'Host push · guest push or SMS'],
+      ['invite.updated / cancelled', 'Message guests · Cancel (M6)', 'Update on invite / invite removed', 'Everyone who replied'],
+      ['invite.moved', 'Sell tickets instead (M8)', 'Draft event in an organisation; guests become comps', 'Host'],
+      ['org.created', 'Your organisation (M2, M5, M8)', 'Organisation; creator is Admin; verification none', 'Studio welcome email'],
+      ['order.paid', 'Pay (M9)', 'Tickets issued, stock down, promo used, organiser sales up', 'Fan push + email · organiser dashboard'],
+      ['payment.failed', 'Pay (M9)', 'Nothing charged', 'Inline only'],
+      ['ticket.transferred', 'Send (M10)', 'Sender QR void; recipient claims', 'Recipient SMS/email · sender push'],
+      ['listing.created / sold', 'Sell (M10)', 'Listed in tier; on sale → seller QR void, payout pending', 'Seller push'],
+      ['autobuy.filled', 'Matching listing (M10)', 'Card charged, ticket issued', 'Buyer push'],
+      ['event.ended → payouts.released', 'Event end time', 'Pending earnings become ready', 'Seller push'],
+      ['payout.requested', 'Withdraw (M11)', 'Ready → 0, bank transfer queued', 'Push + email'],
+      ['sale.opened', 'On-sale time', 'Event buyable', 'Push to people who tapped Remind me'],
+      ['ticket.checked_in', 'Scan / manual (M13–14)', 'Ticket used; counts update', 'Organiser live count'],
+      ['broadcast.sent', 'Message guests (M14)', 'Sends left −1; SMS billed to organisation', 'Selected guests']
+    ],
+    rolesNote: 'Fan is the personal profile. The other three are roles inside an organisation; one person can hold different roles in different organisations.',
+    roleHeads: ['Fan', 'Admin', 'Co-host', 'Gate staff'],
+    roles: [
+      ['Buy, sell, send tickets', Y, Y, Y, Y], ['Host free invites as yourself', Y, Y, Y, Y], ['Create an organisation', Y, Y, Y, Y], ['Door mode › Events tab', N, Y, Y, N], ['See revenue', N, Y, N, N],
+      ['Scan tickets & manual check-in', N, Y, Y, Y], ['Message guests', N, Y, Y, N], ['Open Studio on web', N, Y, Y, N], ['Payouts & team', N, Y, N, N]
+    ]
+  },
+  web: {
+    title: 'Web v2: front door, invites, Studio',
+    intro: 'W1 is the new front door. W2 replaces passwords with one code step that appears exactly when it’s needed. W3–W4 are invites: guests reply from a link with just a phone number. W5 onwards is Studio, unchanged apart from code sign-in.',
+    protoHref: 'Sahra Web Prototype v2.dc.html', otherHref: 'Sahra Mobile Logic Map v2.dc.html', otherLabel: 'Mobile logic map v2 →',
+    flows: [
+      ['W1', 'Front door', 'sahra.app', [S('Hero: 3 featured events, auto-advance 6.5s; pauses on modals and Reduce Motion'), S('Search dock + Popular shortcuts'), S('Pick a night: 21-day strip; only days with events are tappable'), S('Category tiles with counts (empty categories hidden)'), S('On the calendar: one row per event, by date'), C('Search, day and category match anything?', [['No', [M('Nothing matches that'), T('Clear filters')]], ['Yes', [T('Row → event page (W12)')]]]), S('Two host doors: Create an invite · Open Studio')], 1],
+      ['W2', 'One-step sign-in (no passwords)', 'Checkout · RSVP · Create an invite · My tickets', [S('Modal titled by what you were doing: “Where should we send your tickets?” · “Let Omar know it’s you” · “Sign in to host”'), C('Phone or email valid?', [['No', [E('Enter a phone number with country code, or an email.')]], ['Yes', [V('otp.sent')]]]), C('6-digit code?', [['No', [E('Enter all 6 digits.')]], ['Yes', [V('session.created · account created if new')]]]), S('Carries on: checkout · reply saved · invite form · My tickets')], 1],
+      ['W3', 'Reply to an invite from a link', 'sahra.app/i/…', [S('Invite page: host, when, faces, note, updates'), C('Address hidden and not going?', [['Yes', [M('Address shared once you’re going')]], ['No', [S('Address shown')]]]), T('Going · Maybe · Can’t go (or Request to join)'), C('Signed in?', [['No', [S('W2 with “No app or account needed”')]], ['Yes', [S('Saved instantly')]]]), C('Approval on? Full?', [['Approval', [S('Requested · waiting for host')]], ['Full', [E('It’s full. Ask the host.')]], ['Neither', [V('rsvp.saved')]]]), S('Status box + get the app to see it in Plans')], 1],
+      ['W4', 'Host from the fan site', 'Nav › Host · home host doors', [S('Who’s it for? (modal)'), C('Audience?', [['People I invite', [C('Signed in?'), S('No → W2, then New invite'), S('New invite: name, when, where, approve, hide address'), C('Name + place?'), E('Give it a name · Add where it is'), V('invite.created'), S('Invite page in host view: banner, link, replies')]], ['Anyone, with tickets', [S('Studio → W5 / W6')]]])], 1],
+      ['W5', 'Host signs up on the web', 'studio.sahra.app', [S('Step 1 · Your account'), C('Already signed in as a fan?', [['Yes', [T('Continue as Layla')]], ['No', [S('Name, work email → code'), C('Email already has an account?'), E('Use Sign in or continue from the fan site')]]]), S('Step 2 · Who’s hosting? name, city, type'), C('Organisation name set?', [['No', [E('Give your organisation a name')]], ['Yes', [V('org.created (you = Admin)')]]]), S('Overview with “Get ready to sell” checklist')], 1],
+      ['W6', 'Fan starts hosting', 'Fan site › Host › Anyone, with tickets', [C('Already in an organisation?', [['Yes', [S('Studio overview')]], ['No', [S('Studio step 1 with “Continue as Layla”')]]]), T('Continue → W5 step 2'), S('Same login. Her tickets stay on her personal profile.'), T('Sidebar organisation switcher for more than one')], 1],
+      ['W7', 'Create & publish an event', 'Overview · Events › New event', [S('1 Details: name, date, venue, category'), C('Name + date?', [['No', [E('Inline message')]], ['Yes', [S('2 Tickets')]]]), C('Every tier complete? Total ≤ venue capacity?', [['No', [E('Tiers add up to X but venue holds Y')]], ['Yes', [S('3 Promotion: resale + cap, launch code')]]]), S('4 Review'), C('Organisation verified?', [['Not yet', [S('Saved as draft, marked “Awaiting verification”'), S('Verify modal (skipped if already in review)'), V('verification.submitted'), V('verification.approved → auto-publishes waiting events')]], ['Yes', [V('event.published'), S('Live on sahra.app and in the app')]]])], 1],
+      ['W8', 'Get paid', 'Payouts', [C('Business bank added?', [['No', [S('Add IBAN form'), C('Format AE + 21 digits?'), E('UAE IBANs are AE + 21 digits')]], ['Yes', [S('Available balance + history')]]]), C('Verified and available ≥ AED 1,000?', [['No', [E('Payouts start once verified · minimum payout')]], ['Yes', [T('Pay out now → confirm'), V('payout.requested')]]])], 1],
+      ['W9', 'Team', 'Team', [T('Invite: email + role'), C('Valid email, not already on team?', [['No', [E('Inline message')]], ['Yes', [V('member.invited'), S('Status: Invited')]]]), C('Their role?', [['Admin / Co-host', [S('Studio + door mode')]], ['Gate staff', [S('Door mode only; Studio shows a pointer to the app')]]])]],
+      ['W10', 'Fan buys on the web', 'sahra.app', [S('Events grid: search + category'), C('Any results?', [['No', [M('Nothing matches')]], ['Yes', [S('Event page + ticket panel')]]]), C('Sales paused? Tier sold out?', [['Paused', [M('Sales paused banner')]], ['Sold out', [M('Set your price in the app')]], ['Open', [T('Steppers (max 6)')]]]), C('Signed in?', [['No', [S('One-step sign-in: “Where should we send your tickets?” → code → checkout')]], ['Yes', [S('Checkout modal')]]]), C('Promo: exists, on, same organiser, matches event, uses left?', [['No', [E('Specific reason shown')]], ['Yes', [S('Discount line')]]]), C('Still on sale and in stock at Pay?', [['No', [E('Sold out / paused while checking out. Not charged.')]], ['Yes', [S('Charge card')]]]), C('Payment ok?', [['No', [E('Card declined. Nothing charged.')]], ['Yes', [V('order.paid'), S('Confirmation → My tickets'), S('Order appears in Studio')]]])]],
+      ['W11', 'Orders & refunds', 'Studio › Orders', [S('Search + All / Paid / Refunded'), C('Admin?', [['No', [M('Totals hidden, no refund button')]], ['Yes', [T('Refund → confirm')]]]), V('order.refunded: QR void, each tier gets back exactly what was bought, fan ticket shows Refunded')]],
+      ['W12', 'Promo codes', 'Studio › Promo codes', [T('New code: code, %, max uses, event, resale'), C('4–12 letters/numbers, unique, 1–100%?', [['No', [E('Inline message')]], ['Yes', [V('promo.created'), S('Works at fan checkout immediately')]]]), T('Turn off / on → checkout rejects with reason')]],
+      ['W13', 'Venue layout', 'Studio › Venues', [C('Seated or standing?', [['Standing', [S('Single capacity number')]], ['Seated', [S('Sections list · map · rows × seats')]]]), C('Tiers on sale exceed layout?', [['Yes', [E('Fix before the event')]], ['No', [S('Capacity line only')]]])]],
+      ['W14', 'Fan sells or sends on the web', 'sahra.app › My tickets', [C('Ticket ready?', [['No', [M('Shows Sent / Selling / Refunded')]], ['Yes', [T('Send · Sell')]]]), C('Resale on for this event? Price ≤ cap?', [['No', [E('Resale off · above the organiser’s cap')]], ['Yes', [V('listing.created')]]])]]
+    ],
+    conds: [
+      ['Signed in on fan site', 'Checkout, RSVP, Create an invite, My tickets', 'Proceed / one-step sign-in, then the action continues'],
+      ['Day has events', 'Pick a night', 'Tappable / dimmed'],
+      ['Viewer hosts the invite', 'Invite page', 'Host view (link, replies) / guest view'],
+      ['Invite needs approval · is full', 'Invite page', 'Request to join · toast / reply saved'],
+      ['Has an organisation', 'Host events link, Studio', 'Studio overview / step 1'],
+      ['Organisation verified', 'Publish (create or manage)', 'Live / saved as draft + verify modal'],
+      ['Bank added', 'Payouts', 'Balance + payout / IBAN form'],
+      ['Role = Admin', 'Revenue, refunds, payouts, team', 'Shown / hidden'],
+      ['Role = Gate staff', 'Studio', 'Pointer to door mode'],
+      ['Event status', 'Fan event page', 'Live: buy · Paused: banner · Draft: hidden'],
+      ['Tiers ≤ venue capacity', 'Create step 2, Venues', 'Continue / error'],
+      ['Promo: active, event, uses', 'Fan checkout', 'Discount / specific reason'],
+      ['Resale on + under cap', 'Fan sell', 'Listed / error'],
+      ['Promo belongs to the event’s organiser', 'Fan checkout', 'Discount / not valid for this organiser'],
+      ['Still live + in stock at Pay', 'Fan checkout', 'Charge / not charged + reason'],
+      ['Verification in review', 'Publish', 'Event waits and auto-publishes on approval'],
+      ['Org name not a duplicate', 'Who’s hosting?', 'Create / error']
+    ],
+    errs: [
+      ['ERROR', 'Sign-in modal', 'Enter a phone number with country code, or an email.', 'Fix the field'],
+      ['ERROR', 'Sign-in modal', 'Enter all 6 digits.', 'Retype, or use a different number'],
+      ['ERROR', 'New invite', 'Give it a name.', 'Type a name'],
+      ['EMPTY', 'Front door', 'Nothing matches that.', 'Clear filters'],
+      ['ERROR', 'Who’s hosting?', 'Give your organisation a name.', 'Type a name'],
+      ['ERROR', 'New event · step 2', 'Tiers add up to 400 but Dubai Comedy Club holds 340.', 'Lower quantities or pick another venue'],
+      ['ERROR', 'Verify', 'Trade licence number looks too short.', 'Check the licence'],
+      ['ERROR', 'Payouts', 'UAE IBANs are AE + 21 digits.', 'Fix the IBAN'],
+      ['ERROR', 'Promo codes', 'SAHRA10 already exists.', 'Pick another code'],
+      ['ERROR', 'Fan checkout', 'NOUR20 doesn’t apply to this event.', 'Remove it or pay full price'],
+      ['ERROR', 'Fan checkout', 'Card declined. Nothing was charged.', 'Retry'],
+      ['ERROR', 'Fan checkout', 'General admission sold out while you were checking out. You weren’t charged.', 'Pick another tier'],
+      ['ERROR', 'Payouts', 'Payouts start once verification is approved.', 'Finish verification'],
+      ['EMPTY', 'Studio › Events (new org)', 'No events yet.', 'Create one'],
+      ['EMPTY', 'Studio overview (new org)', 'Get ready to sell checklist', 'Each row has its own button'],
+      ['EMPTY', 'Fan event page', 'Sales are paused by the organiser.', 'Check back later'],
+      ['EMPTY', 'My tickets', 'No tickets yet.', 'Browse events'],
+      ['EMPTY', 'Orders', 'No orders match.', 'Clear the search']
+    ],
+    events: [
+      ['otp.sent / session.created', 'Sign-in modal (W2)', 'Signs in or creates the account', 'SMS or email code'],
+      ['invite.created', 'New invite (W4)', 'Link-only invite owned by the person', '—'],
+      ['rsvp.saved / requested', 'Invite page (W3)', 'Guest list updates', 'Host push'],
+      ['user.created', 'First code sign-in', 'Person account (same as app)', 'Welcome message'],
+      ['org.created', 'Studio step 2', 'Organisation; creator is Admin', 'Studio welcome email'],
+      ['verification.submitted', 'Verify modal', 'Status: in review', 'Ops queue'],
+      ['verification.approved', 'Ops', 'Organisation can publish', 'Email + Studio banner'],
+      ['event.published', 'Publish', 'Live on fan site and app', 'Followers of venue/artist (later)'],
+      ['order.paid', 'Fan checkout', 'Stock, orders, promo uses, payout balance', 'Fan email · organiser dashboard'],
+      ['order.refunded', 'Studio refund', 'Stock returned; QR void; next payout reduced', 'Fan email'],
+      ['promo.created / toggled', 'Promo codes', 'Checkout validation changes', '—'],
+      ['payout.requested', 'Payouts', 'Balance → 0; transfer queued', 'Admin email'],
+      ['member.invited', 'Team', 'Pending member with role', 'Invitee email']
+    ],
+    rolesNote: 'Roles live on the organisation. Fans on the web only see the fan site.',
+    roleHeads: ['Fan', 'Admin', 'Co-host', 'Gate staff'],
+    roles: [
+      ['Fan site: buy, sell, send', Y, Y, Y, Y], ['Host free invites as yourself', Y, Y, Y, Y], ['Create an organisation', Y, Y, Y, Y], ['Studio: events, orders, analytics, promo, venues', N, Y, Y, N], ['See revenue', N, Y, N, N],
+      ['Refund orders', N, Y, N, N], ['Publish (once verified)', N, Y, Y, N], ['Payouts & bank', N, Y, N, N], ['Team & verification', N, Y, N, N]
+    ]
+  }
+};
+
+const ENTRIES = [
+  { id: 'M2 · W2', t: 'Phone or email + code', s: 'App get started · any gated action on web', r: 'Person account, new or existing', bg: '#ece4d6', fg: '#241c14' },
+  { id: 'M3 · W3', t: 'Looked first, or opened an invite link', s: 'Look around first · sahra.app/i/…', r: 'Account created the moment they act', bg: '#fff9ef', fg: '#16263b' },
+  { id: 'M6 · W4', t: '+ Host › People I invite', s: 'Plans · Profile · web nav', r: 'Same account, a free invite. No organisation.', bg: '#f2d9a0', fg: '#16263b' },
+  { id: 'M2 · M5 · W6', t: 'Running events / Anyone, with tickets', s: 'Sign-up intent · Who’s it for · Studio', r: 'Adds an organisation (Admin)', bg: '#16263b', fg: '#f7f1e6' },
+  { id: 'W9', t: 'Invited to a team', s: 'Email invite › code sign-in', r: 'Joins that organisation with a role', bg: '#fff9ef', fg: '#16263b' }
+];
+
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props.platform === 'web' ? 'web' : 'mobile', D = DATA[p];
+    const node = (n, i) => { const [type, l, br] = Array.isArray(n) ? n : ['screen', n]; const k = K[type]; const b = (br || []).map(([lab, ns]) => ({ lab, nodes: ns.map(m => { const [tt, ll] = Array.isArray(m) ? m : ['screen', m]; return { ...K[tt], l: ll }; }) })); return { ...k, l, line: i > 0, hasBr: b.length > 0, cols: b.length, br: b }; };
+    return {
+      title: D.title, intro: D.intro, protoHref: D.protoHref, otherHref: D.otherHref, otherLabel: D.otherLabel,
+      entries: ENTRIES,
+      orgCards: [{ n: 'Mawja Live Productions', role: 'Admin', sees: 'Studio + door mode, payouts, team' }, { n: 'Kave Dubai', role: 'Gate staff', sees: 'Door mode only' }, { n: 'New organisation', role: 'Admin', sees: 'Checklist until verified' }],
+      acctRules: [
+        { t: 'Never a password', d: 'A code to your phone or email signs you in or creates the account. It appears only when you act, never as a gate.' },
+        { t: 'Invites aren’t organisations', d: 'Hosting people you know needs nothing extra. An organisation only appears when you sell tickets to anyone.' },
+        { t: 'Money stays separate', d: 'Resale earnings go to your personal bank. Ticket sales go to the organisation’s business bank.' },
+        { t: 'Verify late, not early', d: 'Anyone can create an organisation and draft events. ID + trade licence are only required to publish; bank only to get paid.' },
+        { t: 'Roles are per organisation', d: 'You can be Admin at one and Gate staff at another. Switch profile picks which one the app shows.' }
+      ],
+      legend: Object.values(K),
+      flows: D.flows.map(([id, t, from, nodes, host]) => ({ id, t, from, bd: host ? '2px solid #16263b' : '1px solid #e3d9c6', nodes: nodes.map(node) })),
+      conds: D.conds.map(([c, w, e]) => ({ c, w, e })),
+      errs: D.errs.map(([tag, w, m, o]) => ({ tag, w, m, o, c: tag === 'ERROR' ? '#b8323a' : '#5c5142', bd: tag === 'ERROR' ? '1.5px solid #b8323a' : '1.5px dashed #8a7d68' })),
+      events: D.events.map(([n, b, c, t]) => ({ n, b, c, t })),
+      rolesNote: D.rolesNote, roleHeads: D.roleHeads.map(n => ({ n })),
+      roles: D.roles.map(([n, ...v]) => ({ n, v: v.map(x => ({ t: x, c: x === Y ? '#2f7a4f' : '#b7aa94' })) }))
+    };
+  }
+}
+</script>
+</body>
+</html>
