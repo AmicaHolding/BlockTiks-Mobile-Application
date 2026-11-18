@@ -7,15 +7,20 @@
 // in the gap between expiry and the webhook arriving.
 
 import {
+  cleanupOtpChallenges,
   deleteExpireIndex,
   expireHold,
   expireTransfer,
   fulfillOrder,
   getOrder,
   listExpiredIndex,
+  listInviteRsvps,
+  listInvitesStartingBetween,
+  markInviteReminderSent,
   releaseOrder,
   releaseReservesForEndedEvents,
 } from './db';
+import { notifyUser } from './notify';
 import { getStripe } from './stripe';
 
 export const handler = async () => {
@@ -30,6 +35,8 @@ export const handler = async () => {
     holdsExpired: 0,
     transfersReturned: 0,
     reservesReleased: 0,
+    otpCleaned: 0,
+    inviteReminders: 0,
   };
 
   // hold.expire — release inventory reservations whose 10-min window passed.
@@ -87,6 +94,34 @@ export const handler = async () => {
     stats.reservesReleased = await releaseReservesForEndedEvents();
   } catch (err) {
     console.error('sweeper: reserve release failed', err);
+  }
+
+  // otp.cleanup — drop challenges expired over an hour ago (the hour of
+  // history keeps the per-contact send limit accurate, rule A1).
+  try {
+    stats.otpCleaned = await cleanupOtpChallenges(new Date(Date.now() - 3600_000).toISOString());
+  } catch (err) {
+    console.error('sweeper: otp cleanup failed', err);
+  }
+
+  // invite.reminder — the day before, to Going + Maybe (once per invite).
+  try {
+    const soon = await listInvitesStartingBetween(nowIso, new Date(Date.now() + 24 * 3600_000).toISOString());
+    for (const invite of soon) {
+      if (invite.reminderSentAt || !(await markInviteReminderSent(invite.id))) continue;
+      const rsvps = await listInviteRsvps(invite.id);
+      for (const r of rsvps) {
+        if (r.status !== 'going' && r.status !== 'maybe') continue;
+        await notifyUser(
+          r.userId,
+          { type: 'invite.reminder', title: invite.title, body: 'Happening tomorrow', link: `/i/${invite.code}` },
+          { sms: true }
+        ).catch(() => undefined);
+        stats.inviteReminders++;
+      }
+    }
+  } catch (err) {
+    console.error('sweeper: invite reminders failed', err);
   }
 
   console.log('sweeper:', JSON.stringify(stats));

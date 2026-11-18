@@ -31,6 +31,7 @@ import {
   updateMember,
   updateUser,
   getOrg,
+  getUserById,
   type Membership,
 } from '../db';
 import { env } from '../env';
@@ -289,7 +290,8 @@ export async function orgRoutes(app: FastifyInstance) {
   app.get('/me/memberships', { preHandler: app.authenticate }, async (request) => {
     const user = request.user;
     const active = await listUserMemberships(user.sub);
-    const invites = await listInvitesForEmail(user.email);
+    const email = (await getUserById(user.sub))?.email;
+    const invites = email ? await listInvitesForEmail(email) : [];
     const inviteOrgs = await Promise.all(invites.map((m) => getOrg(m.orgId)));
     return {
       memberships: active.map(({ membership, org }) => ({
@@ -322,7 +324,8 @@ export async function orgRoutes(app: FastifyInstance) {
     { preHandler: app.authenticate },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const invites = await listInvitesForEmail(request.user.email);
+      const email = (await getUserById(request.user.sub))?.email;
+      const invites = email ? await listInvitesForEmail(email) : [];
       const invite = invites.find((m) => m.id === id);
       if (!invite) return specError(reply, 404, 'not_found', 'Invite not found');
       await removeMember(invite.orgId, invite.id);

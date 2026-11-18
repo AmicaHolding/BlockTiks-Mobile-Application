@@ -8,6 +8,7 @@ import {
   listPromos,
   listUserOffers,
   listUserOrders,
+  listUserNotifications,
   listUserReferrals,
   listUserTickets,
   listUserWithdrawals,
@@ -73,11 +74,12 @@ async function earningsSummary(userId: string) {
 export async function accountRoutes(app: FastifyInstance) {
   app.get('/notifications', { preHandler: app.authenticate }, async (request) => {
     const userId = request.user.sub;
-    const [ordersResult, ticketsResult, listingsResult, offersResult] = await Promise.all([
+    const [ordersResult, ticketsResult, listingsResult, offersResult, stored] = await Promise.all([
       listUserOrders(userId, { limit: 100 }),
       listUserTickets(userId, { limit: 100 }),
       listSellerListings(userId, { limit: 100 }),
       listUserOffers(userId, { limit: 100 }),
+      listUserNotifications(userId, 50),
     ]);
     const orders = ordersResult.items;
     const tickets = ticketsResult.items;
@@ -129,6 +131,14 @@ export async function accountRoutes(app: FastifyInstance) {
           createdAt: offer.lastMatchedAt!,
           href: '/tickets',
         })),
+      ...stored.map((n) => ({
+        id: `notif-${n.id}`,
+        type: n.type,
+        title: n.title,
+        body: n.body,
+        createdAt: n.createdAt,
+        href: n.link ?? null,
+      })),
       ...broadcasts.map((broadcast) => ({
         id: `broadcast-${broadcast.id}`,
         type: 'broadcast',
