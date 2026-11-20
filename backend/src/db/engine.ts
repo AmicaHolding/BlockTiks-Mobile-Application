@@ -33,7 +33,11 @@ function ctxOf(input: CmdInput): ExprContext {
   return { names: input.ExpressionAttributeNames, values: input.ExpressionAttributeValues };
 }
 
-const ATOMIC_NEW_RE = /attribute_not_exists\(\s*(?:pk|sk)\s*\)/;
+// Only a bare attribute_not_exists(pk|sk) means "insert if absent" —
+// compound conditions like `attribute_not_exists(pk) OR field = :v`
+// permit an existing row and must keep INSERT OR REPLACE (the JS check
+// still runs; only the atomic write is skipped).
+const ATOMIC_NEW_RE = /^\s*attribute_not_exists\(\s*(?:pk|sk)\s*\)\s*$/;
 
 function isConstraintError(e: unknown): boolean {
   const msg = String((e as { message?: string })?.message ?? e);
