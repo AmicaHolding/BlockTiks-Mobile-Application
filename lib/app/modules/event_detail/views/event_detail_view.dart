@@ -222,15 +222,13 @@ class EventDetailView extends GetView<EventDetailController> {
         _venueRow(),
         _heldBanner(),
         _remindRow(),
-        // B4-B8: waiting-room join/position card — shown on releases flagged
-        // for a queue or draw by the organiser.
-        if (controller.event['waitingRoom'] == true ||
-            controller.event['releaseStyle'] == 'waiting_room')
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 0),
-            child: SahraWaitingRoom(
-                eventId: controller.event['id']?.toString() ?? ''),
-          ),
+        // B4-B8: waiting-room join/position card — the widget hides itself
+        // until the organiser opens the room (or the fan already holds a place).
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 0),
+          child: SahraWaitingRoom(
+              eventId: controller.event['id']?.toString() ?? ''),
+        ),
         if (controller.descriptionText.isNotEmpty) ...[
           const SizedBox(height: 22),
           Text('About this event',

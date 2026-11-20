@@ -1587,6 +1587,16 @@ export function parseCredentialPayload(
   return { ticketCode: m[1], version: parseInt(m[2], 10), secret: m[3] };
 }
 
+// Q1-Q3: live rotating payloads `sahra2.<code>.<window>.<sig>` — the gate
+// verifies the signature against the current credential's secret seed.
+export function parseLiveQrPayload(
+  raw: string
+): { ticketCode: string; window: number; sig: string } | null {
+  const m = /^sahra2\.(.+)\.(\d+)\.([0-9a-f]{32})$/.exec(raw.trim());
+  if (!m) return null;
+  return { ticketCode: m[1], window: parseInt(m[2], 10), sig: m[3] };
+}
+
 function credentialItem(
   ticketCode: string,
   version: number,
@@ -2087,7 +2097,8 @@ export async function checkInTicket(
     return { result: 'FORBIDDEN' };
   }
   const parsed = parseCredentialPayload(code);
-  const ticketCode = parsed?.ticketCode ?? code;
+  const liveParsed = parseLiveQrPayload(code);
+  const ticketCode = parsed?.ticketCode ?? liveParsed?.ticketCode ?? code;
   const ticket = await getTicketByCode(ticketCode);
   if (!ticket) return { result: 'NOT_FOUND' };
   if (ticket.eventId !== eventId) return { result: 'WRONG_EVENT' };
@@ -2110,6 +2121,17 @@ export async function checkInTicket(
       .filter((c) => !c.revokedAt)
       .sort((a, b) => b.version - a.version)[0];
     if (!presented || presented.revokedAt || !current || current.version !== presented.version) {
+      return { result: 'SUPERSEDED', ticket };
+    }
+  } else if (liveParsed) {
+    // Live rotating code: the HMAC must match the current credential seed in
+    // the present window (±1 for drift). A stale or forged sig scans SUPERSEDED.
+    const creds = await listCredentials(ticketCode);
+    const current = creds
+      .filter((c) => !c.revokedAt)
+      .sort((a, b) => b.version - a.version)[0];
+    const { qrSignatureValid } = await import('./db/v3');
+    if (!current || !qrSignatureValid(ticketCode, current.secret, liveParsed.sig)) {
       return { result: 'SUPERSEDED', ticket };
     }
   }
@@ -7452,7 +7474,9 @@ export async function toggleInvitePostLike(invite: Invite, postId: string, userI
               TableName: T(),
               Key: postKey,
               UpdateExpression: 'ADD likeCount :n',
-              ConditionExpression: 'attribute_not_exists(deletedAt)',
+              // attribute_exists(sk) keeps a like on a nonexistent postId
+              // from forging a shell post row.
+              ConditionExpression: 'attribute_exists(sk) AND attribute_not_exists(deletedAt)',
               ExpressionAttributeValues: { ':n': 1 },
             },
           },
@@ -7462,6 +7486,10 @@ export async function toggleInvitePostLike(invite: Invite, postId: string, userI
     return true;
   } catch (e) {
     if (!isConditionalCheck(e)) throw e;
+    // Distinguish "already liked" (→ unlike below) from "post missing" —
+    // the post must exist before a like can be toggled.
+    const post = await docClient.send(new GetCommand({ TableName: T(), Key: postKey }));
+    if (!post.Item || post.Item.deletedAt) throw new InviteError('Post not found', 'not_found', 404);
   }
   try {
     await docClient.send(

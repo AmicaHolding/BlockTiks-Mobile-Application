@@ -30,9 +30,13 @@ class InviteController extends GetxController {
     isLoading.value = true;
     try {
       final res = await ApiService.inviteByCode(code);
-      invite.value = res['invite'] is Map
+      final inv = res['invite'] is Map
           ? Map<String, dynamic>.from(res['invite'] as Map)
-          : res;
+          : Map<String, dynamic>.from(res);
+      // The invite payload carries the date poll at the top level (PE2);
+      // the view reads invite['poll'], so merge it in here.
+      if (res['poll'] is Map) inv['poll'] = res['poll'];
+      invite.value = inv;
       isHost.value = invite['is_host'] == true;
       final mine = res['my_rsvp'];
       myResponse.value =

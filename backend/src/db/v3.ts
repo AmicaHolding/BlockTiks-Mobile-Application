@@ -769,6 +769,9 @@ export interface WalletCredit {
   orderId?: string;
   earnedAt: string;
   expiresAt: string;     // W4: 12 months after earned
+  // Item sort key as stored — fee credits use CREDIT#FEE#<orderId>, so
+  // spend/refund paths must key off this rather than re-derive it.
+  sk?: string;
 }
 
 export interface Wallet {
@@ -848,7 +851,7 @@ export async function spendWalletCredits(
     transact.push({
       Update: {
         TableName: T(),
-        Key: { pk: walletPk(userId), sk: `CREDIT#${c.earnedAt}#${c.id}` },
+        Key: { pk: walletPk(userId), sk: c.sk ?? `CREDIT#${c.earnedAt}#${c.id}` },
         UpdateExpression: 'SET remainingMinor = :r',
         ConditionExpression: 'remainingMinor = :orig',
         ExpressionAttributeValues: { ':r': c.remainingMinor - take, ':orig': c.remainingMinor },
@@ -1177,9 +1180,31 @@ export interface WaitingRoomEntry {
   holdUntil?: string;     // B6: 10-min buy window; B8: 30-min draw window
 }
 
+// WAITING#<eventId> / CONFIG — the room exists (joinable, and shown in
+// clients) only once the organiser enables it; 'open' means fans may join.
+export interface WaitingRoomConfig {
+  mode: 'queue' | 'draw';
+  open: boolean;
+  updatedAt?: string;
+  // Idempotency record for the org /next call (retries must not re-admit).
+  lastNextKey?: string;
+  lastNextResult?: { admitted: number; holdUntil?: string };
+}
+
 const roomPk = (eventId: string) => `WAITING#${eventId}`;
 
 export async function joinWaitingRoom(eventId: string, userId: string, deviceId?: string): Promise<WaitingRoomEntry> {
+  // B4: the room takes joins only while open; B5: one place per device —
+  // the same check rejoinWaitingRoom runs, applied to fresh joins too.
+  const config = await getWaitingRoomConfig(eventId);
+  if (!config?.open) throw new InviteError('The waiting room isn’t open for this event', 'not_open');
+  if (deviceId) {
+    const entries = await listWaitingRoom(eventId);
+    const clash = entries.find(
+      (e) => e.deviceId === deviceId && e.userId !== userId && (e.status === 'waiting' || e.status === 'queued')
+    );
+    if (clash) throw new InviteError('This device already has a place in line', 'device_in_use');
+  }
   const entry: WaitingRoomEntry = {
     eventId, userId, deviceId, joinedAt: now(), status: 'waiting',
   };
@@ -1398,21 +1423,119 @@ async function setShareStatus(orderId: string, shareId: string, to: OrderShare['
 export const releaseShare = (orderId: string, shareId: string) => setShareStatus(orderId, shareId, 'released');
 export const coverShare = (orderId: string, shareId: string) => setShareStatus(orderId, shareId, 'covered');
 
-// ---- waiting-room completion (B5-B8) ----
-
-// Room mode lives on WAITING#<eventId> / CONFIG; 'queue' (B4-B6) is the
-// default, 'draw' is the B8 registration-draw fallback.
-export async function setWaitingRoomMode(eventId: string, mode: 'queue' | 'draw'): Promise<void> {
-  await docClient.send(
-    new PutCommand({ TableName: T(), Item: { pk: roomPk(eventId), sk: 'CONFIG', mode, updatedAt: now() } })
+// G3: a released (or expired) share frees one held seat back to inventory and
+// nobody is charged for it — the share flips status, the order line loses one
+// unit, the tier gets its seat back, and the order records the release count.
+// Per-share PaymentIntents stay TODO(api-gap); the order's pending Stripe
+// amount is unchanged, matching the existing stub-charge convention.
+export async function releaseShareSeat(
+  orderId: string,
+  shareId: string
+): Promise<boolean> {
+  const shares = await listOrderShares(orderId);
+  const share = shares.find((s) => s.shareId === shareId);
+  if (!share || share.status !== 'pending') return false;
+  const meta = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: `ORDER#${orderId}`, sk: 'METADATA' } })
   );
+  const order = meta.Item as { eventId?: string } | undefined;
+  const items = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :p)',
+      ExpressionAttributeValues: { ':pk': `ORDER#${orderId}`, ':p': 'ITEM#' },
+    })
+  );
+  const line = ((items.Items ?? []) as Record<string, unknown>[])
+    .filter((i) => typeof i.tierId === 'string' && (i.quantity as number) > 0)
+    .sort((a, b) => (b.quantity as number) - (a.quantity as number))[0];
+  const dropIndex = ' REMOVE gsi1pk, gsi1sk';
+  const transact: Record<string, unknown>[] = [
+    {
+      Update: {
+        TableName: T(),
+        Key: { pk: `ORDER#${orderId}`, sk: shareSk(shareId) },
+        UpdateExpression: `SET #status = :to${dropIndex}`,
+        ConditionExpression: '#status = :from',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':to': 'released', ':from': 'pending' },
+      },
+    },
+  ];
+  if (order?.eventId && line) {
+    transact.push(
+      {
+        Update: {
+          TableName: T(),
+          Key: { pk: `ORDER#${orderId}`, sk: line.sk as string },
+          UpdateExpression: 'SET quantity = quantity - :one',
+          ConditionExpression: 'quantity >= :one',
+          ExpressionAttributeValues: { ':one': 1 },
+        },
+      },
+      {
+        Update: {
+          TableName: T(),
+          Key: { pk: `EVENT#${order.eventId}`, sk: `TIER#${line.tierId}` },
+          UpdateExpression: 'ADD available :one',
+          ExpressionAttributeValues: { ':one': 1 },
+        },
+      },
+      {
+        Update: {
+          TableName: T(),
+          Key: { pk: `ORDER#${orderId}`, sk: 'METADATA' },
+          UpdateExpression: 'ADD releasedSeats :one SET releasedShareMinor = if_not_exists(releasedShareMinor, :z) + :amt',
+          ExpressionAttributeValues: { ':one': 1, ':z': 0, ':amt': share.amountMinor },
+        },
+      }
+    );
+  }
+  try {
+    await docClient.send(new TransactWriteCommand({ TransactItems: transact as never }));
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
 }
 
-export async function getWaitingRoomMode(eventId: string): Promise<'queue' | 'draw'> {
+// ---- waiting-room completion (B5-B8) ----
+
+// Room config lives on WAITING#<eventId> / CONFIG; 'queue' (B4-B6) is the
+// default mode, 'draw' the B8 registration-draw fallback. `open` gates joins
+// (B4) — set true when the organiser enables the room or switches to a draw.
+export async function getWaitingRoomConfig(eventId: string): Promise<WaitingRoomConfig | null> {
   const res = await docClient.send(
     new GetCommand({ TableName: T(), Key: { pk: roomPk(eventId), sk: 'CONFIG' } })
   );
-  return ((res.Item?.mode as 'queue' | 'draw') ?? 'queue');
+  return (res.Item as WaitingRoomConfig | undefined) ?? null;
+}
+
+export async function setWaitingRoomConfig(eventId: string, fields: Partial<WaitingRoomConfig>): Promise<void> {
+  const existing = await getWaitingRoomConfig(eventId);
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: roomPk(eventId),
+        sk: 'CONFIG',
+        mode: 'queue',
+        open: true,
+        ...(existing ?? {}),
+        ...fields,
+        updatedAt: now(),
+      },
+    })
+  );
+}
+
+export async function setWaitingRoomMode(eventId: string, mode: 'queue' | 'draw'): Promise<void> {
+  await setWaitingRoomConfig(eventId, { mode, open: true });
+}
+
+export async function getWaitingRoomMode(eventId: string): Promise<'queue' | 'draw'> {
+  return (await getWaitingRoomConfig(eventId))?.mode ?? 'queue';
 }
 
 // B5: leaving keeps the place for 5 minutes.

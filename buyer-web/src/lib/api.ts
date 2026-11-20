@@ -766,7 +766,7 @@ export const api = {
     });
   },
   waitingRoomStatus(eventId: string) {
-    return request<{ entry: WaitingRoomEntry | null; mode: 'queue' | 'draw' }>(
+    return request<{ entry: WaitingRoomEntry | null; mode: 'queue' | 'draw'; open?: boolean }>(
       `/events/${encodeURIComponent(eventId)}/waiting-room`
     );
   },

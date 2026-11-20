@@ -401,19 +401,19 @@ export default function EventPage() {
 function WaitingRoomCard({ eventId }: { eventId: string }) {
   const { user, requireAuth } = useAuth();
   const [entry, setEntry] = useState<WaitingRoomEntry | null | 'none'>(null);
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [left, setLeft] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      setEntry('none');
-      return;
-    }
     let alive = true;
     async function poll() {
       try {
         const res = await api.waitingRoomStatus(eventId);
-        if (alive) setEntry(res.entry);
+        if (alive) {
+          setEntry(res.entry);
+          setOpen(res.open === true);
+        }
       } catch {
         if (alive) setEntry('none');
       }
@@ -452,6 +452,9 @@ function WaitingRoomCard({ eventId }: { eventId: string }) {
 
   if (entry === 'none' && left) return null;
   if (entry === 'none' && user) return null;
+  // The card only exists once the organiser opens the room (or the fan
+  // already holds a place in it).
+  if (!open) return null;
 
   const e = entry && entry !== 'none' ? entry : null;
   const statusLine = !e

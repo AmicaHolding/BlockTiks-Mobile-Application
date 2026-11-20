@@ -244,7 +244,11 @@ export default function InvitePage() {
   }
 
   const { invite, page } = data;
-  const isHost = Boolean(page.is_host || (user && invite.host_user_id && invite.host_user_id === user.id));
+  // The serializer emits is_host inside the invite object, not on page.
+  const isHost = Boolean(
+    page.is_host || (invite as { is_host?: boolean }).is_host ||
+    (user && invite.host_user_id && invite.host_user_id === user.id)
+  );
   const my = page.my_rsvp ?? null;
   const counts = page.counts ?? {};
   const going = counts.going ?? 0;

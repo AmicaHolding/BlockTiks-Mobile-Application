@@ -144,9 +144,10 @@ export const handler = async () => {
   // back and nobody is charged.
   let sharesReleased = 0;
   try {
-    const { listExpiredShares, releaseShare } = await import('./db/v3');
+    const { listExpiredShares, releaseShareSeat } = await import('./db/v3');
     for (const share of await listExpiredShares(nowIso)) {
-      if (await releaseShare(share.orderId, share.shareId)) sharesReleased++;
+      // G3: expiry frees the held seat, nobody is charged for it.
+      if (await releaseShareSeat(share.orderId, share.shareId)) sharesReleased++;
     }
   } catch (err) {
     console.error('sweeper: share expiry failed', err);

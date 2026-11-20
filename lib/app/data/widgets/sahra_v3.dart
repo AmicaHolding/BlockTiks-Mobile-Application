@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:block_tix/app/services/api_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// V3 money formatting: fils → "AED 12.30".
 String sahraFils(int minor) => 'AED ${(minor / 100).toStringAsFixed(2)}';
@@ -184,6 +186,22 @@ class _SahraWaitingRoomState extends State<SahraWaitingRoom> {
   Map<String, dynamic>? _entry;
   Timer? _poll;
   bool _busy = false;
+  bool _open = false;
+  String? _deviceId;
+
+  // B5: the device id has to survive app restarts for the server-side
+  // one-place-per-device check to mean anything.
+  Future<String> _device() async {
+    if (_deviceId != null) return _deviceId!;
+    final prefs = await SharedPreferences.getInstance();
+    var id = prefs.getString('wr_device_id');
+    if (id == null) {
+      id = 'app-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(1 << 20)}';
+      await prefs.setString('wr_device_id', id);
+    }
+    _deviceId = id;
+    return id;
+  }
 
   @override
   void initState() {
@@ -201,7 +219,12 @@ class _SahraWaitingRoomState extends State<SahraWaitingRoom> {
   Future<void> _refresh() async {
     try {
       final res = await ApiService.waitingRoomStatus(widget.eventId);
-      if (mounted) setState(() => _entry = res['entry'] as Map<String, dynamic>?);
+      if (mounted) {
+        setState(() {
+          _entry = res['entry'] as Map<String, dynamic>?;
+          _open = res['open'] == true || _entry != null;
+        });
+      }
     } catch (_) {}
   }
 
@@ -209,7 +232,7 @@ class _SahraWaitingRoomState extends State<SahraWaitingRoom> {
     setState(() => _busy = true);
     try {
       final res = await ApiService.joinWaitingRoom(widget.eventId,
-          deviceId: 'app-${DateTime.now().millisecondsSinceEpoch}');
+          deviceId: await _device());
       if (mounted) {
         setState(() => _entry = res['entry'] as Map<String, dynamic>?);
       }
@@ -230,6 +253,9 @@ class _SahraWaitingRoomState extends State<SahraWaitingRoom> {
 
   @override
   Widget build(BuildContext context) {
+    // B4: the room card only exists once the organiser enables the room (or
+    // the fan already holds a place in it).
+    if (!_open && _entry == null) return const SizedBox.shrink();
     final status = _entry?['status']?.toString() ?? '';
     final position = (_entry?['position'] as num?)?.toInt();
     final holdUntil = _entry?['holdUntil']?.toString();
