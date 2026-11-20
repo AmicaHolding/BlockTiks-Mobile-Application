@@ -150,8 +150,10 @@ export const handler = async () => {
     const soonEvents = await listEventsStartingBetween(nowIso, new Date(Date.now() + 24 * 3600_000).toISOString());
     for (const ev of soonEvents) {
       if (ev.reminderSentAt || !(await markEventReminderSent(ev.id))) continue;
+      const reminded = new Set<string>(); // one reminder per holder, not per ticket
       for (const ticket of await listEventTickets(ev.id)) {
-        if (ticket.status !== 'VALID') continue;
+        if (ticket.status !== 'VALID' || reminded.has(ticket.userId)) continue;
+        reminded.add(ticket.userId);
         await notifyUser(
           ticket.userId,
           { type: 'event.reminder', title: ev.title, body: 'Happening tomorrow — your ticket is in Plans.', link: '/plans' },
