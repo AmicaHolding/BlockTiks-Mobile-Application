@@ -33,6 +33,13 @@ function ctxOf(input: CmdInput): ExprContext {
   return { names: input.ExpressionAttributeNames, values: input.ExpressionAttributeValues };
 }
 
+const ATOMIC_NEW_RE = /attribute_not_exists\(\s*(?:pk|sk)\s*\)/;
+
+function isConstraintError(e: unknown): boolean {
+  const msg = String((e as { message?: string })?.message ?? e);
+  return /unique constraint|constraint failed/i.test(msg);
+}
+
 function condFail(cancellation = false): never {
   const e = new Error(cancellation ? 'Transaction cancelled' : 'The conditional request failed');
   e.name = cancellation ? 'TransactionCanceledException' : 'ConditionalCheckFailedException';
@@ -75,10 +82,13 @@ export class SqlDocClient {
     return rows.length ? (JSON.parse(rows[0].data as string) as Doc) : undefined;
   }
 
-  private writeStmt(item: Doc): { sql: string; params: unknown[] } {
+  // attribute_not_exists(pk|sk) on a Put is an "insert if absent" claim —
+  // emitted as a plain INSERT so the (pk, sk) PRIMARY KEY enforces it
+  // atomically inside the batch, not just in the JS pre-check.
+  private writeStmt(item: Doc, overwrite = true): { sql: string; params: unknown[] } {
     const it = clean(item);
     return {
-      sql: `INSERT OR REPLACE INTO items (pk, sk, gsi1pk, gsi1sk, gsi2pk, gsi2sk, data)
+      sql: `${overwrite ? 'INSERT OR REPLACE' : 'INSERT'} INTO items (pk, sk, gsi1pk, gsi1sk, gsi2pk, gsi2sk, data)
             VALUES (?, ?, ?, ?, ?, ?, ?)`,
       params: [
         it.pk, it.sk,
@@ -100,13 +110,19 @@ export class SqlDocClient {
 
   private async put(input: CmdInput) {
     const item = clean(input.Item!);
+    const atomicNew = ATOMIC_NEW_RE.test(input.ConditionExpression ?? '');
     if (input.ConditionExpression) {
       const existing = await this.getItem(item.pk, item.sk);
       if (!evalCondition(input.ConditionExpression, existing, ctxOf(input))) {
         condFail();
       }
     }
-    await this.db.batch([this.writeStmt(item)]);
+    try {
+      await this.db.batch([this.writeStmt(item, !atomicNew)]);
+    } catch (e) {
+      if (atomicNew && isConstraintError(e)) condFail();
+      throw e;
+    }
     return {};
   }
 
@@ -258,6 +274,7 @@ export class SqlDocClient {
 
   private async transact(input: CmdInput) {
     const stmts: { sql: string; params: unknown[] }[] = [];
+    let hasAtomicNew = false;
     try {
       for (const t of input.TransactItems ?? []) {
         if (t.ConditionCheck) {
@@ -275,7 +292,9 @@ export class SqlDocClient {
               condFail(true);
             }
           }
-          stmts.push(this.writeStmt(item));
+          const atomicNew = ATOMIC_NEW_RE.test(p.ConditionExpression ?? '');
+          if (atomicNew) hasAtomicNew = true;
+          stmts.push(this.writeStmt(item, !atomicNew));
         } else if (t.Update) {
           const u = t.Update;
           const existing = await this.getItem(u.Key!.pk, u.Key!.sk);
@@ -302,7 +321,14 @@ export class SqlDocClient {
       }
       throw e;
     }
-    await this.db.batch(stmts);
+    try {
+      await this.db.batch(stmts);
+    } catch (e) {
+      // A raced claim put surfaces as a constraint violation mid-batch —
+      // roll the whole transaction back as a conditional-cancel.
+      if (hasAtomicNew && isConstraintError(e)) condFail(true);
+      throw e;
+    }
     return {};
   }
 }

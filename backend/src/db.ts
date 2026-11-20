@@ -1064,6 +1064,21 @@ function expireIndexDelete(orderId: string) {
   };
 }
 
+// Exactly-once gate for an order's terminal resolution (fulfill or release).
+// On the SQL engine this Put compiles to a plain INSERT — a concurrent
+// resolver hits the (pk, sk) PRIMARY KEY and its whole transaction rolls
+// back, so the JS-side condition checks can't be raced by two writers
+// (DynamoDB's TransactWrite was atomic; the adapter's wasn't).
+function resolutionClaimPut(orderId: string) {
+  return {
+    Put: {
+      TableName: T(),
+      Item: { pk: orderPk(orderId), sk: 'RESOLVED', orderId, resolvedAt: now() },
+      ConditionExpression: 'attribute_not_exists(pk)',
+    },
+  };
+}
+
 // Release a PENDING order's inventory hold and mark it with the given status
 // (FAILED for Stripe failures, EXPIRED/CANCELLED for sweeps/compensation).
 // Exactly-once: the order status update is conditional on PENDING inside the
@@ -1088,6 +1103,7 @@ export async function releaseOrder(
         ExpressionAttributeValues: { ':status': status, ':pending': 'PENDING' },
       },
     },
+    resolutionClaimPut(orderId),
     expireIndexDelete(orderId),
   ];
 
@@ -1450,6 +1466,7 @@ export async function fulfillOrder(orderId: string, paymentIntentId: string): Pr
         },
       },
     },
+    resolutionClaimPut(orderId),
     expireIndexDelete(orderId), // reservation consumed, stop the sweeper
   ];
 
@@ -2535,6 +2552,7 @@ async function fulfillResaleOrder(
               },
             },
           },
+          resolutionClaimPut(order.id),
           expireIndexDelete(order.id),
           ...rotate.ops,
           {
@@ -2820,6 +2838,7 @@ async function fulfillSeatedOrder(
               },
             },
           },
+          resolutionClaimPut(order.id),
           expireIndexDelete(order.id),
           ...ticketPuts,
         ],
@@ -3994,6 +4013,7 @@ export async function fulfillHoldOrder(
   }
 
   const transactItems: TxnItems = [
+    resolutionClaimPut(orderId),
     expireIndexDelete(orderId),
   ];
 
