@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
-import { api, ApiError } from '../lib/api';
-import { BUYER_FEE_PCT, CHECKOUT_HOLD_COUNTDOWN } from '../lib/config';
+import { api, ApiError, type OrderShare } from '../lib/api';
+import { ALL_IN_PRICING, BUYER_FEE_PCT, CHECKOUT_HOLD_COUNTDOWN } from '../lib/config';
 import { displayName, formatMoney, formatShortDateTime } from '../lib/format';
 import type { CheckoutSelection } from './EventPage';
 import { Badge, Button, Card, EmptyState, Input, Spinner } from '../components/ui';
@@ -307,12 +307,16 @@ export default function CheckoutPage() {
                   <span className="font-semibold">−{money(discount)}</span>
                 </div>
               ) : null}
+              {/* W5/F5: all-in pricing — the fee is inside the advertised price,
+                  shown here as a breakdown, never added at checkout. */}
               <div className="flex justify-between">
-                <span className="text-ink/60">Service fee ({BUYER_FEE_PCT}%)</span>
+                <span className="text-ink/60">
+                  {ALL_IN_PRICING ? `Includes Sahra fee (${BUYER_FEE_PCT}%)` : `Service fee (${BUYER_FEE_PCT}%)`}
+                </span>
                 <span className="font-semibold text-ink">{fees != null ? money(fees) : '-'}</span>
               </div>
               <div className="flex justify-between border-t border-ink/10 pt-3 text-base">
-                <span className="font-bold text-ink">Total</span>
+                <span className="font-bold text-ink">{ALL_IN_PRICING ? 'Total (all-in)' : 'Total'}</span>
                 <span className="font-display text-xl font-extrabold text-ink">
                   {total != null ? money(total) : money(faceTotal)}
                 </span>
@@ -351,9 +355,69 @@ export default function CheckoutPage() {
               By paying you agree to the organizer’s terms. Refunds only if the event is cancelled.
             </p>
           </Card>
+
+          {/* D5: group pay — split this pending order into per-friend shares
+              with a 30-minute expiry. Only once the order intent exists. */}
+          {intent ? <GroupPayCard orderId={intent.orderId} /> : null}
         </div>
       </div>
     </div>
+  );
+}
+
+function GroupPayCard({ orderId }: { orderId: string }) {
+  const [shares, setShares] = useState<OrderShare[]>([]);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    api.listShares(orderId).then((r) => setShares(r.shares)).catch(() => {});
+  }, [orderId]);
+
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 15000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  async function act(shareId: string, action: 'pay' | 'cover' | 'release') {
+    setErr(null);
+    try {
+      await api.shareAction(orderId, shareId, action);
+      load();
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Couldn’t update the share');
+    }
+  }
+
+  if (!shares.length) return null;
+  return (
+    <Card tone="light" className="mt-6 p-6">
+      <h2 className="font-display text-lg font-extrabold text-ink">Group pay</h2>
+      <p className="mt-1 text-xs text-ink/60">Unpaid shares release after 30 minutes.</p>
+      <ul className="mt-4 flex flex-col gap-2">
+        {shares.map((s) => (
+          <li key={s.shareId} className="flex items-center justify-between rounded-xl border border-ink/10 px-3 py-2 text-sm">
+            <span className="font-semibold text-ink">
+              {formatMoney(s.amountMinor, 'aed')} · {s.contact ?? 'Share'} · {s.status}
+            </span>
+            {s.status === 'pending' ? (
+              <span className="flex gap-2">
+                <button type="button" onClick={() => void act(s.shareId, 'pay')} className="text-night underline">
+                  Pay
+                </button>
+                <button type="button" onClick={() => void act(s.shareId, 'cover')} className="text-ink/60 underline">
+                  Cover
+                </button>
+                <button type="button" onClick={() => void act(s.shareId, 'release')} className="text-ink/60 underline">
+                  Release
+                </button>
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      {err ? <p className="mt-2 text-sm font-semibold text-red-700">{err}</p> : null}
+    </Card>
   );
 }
 

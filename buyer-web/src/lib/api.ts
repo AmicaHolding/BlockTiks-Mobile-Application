@@ -738,7 +738,137 @@ export const api = {
   plans() {
     return request<PlansResponse>('/me/plans');
   },
+
+  // ---- v3 (handoff/05 trust & money + 06 personal events) ----
+
+  /** W1: wallet balances — cash / pending / credits. */
+  wallet() {
+    return request<{ wallet: Wallet }>('/wallet');
+  },
+  walletWithdraw(amountMinor: number, instant = false) {
+    return request<{ ok: boolean; feeMinor: number }>('/wallet/withdraw', {
+      method: 'POST',
+      headers: idempotencyHeaders(),
+      body: JSON.stringify({ amountMinor, instant }),
+    });
+  },
+  /** Q1-Q3: rotating live-QR payload for a ticket (unlocks 24h pre-doors). */
+  ticketQr(code: string) {
+    return request<{ payload: string; window: number; refreshInSeconds: number }>(
+      `/tickets/${encodeURIComponent(code)}/qr`
+    );
+  },
+  /** B4-B8: waiting-room join / status / leave. */
+  joinWaitingRoom(eventId: string, deviceId?: string) {
+    return request<{ entry: WaitingRoomEntry }>(`/events/${encodeURIComponent(eventId)}/waiting-room`, {
+      method: 'POST',
+      body: JSON.stringify(deviceId ? { deviceId } : {}),
+    });
+  },
+  waitingRoomStatus(eventId: string) {
+    return request<{ entry: WaitingRoomEntry | null; mode: 'queue' | 'draw'; open?: boolean }>(
+      `/events/${encodeURIComponent(eventId)}/waiting-room`
+    );
+  },
+  leaveWaitingRoom(eventId: string) {
+    return request<{ ok: boolean }>(`/events/${encodeURIComponent(eventId)}/waiting-room/leave`, {
+      method: 'POST',
+    });
+  },
+  /** G1-G5: group-pay shares on an order. */
+  listShares(orderId: string) {
+    return request<{ shares: OrderShare[] }>(`/orders/${encodeURIComponent(orderId)}/shares`);
+  },
+  shareAction(orderId: string, shareId: string, action: 'pay' | 'cover' | 'release') {
+    return request<{ ok: boolean }>(
+      `/orders/${encodeURIComponent(orderId)}/shares/${encodeURIComponent(shareId)}/${action}`,
+      { method: 'POST' }
+    );
+  },
+  /** PE2: vote on date-poll options; host locks the final date. */
+  voteInvitePoll(inviteId: string, option_ids: string[]) {
+    return request<null>(`/invites/${encodeURIComponent(inviteId)}/poll/votes`, {
+      method: 'PUT',
+      body: JSON.stringify({ option_ids }),
+    });
+  },
+  lockInvitePoll(inviteId: string, option_id: string) {
+    return request<{ ok: boolean }>(`/invites/${encodeURIComponent(inviteId)}/poll/lock`, {
+      method: 'POST',
+      body: JSON.stringify({ option_id }),
+    });
+  },
+  /** PE5: activity feed (comments, likes, one-level replies). */
+  inviteActivity(inviteId: string) {
+    return request<{ posts: InvitePost[] }>(`/invites/${encodeURIComponent(inviteId)}/activity`);
+  },
+  postInviteActivity(inviteId: string, body: string, parent_id?: string) {
+    return request<{ post: InvitePost }>(`/invites/${encodeURIComponent(inviteId)}/activity`, {
+      method: 'POST',
+      body: JSON.stringify(parent_id ? { body, parent_id } : { body }),
+    });
+  },
+  likeInviteActivity(inviteId: string, postId: string) {
+    return request<null>(`/invites/${encodeURIComponent(inviteId)}/activity/${encodeURIComponent(postId)}/like`, {
+      method: 'POST',
+    });
+  },
+  /** PE6: photo album (200/invite). */
+  invitePhotos(inviteId: string) {
+    return request<{ photos: { id: string; url: string }[]; album_link?: string }>(
+      `/invites/${encodeURIComponent(inviteId)}/photos`
+    );
+  },
+  addInvitePhotos(inviteId: string, urls: string[]) {
+    return request<{ added: number }>(`/invites/${encodeURIComponent(inviteId)}/photos`, {
+      method: 'POST',
+      body: JSON.stringify({ urls }),
+    });
+  },
 };
+
+export interface Wallet {
+  cashMinor: number;
+  pendingMinor: number;
+  creditsMinor: number;
+  credits?: { id: string; remainingMinor: number; expiresAt?: string }[];
+}
+
+export interface WaitingRoomEntry {
+  eventId: string;
+  userId: string;
+  status: 'waiting' | 'queued' | 'admitted' | 'left' | 'expired' | 'not_selected' | 'done' | 'removed';
+  position?: number;
+  holdUntil?: string;
+  leftAt?: string;
+}
+
+export interface OrderShare {
+  shareId: string;
+  orderId: string;
+  amountMinor: number;
+  contact?: string;
+  status: 'pending' | 'paid' | 'released' | 'covered';
+  expiresAt: string;
+}
+
+export interface InvitePoll {
+  locked?: boolean;
+  options?: { id: string; starts_at: string; votes: number; voter_ids?: string[] }[];
+  my_option_ids?: string[];
+}
+
+export interface InvitePost {
+  id: string;
+  body: string;
+  kind?: 'comment' | 'blast';
+  authorName?: string;
+  createdAt?: string;
+  likeCount?: number;
+  liked_by_me?: boolean;
+  legacy?: boolean;
+  replies?: InvitePost[];
+}
 
 // ---- v2 types (designs/handoff/01-data-model.md + 02-api.md) ----
 

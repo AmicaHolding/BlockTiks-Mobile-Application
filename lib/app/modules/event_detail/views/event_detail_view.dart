@@ -2,6 +2,7 @@ import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
+import 'package:block_tix/app/data/widgets/sahra_v3.dart';
 import 'package:block_tix/app/modules/user_dashboard/controllers/user_dashboard_controller.dart';
 import 'package:block_tix/app/services/api_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -221,6 +222,13 @@ class EventDetailView extends GetView<EventDetailController> {
         _venueRow(),
         _heldBanner(),
         _remindRow(),
+        // B4-B8: waiting-room join/position card — the widget hides itself
+        // until the organiser opens the room (or the fan already holds a place).
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 0),
+          child: SahraWaitingRoom(
+              eventId: controller.event['id']?.toString() ?? ''),
+        ),
         if (controller.descriptionText.isNotEmpty) ...[
           const SizedBox(height: 22),
           Text('About this event',

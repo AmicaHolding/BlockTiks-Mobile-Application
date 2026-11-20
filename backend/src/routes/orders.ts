@@ -25,11 +25,12 @@ import {
     reserveSeats,
     reserveSectionSeats,
     reserveTickets,
+    setOrderFeeBreakdown,
     setOrderPaymentIntent,
     type Order
 } from '../db';
 import { env } from '../env';
-import { allInPrice, feeInsidePrice, feeCreditMinor, estimateProcessingMinor, postWalletCredit, addWalletPending } from '../db/v3';
+import { allInPrice, feeInsidePrice, orderFeeBreakdown, postOrderFeeCredit, addWalletPending } from '../db/v3';
 import { getStripe } from '../stripe';
 
 export async function orderRoutes(app: FastifyInstance) {
@@ -129,6 +130,11 @@ export async function orderRoutes(app: FastifyInstance) {
             expiresAt: expiresAtFor(),
           });
 
+          if (!env.stripeSecretKey) {
+            return reply
+              .status(503)
+              .send({ code: 'stripe_not_configured', message: 'Card payments aren’t configured on this deployment.' });
+          }
           const stripe = getStripe();
           const paymentIntent = await stripe.paymentIntents.create(
             {
@@ -423,7 +429,12 @@ export async function orderRoutes(app: FastifyInstance) {
     if (!order || order.userId !== request.user.sub) {
       return reply.status(404).send({ message: 'Order not found' });
     }
-    return { order };
+    // F5: confirmation breakdown — settled values once payment settles,
+    // estimated before that.
+    const fee_breakdown =
+      order.feeBreakdown ??
+      (env.allInPricing && order.totalCents > 0 ? orderFeeBreakdown({ dueMinor: order.totalCents }) : undefined);
+    return { order, ...(fee_breakdown ? { fee_breakdown } : {}) };
   });
 
   // POST /webhooks/stripe, payment confirmation → fulfill order.
@@ -500,16 +511,28 @@ export async function orderRoutes(app: FastifyInstance) {
 async function afterOrderPaid(orderId: string, log: { warn: (o: unknown, m?: string) => void }) {
   const order = await getOrder(orderId);
   if (!order || order.status !== 'PAID') return;
-  if (env.allInPricing && order.feesCents > 0) {
-    const credit = feeCreditMinor({
-      dueMinor: order.totalCents,
-      processingMinor: estimateProcessingMinor(order.totalCents),
-    });
-    if (credit > 0) {
-      await postWalletCredit({
-        userId: order.userId, amountMinor: credit, source: 'fee_credit', orderId: order.id,
-      }).catch((e) => log.warn(e, 'fee credit post failed'));
+  // F3: actual processing cost from the provider's settlement data — the
+  // charge's balance_transaction.fee. Falls back to the estimate when the
+  // charge hasn't settled or Stripe isn't configured locally.
+  let actualCardFeeMinor: number | undefined;
+  if (env.stripeSecretKey && order.stripePaymentIntentId) {
+    try {
+      const pi = await getStripe().paymentIntents.retrieve(order.stripePaymentIntentId, {
+        expand: ['latest_charge.balance_transaction'],
+      });
+      const charge = pi.latest_charge as { balance_transaction?: { fee?: number } } | null;
+      const fee = charge?.balance_transaction?.fee;
+      if (typeof fee === 'number') actualCardFeeMinor = fee;
+    } catch (e) {
+      log.warn(e, 'balance_transaction lookup failed — estimating processing');
     }
+  }
+  const breakdown = orderFeeBreakdown({ dueMinor: order.totalCents, actualCardFeeMinor });
+  await setOrderFeeBreakdown(order.id, breakdown).catch((e) => log.warn(e, 'fee breakdown write failed'));
+  if (env.allInPricing && order.feesCents > 0 && breakdown.creditMinor > 0) {
+    await postOrderFeeCredit({
+      userId: order.userId, orderId: order.id, amountMinor: breakdown.creditMinor,
+    }).catch((e) => log.warn(e, 'fee credit post failed'));
   }
   if (order.kind === 'RESALE' && order.listingCode) {
     const listing = await getListing(order.listingCode);

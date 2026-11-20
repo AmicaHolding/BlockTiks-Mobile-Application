@@ -291,8 +291,35 @@ export interface Order {
   ticketCodes?: string[];
   currency?: string;
   expiresAt?: string; // reservation expiry for PENDING orders
+  // v3 (F5): settled fee breakdown — fee inside the price, actual processing
+  // cost, what Sahra keeps, and the credit paid back to the buyer.
+  feeBreakdown?: {
+    feeMinor: number;
+    baseMinor: number;
+    processingMinor: number;
+    sahraKeepsMinor: number;
+    creditMinor: number;
+  };
   createdAt: string;
   paidAt?: string;
+}
+
+// F5: persists the settled fee breakdown on the order record.
+export async function setOrderFeeBreakdown(
+  orderId: string,
+  breakdown: NonNullable<Order['feeBreakdown']>
+): Promise<void> {
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: orderPk(orderId), sk: 'METADATA' },
+      UpdateExpression: 'SET feeBreakdown = :fb',
+      ConditionExpression: 'attribute_not_exists(feeBreakdown)',
+      ExpressionAttributeValues: { ':fb': breakdown },
+    })
+  ).catch((e) => {
+    if (!isConditionalCheck(e)) throw e; // already settled — keep first write
+  });
 }
 
 export interface Ticket {
@@ -1560,6 +1587,16 @@ export function parseCredentialPayload(
   return { ticketCode: m[1], version: parseInt(m[2], 10), secret: m[3] };
 }
 
+// Q1-Q3: live rotating payloads `sahra2.<code>.<window>.<sig>` — the gate
+// verifies the signature against the current credential's secret seed.
+export function parseLiveQrPayload(
+  raw: string
+): { ticketCode: string; window: number; sig: string } | null {
+  const m = /^sahra2\.(.+)\.(\d+)\.([0-9a-f]{32})$/.exec(raw.trim());
+  if (!m) return null;
+  return { ticketCode: m[1], window: parseInt(m[2], 10), sig: m[3] };
+}
+
 function credentialItem(
   ticketCode: string,
   version: number,
@@ -2060,7 +2097,8 @@ export async function checkInTicket(
     return { result: 'FORBIDDEN' };
   }
   const parsed = parseCredentialPayload(code);
-  const ticketCode = parsed?.ticketCode ?? code;
+  const liveParsed = parseLiveQrPayload(code);
+  const ticketCode = parsed?.ticketCode ?? liveParsed?.ticketCode ?? code;
   const ticket = await getTicketByCode(ticketCode);
   if (!ticket) return { result: 'NOT_FOUND' };
   if (ticket.eventId !== eventId) return { result: 'WRONG_EVENT' };
@@ -2083,6 +2121,17 @@ export async function checkInTicket(
       .filter((c) => !c.revokedAt)
       .sort((a, b) => b.version - a.version)[0];
     if (!presented || presented.revokedAt || !current || current.version !== presented.version) {
+      return { result: 'SUPERSEDED', ticket };
+    }
+  } else if (liveParsed) {
+    // Live rotating code: the HMAC must match the current credential seed in
+    // the present window (±1 for drift). A stale or forged sig scans SUPERSEDED.
+    const creds = await listCredentials(ticketCode);
+    const current = creds
+      .filter((c) => !c.revokedAt)
+      .sort((a, b) => b.version - a.version)[0];
+    const { qrSignatureValid } = await import('./db/v3');
+    if (!current || !qrSignatureValid(ticketCode, current.secret, liveParsed.sig)) {
       return { result: 'SUPERSEDED', ticket };
     }
   }
@@ -6520,6 +6569,17 @@ const INVITES_ACTIVE_GSI_PK = 'INVITES#ACTIVE';
 
 export type InviteRsvpStatus = 'going' | 'maybe' | 'no' | 'requested' | 'declined' | 'seen';
 
+// V3 (handoff/06): one date OR a date poll; labels are display-only, the
+// stored RSVP state is always going/maybe/no.
+export type InviteRsvpDeadline = 'none' | '1d' | '3d' | '1w';
+export type InviteRsvpStyle = 'words' | 'emoji' | 'custom';
+export type InviteReminderOffset = '1w' | '1d' | '2h';
+
+export interface InvitePollOption {
+  id: string;
+  startsAt: string;
+}
+
 export interface Invite {
   id: string;
   hostUserId: string;
@@ -6537,6 +6597,13 @@ export interface Invite {
   showGuestList: boolean;
   hideAddressUntilGoing: boolean;
   status: 'active' | 'cancelled' | 'moved';
+  // PE4: present while the date is a poll; removed when the host locks in.
+  pollOptions?: InvitePollOption[];
+  pollLockedAt?: string;
+  rsvpDeadline?: InviteRsvpDeadline;
+  rsvpStyle?: InviteRsvpStyle;
+  rsvpLabels?: { going: string; maybe: string; no: string };
+  reminders?: InviteReminderOffset[];
   movedToEventId?: string;
   movedToOrgId?: string;
   // Going guests + their plus-ones (I4 cap counter, updated transactionally).
@@ -6673,6 +6740,10 @@ type InviteEditable = Pick<
   | 'guestCap'
   | 'showGuestList'
   | 'hideAddressUntilGoing'
+  | 'rsvpDeadline'
+  | 'rsvpStyle'
+  | 'rsvpLabels'
+  | 'reminders'
 >;
 
 export async function updateInviteFields(
@@ -7151,4 +7222,368 @@ export async function issueCompTickets(
     issued += guest.qty;
   }
   return issued;
+}
+
+// ---------- V3 personal events (handoff/06): polls, activity, photos ----------
+//   INVITE#<id> / VOTE#<userId>#<optionId>   DateVote (unique pair, PE4)
+//   INVITE#<id> / POST#<postId>              InvitePost (blast|comment|reply)
+//   INVITE#<id> / LIKE#<userId>#<postId>     InvitePostLike
+//   INVITE#<id> / PHOTO#<photoId>            InvitePhoto (PE6)
+
+export interface InvitePost {
+  id: string;
+  inviteId: string;
+  authorId: string;
+  kind: 'blast' | 'comment';
+  body: string;
+  parentId?: string;
+  likeCount: number;
+  createdAt: string;
+  deletedAt?: string;
+}
+
+export interface InvitePhoto {
+  id: string;
+  inviteId: string;
+  uploaderId: string;
+  url: string;
+  createdAt: string;
+  deletedAt?: string;
+}
+
+// PE2/PE3: RSVP-by = event start minus the offset (venue end-of-day
+// approximated as UTC end of day). With a poll it counts from the locked date
+// — startsAt only exists post-lock, so the same formula covers both.
+export function inviteRsvpDeadlineIso(invite: Invite): string | null {
+  const d = invite.rsvpDeadline ?? 'none';
+  if (d === 'none' || !invite.startsAt) return null;
+  const days = d === '1d' ? 1 : d === '3d' ? 3 : 7;
+  const base = Date.parse(invite.startsAt);
+  // End of (start day minus offset) in UTC.
+  const endOfDay = new Date(base - days * 24 * 60 * 60 * 1000);
+  endOfDay.setUTCHours(23, 59, 59, 999);
+  return endOfDay.toISOString();
+}
+
+// ---- date poll (PE4) ----
+
+export interface InvitePollVote {
+  inviteId: string;
+  optionId: string;
+  userId: string;
+  createdAt: string;
+}
+
+export async function listInvitePollVotes(inviteId: string): Promise<InvitePollVote[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :p)',
+      ExpressionAttributeValues: { ':pk': invitePk(inviteId), ':p': 'VOTE#' },
+    })
+  );
+  return (res.Items ?? []).map((item: any) => stripItem<InvitePollVote>(item));
+}
+
+// Replaces the user's vote set atomically; fails if the poll closed in the
+// meantime (the METADATA condition sees pollLockedAt before the votes land).
+export async function setInvitePollVotes(
+  invite: Invite,
+  userId: string,
+  optionIds: string[]
+): Promise<void> {
+  const existing = await listInvitePollVotes(invite.id);
+  const mine = existing.filter((v) => v.userId === userId).map((v) => v.optionId);
+  const want = new Set(optionIds);
+  const have = new Set(mine);
+  const toDelete = mine.filter((o) => !want.has(o));
+  const toAdd = optionIds.filter((o) => !have.has(o));
+  if (!toDelete.length && !toAdd.length) return;
+  const at = now();
+  const TransactItems: Record<string, unknown>[] = [
+    {
+      Update: {
+        TableName: T(),
+        Key: { pk: invitePk(invite.id), sk: 'METADATA' },
+        UpdateExpression: 'SET updatedAt = :at',
+        ConditionExpression: 'attribute_not_exists(pollLockedAt) AND #status = :active',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':at': at, ':active': 'active' },
+      },
+    },
+    ...toDelete.map((optionId) => ({
+      Delete: {
+        TableName: T(),
+        Key: { pk: invitePk(invite.id), sk: `VOTE#${userId}#${optionId}` },
+      },
+    })),
+    ...toAdd.map((optionId) => ({
+      Put: {
+        TableName: T(),
+        Item: { pk: invitePk(invite.id), sk: `VOTE#${userId}#${optionId}`, inviteId: invite.id, optionId, userId, createdAt: at },
+        ConditionExpression: 'attribute_not_exists(sk)',
+      },
+    })),
+  ];
+  try {
+    await docClient.send(new TransactWriteCommand({ TransactItems: TransactItems as never }));
+  } catch (e) {
+    if (isConditionalCheck(e)) throw new InviteError('The poll is closed', 'poll_closed');
+    throw e;
+  }
+}
+
+// PE4: locking sets starts_at, closes voting (pollLockedAt), removes the
+// options and re-arms reminders. Caller posts the blast + notifications.
+export async function lockInvitePoll(invite: Invite, optionId: string): Promise<Invite> {
+  const opt = invite.pollOptions?.find((o) => o.id === optionId);
+  if (!opt) throw new InviteError('Unknown date option', 'bad_option', 400);
+  const at = now();
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: invitePk(invite.id), sk: 'METADATA' },
+        UpdateExpression:
+          'SET startsAt = :s, pollLockedAt = :at, updatedAt = :at, gsi1pk = :gpk, gsi1sk = :gsk REMOVE pollOptions, reminderSentAt',
+        ConditionExpression: 'attribute_not_exists(pollLockedAt) AND #status = :active',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':s': opt.startsAt,
+          ':at': at,
+          ':gpk': INVITES_ACTIVE_GSI_PK,
+          ':gsk': opt.startsAt,
+          ':active': 'active',
+        },
+      })
+    );
+  } catch (e) {
+    if (isConditionalCheck(e)) throw new InviteError('The poll is already closed', 'poll_closed');
+    throw e;
+  }
+  return (await getInvite(invite.id))!;
+}
+
+// ---- activity feed (PE5): blasts + comments, likes, one-level replies ----
+
+export const INVITE_POST_MAX = 300;
+
+export async function createInvitePost(input: {
+  invite: Invite;
+  authorId: string;
+  kind: 'blast' | 'comment';
+  body: string;
+  parentId?: string;
+}): Promise<InvitePost> {
+  const body = input.body.slice(0, INVITE_POST_MAX);
+  let parent: InvitePost | undefined;
+  if (input.parentId) {
+    const res = await docClient.send(
+      new GetCommand({ TableName: T(), Key: { pk: invitePk(input.invite.id), sk: `POST#${input.parentId}` } })
+    );
+    parent = res.Item ? stripItem<InvitePost>(res.Item) : undefined;
+    if (!parent || parent.deletedAt) throw new InviteError('Reply target not found', 'no_parent', 404);
+    if (parent.parentId) throw new InviteError('Replies are one level', 'depth', 400);
+  }
+  const post: InvitePost = {
+    id: randomUUID(),
+    inviteId: input.invite.id,
+    authorId: input.authorId,
+    kind: input.kind,
+    body,
+    ...(input.parentId ? { parentId: input.parentId } : {}),
+    likeCount: 0,
+    createdAt: now(),
+  };
+  await docClient.send(
+    new PutCommand({ TableName: T(), Item: { pk: invitePk(input.invite.id), sk: `POST#${post.id}`, ...post } })
+  );
+  return post;
+}
+
+export async function listInvitePosts(inviteId: string): Promise<InvitePost[]> {
+  const out: InvitePost[] = [];
+  let ExclusiveStartKey: Record<string, unknown> | undefined;
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: T(),
+        KeyConditionExpression: 'pk = :pk AND begins_with(sk, :p)',
+        ExpressionAttributeValues: { ':pk': invitePk(inviteId), ':p': 'POST#' },
+        ExclusiveStartKey,
+      })
+    );
+    out.push(...(res.Items ?? []).map((item: any) => stripItem<InvitePost>(item)));
+    ExclusiveStartKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (ExclusiveStartKey);
+  return out.filter((p) => !p.deletedAt).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+// Soft delete: the host deletes any post, authors delete their own (PE5).
+export async function deleteInvitePost(
+  invite: Invite,
+  postId: string,
+  actorId: string
+): Promise<'ok' | 'not_found' | 'forbidden'> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: invitePk(invite.id), sk: `POST#${postId}` } })
+  );
+  const post = res.Item ? stripItem<InvitePost>(res.Item) : undefined;
+  if (!post || post.deletedAt) return 'not_found';
+  if (post.authorId !== actorId && invite.hostUserId !== actorId) return 'forbidden';
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: invitePk(invite.id), sk: `POST#${postId}` },
+      UpdateExpression: 'SET deletedAt = :at',
+      ExpressionAttributeValues: { ':at': now() },
+    })
+  );
+  return 'ok';
+}
+
+export async function listInvitePostLikes(inviteId: string, userId: string): Promise<string[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :p)',
+      ExpressionAttributeValues: { ':pk': invitePk(inviteId), ':p': `LIKE#${userId}#` },
+    })
+  );
+  return (res.Items ?? []).map((item: any) => item.postId as string);
+}
+
+// Atomic toggle: try Put+increment first; on the already-liked conflict do
+// Delete+decrement. Returns the new liked state.
+export async function toggleInvitePostLike(invite: Invite, postId: string, userId: string): Promise<boolean> {
+  const likeKey = { pk: invitePk(invite.id), sk: `LIKE#${userId}#${postId}` };
+  const postKey = { pk: invitePk(invite.id), sk: `POST#${postId}` };
+  try {
+    await docClient.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Put: {
+              TableName: T(),
+              Item: { ...likeKey, inviteId: invite.id, postId, userId, createdAt: now() },
+              ConditionExpression: 'attribute_not_exists(sk)',
+            },
+          },
+          {
+            Update: {
+              TableName: T(),
+              Key: postKey,
+              UpdateExpression: 'ADD likeCount :n',
+              // attribute_exists(sk) keeps a like on a nonexistent postId
+              // from forging a shell post row.
+              ConditionExpression: 'attribute_exists(sk) AND attribute_not_exists(deletedAt)',
+              ExpressionAttributeValues: { ':n': 1 },
+            },
+          },
+        ],
+      })
+    );
+    return true;
+  } catch (e) {
+    if (!isConditionalCheck(e)) throw e;
+    // Distinguish "already liked" (→ unlike below) from "post missing" —
+    // the post must exist before a like can be toggled.
+    const post = await docClient.send(new GetCommand({ TableName: T(), Key: postKey }));
+    if (!post.Item || post.Item.deletedAt) throw new InviteError('Post not found', 'not_found', 404);
+  }
+  try {
+    await docClient.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Delete: {
+              TableName: T(),
+              Key: likeKey,
+              ConditionExpression: 'attribute_exists(sk)',
+            },
+          },
+          {
+            Update: {
+              TableName: T(),
+              Key: postKey,
+              UpdateExpression: 'ADD likeCount :n',
+              ExpressionAttributeValues: { ':n': -1 },
+            },
+          },
+        ],
+      })
+    );
+    return false;
+  } catch (e) {
+    if (isConditionalCheck(e)) throw new InviteError('Post not found', 'not_found', 404);
+    throw e;
+  }
+}
+
+// ---- photo album (PE6): host + Going guests add, invitees view ----
+
+export const INVITE_PHOTO_MAX_TOTAL = 200;
+export const INVITE_PHOTO_MAX_PER_UPLOAD = 20;
+
+export async function listInvitePhotos(inviteId: string): Promise<InvitePhoto[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :p)',
+      ExpressionAttributeValues: { ':pk': invitePk(inviteId), ':p': 'PHOTO#' },
+    })
+  );
+  return (res.Items ?? [])
+    .map((item: any) => stripItem<InvitePhoto>(item))
+    .filter((p: InvitePhoto) => !p.deletedAt)
+    .sort((a: InvitePhoto, b: InvitePhoto) => a.createdAt.localeCompare(b.createdAt));
+}
+
+export async function addInvitePhotos(invite: Invite, uploaderId: string, urls: string[]): Promise<InvitePhoto[]> {
+  if (urls.length > INVITE_PHOTO_MAX_PER_UPLOAD) {
+    throw new InviteError(`At most ${INVITE_PHOTO_MAX_PER_UPLOAD} photos per upload`, 'too_many', 400);
+  }
+  const existing = await listInvitePhotos(invite.id);
+  if (existing.length + urls.length > INVITE_PHOTO_MAX_TOTAL) {
+    throw new InviteError(`The album holds ${INVITE_PHOTO_MAX_TOTAL} photos`, 'album_full');
+  }
+  const at = now();
+  const photos: InvitePhoto[] = urls.map((url) => ({
+    id: randomUUID(),
+    inviteId: invite.id,
+    uploaderId,
+    url: url.slice(0, 1000),
+    createdAt: at,
+  }));
+  await docClient.send(
+    new TransactWriteCommand({
+      TransactItems: photos.map((p) => ({
+        Put: { TableName: T(), Item: { pk: invitePk(invite.id), sk: `PHOTO#${p.id}`, ...p } },
+      })),
+    })
+  );
+  return photos;
+}
+
+// Uploader or host removes a photo (soft delete).
+export async function deleteInvitePhoto(
+  invite: Invite,
+  photoId: string,
+  actorId: string
+): Promise<'ok' | 'not_found' | 'forbidden'> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: invitePk(invite.id), sk: `PHOTO#${photoId}` } })
+  );
+  const photo = res.Item ? stripItem<InvitePhoto>(res.Item) : undefined;
+  if (!photo || photo.deletedAt) return 'not_found';
+  if (photo.uploaderId !== actorId && invite.hostUserId !== actorId) return 'forbidden';
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: invitePk(invite.id), sk: `PHOTO#${photoId}` },
+      UpdateExpression: 'SET deletedAt = :at',
+      ExpressionAttributeValues: { ':at': now() },
+    })
+  );
+  return 'ok';
 }

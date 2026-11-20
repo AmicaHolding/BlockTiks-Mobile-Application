@@ -77,7 +77,18 @@ export async function moneyRoutes(app: FastifyInstance) {
     if (result !== 'refunded') {
       return specError(reply, 409, 'not_paid', 'Only paid orders can be refunded');
     }
-    const response = { order_id: id, status: 'REFUNDED', refunded: true };
+    // F6: the refund reverses the fee credit this order earned. Whatever was
+    // already spent comes out of the refund amount instead.
+    const { reverseOrderFeeCredit } = await import('../db/v3');
+    const reversal = await reverseOrderFeeCredit(order.userId, id).catch(() => null);
+    const response = {
+      order_id: id,
+      status: 'REFUNDED',
+      refunded: true,
+      ...(reversal
+        ? { credit_reversed_minor: reversal.reversedMinor, credit_spent_minor: reversal.spentMinor }
+        : {}),
+    };
     await recordIdempotentResponse(request.user.sub, key, id, response);
     return response;
   });

@@ -1368,6 +1368,155 @@ class ApiService {
     }
   }
 
+  /// POST /events/:id/waiting-room/leave — leave the line (place kept 5 min).
+  static Future<Map<String, dynamic>> leaveWaitingRoom(String eventId) async {
+    try {
+      final res = await _dio.post('/events/$eventId/waiting-room/leave',
+          options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  // --------------------------------------------------------- v3 group pay
+
+  /// POST /orders/:id/shares — split the order into friend-payable shares.
+  static Future<Map<String, dynamic>> createShares(
+      String orderId, List<Map<String, dynamic>> shares) async {
+    try {
+      final res = await _dio.post('/orders/$orderId/shares',
+          data: {'shares': shares}, options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /orders/:id/shares
+  static Future<List<Map<String, dynamic>>> listShares(String orderId) async {
+    try {
+      final res = await _dio.get('/orders/$orderId/shares', options: _authOptions);
+      final list = (res.data['shares'] as List?) ?? [];
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  static Future<void> _shareAction(String orderId, String shareId, String action) async {
+    try {
+      await _dio.post('/orders/$orderId/shares/$shareId/$action',
+          options: _authOptions);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  static Future<void> payShare(String orderId, String shareId) =>
+      _shareAction(orderId, shareId, 'pay');
+  static Future<void> coverShare(String orderId, String shareId) =>
+      _shareAction(orderId, shareId, 'cover');
+  static Future<void> releaseShare(String orderId, String shareId) =>
+      _shareAction(orderId, shareId, 'release');
+
+  // -------------------------------------------------- v3 invite deltas
+
+  /// PUT /invites/:id/poll/votes {option_ids}
+  static Future<void> voteInvitePoll(String inviteId, List<String> optionIds) async {
+    try {
+      await _dio.put('/invites/$inviteId/poll/votes',
+          data: {'option_ids': optionIds}, options: _authOptions);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /invites/:id/poll/lock {option_id} — host picks the final date.
+  static Future<Map<String, dynamic>> lockInvitePoll(
+      String inviteId, String optionId) async {
+    try {
+      final res = await _dio.post('/invites/$inviteId/poll/lock',
+          data: {'option_id': optionId}, options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /invites/:id/activity — posts + one-level replies + legacy blasts.
+  static Future<List<Map<String, dynamic>>> inviteActivity(String inviteId) async {
+    try {
+      final res = await _dio.get('/invites/$inviteId/activity', options: _authOptions);
+      final list = (res.data['posts'] as List?) ?? [];
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /invites/:id/activity {body,parent_id?}
+  static Future<Map<String, dynamic>> postInviteActivity(
+      String inviteId, String body, {String? parentId}) async {
+    try {
+      final res = await _dio.post('/invites/$inviteId/activity',
+          data: {'body': body, if (parentId != null) 'parent_id': parentId},
+          options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  static Future<void> likeInviteActivity(String inviteId, String postId) async {
+    try {
+      await _dio.post('/invites/$inviteId/activity/$postId/like',
+          options: _authOptions);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  static Future<void> deleteInviteActivity(String inviteId, String postId) async {
+    try {
+      await _dio.delete('/invites/$inviteId/activity/$postId',
+          options: _authOptions);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /invites/:id/photos — album photos + invite-link album access.
+  static Future<Map<String, dynamic>> invitePhotos(String inviteId) async {
+    try {
+      final res = await _dio.get('/invites/$inviteId/photos', options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /invites/:id/photos {urls} — host or Going guests add photos.
+  static Future<Map<String, dynamic>> addInvitePhotos(
+      String inviteId, List<String> urls) async {
+    try {
+      final res = await _dio.post('/invites/$inviteId/photos',
+          data: {'urls': urls}, options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  static Future<void> deleteInvitePhoto(String inviteId, String photoId) async {
+    try {
+      await _dio.delete('/invites/$inviteId/photos/$photoId',
+          options: _authOptions);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
   /// v3 all-in display helper: shown price = round(face × 1.07).
   static int allInPrice(int faceCents) => (faceCents * 1.07).round();
 }
