@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { api, ApiError, getToken, type Listing, type SahraEvent, type Tier, type VenueSection } from '../lib/api';
+import { api, ApiError, getToken, type Listing, type SahraEvent, type Tier, type VenueSection, type WaitingRoomEntry } from '../lib/api';
 import { MAX_PER_ORDER, RESALE_CAP_PCT } from '../lib/config';
 import { formatEventDate, formatMoney } from '../lib/format';
 import { useAuth } from '../lib/auth';
@@ -368,6 +368,8 @@ export default function EventPage() {
             </div>
           )}
 
+          <WaitingRoomCard eventId={event.id} />
+
           {/* total + CTA */}
           <div className="mt-5 flex items-center justify-between border-t border-night-border/60 pt-4 text-[15px]">
             <span className="font-semibold text-sand">Total</span>
@@ -388,6 +390,105 @@ export default function EventPage() {
             Max {MAX_PER_ORDER} per order · resale capped at face +{RESALE_CAP_PCT}%
           </p>
         </aside>
+      </div>
+    </div>
+  );
+}
+
+/** W4: waiting room — join ahead of the drop, see position, leave; admitted
+ *  fans get a 10-minute hold before they're rotated to the back. The card is
+ *  self-gating: it renders nothing when the event has no waiting room. */
+function WaitingRoomCard({ eventId }: { eventId: string }) {
+  const { user, requireAuth } = useAuth();
+  const [entry, setEntry] = useState<WaitingRoomEntry | null | 'none'>(null);
+  const [busy, setBusy] = useState(false);
+  const [left, setLeft] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setEntry('none');
+      return;
+    }
+    let alive = true;
+    async function poll() {
+      try {
+        const res = await api.waitingRoomStatus(eventId);
+        if (alive) setEntry(res.entry);
+      } catch {
+        if (alive) setEntry('none');
+      }
+    }
+    poll();
+    const t = setInterval(poll, 10000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [eventId, user]);
+
+  async function join() {
+    setBusy(true);
+    try {
+      const res = await api.joinWaitingRoom(eventId);
+      setEntry(res.entry);
+      setLeft(false);
+    } catch {
+      setEntry('none');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function leave() {
+    setBusy(true);
+    try {
+      await api.leaveWaitingRoom(eventId);
+      setEntry('none');
+      setLeft(true);
+    } catch {} finally {
+      setBusy(false);
+    }
+  }
+
+  if (entry === 'none' && left) return null;
+  if (entry === 'none' && user) return null;
+
+  const e = entry && entry !== 'none' ? entry : null;
+  const statusLine = !e
+    ? 'The waiting room is open for this event — grab your spot before tickets drop.'
+    : e.status === 'admitted'
+      ? "It's your turn — check out within your hold window."
+      : e.status === 'queued' || e.status === 'waiting'
+        ? `You're in line${e.position ? ` · position ${e.position}` : ''}. Order is set when the doors open.`
+        : e.status === 'not_selected'
+          ? 'The draw is done and this round didn’t pick you — rejoin for the next window.'
+          : null;
+  if (e && !statusLine) return null;
+
+  return (
+    <div className="mt-4 rounded-xl border border-gold/40 bg-night-deep p-4">
+      <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-gold">Waiting room</div>
+      <p className="mt-1.5 text-sm leading-relaxed text-sand/90">{statusLine}</p>
+      <div className="mt-3 flex gap-2">
+        {!e ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => (user ? void join() : requireAuth('buy', () => void join()))}
+            className="rounded-full bg-gold px-5 py-2 text-sm font-bold text-night disabled:opacity-40"
+          >
+            {user ? 'Join the room' : 'Sign in to join'}
+          </button>
+        ) : e.status === 'waiting' || e.status === 'queued' ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={leave}
+            className="rounded-full border border-night-border px-4 py-1.5 text-xs font-semibold text-night-muted"
+          >
+            Leave
+          </button>
+        ) : null}
       </div>
     </div>
   );

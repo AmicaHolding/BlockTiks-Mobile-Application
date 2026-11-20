@@ -34,16 +34,29 @@ export default function TicketPass({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
-  // TODO(decision-1): QR payload comes from the ticket credential resource
-  // (reissued on holder change). Backend has no credential endpoint yet, so
-  // this resolves to the ticket code.
+  // Q1-Q3: live rotating QR — the payload rotates every 15s server-side
+  // (sahra2.<code>.<window>.<sig>), unlocking 24h before doors.
   const [qrPayload, setQrPayload] = useState(ticket.code);
+  const [refreshIn, setRefreshIn] = useState(15);
 
   useEffect(() => {
-    api
-      .ticketCredential(ticket.code)
-      .then((c) => setQrPayload(c.qrPayload))
-      .catch(() => setQrPayload(ticket.code));
+    let alive = true;
+    async function fetchQr() {
+      try {
+        const res = await api.ticketQr(ticket.code);
+        if (!alive) return;
+        setQrPayload(res.payload);
+        setRefreshIn(res.refreshInSeconds ?? 15);
+      } catch {
+        if (alive) setQrPayload(ticket.code);
+      }
+    }
+    fetchQr();
+    const t = setInterval(fetchQr, 5000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
   }, [ticket.code]);
 
   const qrLive = isQrLive(ticket.eventStartsAt);
@@ -151,7 +164,7 @@ export default function TicketPass({
                 <QRCode value={qrPayload} size={96} bgColor="#FFFFFF" fgColor="#241C14" />
               </div>
               <div className="text-center text-xs font-semibold text-night/70">
-                Show this at the gate
+                Live code · refreshes in {refreshIn}s
               </div>
             </>
           ) : (

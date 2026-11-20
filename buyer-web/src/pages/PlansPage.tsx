@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ApiError, api, type PlanItem, type PlansResponse, type PriceWatch } from '../lib/api';
+import { ApiError, api, type PlanItem, type PlansResponse, type PriceWatch, type Wallet } from '../lib/api';
 import { formatMinor, formatMoney, inTz, venueDateTime, venueTime } from '../lib/format';
 import { cardStart, cardTz, cardVenue } from '../lib/cards';
 import { EmptyState, Spinner } from '../components/ui';
@@ -82,6 +82,33 @@ function WatchRow({ w }: { w: PriceWatch }) {
   );
 }
 
+/** W1: wallet balances (Cash / Pending / Credits) above the plan list. */
+function WalletCard() {
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  useEffect(() => {
+    api.wallet().then((r) => setWallet(r.wallet)).catch(() => setWallet(null));
+  }, []);
+  if (!wallet) return null;
+  const aed = (minor: number) => `AED ${(minor / 100).toFixed(2)}`;
+  return (
+    <div className="rounded-card border border-night-border/60 bg-night-surface p-4">
+      <div className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-night-muted">Wallet</div>
+      <div className="flex gap-6">
+        {([
+          ['Cash', wallet.cashMinor],
+          ['Pending', wallet.pendingMinor],
+          ['Credits', wallet.creditsMinor],
+        ] as const).map(([label, minor]) => (
+          <div key={label}>
+            <div className="text-[11px] font-semibold text-night-muted">{label}</div>
+            <div className="font-display text-lg font-extrabold text-gold">{aed(minor)}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
@@ -132,6 +159,8 @@ export default function PlansPage() {
           Manage tickets
         </Link>
       </div>
+
+      <WalletCard />
 
       {data.waiting_on_you.length ? (
         <Section title="Waiting on you">

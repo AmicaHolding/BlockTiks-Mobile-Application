@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ApiError, api, type Invite, type InviteGuests, type InvitePageResponse, type InviteRsvp, type RsvpStatus } from '../lib/api';
+import { ApiError, api, type Invite, type InviteGuests, type InvitePageResponse, type InvitePoll, type InvitePost, type InviteRsvp, type RsvpStatus } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { INVITE_REPORT_BUTTON, MAX_PLUS_ONES, STUDIO_URL } from '../lib/config';
 import { formatRelative, nameInitials, venueDateTime } from '../lib/format';
@@ -357,22 +357,29 @@ export default function InvitePage() {
                     ['maybe', 'Maybe'],
                     ['no', 'Can’t'],
                   ] as const
-                ).map(([s, label]) => (
-                  <Button
-                    key={s}
-                    variant={my?.status === s ? 'gold' : 'ghost'}
-                    disabled={busy || (s === 'going' && full)}
-                    onClick={() => answer(s)}
-                  >
-                    {label}
-                  </Button>
-                ))}
+                ).map(([s, label]) => {
+                  // PE3: hosts can rename the RSVP buttons.
+                  const custom = (page as { rsvp_labels?: Record<string, string> }).rsvp_labels;
+                  const text = custom?.[s] ?? label;
+                  return (
+                    <Button
+                      key={s}
+                      variant={my?.status === s ? 'gold' : 'ghost'}
+                      disabled={busy || (s === 'going' && full)}
+                      onClick={() => answer(s)}
+                    >
+                      {text}
+                    </Button>
+                  );
+                })}
               </div>
             )}
             {error ? <div role="alert" className="text-sm font-semibold text-red-200">{error}</div> : null}
             {!user ? <p className="text-center text-xs text-night-muted">No app needed. We’ll text you a code to confirm.</p> : null}
           </Card>
         )}
+
+        <InviteExtras inviteId={invite.id ?? ''} isHost={isHost} poll={(page as { poll?: InvitePoll }).poll} going={my?.status === 'going'} onChanged={() => void load()} />
 
         {page.updates?.length ? (
           <section>
@@ -412,5 +419,175 @@ export default function InvitePage() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+/** PE2/PE5/PE6: date poll, activity feed and photo album — the v3 invite
+ *  extras that sit below the RSVP card for hosts and guests alike. */
+function InviteExtras({
+  inviteId,
+  isHost,
+  poll,
+  going,
+  onChanged,
+}: {
+  inviteId: string;
+  isHost: boolean;
+  poll?: InvitePoll;
+  going?: boolean;
+  onChanged: () => void;
+}) {
+  const { requireAuth } = useAuth();
+  const [myVotes, setMyVotes] = useState<Set<string>>(new Set(poll?.my_option_ids ?? []));
+  const [posts, setPosts] = useState<InvitePost[]>([]);
+  const [photos, setPhotos] = useState<{ id: string; url: string }[]>([]);
+  const [draft, setDraft] = useState('');
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+
+  const loadExtras = useCallback(() => {
+    if (!inviteId) return;
+    api.inviteActivity(inviteId).then((r) => setPosts(r.posts)).catch(() => {});
+    api.invitePhotos(inviteId).then((r) => setPhotos(r.photos)).catch(() => {});
+  }, [inviteId]);
+
+  useEffect(() => {
+    loadExtras();
+  }, [loadExtras]);
+
+  async function toggleVote(optionId: string) {
+    const next = new Set(myVotes);
+    next.has(optionId) ? next.delete(optionId) : next.add(optionId);
+    setMyVotes(next);
+    try {
+      await api.voteInvitePoll(inviteId, [...next]);
+      onChanged();
+    } catch { /* keep optimistic state */ }
+  }
+
+  async function post() {
+    const body = draft.trim();
+    if (!body) return;
+    setDraft('');
+    setReplyTo(null);
+    try {
+      await api.postInviteActivity(inviteId, body, replyTo ?? undefined);
+      loadExtras();
+    } catch {}
+  }
+
+  const open = poll && !poll.locked && (poll.options?.length ?? 0) > 0;
+  return (
+    <>
+      {open ? (
+        <section>
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-night-muted">Vote on a date</h2>
+          <div className="space-y-2">
+            {poll!.options!.map((o) => (
+              <div key={o.id} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => requireAuth('rsvp', () => void toggleVote(o.id))}
+                  className={`flex-1 rounded-xl border px-4 py-2.5 text-left text-sm font-semibold transition ${
+                    myVotes.has(o.id)
+                      ? 'border-gold bg-gold text-night'
+                      : 'border-night-border bg-night-surface text-sand hover:border-gold/50'
+                  }`}
+                >
+                  {venueDateTime(o.starts_at)} · {o.votes} {o.votes === 1 ? 'vote' : 'votes'}
+                </button>
+                {isHost ? (
+                  <button
+                    type="button"
+                    onClick={() => void api.lockInvitePoll(inviteId, o.id).then(onChanged).catch(() => {})}
+                    className="rounded-full border border-gold/50 px-3 py-1.5 text-xs font-bold text-gold"
+                  >
+                    Pick
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {photos.length || (isHost || going) ? (
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-night-muted">Photos</h2>
+            {isHost || going ? (
+              <button
+                type="button"
+                className="text-xs font-bold text-gold"
+                onClick={() => {
+                  const url = window.prompt('Photo link');
+                  if (url) void api.addInvitePhotos(inviteId, [url]).then(loadExtras).catch(() => {});
+                }}
+              >
+                + Add
+              </button>
+            ) : null}
+          </div>
+          {photos.length ? (
+            <div className="flex gap-2 overflow-x-auto">
+              {photos.map((p) => (
+                <img key={p.id} src={p.url} alt="" className="h-20 w-20 rounded-xl object-cover" />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-night-muted">Photos from the invite live here.</p>
+          )}
+        </section>
+      ) : null}
+
+      <section>
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-night-muted">Activity</h2>
+        <div className="space-y-2">
+          {posts.map((p) => (
+            <div key={p.id} className="rounded-xl bg-night-surface px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-sand">
+                  {p.authorName ?? 'Guest'}{p.kind === 'blast' ? ' · host' : ''}
+                </span>
+                <span className="flex items-center gap-3 text-xs">
+                  {p.legacy !== true ? (
+                    <button
+                      type="button"
+                      onClick={() => void api.likeInviteActivity(inviteId, p.id).then(loadExtras).catch(() => {})}
+                      className={p.liked_by_me ? 'text-rumman' : 'text-night-muted'}
+                    >
+                      ♥ {p.likeCount ?? 0}
+                    </button>
+                  ) : null}
+                  {p.legacy !== true ? (
+                    <button type="button" className="text-gold" onClick={() => setReplyTo(p.id)}>
+                      Reply
+                    </button>
+                  ) : null}
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-sand">{p.body}</p>
+              {(p.replies ?? []).map((r) => (
+                <div key={r.id} className="ml-4 mt-2 border-l border-night-border pl-3">
+                  <span className="text-xs font-bold text-sand">{r.authorName ?? 'Guest'}</span>
+                  <p className="text-sm text-sand/90">{r.body}</p>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex gap-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && void post()}
+            placeholder={replyTo ? 'Reply…' : 'Say something…'}
+            className="w-full rounded-xl border border-night-border bg-night px-3.5 py-2.5 text-sm text-sand outline-none placeholder:text-night-muted focus:border-gold"
+          />
+          <Button variant="gold" onClick={() => void post()}>
+            Send
+          </Button>
+        </div>
+      </section>
+    </>
   );
 }
