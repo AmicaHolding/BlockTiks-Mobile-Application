@@ -1096,6 +1096,10 @@ export interface OrderShare {
   paidAt?: string;
   expiresAt: string;      // G2: 30-minute hold
   createdAt: string;
+  // Order line this share's seat comes from (assigned at creation so a
+  // mixed-tier order releases the right tier's inventory).
+  itemSk?: string;
+  tierId?: string;
 }
 
 const shareSk = (shareId: string) => `SHARE#${shareId}`;
@@ -1106,15 +1110,41 @@ export async function createOrderShares(input: {
   ttlMinutes?: number;
 }): Promise<OrderShare[]> {
   const expiresAt = new Date(Date.now() + (input.ttlMinutes ?? 30) * 60 * 1000).toISOString();
-  const shares: OrderShare[] = input.shares.map((s) => ({
-    orderId: input.orderId,
-    shareId: s.shareId,
-    contact: s.contact,
-    amountMinor: s.amountMinor,
-    status: 'pending',
-    expiresAt,
-    createdAt: now(),
-  }));
+  // Assign each share to the order line with the most unshared seats left
+  // so release returns the right tier's inventory (mixed-tier orders).
+  const items = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :p)',
+      ExpressionAttributeValues: { ':pk': `ORDER#${input.orderId}`, ':p': 'ITEM#' },
+    })
+  );
+  const lines = ((items.Items ?? []) as Record<string, unknown>[])
+    .filter((i) => typeof i.tierId === 'string' && (i.quantity as number) > 0);
+  const existing = await listOrderShares(input.orderId);
+  const capacity = new Map<string, number>();
+  for (const l of lines) capacity.set(l.sk as string, l.quantity as number);
+  for (const s of existing) {
+    if (s.itemSk && s.status === 'pending') capacity.set(s.itemSk, (capacity.get(s.itemSk) ?? 0) - 1);
+  }
+  const shares: OrderShare[] = input.shares.map((s) => {
+    const line = lines
+      .filter((l) => (capacity.get(l.sk as string) ?? 0) > 0)
+      .sort((a, b) => (capacity.get(b.sk as string) ?? 0) - (capacity.get(a.sk as string) ?? 0))[0];
+    const itemSk = line?.sk as string | undefined;
+    if (itemSk) capacity.set(itemSk, (capacity.get(itemSk) ?? 0) - 1);
+    return {
+      orderId: input.orderId,
+      shareId: s.shareId,
+      contact: s.contact,
+      amountMinor: s.amountMinor,
+      status: 'pending' as const,
+      expiresAt,
+      createdAt: now(),
+      itemSk,
+      tierId: line?.tierId as string | undefined,
+    };
+  });
   await docClient.send(
     new TransactWriteCommand({
       TransactItems: shares.map((s) => ({
@@ -1438,7 +1468,12 @@ export async function releaseShareSeat(
   const meta = await docClient.send(
     new GetCommand({ TableName: T(), Key: { pk: `ORDER#${orderId}`, sk: 'METADATA' } })
   );
-  const order = meta.Item as { eventId?: string } | undefined;
+  const order = meta.Item as { eventId?: string; status?: string } | undefined;
+  // Inventory only moves while the order's holds are live. Once the order
+  // resolved (paid/fulfilled → tickets issued; failed/expired/cancelled →
+  // releaseOrder already returned every hold) flipping the share is a pure
+  // money decision — touching inventory here would double-return or oversell.
+  const holdsLive = order?.status === 'PENDING';
   const items = await docClient.send(
     new QueryCommand({
       TableName: T(),
@@ -1446,9 +1481,12 @@ export async function releaseShareSeat(
       ExpressionAttributeValues: { ':pk': `ORDER#${orderId}`, ':p': 'ITEM#' },
     })
   );
-  const line = ((items.Items ?? []) as Record<string, unknown>[])
-    .filter((i) => typeof i.tierId === 'string' && (i.quantity as number) > 0)
-    .sort((a, b) => (b.quantity as number) - (a.quantity as number))[0];
+  const allLines = ((items.Items ?? []) as Record<string, unknown>[])
+    .filter((i) => typeof i.tierId === 'string' && (i.quantity as number) > 0);
+  // The share's own line wins; shares predating tier assignment fall back to
+  // the largest line.
+  const line = allLines.find((l) => share.itemSk && l.sk === share.itemSk) ??
+    allLines.sort((a, b) => (b.quantity as number) - (a.quantity as number))[0];
   const dropIndex = ' REMOVE gsi1pk, gsi1sk';
   const transact: Record<string, unknown>[] = [
     {
@@ -1462,7 +1500,7 @@ export async function releaseShareSeat(
       },
     },
   ];
-  if (order?.eventId && line) {
+  if (holdsLive && order?.eventId && line) {
     transact.push(
       {
         Update: {
@@ -1490,6 +1528,16 @@ export async function releaseShareSeat(
         },
       }
     );
+  } else {
+    // Order already resolved — record the release without touching seats.
+    transact.push({
+      Update: {
+        TableName: T(),
+        Key: { pk: `ORDER#${orderId}`, sk: 'METADATA' },
+        UpdateExpression: 'SET releasedShareMinor = if_not_exists(releasedShareMinor, :z) + :amt',
+        ExpressionAttributeValues: { ':z': 0, ':amt': share.amountMinor },
+      },
+    });
   }
   try {
     await docClient.send(new TransactWriteCommand({ TransactItems: transact as never }));
