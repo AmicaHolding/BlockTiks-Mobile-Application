@@ -108,10 +108,10 @@ export const env = {
   // Referral bonus paid to the referrer per successful referral (cents). 0 = tracking only.
   referralBonusCents: parseInt(process.env.REFERRAL_BONUS_CENTS ?? '0', 10),
   // ---------- v2: OTP sign-in (A1) ----------
-  // Dev mode = explicit non-production only: the code is logged and
-  // OTP_DEV_CODE (default 000000) is accepted so seeded accounts can sign in.
-  // A deployed (prod) env can never enable it, even with DYNAMODB_ENDPOINT set.
-  otpDevMode: (process.env.NODE_ENV ?? 'development') !== 'production' && Boolean(process.env.DYNAMODB_ENDPOINT),
+  // Dev mode = non-production only: the code is logged and OTP_DEV_CODE
+  // (default 000000) is accepted so seeded accounts can sign in. The local
+  // Node entrypoint (index.ts) is inherently dev; production runs the Worker.
+  otpDevMode: (process.env.NODE_ENV ?? 'development') !== 'production',
   otpDevCode: process.env.OTP_DEV_CODE ?? '000000',
   otpTtlMinutes: parseInt(process.env.OTP_TTL_MINUTES ?? '10', 10),
   otpMaxAttempts: parseInt(process.env.OTP_MAX_ATTEMPTS ?? '5', 10),
