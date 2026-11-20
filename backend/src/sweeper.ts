@@ -70,18 +70,29 @@ export const handler = async () => {
       }
 
       if (order.stripePaymentIntentId) {
-        const pi = await getStripe().paymentIntents.retrieve(order.stripePaymentIntentId);
+        const pi = await getStripe().paymentIntents.retrieve(order.stripePaymentIntentId, {
+          expand: ['latest_charge.balance_transaction'],
+        });
         if (pi.status === 'succeeded') {
           await fulfillOrder(orderId, pi.id);
           // Same v3 side-effects as the webhook path (fee credit + pending).
+          // Use the settled card fee so the webhook doesn't get locked out
+          // of posting the corrected credit later.
           try {
             const { orderFeeBreakdown, postOrderFeeCredit, addWalletPending } = await import('./db/v3');
             const { getListing, setOrderFeeBreakdown } = await import('./db');
             const paid = await getOrder(orderId);
             if (paid) {
-              const breakdown = orderFeeBreakdown({ dueMinor: paid.totalCents });
-              await setOrderFeeBreakdown(paid.id, breakdown).catch(() => undefined);
-              if (breakdown.creditMinor > 0) await postOrderFeeCredit({ userId: paid.userId, orderId: paid.id, amountMinor: breakdown.creditMinor }).catch(() => undefined);
+              const charge = pi.latest_charge as { balance_transaction?: { fee?: number } } | null;
+              const actualCardFeeMinor = charge?.balance_transaction?.fee;
+              // Only settle the credit when the real fee is known — posting an
+              // estimate here would lock the webhook out of correcting it
+              // (setOrderFeeBreakdown/postOrderFeeCredit are first-write-wins).
+              if (typeof actualCardFeeMinor === 'number') {
+                const breakdown = orderFeeBreakdown({ dueMinor: paid.totalCents, actualCardFeeMinor });
+                await setOrderFeeBreakdown(paid.id, breakdown).catch(() => undefined);
+                if (breakdown.creditMinor > 0) await postOrderFeeCredit({ userId: paid.userId, orderId: paid.id, amountMinor: breakdown.creditMinor }).catch(() => undefined);
+              }
               if (paid.kind === 'RESALE' && paid.listingCode) {
                 const listing = await getListing(paid.listingCode);
                 if (listing) await addWalletPending({ userId: listing.sellerId, orderId: paid.id, eventId: paid.eventId, amountMinor: paid.faceSubtotalCents ?? paid.subtotalCents }).catch(() => undefined);
@@ -95,6 +106,9 @@ export const handler = async () => {
           stats.skipped++; // payment still in flight, don't release yet
           continue;
         }
+        // Expired with a live intent: cancel it so Stripe can't capture money
+        // for an order that will never fulfill.
+        await getStripe().paymentIntents.cancel(order.stripePaymentIntentId).catch(() => undefined);
       }
 
       await releaseOrder(orderId, 'EXPIRED');
