@@ -130,6 +130,11 @@ export async function orderRoutes(app: FastifyInstance) {
             expiresAt: expiresAtFor(),
           });
 
+          if (!env.stripeSecretKey) {
+            return reply
+              .status(503)
+              .send({ code: 'stripe_not_configured', message: 'Card payments aren’t configured on this deployment.' });
+          }
           const stripe = getStripe();
           const paymentIntent = await stripe.paymentIntents.create(
             {
