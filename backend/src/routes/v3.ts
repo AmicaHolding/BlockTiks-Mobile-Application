@@ -50,9 +50,20 @@ import {
   createOrderShares,
   listOrderShares,
   markSharePaid,
+  coverShare,
+  releaseShare,
   joinWaitingRoom,
+  rejoinWaitingRoom,
+  leaveWaitingRoom,
   getWaitingEntry,
   assignWaitingPositions,
+  admitWaitingRoom,
+  expireWaitingHold,
+  removeWaitingEntry,
+  runWaitingRoomDraw,
+  getWaitingRoomMode,
+  withdrawalsThisWeek,
+  recordWithdrawal,
   InviteError,
   rsvpDeadlineIso,
   type Invite,
@@ -116,7 +127,10 @@ export async function v3Routes(app: FastifyInstance) {
     },
     async (request, reply) => {
       const { amountMinor, instant } = request.body as { amountMinor: number; instant?: boolean };
-      const fee = withdrawalFeeMinor(amountMinor, instant ?? false);
+      // W5: one free standard withdrawal per calendar week; further standard
+      // withdrawals in the same week cost the instant rate.
+      const usedFree = !instant && (await withdrawalsThisWeek(request.user.sub)) > 0;
+      const fee = withdrawalFeeMinor(amountMinor, (instant ?? false) || usedFree);
       const taken = await takeWalletCash(request.user.sub, amountMinor);
       if (!taken) return reply.status(400).send({ code: 'insufficient', message: 'Not enough withdrawable cash' });
       // The payout record integrates with the existing withdrawals ledger.
@@ -126,7 +140,8 @@ export async function v3Routes(app: FastifyInstance) {
         amountCents: amountMinor - fee,
         currency: 'aed',
       }).catch(() => null);
-      return { ok: true, withdrawal, feeMinor: fee, etaDays: instant ? 0 : 3 };
+      await recordWithdrawal(request.user.sub).catch(() => undefined);
+      return { ok: true, withdrawal, feeMinor: fee, etaDays: instant ? 0 : 3, weeklyFreeUsed: usedFree };
     }
   );
 
@@ -182,20 +197,55 @@ export async function v3Routes(app: FastifyInstance) {
   app.post('/orders/:id/shares/:shareId/pay', { preHandler: app.authenticate }, async (request, reply) => {
     const { id, shareId } = request.params as { id: string; shareId: string };
     const ok = await markSharePaid(id, shareId, request.user.sub);
-    if (!ok) return reply.status(409).send({ code: 'not_pending', message: 'Share already paid or released' });
+    if (!ok) return reply.status(409).send({ code: 'not_pending', message: 'Share already paid, released or expired' });
     // G4: each payer earns fee credit on their own payment — posted at order
     // settlement alongside the buyer's credit.
     return { ok: true };
   });
 
-  // ============================ WAITING ROOM (B4-B6) ============================
+  // G3: the buyer covers a friend's unpaid share (charges the buyer — stub
+  // charge, TODO(api-gap)) or releases the seat instead.
+  app.post('/orders/:id/shares/:shareId/cover', { preHandler: app.authenticate }, async (request, reply) => {
+    const { id, shareId } = request.params as { id: string; shareId: string };
+    const order = await getOrder(id);
+    if (!order || order.userId !== request.user.sub) {
+      return reply.status(404).send({ code: 'not_found', message: 'Order not found' });
+    }
+    const ok = await coverShare(id, shareId);
+    if (!ok) return reply.status(409).send({ code: 'not_pending', message: 'Share is no longer pending' });
+    return { ok: true };
+  });
+
+  app.post('/orders/:id/shares/:shareId/release', { preHandler: app.authenticate }, async (request, reply) => {
+    const { id, shareId } = request.params as { id: string; shareId: string };
+    const order = await getOrder(id);
+    if (!order || order.userId !== request.user.sub) {
+      return reply.status(404).send({ code: 'not_found', message: 'Order not found' });
+    }
+    const ok = await releaseShare(id, shareId);
+    if (!ok) return reply.status(409).send({ code: 'not_pending', message: 'Share is no longer pending' });
+    // G3: nobody is charged for released seats — the seat goes back.
+    return { ok: true };
+  });
+
+  // ============================ WAITING ROOM (B4-B8) ============================
   app.post('/events/:id/waiting-room', { preHandler: app.authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const { deviceId } = (request.body ?? {}) as { deviceId?: string };
     try {
+      // B6: a stale admitted/expired/left entry rejoins at the back.
+      const existing = await getWaitingEntry(id, request.user.sub);
+      if (existing && (existing.status === 'expired' || existing.status === 'left' || existing.status === 'not_selected')) {
+        const entry = await rejoinWaitingRoom(id, request.user.sub, deviceId);
+        return reply.status(201).send({ entry, rejoined: true });
+      }
+      if (existing) return { entry: existing, alreadyJoined: true };
       const entry = await joinWaitingRoom(id, request.user.sub, deviceId);
       return reply.status(201).send({ entry });
-    } catch {
+    } catch (e) {
+      if (e instanceof InviteError) {
+        return reply.status(409).send({ code: e.code, message: e.message });
+      }
       const entry = await getWaitingEntry(id, request.user.sub);
       return { entry, alreadyJoined: true };
     }
@@ -203,8 +253,18 @@ export async function v3Routes(app: FastifyInstance) {
 
   app.get('/events/:id/waiting-room', { preHandler: app.authenticate }, async (request) => {
     const { id } = request.params as { id: string };
+    // B6: lazily expire an admitted hold so clients see the true state.
+    await expireWaitingHold(id, request.user.sub).catch(() => false);
     const entry = await getWaitingEntry(id, request.user.sub);
-    return { entry };
+    const mode = await getWaitingRoomMode(id);
+    return { entry, mode };
+  });
+
+  // B5: leaving keeps your place for 5 minutes (rejoin via POST above).
+  app.post('/events/:id/waiting-room/leave', { preHandler: app.authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const ok = await leaveWaitingRoom(id, request.user.sub);
+    return ok ? { ok: true } : reply.status(409).send({ code: 'not_in_line', message: 'No place in line to leave' });
   });
 
   // Org-side: open sales → everyone waiting gets a random place (B4).
@@ -213,5 +273,29 @@ export async function v3Routes(app: FastifyInstance) {
     // TODO(decision-8): restrict to the event's org admins via canManageEvent.
     const count = await assignWaitingPositions(id);
     return { ok: true, assigned: count };
+  });
+
+  // Org-side: admit the next N in line — each gets a 10-min hold (B6).
+  app.post('/events/:id/waiting-room/next', { preHandler: app.authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { count } = (request.body ?? {}) as { count?: number };
+    const admitted = await admitWaitingRoom(id, count ?? 1);
+    return { ok: true, admitted: admitted.length, holdUntil: admitted[0]?.holdUntil };
+  });
+
+  // Org-side: B7 — remove a flagged account from the line.
+  app.delete('/events/:id/waiting-room/:userId', { preHandler: app.authenticate }, async (request, reply) => {
+    const { id, userId } = request.params as { id: string; userId: string };
+    const ok = await removeWaitingEntry(id, userId);
+    return ok ? { ok: true } : reply.status(409).send({ code: 'not_found', message: 'Entry not found' });
+  });
+
+  // Org-side: B8 — switch the release to a registration draw: random winners
+  // from everyone entered get 30 minutes to buy.
+  app.post('/events/:id/waiting-room/draw', { preHandler: app.authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { winners } = (request.body ?? {}) as { winners?: number };
+    const picked = await runWaitingRoomDraw(id, winners ?? 100);
+    return { ok: true, mode: 'draw', winners: picked.length, holdUntil: picked[0]?.holdUntil };
   });
 }

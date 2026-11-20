@@ -291,8 +291,35 @@ export interface Order {
   ticketCodes?: string[];
   currency?: string;
   expiresAt?: string; // reservation expiry for PENDING orders
+  // v3 (F5): settled fee breakdown — fee inside the price, actual processing
+  // cost, what Sahra keeps, and the credit paid back to the buyer.
+  feeBreakdown?: {
+    feeMinor: number;
+    baseMinor: number;
+    processingMinor: number;
+    sahraKeepsMinor: number;
+    creditMinor: number;
+  };
   createdAt: string;
   paidAt?: string;
+}
+
+// F5: persists the settled fee breakdown on the order record.
+export async function setOrderFeeBreakdown(
+  orderId: string,
+  breakdown: NonNullable<Order['feeBreakdown']>
+): Promise<void> {
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: orderPk(orderId), sk: 'METADATA' },
+      UpdateExpression: 'SET feeBreakdown = :fb',
+      ConditionExpression: 'attribute_not_exists(feeBreakdown)',
+      ExpressionAttributeValues: { ':fb': breakdown },
+    })
+  ).catch((e) => {
+    if (!isConditionalCheck(e)) throw e; // already settled — keep first write
+  });
 }
 
 export interface Ticket {

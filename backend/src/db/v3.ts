@@ -1117,7 +1117,8 @@ export async function createOrderShares(input: {
       TransactItems: shares.map((s) => ({
         Put: {
           TableName: T(),
-          Item: { pk: `ORDER#${input.orderId}`, sk: shareSk(s.shareId), ...s },
+          // gsi1 lets the sweeper find pending shares past their hold.
+          Item: { pk: `ORDER#${input.orderId}`, sk: shareSk(s.shareId), ...s, gsi1pk: 'SHARES#PENDING', gsi1sk: s.expiresAt },
           ConditionExpression: 'attribute_not_exists(pk)',
         },
       })),
@@ -1146,10 +1147,11 @@ export async function markSharePaid(orderId: string, shareId: string, payerUserI
       new UpdateCommand({
         TableName: T(),
         Key: { pk: `ORDER#${orderId}`, sk: shareSk(shareId) },
-        UpdateExpression: 'SET #status = :paid, payerUserId = :u, paidAt = :t',
-        ConditionExpression: '#status = :pending',
+        // G2: can't pay a share after its 30-min hold expired.
+        UpdateExpression: 'SET #status = :paid, payerUserId = :u, paidAt = :t REMOVE gsi1pk, gsi1sk',
+        ConditionExpression: '#status = :pending AND expiresAt > :now',
         ExpressionAttributeNames: { '#status': 'status' },
-        ExpressionAttributeValues: { ':paid': 'paid', ':pending': 'pending', ':u': payerUserId, ':t': now() },
+        ExpressionAttributeValues: { ':paid': 'paid', ':pending': 'pending', ':u': payerUserId, ':t': now(), ':now': now() },
       })
     );
     return true;
@@ -1169,7 +1171,10 @@ export interface WaitingRoomEntry {
   deviceId?: string;
   joinedAt: string;
   position?: number;      // assigned when sales open (random), else queue order
-  status: 'waiting' | 'queued' | 'admitted' | 'done' | 'removed';
+  status: 'waiting' | 'queued' | 'admitted' | 'left' | 'expired' | 'not_selected' | 'done' | 'removed';
+  leftAt?: string;        // B5: place kept 5 min after leaving
+  admittedAt?: string;
+  holdUntil?: string;     // B6: 10-min buy window; B8: 30-min draw window
 }
 
 const roomPk = (eventId: string) => `WAITING#${eventId}`;
@@ -1192,7 +1197,9 @@ export async function getWaitingEntry(eventId: string, userId: string): Promise<
   const res = await docClient.send(
     new GetCommand({ TableName: T(), Key: { pk: roomPk(eventId), sk: `USER#${userId}` } })
   );
-  return (res.Item as WaitingRoomEntry | undefined) ?? null;
+  if (!res.Item) return null;
+  const { pk, sk, ...rest } = res.Item as Record<string, unknown>;
+  return rest as unknown as WaitingRoomEntry;
 }
 
 export async function listWaitingRoom(eventId: string): Promise<WaitingRoomEntry[]> {
@@ -1231,4 +1238,344 @@ export async function assignWaitingPositions(eventId: string): Promise<number> {
     await docClient.send(new TransactWriteCommand({ TransactItems: transact.slice(i, i + 100) as never }));
   }
   return waiting.length;
+}
+
+// ===========================================================================
+// H. V3 settlement + money gaps (handoff/05)
+// ===========================================================================
+
+// F3/F4/F5: the per-order fee breakdown. processingMinor is the actual
+// provider cost for the card-paid part (Stripe balance_transaction.fee);
+// wallet cash adds ~0.3%, credits cost 0. `sahraKeepsMinor` = what Sahra
+// nets inside the 7%.
+export function orderFeeBreakdown(input: {
+  dueMinor: number;
+  cardPaidMinor?: number;      // defaults to dueMinor (no wallet split yet)
+  walletCashMinor?: number;
+  actualCardFeeMinor?: number; // provider settlement; falls back to estimate
+}): { feeMinor: number; baseMinor: number; processingMinor: number; sahraKeepsMinor: number; creditMinor: number } {
+  const fee = feeInsidePrice(input.dueMinor);
+  const base = input.dueMinor - fee;
+  const cardPaid = input.cardPaidMinor ?? input.dueMinor - (input.walletCashMinor ?? 0);
+  const processing =
+    (input.actualCardFeeMinor ?? estimateProcessingMinor(cardPaid)) +
+    Math.round((input.walletCashMinor ?? 0) * 0.003); // F3: cash ~0.3%, credits 0
+  const credit = Math.max(0, fee - processing - Math.round(base * 0.02));
+  return {
+    feeMinor: fee,
+    baseMinor: base,
+    processingMinor: processing,
+    sahraKeepsMinor: fee - processing - credit,
+    creditMinor: credit,
+  };
+}
+
+// Idempotent fee-credit post: deterministic sk means the webhook and the
+// sweeper fallback can both call this safely.
+export async function postOrderFeeCredit(input: {
+  userId: string; orderId: string; amountMinor: number;
+}): Promise<boolean> {
+  if (input.amountMinor <= 0) return false;
+  const earnedAt = now();
+  try {
+    await docClient.send(
+      new PutCommand({
+        TableName: T(),
+        Item: {
+          pk: walletPk(input.userId),
+          sk: `CREDIT#FEE#${input.orderId}`,
+          id: `fee-${input.orderId}`,
+          userId: input.userId,
+          amountMinor: input.amountMinor,
+          remainingMinor: input.amountMinor,
+          source: 'fee_credit',
+          orderId: input.orderId,
+          earnedAt,
+          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // W4
+        },
+        ConditionExpression: 'attribute_not_exists(pk)',
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false; // already posted
+    throw e;
+  }
+}
+
+// F6: refund reverses the credit this order earned. Zeros the credit's
+// remaining balance and reports how much had already been spent (taken from
+// the refund amount by the caller).
+export async function reverseOrderFeeCredit(
+  userId: string,
+  orderId: string
+): Promise<{ reversedMinor: number; spentMinor: number } | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: walletPk(userId), sk: `CREDIT#FEE#${orderId}` } })
+  );
+  const row = res.Item as { remainingMinor?: number; amountMinor?: number } | undefined;
+  if (!row) return null;
+  const reversed = row.remainingMinor ?? 0;
+  const spent = (row.amountMinor ?? 0) - reversed;
+  if (reversed > 0) {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: walletPk(userId), sk: `CREDIT#FEE#${orderId}` },
+        UpdateExpression: 'SET remainingMinor = :z',
+        ExpressionAttributeValues: { ':z': 0 },
+      })
+    );
+  }
+  return { reversedMinor: reversed, spentMinor: spent };
+}
+
+// W5: one free standard withdrawal per calendar week (Mon 00:00 UTC used as
+// the local reset — venue tz for payouts isn't modelled yet).
+function weekKey(at = new Date()): string {
+  const d = new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate()));
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); // back to Monday
+  return `${d.getUTCFullYear()}-W${String(Math.ceil(d.getUTCDate() / 7))}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+export async function withdrawalsThisWeek(userId: string): Promise<number> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: walletPk(userId), sk: `WD#${weekKey()}` } })
+  );
+  return (res.Item?.count as number) ?? 0;
+}
+
+export async function recordWithdrawal(userId: string): Promise<void> {
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: walletPk(userId), sk: `WD#${weekKey()}` },
+      UpdateExpression: 'ADD #count :one',
+      ExpressionAttributeNames: { '#count': 'count' },
+      ExpressionAttributeValues: { ':one': 1 },
+    })
+  );
+}
+
+// G3: pending shares past their 30-minute hold get released (sweeper calls
+// this). Shares carry gsi1 'SHARES#PENDING' / <expiresAt> so the sweep
+// doesn't scan every order.
+export async function listExpiredShares(nowIso: string): Promise<OrderShare[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi1',
+      KeyConditionExpression: 'gsi1pk = :pk AND gsi1sk < :now',
+      ExpressionAttributeValues: { ':pk': 'SHARES#PENDING', ':now': nowIso },
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[]).map((i) => {
+    const { pk, sk, gsi1pk, gsi1sk, gsi2pk, gsi2sk, ...rest } = i;
+    return rest as unknown as OrderShare;
+  });
+}
+
+async function setShareStatus(orderId: string, shareId: string, to: OrderShare['status'], from: OrderShare['status'] = 'pending'): Promise<boolean> {
+  const dropIndex = to !== 'pending' ? ' REMOVE gsi1pk, gsi1sk' : '';
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: `ORDER#${orderId}`, sk: shareSk(shareId) },
+        UpdateExpression: `SET #status = :to${dropIndex}`,
+        ConditionExpression: '#status = :from',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':to': to, ':from': from },
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+}
+
+export const releaseShare = (orderId: string, shareId: string) => setShareStatus(orderId, shareId, 'released');
+export const coverShare = (orderId: string, shareId: string) => setShareStatus(orderId, shareId, 'covered');
+
+// ---- waiting-room completion (B5-B8) ----
+
+// Room mode lives on WAITING#<eventId> / CONFIG; 'queue' (B4-B6) is the
+// default, 'draw' is the B8 registration-draw fallback.
+export async function setWaitingRoomMode(eventId: string, mode: 'queue' | 'draw'): Promise<void> {
+  await docClient.send(
+    new PutCommand({ TableName: T(), Item: { pk: roomPk(eventId), sk: 'CONFIG', mode, updatedAt: now() } })
+  );
+}
+
+export async function getWaitingRoomMode(eventId: string): Promise<'queue' | 'draw'> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: roomPk(eventId), sk: 'CONFIG' } })
+  );
+  return ((res.Item?.mode as 'queue' | 'draw') ?? 'queue');
+}
+
+// B5: leaving keeps the place for 5 minutes.
+export const WAITING_REJOIN_SECONDS = 300;
+// B6: your turn holds tickets 10 minutes; B8: draw winners get 30.
+export const WAITING_HOLD_MINUTES = 10;
+export const WAITING_DRAW_MINUTES = 30;
+
+export async function leaveWaitingRoom(eventId: string, userId: string): Promise<boolean> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: roomPk(eventId), sk: `USER#${userId}` },
+        UpdateExpression: 'SET #status = :l, leftAt = :t',
+        ConditionExpression: '#status = :w OR #status = :q',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':l': 'left', ':w': 'waiting', ':q': 'queued', ':t': now() },
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+}
+
+// Rejoin: a 'left' entry inside 5 min gets its place back; an 'expired' or
+// stale-'left' entry joins at the back (highest position + 1).
+export async function rejoinWaitingRoom(eventId: string, userId: string, deviceId?: string): Promise<WaitingRoomEntry> {
+  const existing = await getWaitingEntry(eventId, userId);
+  const entries = await listWaitingRoom(eventId);
+  const maxPos = entries.reduce((m, e) => Math.max(m, e.position ?? 0), 0);
+  const at = now();
+  // B2-lite: one account+device per place — a second account on the same
+  // device doesn't get a second spot.
+  if (deviceId) {
+    const clash = entries.find((e) => e.deviceId === deviceId && e.userId !== userId && (e.status === 'waiting' || e.status === 'queued'));
+    if (clash) throw new InviteError('This device already has a place in line', 'device_in_use');
+  }
+  if (existing?.status === 'left' && existing.leftAt && Date.now() - Date.parse(existing.leftAt) < WAITING_REJOIN_SECONDS * 1000) {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: roomPk(eventId), sk: `USER#${userId}` },
+        UpdateExpression: 'SET #status = :q REMOVE leftAt',
+        ConditionExpression: '#status = :l',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':q': 'queued', ':l': 'left' },
+      })
+    );
+    return (await getWaitingEntry(eventId, userId))!;
+  }
+  const back: WaitingRoomEntry = { eventId, userId, deviceId, joinedAt: at, status: 'queued', position: maxPos + 1 };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: { pk: roomPk(eventId), sk: `USER#${userId}`, ...back },
+      ConditionExpression: 'attribute_not_exists(pk) OR #status IN (:l, :e, :n)',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: { ':l': 'left', ':e': 'expired', ':n': 'not_selected' },
+    })
+  );
+  return back;
+}
+
+// Admits the front `count` queued entries (B6): position order, lowest first.
+export async function admitWaitingRoom(eventId: string, count: number): Promise<WaitingRoomEntry[]> {
+  const entries = (await listWaitingRoom(eventId)).filter((e) => e.status === 'queued');
+  entries.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  const picked = entries.slice(0, count);
+  const holdUntil = new Date(Date.now() + WAITING_HOLD_MINUTES * 60 * 1000).toISOString();
+  for (const e of picked) {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: roomPk(eventId), sk: `USER#${e.userId}` },
+        UpdateExpression: 'SET #status = :a, admittedAt = :t, holdUntil = :h',
+        ConditionExpression: '#status = :q',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':a': 'admitted', ':q': 'queued', ':t': now(), ':h': holdUntil },
+      })
+    ).catch((err) => { if (!isConditionalCheck(err)) throw err; });
+  }
+  return picked.map((e) => ({ ...e, status: 'admitted' as const, holdUntil }));
+}
+
+// B6: an expired hold sends you to the back (position = max+1).
+export async function expireWaitingHold(eventId: string, userId: string): Promise<boolean> {
+  const entry = await getWaitingEntry(eventId, userId);
+  if (!entry || entry.status !== 'admitted') return false;
+  const ext = entry as WaitingRoomEntry & { holdUntil?: string };
+  if (!ext.holdUntil || Date.parse(ext.holdUntil) > Date.now()) return false;
+  const entries = await listWaitingRoom(eventId);
+  const maxPos = entries.reduce((m, e) => Math.max(m, e.position ?? 0), 0);
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: roomPk(eventId), sk: `USER#${userId}` },
+      UpdateExpression: 'SET #status = :q, #pos = :p, joinedAt = :t REMOVE holdUntil, admittedAt',
+      ConditionExpression: '#status = :a',
+      ExpressionAttributeNames: { '#status': 'status', '#pos': 'position' },
+      ExpressionAttributeValues: { ':q': 'queued', ':p': maxPos + 1, ':a': 'admitted', ':t': now() },
+    })
+  );
+  return true;
+}
+
+// B7: flagged accounts are removed from the line.
+export async function removeWaitingEntry(eventId: string, userId: string): Promise<boolean> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: roomPk(eventId), sk: `USER#${userId}` },
+        UpdateExpression: 'SET #status = :r',
+        ConditionExpression: '#status <> :r',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':r': 'removed' },
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+}
+
+// B8: registration draw — pick `winners` at random from everyone entered;
+// each gets 30 minutes to buy. Others are marked not_selected.
+export async function runWaitingRoomDraw(eventId: string, winners: number): Promise<WaitingRoomEntry[]> {
+  const entries = await listWaitingRoom(eventId);
+  const pool = entries.filter((e) => e.status === 'waiting' || e.status === 'queued' || e.status === 'left');
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = randomInt(0, i + 1);
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const picked = pool.slice(0, Math.max(1, winners));
+  const rest = pool.slice(picked.length);
+  const holdUntil = new Date(Date.now() + WAITING_DRAW_MINUTES * 60 * 1000).toISOString();
+  const at = now();
+  for (const e of picked) {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: roomPk(eventId), sk: `USER#${e.userId}` },
+        UpdateExpression: 'SET #status = :a, admittedAt = :t, holdUntil = :h',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':a': 'admitted', ':t': at, ':h': holdUntil },
+      })
+    );
+  }
+  for (const e of rest) {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: roomPk(eventId), sk: `USER#${e.userId}` },
+        UpdateExpression: 'SET #status = :n',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':n': 'not_selected' },
+      })
+    ).catch(() => undefined);
+  }
+  await setWaitingRoomMode(eventId, 'draw');
+  return picked.map((e) => ({ ...e, status: 'admitted' as const, holdUntil }));
 }

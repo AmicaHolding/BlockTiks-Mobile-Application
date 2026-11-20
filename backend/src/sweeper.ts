@@ -75,12 +75,13 @@ export const handler = async () => {
           await fulfillOrder(orderId, pi.id);
           // Same v3 side-effects as the webhook path (fee credit + pending).
           try {
-            const { feeCreditMinor, estimateProcessingMinor, postWalletCredit, addWalletPending } = await import('./db/v3');
-            const { getListing } = await import('./db');
+            const { orderFeeBreakdown, postOrderFeeCredit, addWalletPending } = await import('./db/v3');
+            const { getListing, setOrderFeeBreakdown } = await import('./db');
             const paid = await getOrder(orderId);
             if (paid) {
-              const credit = feeCreditMinor({ dueMinor: paid.totalCents, processingMinor: estimateProcessingMinor(paid.totalCents) });
-              if (credit > 0) await postWalletCredit({ userId: paid.userId, amountMinor: credit, source: 'fee_credit', orderId: paid.id }).catch(() => undefined);
+              const breakdown = orderFeeBreakdown({ dueMinor: paid.totalCents });
+              await setOrderFeeBreakdown(paid.id, breakdown).catch(() => undefined);
+              if (breakdown.creditMinor > 0) await postOrderFeeCredit({ userId: paid.userId, orderId: paid.id, amountMinor: breakdown.creditMinor }).catch(() => undefined);
               if (paid.kind === 'RESALE' && paid.listingCode) {
                 const listing = await getListing(paid.listingCode);
                 if (listing) await addWalletPending({ userId: listing.sellerId, orderId: paid.id, eventId: paid.eventId, amountMinor: paid.faceSubtotalCents ?? paid.subtotalCents }).catch(() => undefined);
@@ -139,6 +140,18 @@ export const handler = async () => {
     console.error('sweeper: invite reminders failed', err);
   }
 
+  // G3: group-pay shares past their 30-min hold get released; the seat goes
+  // back and nobody is charged.
+  let sharesReleased = 0;
+  try {
+    const { listExpiredShares, releaseShare } = await import('./db/v3');
+    for (const share of await listExpiredShares(nowIso)) {
+      if (await releaseShare(share.orderId, share.shareId)) sharesReleased++;
+    }
+  } catch (err) {
+    console.error('sweeper: share expiry failed', err);
+  }
+
   // W2: resale pending → cash once the event has happened.
   try {
     const { releasePendingForEndedEvents } = await import('./db/v3');
@@ -150,6 +163,6 @@ export const handler = async () => {
     console.error('sweeper: wallet pending release failed', err);
   }
 
-  console.log('sweeper:', JSON.stringify(stats));
+  console.log('sweeper:', JSON.stringify({ ...stats, sharesReleased }));
   return stats;
 };
