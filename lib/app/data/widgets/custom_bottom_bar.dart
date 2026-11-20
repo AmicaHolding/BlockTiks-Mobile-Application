@@ -1,10 +1,11 @@
 import 'package:block_tix/app/modules/user_dashboard/controllers/user_dashboard_controller.dart';
+import 'package:block_tix/app/services/api_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../core/app_export.dart';
 import 'sahra_nav_icon.dart';
 
-/// Sahra fan tab bar matching the prototype: For You · Search · Tickets ·
+/// Sahra fan tab bar matching the prototype: For You · Search · Plans ·
 /// Profile — 22px stroke icons, 11px labels, gold active / muted inactive
 /// on the deep-night bar.
 class CustomBottomBar extends StatelessWidget {
@@ -23,7 +24,7 @@ class CustomBottomBar extends StatelessWidget {
   static const _tabs = [
     ('home', 'For You'),
     ('search', 'Search'),
-    ('tickets', 'Tickets'),
+    ('tickets', 'Plans'),
     ('profile', 'Profile'),
   ];
 
@@ -51,6 +52,20 @@ class CustomBottomBar extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
+        // A8: signed-out users can browse For You + Search; Plans and
+        // Profile are gated actions that trigger sign-in.
+        if (index >= 2) {
+          ApiService.isLoggedIn().then((loggedIn) {
+            if (!loggedIn) {
+              Get.toNamed(Routes.SIGN_IN, arguments: {'comingFrom': 'tab'});
+              return;
+            }
+            controller.selectedIndex.value = index;
+            controller.changePage(index);
+            onChanged?.call();
+          });
+          return;
+        }
         controller.selectedIndex.value = index;
         controller.changePage(index);
         onChanged?.call();

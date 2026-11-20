@@ -32,11 +32,11 @@ class PersonalizeController extends GetxController {
     'Art',
   ];
 
-  /// Spec 24: the flow captures a city and exactly three interests.
+  /// Spec 24: the flow captures a city and at least one interest.
   /// (Skip bypasses the gate entirely.)
   bool get canContinue =>
       selectedCity.value.isNotEmpty &&
-      selectedInterests.length == 3 &&
+      selectedInterests.isNotEmpty &&
       !isSaving.value;
 
   @override
@@ -87,7 +87,7 @@ class PersonalizeController extends GetxController {
         if (selectedInterests.isNotEmpty) {
           fields['interests'] = selectedInterests.toList();
         }
-        if (fields.isNotEmpty) await ApiService.updateProfile(fields);
+        if (fields.isNotEmpty) await ApiService.updateMe(fields);
       }
     } catch (_) {
       // Personalization is optional; don't block entry if the profile patch fails.

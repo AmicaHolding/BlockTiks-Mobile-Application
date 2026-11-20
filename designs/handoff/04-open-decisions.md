@@ -70,9 +70,23 @@ Default: **DOB on the account + confirmation at checkout + an "ID required" badg
 Options: no hold (check at pay), or hold inventory for N minutes.
 Default: **10-minute hold with a visible countdown; seats are shown as "held" to others.** · Owner: Product + Eng
 
-### 17 · Phone vs email identity
-Options: email only, or phone OTP as the primary login (the norm in the Gulf).
-Default: **email now; add phone OTP as an alternative login when the backend supports it; transfers to phone numbers are allowed from day one.** · Owner: Product + Eng
+### 17 · Phone vs email identity · **DECIDED in v2**
+Phone or email + one-time code is the only login (plus Sign in with Apple). No passwords. Remaining sub-question: SMS vs WhatsApp delivery for codes in each country. · Owner: Eng
+
+### 19 · Paid personal invites
+Can a person (no organisation) charge for an invite, e.g. a supper club?
+Options: never; allow with a low cap (e.g. ≤ 30 guests, ≤ AED 200); or only via "Sell tickets instead".
+Default: **never. Charging always goes through an organisation (rule I7).** Public ticketed events need permits in the UAE and KSA. · Owner: Legal (per country)
+
+### 20 · Invite abuse and spam
+Invites need no verification, so they can be used for spam or disguised paid events.
+Options: rate limits on invites and messages, report button, SMS caps, auto-review for invites with many guests.
+Default: **max 5 new invites per day, 3 messages per invite per day, SMS only to people who replied, report button on every invite page, review queue above 150 guests.** · Owner: Trust & Safety
+
+### 21 · Very large private events
+A 300-person wedding is still invite-only. Do invites need door tools (scanner, gate staff) at that size?
+Options: invites stay simple (manual check-in only); or unlock QR passes and gate staff above N guests.
+Default: **manual check-in only for now; revisit after usage data.** · Owner: Product
 
 ### 18 · Offline scanning tolerance
 Options: allow unlimited offline scanning, or require a sync every N minutes.

@@ -35,7 +35,7 @@ import {
     UpdateCommand,
     type TransactWriteCommandInput
 } from '@aws-sdk/lib-dynamodb';
-import { createHash, randomInt, randomUUID } from 'crypto';
+import { createHash, createHmac, randomBytes, randomInt, randomUUID } from 'crypto';
 import { docClient } from './aws';
 import { env } from './env';
 
@@ -45,6 +45,8 @@ const now = () => new Date().toISOString();
 // ---------- key helpers ----------
 const userPk = (id: string) => `USER#${id}`;
 const emailPk = (email: string) => `USER#EMAIL#${email.toLowerCase()}`;
+const phonePk = (phone: string) => `USER#PHONE#${phone}`;
+const applePk = (sub: string) => `USER#APPLE#${sub}`;
 const eventPk = (id: string) => `EVENT#${id}`;
 const orderPk = (id: string) => `ORDER#${id}`;
 const ticketPk = (code: string) => `TICKET#${code}`;
@@ -80,13 +82,23 @@ const idempotencyPk = (userId: string, key: string) =>
   `IDEMP#${userId}#${key.slice(0, 128)}`;
 
 // ---------- types ----------
+// v2 identity (no passwords): email and phone are both nullable but at least
+// one is set; each is unique (lookup rows USER#EMAIL# / USER#PHONE#) and
+// verified by OTP. `name` is the only field required at creation (A2);
+// firstName/lastName are kept, derived from `name`, for v1 readers.
 export interface User {
   id: string;
-  email: string;
-  passwordHash: string;
+  email?: string;
+  phone?: string;
+  emailVerifiedAt?: string;
+  phoneVerifiedAt?: string;
+  appleSub?: string;
+  name?: string;
+  intent?: ('going_out' | 'hosting_friends' | 'running_events')[];
+  locale?: 'en' | 'ar';
+  numerals?: 'latn' | 'arab';
   firstName: string;
   lastName: string;
-  phone?: string;
   avatarUrl?: string;
   role: 'FAN' | 'CREATOR' | 'ADMIN';
   stripeCustomerId?: string;
@@ -340,48 +352,62 @@ function generateReferralCode(firstName: string, lastName: string, id: string): 
   return `${base || 'SAHRA'}${id.replace(/-/g, '').slice(0, 4).toUpperCase()}`;
 }
 
+export function splitName(name: string): { firstName: string; lastName: string } {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return { firstName: parts[0] ?? '', lastName: parts.slice(1).join(' ') };
+}
+
+// Creates an account for a verified contact (OTP verify / Apple). Lookup rows
+// for each contact are conditional puts, so a duplicate contact fails the
+// whole transaction with ContactExistsError.
 export async function createUser(input: {
-  email: string;
-  passwordHash: string;
-  firstName: string;
-  lastName: string;
+  email?: string;
   phone?: string;
-  role: 'FAN' | 'CREATOR';
+  name?: string;
+  appleSub?: string;
+  emailVerifiedAt?: string;
+  phoneVerifiedAt?: string;
+  role?: 'FAN' | 'CREATOR';
   referredByCode?: string;
 }): Promise<User> {
+  if (!input.email && !input.phone) throw new Error('createUser: email or phone is required');
   const id = randomUUID();
   const createdAt = now();
-  const referralCode = generateReferralCode(input.firstName, input.lastName, id);
+  const name = input.name?.trim() || undefined;
+  const { firstName, lastName } = splitName(name ?? '');
+  const referralCode = generateReferralCode(firstName, lastName, id);
   const user: User = {
     id,
-    email: input.email.toLowerCase(),
-    passwordHash: input.passwordHash,
-    firstName: input.firstName,
-    lastName: input.lastName,
+    email: input.email?.toLowerCase(),
     phone: input.phone,
-    role: input.role,
+    emailVerifiedAt: input.emailVerifiedAt,
+    phoneVerifiedAt: input.phoneVerifiedAt,
+    emailVerified: Boolean(input.emailVerifiedAt),
+    appleSub: input.appleSub,
+    name,
+    firstName,
+    lastName,
+    role: input.role ?? 'FAN',
     referralCode,
     referredByCode: input.referredByCode,
     referralCount: 0,
     createdAt,
   };
+  const lookup = (pk: string) => ({
+    Put: {
+      TableName: T(),
+      Item: { pk, sk: 'ID', userId: id, createdAt },
+      ConditionExpression: 'attribute_not_exists(pk)',
+    },
+  });
   try {
     await docClient.send(
       new TransactWriteCommand({
         TransactItems: [
-          {
-            Put: {
-              TableName: T(),
-              Item: { pk: emailPk(user.email), sk: 'ID', userId: id, createdAt },
-              ConditionExpression: 'attribute_not_exists(pk)',
-            },
-          },
-          {
-            Put: {
-              TableName: T(),
-              Item: { pk: userPk(id), sk: 'PROFILE', ...user },
-            },
-          },
+          ...(user.email ? [lookup(emailPk(user.email))] : []),
+          ...(user.phone ? [lookup(phonePk(user.phone))] : []),
+          ...(user.appleSub ? [lookup(applePk(user.appleSub))] : []),
+          { Put: { TableName: T(), Item: { pk: userPk(id), sk: 'PROFILE', ...user } } },
         ],
       })
     );
@@ -399,12 +425,100 @@ export async function getUserById(id: string): Promise<User | null> {
   return (res.Item as User | undefined) ?? null;
 }
 
-export async function getUserByEmail(email: string): Promise<User | null> {
-  const res = await docClient.send(
-    new GetCommand({ TableName: T(), Key: { pk: emailPk(email), sk: 'ID' } })
-  );
+async function getUserByLookup(pk: string): Promise<User | null> {
+  const res = await docClient.send(new GetCommand({ TableName: T(), Key: { pk, sk: 'ID' } }));
   const userId = res.Item?.userId as string | undefined;
   return userId ? getUserById(userId) : null;
+}
+
+export const getUserByEmail = (email: string) => getUserByLookup(emailPk(email));
+export const getUserByPhone = (phone: string) => getUserByLookup(phonePk(phone));
+export const getUserByAppleSub = (sub: string) => getUserByLookup(applePk(sub));
+
+export function getUserByContact(contact: { kind: 'email' | 'phone'; value: string }): Promise<User | null> {
+  return contact.kind === 'email' ? getUserByEmail(contact.value) : getUserByPhone(contact.value);
+}
+
+// A7: swap the user's email or phone to a freshly verified contact. The new
+// lookup row is conditional (contact_taken), the old one is deleted.
+export async function updateUserContact(
+  id: string,
+  contact: { kind: 'email' | 'phone'; value: string }
+): Promise<User | null> {
+  const user = await getUserById(id);
+  if (!user) return null;
+  const verifiedAt = now();
+  const old = contact.kind === 'email' ? user.email : user.phone;
+  const newPk = contact.kind === 'email' ? emailPk(contact.value) : phonePk(contact.value);
+  const oldPk = old ? (contact.kind === 'email' ? emailPk(old) : phonePk(old)) : null;
+  if (oldPk === newPk) return user;
+  const field = contact.kind === 'email' ? 'email' : 'phone';
+  const verifiedField = contact.kind === 'email' ? 'emailVerifiedAt' : 'phoneVerifiedAt';
+  try {
+    await docClient.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Put: {
+              TableName: T(),
+              Item: { pk: newPk, sk: 'ID', userId: id, createdAt: verifiedAt },
+              ConditionExpression: 'attribute_not_exists(pk)',
+            },
+          },
+          ...(oldPk ? [{ Delete: { TableName: T(), Key: { pk: oldPk, sk: 'ID' } } }] : []),
+          {
+            Update: {
+              TableName: T(),
+              Key: { pk: userPk(id), sk: 'PROFILE' },
+              UpdateExpression: `SET #f = :v, #vf = :at${contact.kind === 'email' ? ', emailVerified = :t' : ''}`,
+              ExpressionAttributeNames: { '#f': field, '#vf': verifiedField },
+              ExpressionAttributeValues: {
+                ':v': contact.value,
+                ':at': verifiedAt,
+                ':oldv': old ?? null,
+                ...(contact.kind === 'email' ? { ':t': true } : {}),
+              },
+              // A7: fails when a concurrent change already moved the contact,
+              // so a stale writer can't leave a hidden login behind.
+              // attribute_not_exists covers adding a first email/phone.
+              ConditionExpression:
+                'attribute_exists(pk) AND (#f = :oldv OR attribute_not_exists(#f))',
+            },
+          },
+        ],
+      })
+    );
+  } catch (e) {
+    if (isConditionalCheck(e)) throw new EmailExistsError();
+    throw e;
+  }
+  return getUserById(id);
+}
+
+// Links a Sign in with Apple subject to an existing account.
+export async function linkAppleSub(id: string, sub: string): Promise<void> {
+  await docClient.send(
+    new TransactWriteCommand({
+      TransactItems: [
+        {
+          Put: {
+            TableName: T(),
+            Item: { pk: applePk(sub), sk: 'ID', userId: id, createdAt: now() },
+            ConditionExpression: 'attribute_not_exists(pk)',
+          },
+        },
+        {
+          Update: {
+            TableName: T(),
+            Key: { pk: userPk(id), sk: 'PROFILE' },
+            UpdateExpression: 'SET appleSub = :s',
+            ExpressionAttributeValues: { ':s': sub },
+            ConditionExpression: 'attribute_exists(pk)',
+          },
+        },
+      ],
+    })
+  );
 }
 
 export async function updateUser(
@@ -414,7 +528,12 @@ export async function updateUser(
       User,
       | 'firstName'
       | 'lastName'
-      | 'phone'
+      | 'name'
+      | 'intent'
+      | 'locale'
+      | 'numerals'
+      | 'emailVerifiedAt'
+      | 'phoneVerifiedAt'
       | 'avatarUrl'
       | 'firstNameAr'
       | 'city'
@@ -450,18 +569,6 @@ export async function updateUser(
     })
   );
   return getUserById(id);
-}
-
-export async function updateUserPassword(id: string, passwordHash: string): Promise<void> {
-  await docClient.send(
-    new UpdateCommand({
-      TableName: T(),
-      Key: { pk: userPk(id), sk: 'PROFILE' },
-      UpdateExpression: 'SET passwordHash = :h',
-      ExpressionAttributeValues: { ':h': passwordHash },
-      ConditionExpression: 'attribute_exists(pk)',
-    })
-  );
 }
 
 // ---------- events & tiers ----------
@@ -2668,52 +2775,6 @@ async function fulfillSeatedOrder(
 
 // ---------- account lifecycle ----------
 
-const resetPk = (email: string) => `RESET#${email.toLowerCase()}`;
-
-function resetCodeHash(code: string): string {
-  return createHash('sha256').update(code).digest('hex');
-}
-
-export async function createPasswordReset(email: string): Promise<{ code: string; expiresAt: string }> {
-  const code = String(randomInt(100000, 1000000));
-  const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
-  await docClient.send(
-    new PutCommand({
-      TableName: T(),
-      Item: {
-        pk: resetPk(email),
-        sk: 'CODE',
-        codeHash: resetCodeHash(code),
-        expiresAt,
-        createdAt: now(),
-      },
-    })
-  );
-  return { code, expiresAt };
-}
-
-async function passwordResetMatches(email: string, code: string): Promise<boolean> {
-  const res = await docClient.send(
-    new GetCommand({ TableName: T(), Key: { pk: resetPk(email), sk: 'CODE' } })
-  );
-  const item = res.Item as { codeHash?: string; expiresAt?: string } | undefined;
-  return Boolean(
-    item?.codeHash === resetCodeHash(code) && item.expiresAt && new Date(item.expiresAt) > new Date()
-  );
-}
-
-export async function verifyPasswordReset(email: string, code: string): Promise<boolean> {
-  return passwordResetMatches(email, code);
-}
-
-export async function consumePasswordReset(email: string, code: string): Promise<boolean> {
-  if (!(await passwordResetMatches(email, code))) return false;
-  await docClient.send(
-    new DeleteCommand({ TableName: T(), Key: { pk: resetPk(email), sk: 'CODE' } })
-  );
-  return true;
-}
-
 export type DeletionBlock =
   | 'has_tickets'
   | 'has_listings'
@@ -2721,9 +2782,18 @@ export type DeletionBlock =
   | 'has_balance'
   | 'sole_admin';
 
-// Orgs/Membership land in package G; until then no user can be sole admin.
-async function listSoleAdminOrgIds(_userId: string): Promise<string[]> {
-  return [];
+// A6/T3: orgs where this user is the only active admin.
+async function listSoleAdminOrgIds(userId: string): Promise<string[]> {
+  const memberships = await listUserMemberships(userId);
+  const out: string[] = [];
+  for (const { membership, org } of memberships) {
+    if (membership.role !== 'admin') continue;
+    const admins = (await listOrgMembers(org.id)).filter(
+      (m) => m.role === 'admin' && m.status === 'active'
+    );
+    if (admins.length <= 1) out.push(org.id);
+  }
+  return out;
 }
 
 // A6: account deletion is blocked while the user has upcoming tickets,
@@ -2767,26 +2837,27 @@ export async function deleteUser(id: string): Promise<boolean> {
   const user = await getUserById(id);
   if (!user || user.deletedAt) return false;
   const deletedAt = now();
+  const lookups = [
+    user.email ? emailPk(user.email) : null,
+    user.phone ? phonePk(user.phone) : null,
+    user.appleSub ? applePk(user.appleSub) : null,
+  ].filter((pk): pk is string => Boolean(pk));
   await docClient.send(
     new TransactWriteCommand({
       TransactItems: [
-        {
-          Delete: {
-            TableName: T(),
-            Key: { pk: emailPk(user.email), sk: 'ID' },
-          },
-        },
+        ...lookups.map((pk) => ({ Delete: { TableName: T(), Key: { pk, sk: 'ID' } } })),
         {
           Update: {
             TableName: T(),
             Key: { pk: userPk(id), sk: 'PROFILE' },
             UpdateExpression:
-              'SET deletedAt = :deletedAt, firstName = :firstName, lastName = :lastName, passwordHash = :passwordHash REMOVE phone, avatarUrl, firstNameAr, city, interests, dateOfBirth, notificationPrefs, stripeCustomerId',
+              'SET deletedAt = :deletedAt, firstName = :firstName, lastName = :lastName, #name = :name REMOVE email, phone, appleSub, avatarUrl, firstNameAr, city, interests, dateOfBirth, notificationPrefs, stripeCustomerId, intent',
+            ExpressionAttributeNames: { '#name': 'name' },
             ExpressionAttributeValues: {
               ':deletedAt': deletedAt,
               ':firstName': 'Deleted',
               ':lastName': 'User',
-              ':passwordHash': '!deleted',
+              ':name': 'Deleted User',
             },
             ConditionExpression: 'attribute_exists(pk)',
           },
@@ -2812,6 +2883,7 @@ export async function deleteUser(id: string): Promise<boolean> {
     }
   }
   await revokeAllRefreshTokens(id).catch(() => undefined);
+  await revokeUserSessions(id).catch(() => undefined);
   return true;
 }
 
@@ -2995,14 +3067,13 @@ function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
-// Issues a new refresh token for the user. Only one active refresh token per
-// user: issuing a new one revokes the previous (rotation on every refresh).
-export async function issueRefreshToken(userId: string): Promise<string> {
+// Issues a refresh token bound to a Session. Rotation revokes the previous
+// token of the same session only, so each device stays signed in on its own.
+export async function issueRefreshToken(userId: string, sessionId?: string): Promise<string> {
   const token = randomUUID() + randomUUID();
   const tokenHash = hashToken(token);
   const createdAt = now();
-  // Revoke any existing refresh tokens for this user first.
-  await revokeAllRefreshTokens(userId);
+  await revokeSessionRefreshTokens(userId, sessionId);
   await docClient.send(
     new PutCommand({
       TableName: T(),
@@ -3010,6 +3081,7 @@ export async function issueRefreshToken(userId: string): Promise<string> {
         pk: refreshPk(tokenHash),
         sk: 'TOKEN',
         userId,
+        sessionId,
         createdAt,
         gsi2pk: `USER#${userId}#REFRESH`,
         gsi2sk: createdSk(createdAt, tokenHash.slice(0, 12)),
@@ -3017,6 +3089,31 @@ export async function issueRefreshToken(userId: string): Promise<string> {
     })
   );
   return token;
+}
+
+// Deletes refresh tokens for one session (or the session-less legacy ones
+// when sessionId is undefined).
+export async function revokeSessionRefreshTokens(userId: string, sessionId?: string): Promise<void> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk',
+      ExpressionAttributeValues: { ':pk': `USER#${userId}#REFRESH` },
+    })
+  );
+  for (const item of res.Items ?? []) {
+    if ((item.sessionId as string | undefined) !== sessionId) continue;
+    await docClient.send(new DeleteCommand({ TableName: T(), Key: { pk: item.pk as string, sk: 'TOKEN' } }));
+  }
+}
+
+export async function getRefreshToken(token: string): Promise<{ userId: string; sessionId?: string } | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: refreshPk(hashToken(token)), sk: 'TOKEN' } })
+  );
+  if (!res.Item) return null;
+  return { userId: res.Item.userId as string, sessionId: res.Item.sessionId as string | undefined };
 }
 
 export async function getRefreshTokenUserId(token: string): Promise<string | null> {
@@ -4668,6 +4765,7 @@ export async function acceptMembership(membershipId: string, userId: string): Pr
   const user = await getUserById(userId);
   if (!user) throw new OrgError('User not found', 'not_found');
   // Locate the invite via the email index.
+  if (!user.email) throw new OrgError('Invite not found', 'not_found');
   const invites = await listInvitesForEmail(user.email);
   const invite = invites.find((m) => m.id === membershipId);
   if (!invite) throw new OrgError('Invite not found', 'not_found');
@@ -5089,7 +5187,7 @@ export async function updateEventFields(
       | 'title'
       | 'description'
       | 'category'
-      | 'startsAt'
+  | 'startsAt'
       | 'endsAt'
       | 'doorsAt'
       | 'onSaleAt'
@@ -5999,4 +6097,1020 @@ export function decodeCursor(cursor: string | undefined): Record<string, unknown
   } catch {
     return undefined;
   }
+}
+
+// =====================================================================
+// v2: sessions, OTP challenges, notifications, personal invites
+// =====================================================================
+
+// ---------- sessions (A7, "Sign-in methods") ----------
+//   SESSION#<id> / METADATA   gsi2 USER#<uid>#SESSIONS
+// Access tokens carry `sid`; the auth guard rejects revoked sessions.
+
+const sessionPk = (id: string) => `SESSION#${id}`;
+
+export interface Session {
+  id: string;
+  userId: string;
+  device?: string;
+  ip?: string;
+  method: 'otp' | 'apple' | 'legacy';
+  createdAt: string;
+  lastSeenAt: string;
+  revokedAt?: string;
+}
+
+function stripItem<X>(item: Record<string, unknown>): X {
+  const { pk, sk, gsi1pk, gsi1sk, gsi2pk, gsi2sk, ...rest } = item;
+  return rest as X;
+}
+
+export async function createSession(input: {
+  userId: string;
+  device?: string;
+  ip?: string;
+  method: Session['method'];
+}): Promise<Session> {
+  const createdAt = now();
+  const session: Session = {
+    id: randomUUID(),
+    userId: input.userId,
+    device: input.device?.slice(0, 200),
+    ip: input.ip,
+    method: input.method,
+    createdAt,
+    lastSeenAt: createdAt,
+  };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: sessionPk(session.id),
+        sk: 'METADATA',
+        ...session,
+        gsi2pk: `USER#${input.userId}#SESSIONS`,
+        gsi2sk: createdSk(createdAt, session.id),
+      },
+    })
+  );
+  return session;
+}
+
+export async function getSession(id: string): Promise<Session | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: sessionPk(id), sk: 'METADATA' } })
+  );
+  return res.Item ? stripItem<Session>(res.Item) : null;
+}
+
+export async function touchSession(id: string): Promise<void> {
+  await docClient
+    .send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: sessionPk(id), sk: 'METADATA' },
+        UpdateExpression: 'SET lastSeenAt = :at',
+        ConditionExpression: 'attribute_exists(pk) AND attribute_not_exists(revokedAt)',
+        ExpressionAttributeValues: { ':at': now() },
+      })
+    )
+    .catch(() => undefined);
+}
+
+export async function listUserSessions(userId: string): Promise<Session[]> {
+  // Paginate: revoking must reach every session, not just the newest 100.
+  const sessions: Session[] = [];
+  let lastKey: Record<string, unknown> | undefined;
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: T(),
+        IndexName: 'gsi2',
+        KeyConditionExpression: 'gsi2pk = :pk',
+        ExpressionAttributeValues: { ':pk': `USER#${userId}#SESSIONS` },
+        ScanIndexForward: false,
+        Limit: 100,
+        ExclusiveStartKey: lastKey,
+      })
+    );
+    for (const item of res.Items ?? []) {
+      const s = stripItem<Session>(item);
+      if (!s.revokedAt) sessions.push(s);
+    }
+    lastKey = res.LastEvaluatedKey;
+  } while (lastKey);
+  return sessions;
+}
+
+export async function revokeSession(userId: string, id: string): Promise<boolean> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: sessionPk(id), sk: 'METADATA' },
+        UpdateExpression: 'SET revokedAt = :at',
+        ConditionExpression: 'userId = :uid AND attribute_not_exists(revokedAt)',
+        ExpressionAttributeValues: { ':at': now(), ':uid': userId },
+      })
+    );
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+  await revokeSessionRefreshTokens(userId, id);
+  return true;
+}
+
+// A7: revoke every session except `keepId` (contact change / sign out others).
+export async function revokeUserSessions(userId: string, keepId?: string): Promise<number> {
+  const sessions = await listUserSessions(userId);
+  let n = 0;
+  for (const s of sessions) {
+    if (s.id === keepId) continue;
+    if (await revokeSession(userId, s.id)) n++;
+  }
+  // Session-less (pre-v2) refresh tokens go too.
+  await revokeSessionRefreshTokens(userId, undefined);
+  return n;
+}
+
+// ---------- OTP challenges (A1) ----------
+//   OTP#<id> / METADATA   gsi1 OTPEXP/<expiresAt> (cleanup cron)
+//                         gsi2 OTPCONTACT#<contact>/<createdAt> (send rate limit)
+
+const otpPk = (id: string) => `OTP#${id}`;
+
+export interface OtpChallenge {
+  id: string;
+  contact: string;
+  contactKind: 'email' | 'phone';
+  channel: 'sms' | 'whatsapp' | 'email';
+  codeHash: string;
+  attempts: number;
+  expiresAt: string;
+  consumedAt?: string;
+  ip?: string;
+  deviceId?: string;
+  // 'signin' (sign in = sign up) or 'change_contact' (A7, bound to userId).
+  purpose: 'signin' | 'change_contact';
+  userId?: string;
+  createdAt: string;
+}
+
+export function otpCodeHash(challengeId: string, code: string): string {
+  return createHmac('sha256', env.jwtSecret).update(`${challengeId}:${code}`).digest('hex');
+}
+
+export async function countRecentOtpSends(contact: string, sinceIso: string): Promise<number> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk AND gsi2sk >= :since',
+      ExpressionAttributeValues: { ':pk': `OTPCONTACT#${contact}`, ':since': sinceIso },
+      Select: 'COUNT',
+    })
+  );
+  return res.Count ?? 0;
+}
+
+export async function oldestRecentOtpSend(contact: string, sinceIso: string): Promise<string | null> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk AND gsi2sk >= :since',
+      ExpressionAttributeValues: { ':pk': `OTPCONTACT#${contact}`, ':since': sinceIso },
+      Limit: 1,
+    })
+  );
+  return (res.Items?.[0]?.createdAt as string | undefined) ?? null;
+}
+
+export async function createOtpChallenge(input: {
+  contact: { kind: 'email' | 'phone'; value: string };
+  channel: OtpChallenge['channel'];
+  purpose: OtpChallenge['purpose'];
+  userId?: string;
+  ip?: string;
+  deviceId?: string;
+}): Promise<{ challenge: OtpChallenge; code: string }> {
+  const id = randomUUID();
+  const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+  const createdAt = now();
+  const challenge: OtpChallenge = {
+    id,
+    contact: input.contact.value,
+    contactKind: input.contact.kind,
+    channel: input.channel,
+    codeHash: otpCodeHash(id, code),
+    attempts: 0,
+    expiresAt: new Date(Date.now() + env.otpTtlMinutes * 60_000).toISOString(),
+    ip: input.ip,
+    deviceId: input.deviceId,
+    purpose: input.purpose,
+    userId: input.userId,
+    createdAt,
+  };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: otpPk(id),
+        sk: 'METADATA',
+        ...challenge,
+        gsi1pk: 'OTPEXP',
+        gsi1sk: challenge.expiresAt,
+        gsi2pk: `OTPCONTACT#${challenge.contact}`,
+        gsi2sk: createdAt,
+      },
+    })
+  );
+  return { challenge, code };
+}
+
+export async function getOtpChallenge(id: string): Promise<OtpChallenge | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: otpPk(id), sk: 'METADATA' } })
+  );
+  return res.Item ? stripItem<OtpChallenge>(res.Item) : null;
+}
+
+// Wrong code: count the attempt. Returns attempts used after this one.
+export async function recordOtpFailure(id: string): Promise<number> {
+  try {
+    const res = await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: otpPk(id), sk: 'METADATA' },
+        UpdateExpression: 'ADD attempts :one',
+        ConditionExpression: 'attempts < :max AND attribute_not_exists(consumedAt)',
+        ExpressionAttributeValues: { ':one': 1, ':max': env.otpMaxAttempts },
+        ReturnValues: 'ALL_NEW',
+      })
+    );
+    return (res.Attributes?.attempts as number | undefined) ?? env.otpMaxAttempts;
+  } catch (e) {
+    if (isConditionalCheck(e)) return env.otpMaxAttempts;
+    throw e;
+  }
+}
+
+// Correct code: single-use consume (a replay or a burned code fails).
+export async function consumeOtpChallenge(id: string): Promise<boolean> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: otpPk(id), sk: 'METADATA' },
+        UpdateExpression: 'SET consumedAt = :at',
+        ConditionExpression: 'attribute_exists(pk) AND attribute_not_exists(consumedAt) AND attempts < :max',
+        ExpressionAttributeValues: { ':at': now(), ':max': env.otpMaxAttempts },
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+}
+
+// otp.cleanup cron: delete challenges that expired before `beforeIso`. The
+// caller keeps an hour of history so the per-contact send limit still sees it.
+export async function cleanupOtpChallenges(beforeIso: string): Promise<number> {
+  let deleted = 0;
+  for (let page = 0; page < 20; page++) {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: T(),
+        IndexName: 'gsi1',
+        KeyConditionExpression: 'gsi1pk = :pk AND gsi1sk < :before',
+        ExpressionAttributeValues: { ':pk': 'OTPEXP', ':before': beforeIso },
+        Limit: 100,
+      })
+    );
+    const items = res.Items ?? [];
+    for (const item of items) {
+      await docClient.send(new DeleteCommand({ TableName: T(), Key: { pk: item.pk as string, sk: 'METADATA' } }));
+      deleted++;
+    }
+    if (!res.LastEvaluatedKey || items.length === 0) break;
+  }
+  return deleted;
+}
+
+// ---------- notifications (stored inbox items) ----------
+//   NOTIF#<userId> / <createdAt>#<id>
+
+export interface StoredNotification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  body: string;
+  link?: string;
+  readAt?: string;
+  createdAt: string;
+}
+
+export async function createNotification(
+  userId: string,
+  input: { type: string; title: string; body: string; link?: string }
+): Promise<StoredNotification> {
+  const createdAt = now();
+  const n: StoredNotification = { id: randomUUID(), userId, ...input, createdAt };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: { pk: `NOTIF#${userId}`, sk: `${createdAt}#${n.id}`, ...n },
+    })
+  );
+  return n;
+}
+
+export async function listUserNotifications(userId: string, limit = 50): Promise<StoredNotification[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk',
+      ExpressionAttributeValues: { ':pk': `NOTIF#${userId}` },
+      ScanIndexForward: false,
+      Limit: limit,
+    })
+  );
+  return (res.Items ?? []).map((item) => stripItem<StoredNotification>(item));
+}
+
+// ---------- daily rate counters (decision-20) ----------
+//   RATE#<scope> / DAY#<yyyy-mm-dd>   n
+
+export async function bumpDailyCounter(scope: string, limit: number): Promise<boolean> {
+  const day = new Date().toISOString().slice(0, 10);
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: `RATE#${scope}`, sk: `DAY#${day}` },
+        UpdateExpression: 'ADD n :one',
+        ConditionExpression: 'attribute_not_exists(n) OR n < :limit',
+        ExpressionAttributeValues: { ':one': 1, ':limit': limit },
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+}
+
+// ---------- personal invites (I1–I10) ----------
+//   INVITE#<id>      / METADATA            invite (gsi2 USER#<host>#INVITES;
+//                                          gsi1 INVITES#ACTIVE/<startsAt> while active)
+//   INVITECODE#<code>/ ID                  code -> inviteId
+//   INVITE#<id>      / RSVP#<userId>       InviteRsvp (gsi2 USER#<uid>#RSVPS)
+//   INVITE#<id>      / UPDATE#<at>#<id>    InviteUpdate
+//   INVITE#<id>      / REPORT#<userId>     abuse report (gsi1 INVITES#REPORTED)
+//
+// "Waiting on you": the spec has no delivered-invite record, so a signed-in
+// viewer with no reply gets an InviteRsvp with status 'seen'. 'seen' rows
+// never count as replies (not in counts, guests, faces or notifications);
+// they feed /me/plans.waiting_on_you and /feed.invites_pending.
+
+const invitePk = (id: string) => `INVITE#${id}`;
+const inviteCodePk = (code: string) => `INVITECODE#${code}`;
+const INVITES_ACTIVE_GSI_PK = 'INVITES#ACTIVE';
+
+export type InviteRsvpStatus = 'going' | 'maybe' | 'no' | 'requested' | 'declined' | 'seen';
+
+export interface Invite {
+  id: string;
+  hostUserId: string;
+  code: string;
+  title: string;
+  startsAt?: string;
+  tz?: string;
+  placeText: string;
+  area?: string;
+  cover?: { tone?: string; image_url?: string };
+  note?: string;
+  approveGuests: boolean;
+  allowPlusOnes: boolean;
+  guestCap?: number | null;
+  showGuestList: boolean;
+  hideAddressUntilGoing: boolean;
+  status: 'active' | 'cancelled' | 'moved';
+  movedToEventId?: string;
+  movedToOrgId?: string;
+  // Going guests + their plus-ones (I4 cap counter, updated transactionally).
+  goingSeats: number;
+  reminderSentAt?: string;
+  reviewFlaggedAt?: string;
+  cancelledAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InviteRsvp {
+  inviteId: string;
+  userId: string;
+  status: InviteRsvpStatus;
+  plusOnes: number;
+  checkedInAt?: string;
+  decidedBy?: string;
+  decidedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InviteUpdate {
+  id: string;
+  inviteId: string;
+  body: string;
+  sentAt: string;
+  recipientCount: number;
+  channels: string[];
+}
+
+export class InviteError extends Error {
+  code: string;
+  status: number;
+  constructor(message: string, code: string, status = 409) {
+    super(message);
+    this.code = code;
+    this.status = status;
+  }
+}
+
+export const rsvpSeats = (r: Pick<InviteRsvp, 'status' | 'plusOnes'> | null | undefined) =>
+  r && r.status === 'going' ? 1 + (r.plusOnes ?? 0) : 0;
+
+function newInviteCode(): string {
+  return randomBytes(8).toString('base64url').replace(/[-_]/g, '').slice(0, 10) || randomUUID().slice(0, 10);
+}
+
+export async function createInvite(
+  input: Omit<Invite, 'id' | 'code' | 'status' | 'goingSeats' | 'createdAt' | 'updatedAt'>
+): Promise<Invite> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const createdAt = now();
+    const invite: Invite = {
+      ...input,
+      id: randomUUID(),
+      code: newInviteCode(),
+      status: 'active',
+      goingSeats: 0,
+      createdAt,
+      updatedAt: createdAt,
+    };
+    try {
+      await docClient.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              Put: {
+                TableName: T(),
+                Item: { pk: inviteCodePk(invite.code), sk: 'ID', inviteId: invite.id },
+                ConditionExpression: 'attribute_not_exists(pk)',
+              },
+            },
+            {
+              Put: {
+                TableName: T(),
+                Item: {
+                  pk: invitePk(invite.id),
+                  sk: 'METADATA',
+                  ...invite,
+                  gsi2pk: `USER#${input.hostUserId}#INVITES`,
+                  gsi2sk: createdSk(createdAt, invite.id),
+                  ...(invite.startsAt ? { gsi1pk: INVITES_ACTIVE_GSI_PK, gsi1sk: invite.startsAt } : {}),
+                },
+              },
+            },
+          ],
+        })
+      );
+      return invite;
+    } catch (e) {
+      if (!isConditionalCheck(e)) throw e; // code collision: retry with a new code
+    }
+  }
+  throw new Error('createInvite: could not allocate a unique code');
+}
+
+export async function getInvite(id: string): Promise<Invite | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: invitePk(id), sk: 'METADATA' } })
+  );
+  return res.Item ? stripItem<Invite>(res.Item) : null;
+}
+
+export async function getInviteByCode(code: string): Promise<Invite | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: inviteCodePk(code), sk: 'ID' } })
+  );
+  const id = res.Item?.inviteId as string | undefined;
+  return id ? getInvite(id) : null;
+}
+
+// Routes accept either the invite id or its share code.
+export async function resolveInvite(idOrCode: string): Promise<Invite | null> {
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(idOrCode)) {
+    const byId = await getInvite(idOrCode);
+    if (byId) return byId;
+  }
+  return getInviteByCode(idOrCode);
+}
+
+type InviteEditable = Pick<
+  Invite,
+  | 'title'
+  | 'startsAt'
+  | 'tz'
+  | 'placeText'
+  | 'area'
+  | 'cover'
+  | 'note'
+  | 'approveGuests'
+  | 'allowPlusOnes'
+  | 'guestCap'
+  | 'showGuestList'
+  | 'hideAddressUntilGoing'
+>;
+
+export async function updateInviteFields(
+  id: string,
+  fields: { [K in keyof InviteEditable]?: InviteEditable[K] | null }
+): Promise<Invite | null> {
+  const names: Record<string, string> = { '#status': 'status' };
+  const values: Record<string, unknown> = { ':active': 'active', ':now': now() };
+  const sets: string[] = ['updatedAt = :now'];
+  const removes: string[] = [];
+  let i = 0;
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined) continue;
+    names[`#f${i}`] = key;
+    if (value === null) {
+      removes.push(`#f${i}`);
+    } else {
+      sets.push(`#f${i} = :v${i}`);
+      values[`:v${i}`] = value;
+    }
+    i++;
+  }
+  if (fields.startsAt) {
+    // A new date re-arms the day-before reminder.
+    sets.push('gsi1pk = :gpk', 'gsi1sk = :gsk');
+    values[':gpk'] = INVITES_ACTIVE_GSI_PK;
+    values[':gsk'] = fields.startsAt;
+    removes.push('reminderSentAt');
+  }
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: invitePk(id), sk: 'METADATA' },
+        UpdateExpression: `SET ${sets.join(', ')}${removes.length ? ` REMOVE ${removes.join(', ')}` : ''}`,
+        ConditionExpression: '#status = :active',
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+      })
+    );
+  } catch (e) {
+    if (isConditionalCheck(e)) throw new InviteError('This invite can no longer be edited', 'not_active');
+    throw e;
+  }
+  return getInvite(id);
+}
+
+// active -> cancelled | moved. Leaves the GSI1 reminder feed.
+// I7: claims an invite for the ticketed-event move so only one mover
+// proceeds — the loser gets `already_moved` before creating duplicates.
+export async function claimInviteMove(id: string): Promise<boolean> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: invitePk(id), sk: 'METADATA' },
+        UpdateExpression: 'SET #status = :moving, updatedAt = :at',
+        ConditionExpression: '#status = :active',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':moving': 'moving',
+          ':active': 'active',
+          ':at': now(),
+        },
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+}
+
+// Rolls a failed move back to `active` so the host can retry it.
+export async function releaseInviteMove(id: string): Promise<void> {
+  await docClient
+    .send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: invitePk(id), sk: 'METADATA' },
+        UpdateExpression: 'SET #status = :active, updatedAt = :at',
+        ConditionExpression: '#status = :moving',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':active': 'active',
+          ':moving': 'moving',
+          ':at': now(),
+        },
+      })
+    )
+    .catch(() => undefined);
+}
+
+export async function setInviteStatus(
+  id: string,
+  to: 'cancelled' | 'moved',
+  extra: { movedToEventId?: string; movedToOrgId?: string } = {}
+): Promise<boolean> {
+  const at = now();
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: invitePk(id), sk: 'METADATA' },
+        UpdateExpression:
+          `SET #status = :to, updatedAt = :at${to === 'cancelled' ? ', cancelledAt = :at' : ', movedToEventId = :eid, movedToOrgId = :oid'} REMOVE gsi1pk, gsi1sk`,
+        // 'moved' only finalizes a claim; 'cancelled' only from active.
+        ConditionExpression: to === 'moved' ? '#status = :moving' : '#status = :active',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':to': to,
+          ':at': at,
+          ...(to === 'moved'
+            ? { ':moving': 'moving', ':eid': extra.movedToEventId, ':oid': extra.movedToOrgId }
+            : { ':active': 'active' }),
+        },
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+}
+
+export async function listInviteRsvps(inviteId: string): Promise<InviteRsvp[]> {
+  const out: InviteRsvp[] = [];
+  let ExclusiveStartKey: Record<string, unknown> | undefined;
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: T(),
+        KeyConditionExpression: 'pk = :pk AND begins_with(sk, :p)',
+        ExpressionAttributeValues: { ':pk': invitePk(inviteId), ':p': 'RSVP#' },
+        ExclusiveStartKey,
+      })
+    );
+    out.push(...(res.Items ?? []).map((item) => stripItem<InviteRsvp>(item)));
+    ExclusiveStartKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (ExclusiveStartKey);
+  return out;
+}
+
+export async function getInviteRsvp(inviteId: string, userId: string): Promise<InviteRsvp | null> {
+  const res = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: invitePk(inviteId), sk: `RSVP#${userId}` } })
+  );
+  return res.Item ? stripItem<InviteRsvp>(res.Item) : null;
+}
+
+export async function listUserRsvps(userId: string): Promise<InviteRsvp[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk',
+      ExpressionAttributeValues: { ':pk': `USER#${userId}#RSVPS` },
+      Limit: 500,
+    })
+  );
+  return (res.Items ?? []).map((item) => stripItem<InviteRsvp>(item));
+}
+
+export async function listHostedInvites(userId: string): Promise<Invite[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi2',
+      KeyConditionExpression: 'gsi2pk = :pk',
+      ExpressionAttributeValues: { ':pk': `USER#${userId}#INVITES` },
+      ScanIndexForward: false,
+      Limit: 500,
+    })
+  );
+  return (res.Items ?? []).map((item) => stripItem<Invite>(item));
+}
+
+export async function getInvites(ids: string[]): Promise<Invite[]> {
+  if (ids.length === 0) return [];
+  const items = await batchGet<Record<string, unknown>>(
+    [...new Set(ids)].map((id) => ({ pk: invitePk(id), sk: 'METADATA' }))
+  );
+  return items.map((item) => stripItem<Invite>(item));
+}
+
+// Writes an RSVP and moves the invite's goingSeats counter in one
+// transaction. The guest cap (I4) is enforced by the counter condition, and
+// the RSVP row is guarded by its previous updatedAt (no lost updates).
+export async function putInviteRsvp(
+  invite: Invite,
+  prev: InviteRsvp | null,
+  next: { status: InviteRsvpStatus; plusOnes: number; decidedBy?: string; decidedAt?: string }
+): Promise<InviteRsvp> {
+  const at = now();
+  const rsvp: InviteRsvp = {
+    inviteId: invite.id,
+    userId: prev?.userId ?? '',
+    status: next.status,
+    plusOnes: next.status === 'going' || next.status === 'requested' ? next.plusOnes : 0,
+    checkedInAt: next.status === 'going' ? prev?.checkedInAt : undefined,
+    decidedBy: next.decidedBy ?? prev?.decidedBy,
+    decidedAt: next.decidedAt ?? prev?.decidedAt,
+    createdAt: prev?.createdAt ?? at,
+    updatedAt: at,
+  };
+  return writeRsvp(invite, prev, rsvp);
+}
+
+export async function createInviteRsvp(
+  invite: Invite,
+  userId: string,
+  next: { status: InviteRsvpStatus; plusOnes: number }
+): Promise<InviteRsvp> {
+  const at = now();
+  return writeRsvp(invite, null, {
+    inviteId: invite.id,
+    userId,
+    status: next.status,
+    plusOnes: next.status === 'going' || next.status === 'requested' ? next.plusOnes : 0,
+    createdAt: at,
+    updatedAt: at,
+  });
+}
+
+async function writeRsvp(invite: Invite, prev: InviteRsvp | null, rsvp: InviteRsvp): Promise<InviteRsvp> {
+  const delta = rsvpSeats(rsvp) - rsvpSeats(prev);
+  const capCheck = delta > 0 && invite.guestCap != null;
+  const values: Record<string, unknown> = { ':active': 'active', ':d': delta, ':at': rsvp.updatedAt };
+  let condition = '#status = :active';
+  if (capCheck) {
+    condition += ' AND goingSeats <= :maxBefore';
+    values[':maxBefore'] = (invite.guestCap as number) - delta;
+  }
+  try {
+    await docClient.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Put: {
+              TableName: T(),
+              Item: {
+                pk: invitePk(invite.id),
+                sk: `RSVP#${rsvp.userId}`,
+                ...rsvp,
+                gsi2pk: `USER#${rsvp.userId}#RSVPS`,
+                gsi2sk: `INVITE#${invite.id}`,
+              },
+              ...(prev
+                ? {
+                    ConditionExpression: 'updatedAt = :prev',
+                    ExpressionAttributeValues: { ':prev': prev.updatedAt },
+                  }
+                : { ConditionExpression: 'attribute_not_exists(sk)' }),
+            },
+          },
+          {
+            Update: {
+              TableName: T(),
+              Key: { pk: invitePk(invite.id), sk: 'METADATA' },
+              UpdateExpression: 'ADD goingSeats :d SET updatedAt = :at',
+              ConditionExpression: condition,
+              ExpressionAttributeNames: { '#status': 'status' },
+              ExpressionAttributeValues: values,
+            },
+          },
+        ],
+      })
+    );
+  } catch (e) {
+    if (!isConditionalCheck(e)) throw e;
+    const reasons = (e as { CancellationReasons?: { Code?: string }[] }).CancellationReasons ?? [];
+    if (reasons[0]?.Code === 'ConditionalCheckFailed') {
+      throw new InviteError('Your reply changed in the meantime, try again', 'conflict');
+    }
+    const fresh = await getInvite(invite.id);
+    if (fresh && fresh.status !== 'active') {
+      throw new InviteError('This invite is no longer active', fresh.status === 'moved' ? 'already_moved' : 'cancelled', 410);
+    }
+    throw new InviteError("It's full", 'full');
+  }
+  return rsvp;
+}
+
+// "Waiting on you" marker: only written when the viewer has no row yet.
+export async function markInviteSeen(invite: Invite, userId: string): Promise<void> {
+  const at = now();
+  await docClient
+    .send(
+      new PutCommand({
+        TableName: T(),
+        Item: {
+          pk: invitePk(invite.id),
+          sk: `RSVP#${userId}`,
+          inviteId: invite.id,
+          userId,
+          status: 'seen',
+          plusOnes: 0,
+          createdAt: at,
+          updatedAt: at,
+          gsi2pk: `USER#${userId}#RSVPS`,
+          gsi2sk: `INVITE#${invite.id}`,
+        },
+        ConditionExpression: 'attribute_not_exists(sk)',
+      })
+    )
+    .catch((e) => {
+      if (!isConditionalCheck(e)) throw e;
+    });
+}
+
+export async function setRsvpCheckIn(inviteId: string, userId: string, checkedIn: boolean): Promise<boolean> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: invitePk(inviteId), sk: `RSVP#${userId}` },
+        UpdateExpression: checkedIn ? 'SET checkedInAt = :at, updatedAt = :at' : 'SET updatedAt = :at REMOVE checkedInAt',
+        ConditionExpression: '#status = :going',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':at': now(), ':going': 'going' },
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+}
+
+export async function createInviteUpdate(
+  inviteId: string,
+  body: string,
+  recipientCount: number,
+  channels: string[]
+): Promise<InviteUpdate> {
+  const sentAt = now();
+  const update: InviteUpdate = { id: randomUUID(), inviteId, body, sentAt, recipientCount, channels };
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: { pk: invitePk(inviteId), sk: `UPDATE#${sentAt}#${update.id}`, ...update },
+    })
+  );
+  return update;
+}
+
+export async function listInviteUpdates(inviteId: string): Promise<InviteUpdate[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :p)',
+      ExpressionAttributeValues: { ':pk': invitePk(inviteId), ':p': 'UPDATE#' },
+      ScanIndexForward: false,
+      Limit: 50,
+    })
+  );
+  return (res.Items ?? []).map((item) => stripItem<InviteUpdate>(item));
+}
+
+// TODO(decision-20): report button on every invite page; reports land in a
+// GSI1 queue (INVITES#REPORTED) for a Trust & Safety review tool.
+export async function createInviteReport(inviteId: string, userId: string | undefined, reason: string): Promise<void> {
+  const at = now();
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: invitePk(inviteId),
+        sk: `REPORT#${userId ?? `anon-${randomUUID()}`}`,
+        inviteId,
+        userId,
+        reason: reason.slice(0, 500),
+        createdAt: at,
+        gsi1pk: 'INVITES#REPORTED',
+        gsi1sk: `${at}#${inviteId}`,
+      },
+    })
+  );
+}
+
+// TODO(decision-20): invites above INVITE_REVIEW_GUESTS go to a review queue
+// (INVITES#REVIEW). No reviewer tool exists yet; this only records it.
+export async function flagInviteForReview(invite: Invite): Promise<void> {
+  if (invite.reviewFlaggedAt) return;
+  const at = now();
+  await docClient
+    .send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: invitePk(invite.id), sk: 'METADATA' },
+        UpdateExpression: 'SET reviewFlaggedAt = :at',
+        ConditionExpression: 'attribute_not_exists(reviewFlaggedAt)',
+        ExpressionAttributeValues: { ':at': at },
+      })
+    )
+    .then(() =>
+      docClient.send(
+        new PutCommand({
+          TableName: T(),
+          Item: {
+            pk: `INVITEREVIEW#${invite.id}`,
+            sk: 'FLAG',
+            inviteId: invite.id,
+            goingSeats: invite.goingSeats,
+            createdAt: at,
+            gsi1pk: 'INVITES#REVIEW',
+            gsi1sk: `${at}#${invite.id}`,
+          },
+        })
+      )
+    )
+    .catch((e) => {
+      if (!isConditionalCheck(e)) throw e;
+    });
+}
+
+// invite.reminder: active invites starting within [fromIso, toIso].
+export async function listInvitesStartingBetween(fromIso: string, toIso: string): Promise<Invite[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi1',
+      KeyConditionExpression: 'gsi1pk = :pk AND gsi1sk BETWEEN :from AND :to',
+      ExpressionAttributeValues: { ':pk': INVITES_ACTIVE_GSI_PK, ':from': fromIso, ':to': toIso },
+      Limit: 500,
+    })
+  );
+  return (res.Items ?? []).map((item) => stripItem<Invite>(item));
+}
+
+export async function markInviteReminderSent(id: string): Promise<boolean> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: invitePk(id), sk: 'METADATA' },
+        UpdateExpression: 'SET reminderSentAt = :at',
+        ConditionExpression: 'attribute_not_exists(reminderSentAt) AND #status = :active',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':at': now(), ':active': 'active' },
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
+}
+
+// I7: going guests keep free spots as comp tickets on the draft event. Each
+// guest gets a zero-value order fulfilled through the normal ticket path, so
+// comps carry credentials and show up in the door manifest like any ticket.
+export async function issueCompTickets(
+  event: EventItem,
+  tier: TicketTier,
+  guests: { userId: string; qty: number }[],
+  ref: string
+): Promise<number> {
+  let issued = 0;
+  for (const guest of guests) {
+    if (guest.qty <= 0) continue;
+    if (!(await reserveTickets(event.id, tier.id, guest.qty))) break;
+    const order = await createPendingOrder({
+      userId: guest.userId,
+      eventId: event.id,
+      items: [{ tierId: tier.id, tierName: tier.name, quantity: guest.qty, unitPriceCents: 0 }],
+      subtotalCents: 0,
+      discountCents: 0,
+      feesCents: 0,
+      totalCents: 0,
+      currency: event.currency,
+      expiresAt: new Date(Date.now() + env.reservationTtlMinutes * 60_000).toISOString(),
+    });
+    await fulfillOrder(order.id, `comp_${ref}_${order.id.slice(0, 8)}`);
+    await deleteExpireIndex(order.id);
+    issued += guest.qty;
+  }
+  return issued;
 }

@@ -7,14 +7,15 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { api, setOrgId, type User } from './api';
-import type { LocalOrg, OrgRole } from './store';
+import { api, setOrgId, type StudioOrg, type User, type Membership } from './api';
+import type { OrgRole } from './store';
 
 interface OrgContextValue {
   user: User;
   ready: boolean;
-  orgs: LocalOrg[];
-  org: LocalOrg | null;
+  orgs: StudioOrg[];
+  org: StudioOrg | null;
+  memberships: Membership[];
   /** Effective role — membership role unless a dev preview override is set. */
   role: OrgRole;
   /** The user's real membership role on the active org (ignores override). */
@@ -29,22 +30,34 @@ interface OrgContextValue {
 const OrgContext = createContext<OrgContextValue | null>(null);
 
 export function OrgProvider({ user, children }: { user: User; children: ReactNode }) {
-  const [orgs, setOrgs] = useState<LocalOrg[]>([]);
-  const [org, setOrg] = useState<LocalOrg | null>(null);
+  const [orgs, setOrgs] = useState<StudioOrg[]>([]);
+  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [org, setOrg] = useState<StudioOrg | null>(null);
   const [roleOverride, setRoleOverride] = useState<OrgRole | null>(null);
   const [ready, setReady] = useState(false);
 
   const refresh = useCallback(() => {
-    const memberships = api.memberships(user.id);
-    setOrgs(memberships.map((m) => m.org));
-    const activeId = apiActiveOrgId();
-    const active =
-      memberships.find((m) => m.org.id === activeId)?.org ?? memberships[0]?.org ?? null;
-    setOrg(active ? { ...active } : null);
-    if (active) setOrgId(active.id);
-    else setOrgId(null);
-    setReady(true);
-  }, [user.id]);
+    api
+      .memberships()
+      .then(async (list) => {
+        setMemberships(list.map((m) => m.membership));
+        const activeId = apiActiveOrgId();
+        const entry = list.find((m) => m.org.id === activeId) ?? list[0] ?? null;
+        setOrgs(list.map((m) => m.org));
+        if (entry) {
+          setOrgId(entry.org.id);
+          // Full org read for verification/bank details; fall back to the
+          // membership summary when GET /orgs/{id} is unavailable.
+          const full = (await api.org(entry.org.id)) ?? entry.org;
+          setOrg({ ...full });
+        } else {
+          setOrgId(null);
+          setOrg(null);
+        }
+        setReady(true);
+      })
+      .catch(() => setReady(true));
+  }, []);
 
   useEffect(() => {
     refresh();
@@ -52,16 +65,16 @@ export function OrgProvider({ user, children }: { user: User; children: ReactNod
 
   const setActiveOrg = useCallback((orgId: string) => {
     setOrgId(orgId);
-    setOrgs((prev) => prev);
-    const found = api.org(orgId);
-    setOrg(found ? { ...found } : null);
+    api.org(orgId).then((found) => {
+      if (found) setOrg({ ...found });
+    });
   }, []);
 
   const actualRole: OrgRole = useMemo(() => {
     if (!org) return 'admin';
-    const membership = api.memberships(user.id).find((m) => m.org.id === org.id);
+    const membership = memberships.find((m) => m.org_id === org.id);
     return membership?.role ?? 'admin';
-  }, [org, user.id]);
+  }, [org, memberships]);
   const role = roleOverride ?? actualRole;
 
   const value = useMemo<OrgContextValue>(
@@ -70,6 +83,7 @@ export function OrgProvider({ user, children }: { user: User; children: ReactNod
       ready,
       orgs,
       org,
+      memberships,
       role,
       actualRole,
       roleOverride,
@@ -77,7 +91,7 @@ export function OrgProvider({ user, children }: { user: User; children: ReactNod
       setActiveOrg,
       refresh,
     }),
-    [user, ready, orgs, org, role, actualRole, roleOverride, setActiveOrg, refresh],
+    [user, ready, orgs, org, memberships, role, actualRole, roleOverride, setActiveOrg, refresh],
   );
 
   return <OrgContext.Provider value={value}>{children}</OrgContext.Provider>;

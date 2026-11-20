@@ -3,13 +3,26 @@
 Each rule is testable. **[P]** = taken from the prototype as built. **[R]** = recommended default; confirm before launch. Numbers live in config, not code.
 
 ## Accounts (A)
-- **A1 [P]** Sign-up needs a name, a valid email and a password of 8+ characters. Changing a password also requires a number. Email is unique, case-insensitive.
-- **A2 [P]** Sign-up asks for an intent (`fan`/`host`). `host` goes on to Create organisation; it can be skipped and done later from Settings › Host events.
-- **A3 [P]** Onboarding requires a city and ≥ 3 interests. On completion, the WELCOME10 promo is granted.
+- **A1 [P]** There are no passwords. Entering a phone (E.164) or email sends a 6-digit code; verifying it signs in, or creates the account if none exists. Codes expire in 10 minutes; 5 wrong attempts burns the code; max 5 sends per contact per hour. Email and phone are unique, case-insensitive.
+- **A2 [P]** New accounts need only a name. If sign-in was triggered by an action (buy, RSVP, host, Plans, Profile), the user returns to that screen and the action continues; intent, city and interests are skipped and asked later.
+- **A3 [P]** Otherwise onboarding asks intent (Going out / Hosting friends / Running events, any), then city and ≥ 1 interest. "Running events" leads to Create organisation (skippable). WELCOME10 is granted on completion.
+- **A8 [P]** Signed-out users can browse For You, Search, event pages and invite pages. Plans, Profile, checkout, RSVP and hosting trigger sign-in.
 - **A4 [P]** Sign-in landing: user has no tickets/orders AND ≥ 1 membership → that org's door mode (gate role → Scan, else Events). Otherwise → personal Home. **[R]** After the first session, use `last_mode`.
 - **A5 [P]** Switching profile clears any active checkout hold and resets navigation.
 - **A6 [P]** Account deletion is blocked while the user has: upcoming tickets, active listings, active price watches, a non-zero earnings balance, or is the sole admin of any org.
-- **A7 [P]** Password change signs out all other sessions.
+- **A7 [P]** Changing email or phone requires a code to the new contact and signs out other sessions.
+
+## Hosting: invites (I)
+- **I1 [P]** "+ Host" always asks who it's for: *People I invite* (invite) or *Anyone, with tickets* (organisation event). The split is audience, not size.
+- **I2 [P]** Invites are free, link-only, never listed, searchable or shown in Explore. Creating one needs a title and a place; nothing else (no verification, no organisation).
+- **I3 [P]** With approval on, "Going" becomes "Requested" until the host approves. Declined guests aren't told why.
+- **I4 [P]** With a guest cap, Going (+ plus-ones) can't exceed it; extra replies get "It's full".
+- **I5 [P]** Plus-ones: 0–2 per guest, only when allowed and only while Going.
+- **I6 [P]** With hide-address on, the place is only returned to the host and Going guests.
+- **I7 [P]** "Sell tickets instead" moves an invite into an organisation as a draft event. Requires admin of that org (or creating one). Existing Going guests keep free spots as comp tickets. Selling still requires verification (O3).
+- **I8 [P]** Messages to guests go to Going + Maybe; push to app users, SMS to others. They also show on the invite page.
+- **I9 [P]** Cancelling notifies everyone who replied (except Can't go).
+- **I10 [P]** Plans lists tickets, RSVPs (Going/Maybe/Requested) and hosted invites in one list sorted by start time. Unanswered invites sit above it under "Waiting on you".
 
 ## Organisations & team (O, T)
 - **O1 [P]** Any user can create an org and becomes its admin. The name must be unique among that user's orgs.

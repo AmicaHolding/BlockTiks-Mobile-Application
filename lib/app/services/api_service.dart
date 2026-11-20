@@ -40,6 +40,24 @@ class ApiService {
     _refreshToken = refreshToken;
   }
 
+  /// True when a session token is available (A8 sign-in gate check).
+  static Future<bool> isLoggedIn() async {
+    if (_token != null && _token!.isNotEmpty) return true;
+    final prefs = AppPreferences();
+    await prefs.isPreferenceReady;
+    final token = await prefs.getAccessToken();
+    return token != null && token.isNotEmpty;
+  }
+
+  /// A8/A2 gated-action helper: routes to sign-in when signed out and
+  /// returns false; returns true when the action may continue.
+  static Future<bool> requireAuth({String comingFrom = ''}) async {
+    if (await isLoggedIn()) return true;
+    Get.toNamed(Routes.SIGN_IN,
+        arguments: {'comingFrom': comingFrom});
+    return false;
+  }
+
   /// Restore persisted tokens into memory after app boot. Falls back to a
   /// refresh-token exchange when no usable access token is stored.
   /// Returns true when an access token is available.
@@ -109,6 +127,8 @@ class ApiService {
     final path = err.requestOptions.path;
     final isAuthCall = path.startsWith('/auth/login') ||
         path.startsWith('/auth/signup') ||
+        path.startsWith('/auth/otp') ||
+        path.startsWith('/auth/apple') ||
         path.startsWith('/auth/refresh') ||
         path.startsWith('/auth/logout') ||
         path.startsWith('/auth/forgot') ||
@@ -197,6 +217,164 @@ class ApiService {
         if (referralCode != null && referralCode.trim().isNotEmpty)
           'referralCode': referralCode.trim(),
       });
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  // ------------------------------------------------------------------- OTP
+
+  /// POST /auth/otp/start {contact} -> { challenge_id, channel,
+  /// resend_after, expires_at, dev_code? } (v2 contract, no passwords).
+  static Future<Map<String, dynamic>> otpStart(String contact) async {
+    try {
+      final res = await _dio.post('/auth/otp/start', data: {'contact': contact});
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /auth/otp/verify {challenge_id,code,device} -> { token,
+  /// refresh_token, session_id, user, is_new, memberships[], landing }.
+  static Future<Map<String, dynamic>> otpVerify(
+      {required String challengeId, required String code}) async {
+    try {
+      final res = await _dio.post('/auth/otp/verify', data: {
+        'challenge_id': challengeId,
+        'code': code,
+        'device': 'mobile',
+      });
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /auth/apple {identity_token,name?,device?} -> same verify shape.
+  static Future<Map<String, dynamic>> appleAuth(
+      {required String identityToken, String? name}) async {
+    try {
+      final res = await _dio.post('/auth/apple', data: {
+        'identity_token': identityToken,
+        if (name != null && name.isNotEmpty) 'name': name,
+        'device': 'mobile',
+      });
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// PATCH /me {name,intent[],city,interests[],...} — v2 profile route.
+  static Future<Map<String, dynamic>> updateMe(
+      Map<String, dynamic> fields) async {
+    try {
+      final res = await _dio.patch('/me', data: fields, options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /me/plans -> { waiting_on_you, upcoming, waiting, past } (I10).
+  static Future<Map<String, dynamic>> mePlansFull() async {
+    try {
+      final res = await _dio.get('/me/plans', options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// PUT /me/mode {mode,org_id?} — persist A4 last-mode server-side.
+  static Future<void> putMyMode(String mode, {String? orgId}) async {
+    try {
+      await _dio.put('/me/mode',
+          data: {'mode': mode, if (orgId != null) 'org_id': orgId},
+          options: _authOptions);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /me/memberships -> { memberships[], invites[] }.
+  static Future<Map<String, dynamic>> meMemberships() async {
+    try {
+      final res = await _dio.get('/me/memberships', options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  // --------------------------------------------------------------- invites
+
+  /// POST /invites — create a personal invite (host). Per I-rules the body
+  /// carries name/when/where/cover/note/guest_limit/approve/plus_ones/
+  /// show_guests/hide_address.
+  static Future<Map<String, dynamic>> createInvite(
+      Map<String, dynamic> body) async {
+    try {
+      final res =
+          await _dio.post('/invites', data: body, options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /invites/:code — guest read. Sends the bearer token when one
+  /// exists so the server recognizes hosts and Going guests (hidden place).
+  static Future<Map<String, dynamic>> inviteByCode(String code) async {
+    try {
+      final res =
+          await _dio.get('/invites/$code', options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /invites/:id/rsvp {status,plus_ones?} — guest reply. Status is
+  /// `going|maybe|no`; the invite may turn Going into `requested` when the
+  /// host approves guests (I3). Plus-ones only while going.
+  static Future<Map<String, dynamic>> respondToInvite(
+      String code, String status, {int plusOnes = 0}) async {
+    try {
+      final res = await _dio.post('/invites/$code/rsvp',
+          data: {
+            'status': status,
+            // I5: plus-ones are only valid while going — sending them with
+            // maybe/no makes the server reject the whole reply.
+            if (status == 'going' && plusOnes > 0) 'plus_ones': plusOnes,
+          },
+          options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /invites/:id/guests — host guest list.
+  static Future<List<Map<String, dynamic>>> inviteGuests(String id) async {
+    try {
+      final res =
+          await _dio.get('/invites/$id/guests', options: _authOptions);
+      final list = (res.data['guests'] as List?) ?? [];
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /invites/:id/move {org_id} — I7 invite → paid event conversion.
+  static Future<Map<String, dynamic>> moveInvite(
+      String inviteId, String orgId) async {
+    try {
+      final res = await _dio.post('/invites/$inviteId/move',
+          data: {'org_id': orgId}, options: _authOptions);
       return Map<String, dynamic>.from(res.data as Map);
     } on DioException catch (e) {
       _throw(e);
@@ -1052,9 +1230,16 @@ class ApiService {
     await prefs.isPreferenceReady;
     final user = Map<String, dynamic>.from(authResponse['user'] as Map? ?? {});
     final token = authResponse['token']?.toString() ?? '';
-    final refreshToken = authResponse['refreshToken']?.toString() ?? '';
+    // v2 auth contract returns snake_case; keep camelCase fallback.
+    final refreshToken = authResponse['refreshToken']?.toString() ??
+        authResponse['refresh_token']?.toString() ??
+        '';
     final role = user['role']?.toString() ?? 'fan';
-    final isCreator = role == 'creator';
+    // v2: org-role memberships make a user a door-mode operator too.
+    final memberships = authResponse['memberships'];
+    final hasOrgMembership =
+        memberships is List && memberships.isNotEmpty;
+    final isCreator = role == 'creator' || hasOrgMembership;
 
     setToken(token);
     if (refreshToken.isNotEmpty) {

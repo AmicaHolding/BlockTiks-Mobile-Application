@@ -11,6 +11,7 @@ import { discoveryRoutes } from './routes/discovery';
 import { doorRoutes } from './routes/door';
 import { eventRoutes } from './routes/events';
 import { healthRoutes } from './routes/health';
+import { inviteRoutes } from './routes/invites';
 import { holdRoutes } from './routes/holds';
 import { listingRoutes } from './routes/listings';
 import { meRoutes } from './routes/me';
@@ -35,10 +36,12 @@ export function buildApp() {
     { parseAs: 'buffer' },
     (request, body, done) => {
       (request as unknown as { rawBody: Buffer }).rawBody = body as Buffer;
+      // Body-less POST/DELETE with a JSON content-type is common from clients.
+      if ((body as Buffer).length === 0) return done(null, undefined);
       try {
         done(null, JSON.parse((body as Buffer).toString('utf8')));
-      } catch (err) {
-        done(err as Error, undefined);
+      } catch {
+        done(Object.assign(new Error('Malformed JSON body'), { statusCode: 400 }), undefined);
       }
     }
   );
@@ -72,6 +75,7 @@ export function buildApp() {
   void app.register(transferRoutes);
   void app.register(orgRoutes);
   void app.register(moneyRoutes);
+  void app.register(inviteRoutes);
 
   app.setErrorHandler((error: { statusCode?: number; message?: string }, _request, reply) => {
     const statusCode = error.statusCode ?? 500;

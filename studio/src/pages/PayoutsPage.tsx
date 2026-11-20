@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { api } from '../lib/api';
+import { useEffect, useState } from 'react';
+import { ApiError, api } from '../lib/api';
 import { FLAGS } from '../lib/flags';
 import { useOrg } from '../lib/org';
 import { fetchOrgOrders, orderGrossCents } from '../lib/sales';
@@ -59,10 +59,14 @@ export default function PayoutsPage() {
       .catch(() => undefined);
   }, [org, refreshKey]);
 
-  const payouts = useMemo(() => (org ? api.orgPayouts(org.id) : []), [org, refreshKey]);
+  const [payouts, setPayouts] = useState<Awaited<ReturnType<typeof api.orgPayouts>>>([]);
+  useEffect(() => {
+    if (!org) return;
+    api.orgPayouts(org.id).then(setPayouts).catch(() => setPayouts([]));
+  }, [org, refreshKey]);
   const paidOut = payouts
     .filter((p) => p.status !== 'failed')
-    .reduce((a, p) => a + p.amountMinor, 0);
+    .reduce((a, p) => a + (p.amountMinor ?? p.amount_minor ?? 0), 0);
   const earned = Math.round(gross * ORG_SHARE) - refunded;
   const available = earned - paidOut;
   const reserve = Math.max(0, Math.round(available * (FLAGS.decision3_reservePct / 100)));
@@ -72,16 +76,23 @@ export default function PayoutsPage() {
   const hasBank = Boolean(org.payoutAccount);
   const verified = org.verificationStatus === 'approved';
 
-  function saveBank(e: React.FormEvent) {
+  async function saveBank(e: React.FormEvent) {
     e.preventDefault();
     const clean = iban.replace(/\s/g, '').toUpperCase();
     if (!/^AE\d{21}$/.test(clean)) {
       setBankError('UAE IBANs are AE + 21 digits.');
       return;
     }
-    const res = api.savePayoutAccount(org!.id, { iban: clean, holder: holder.trim() });
-    if (res && 'error' in res && res.error === 'name_mismatch') {
-      setBankError('Holder name must match the legal name on your trade licence.');
+    try {
+      await api.savePayoutAccount(org!.id, { iban: clean, holder: holder.trim() });
+    } catch (err) {
+      setBankError(
+        err instanceof ApiError && err.code === 'name_mismatch'
+          ? 'Holder name must match the legal name on your trade licence.'
+          : err instanceof ApiError
+            ? err.message
+            : 'Could not save that account.',
+      );
       return;
     }
     setBankError('');
@@ -104,9 +115,13 @@ export default function PayoutsPage() {
       setPayError('Minimum payout is AED 1,000.');
       return;
     }
-    api.requestPayout(org!.id, available, currency, `•••• ${org!.payoutAccount!.ibanLast4}`);
-    push(`Payout of ${formatMoney(available, currency)} is on its way.`);
-    setRefreshKey((k) => k + 1);
+    api
+      .requestPayout(org!.id, available, currency, `•••• ${org!.payoutAccount!.ibanLast4}`)
+      .then(() => {
+        push(`Payout of ${formatMoney(available, currency)} is on its way.`);
+        setRefreshKey((k) => k + 1);
+      })
+      .catch((err) => setPayError(err instanceof ApiError ? err.message : 'Payout failed.'));
   }
 
   const nextPayoutDay = (() => {
@@ -194,14 +209,14 @@ export default function PayoutsPage() {
                   {payouts.map((p) => (
                     <div key={p.id} className="flex items-center gap-4 px-2 py-3 text-sm">
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-ink">{p.bankLabel}</p>
-                        <p className="text-xs text-ink/45">{formatDay(p.createdAt)}</p>
+                        <p className="font-medium text-ink">{p.bankLabel ?? org.payoutAccount?.ibanLast4 ?? 'Payout'}</p>
+                        <p className="text-xs text-ink/45">{formatDay(p.createdAt ?? p.created_at ?? '')}</p>
                       </div>
                       <Badge tone={p.status === 'paid' ? 'default' : 'gold'} className="capitalize">
                         {p.status === 'in_transit' ? 'Processing' : p.status}
                       </Badge>
                       <span className="w-28 text-right font-semibold tabular-nums">
-                        {formatMoney(p.amountMinor, p.currency)}
+                        {formatMoney(p.amountMinor ?? p.amount_minor ?? 0, p.currency ?? currency)}
                       </span>
                     </div>
                   ))}

@@ -18,6 +18,15 @@ npm run dev:local    # http://localhost:4000 against DynamoDB Local
 
 Or from the repo root: `./dev.sh --local --seed`.
 
+No Docker? Use the DynamoDB Local jar (`java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -inMemory -port 8000`)
+and the same `db:create` / `db:seed` / `dev:local` scripts.
+
+**Signing in locally (no passwords):** `POST /auth/otp/start {"contact":"fan@test.com"}` returns a
+`challenge_id`; verify it with `POST /auth/otp/verify {"challenge_id","code":"000000"}`. Against DynamoDB
+Local (or `NODE_ENV=development`) the real code is logged and `OTP_DEV_CODE` (default `000000`) is also
+accepted. SMS/WhatsApp delivery is a logging stub (`TODO(decision-17)`); email goes through SES when
+`SES_FROM_EMAIL` is set.
+
 | Script | What it does |
 |--------|--------------|
 | `db:up` / `db:down` | Start / stop DynamoDB Local (`db:down -- -v` also deletes its data) |
@@ -70,9 +79,18 @@ the signing secret into `STRIPE_WEBHOOK_SECRET` in `.env.deploy.<stage>`, then r
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | GET | `/health` |, | Liveness + DynamoDB/Stripe status |
-| POST | `/auth/signup` |, | Create account → `{ token, refreshToken, user }` |
-| POST | `/auth/login` |, | Login → same shape |
-| GET | `/auth/me` | Bearer | Current user |
+| POST | `/auth/otp/start` |, | `{contact}` (email or E.164) → `{challenge_id, channel, resend_after}` |
+| POST | `/auth/otp/verify` |, | `{challenge_id, code}` → `{token, refresh_token, user, is_new, memberships, landing}` (signs in or creates) |
+| POST | `/auth/apple` |, | `{identity_token, name?}` → same shape as verify |
+| POST | `/auth/refresh` |, | Rotate a session's refresh token |
+| GET/PATCH/DELETE | `/me` (`/auth/me` alias) | Bearer | Read / edit profile (email/phone change needs a code, A7) / delete (A6) |
+| GET/DELETE | `/me/sessions`, `/me/sessions/:id` | Bearer | Signed-in devices |
+| GET | `/me/plans` | Bearer | `{waiting_on_you, upcoming, waiting, past}` (I10) |
+| GET | `/home?city=&date=&category=` |, | Web front door: featured, 21 days, categories, lineup |
+| POST | `/invites` | Bearer | Personal invite → `{invite, link}` |
+| GET | `/invites/:code` |, | Public invite page (works signed out) |
+| POST | `/invites/:id/rsvp`, `/updates`, `/cancel`, `/move` (`/convert`), `/report` | Bearer | RSVP, message guests, cancel, sell tickets instead, report |
+| GET/POST/DELETE | `/invites/:id/guests`, `/rsvps/:user/decision`, `/rsvps/:user/check-in` | Bearer (host) | Host view |
 | GET | `/events` |, | Published events (`?category=`, `?q=`, `?limit=`) |
 | GET | `/events/mine` | Bearer | Caller's events (any status) |
 | GET | `/events/:id` |, | Event detail incl. tiers (`priceCents` + `price`, `remaining`) |
@@ -107,7 +125,14 @@ Table `blocktiks`: `pk` (HASH) / `sk` (RANGE), GSI1 = feed index, GSI2 = per-use
 | `OFFER#<id>` | `METADATA` | set-your-price offer (maxPriceCents, quantity, matchedCount) | gsi1 `OFFERS#ACTIVE` / `EVENT#<id>#<tierKey>`; gsi2 `USER#<id>#OFFERS` |
 | `BROADCAST#<id>` | `METADATA` | creator broadcast to event guests | gsi2 `CREATOR#<id>` / `BROADCASTS` |
 | `PROMO#<CODE>` | `METADATA` | promo code (creatorId, scope, discount, usedCount) | gsi1 `PROMOS#ALL` |
-| `RESET#<email>` | `CODE` | password-reset code (sha256 hash, expiresAt) |, |
+| `USER#PHONE#<e164>` / `USER#APPLE#<sub>` | `ID` | phone / Apple subject → userId lookup |, |
+| `OTP#<id>` | `METADATA` | OtpChallenge (HMAC code hash, attempts, expiresAt, consumedAt) | gsi1 `OTPEXP`/expiresAt (cleanup); gsi2 `OTPCONTACT#<contact>`/createdAt (send limit) |
+| `SESSION#<id>` | `METADATA` | Session (device, method, lastSeenAt, revokedAt) | gsi2 `USER#<id>#SESSIONS` |
+| `INVITE#<id>` | `METADATA` | personal invite (goingSeats counter) | gsi2 `USER#<host>#INVITES`; gsi1 `INVITES#ACTIVE`/startsAt while active |
+| `INVITE#<id>` | `RSVP#<userId>` / `UPDATE#…` / `REPORT#…` | InviteRsvp (incl. `seen` marker) / InviteUpdate / abuse report | gsi2 `USER#<id>#RSVPS` (rsvps) |
+| `INVITECODE#<code>` | `ID` | share code → inviteId |, |
+| `NOTIF#<userId>` | `<createdAt>#<id>` | stored notification |, |
+| `RATE#<scope>` | `DAY#<date>` | daily counters (invites/day, messages/invite/day) |, |
 | `EXPIRE#<orderId>` | `INDEX` | pending-order expiry marker | gsi1 `EXPIRE` / `expiresAt` (sweeper) |
 
 GSI1 is the global feed index (`EVENTS#PUBLISHED` sorted by start time,

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, type StudioEvent } from '../lib/api';
+import { ApiError, api, type StudioEvent, type StudioMember } from '../lib/api';
 import { useOrg } from '../lib/org';
-import type { LocalMember, OrgRole } from '../lib/store';
+import type { OrgRole } from '../lib/store';
 import {
   Badge,
   Button,
@@ -36,7 +36,7 @@ export function TeamPanel() {
   const { org, user } = useOrg();
   const navigate = useNavigate();
   const { toasts, push } = useToasts();
-  const [members, setMembers] = useState<LocalMember[]>([]);
+  const [members, setMembers] = useState<StudioMember[]>([]);
   const [events, setEvents] = useState<StudioEvent[]>([]);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState('');
@@ -46,7 +46,7 @@ export function TeamPanel() {
 
   const reload = () => {
     if (!org) return;
-    setMembers(api.members(org.id));
+    api.members(org.id, user).then(setMembers).catch(() => setMembers([]));
   };
 
   useEffect(() => {
@@ -69,41 +69,61 @@ export function TeamPanel() {
       setInviteError('Enter a valid email.');
       return;
     }
-    const res = api.inviteMember(org!.id, {
-      email: clean,
-      role,
-      eventScope: role === 'gate' && gateEvents.length > 0 ? gateEvents : null,
-    });
-    if ('error' in res && res.error === 'already_member') {
-      setInviteError("They're already on this team.");
-      return;
-    }
-    setInviteOpen(false);
-    setEmail('');
-    setRole('cohost');
-    setGateEvents([]);
-    setInviteError('');
-    reload();
-    push('Invite sent. It expires in 7 days.'); // TODO(decision-12)
+    api
+      .inviteMember(org!.id, {
+        email: clean,
+        role,
+        eventScope: role === 'gate' && gateEvents.length > 0 ? gateEvents : null,
+      })
+      .then(() => {
+        setInviteOpen(false);
+        setEmail('');
+        setRole('cohost');
+        setGateEvents([]);
+        setInviteError('');
+        reload();
+        push('Invite sent. It expires in 7 days.'); // TODO(decision-12)
+      })
+      .catch((err) =>
+        setInviteError(
+          err instanceof ApiError && err.code === 'already_member'
+            ? "They're already on this team."
+            : err instanceof ApiError
+              ? err.message
+              : 'Could not send the invite.',
+        ),
+      );
   }
 
-  function remove(m: LocalMember) {
-    const res = api.removeMember(org!.id, m.id);
-    if ('error' in res && res.error === 'last_admin') {
-      push("You're the last admin. Make someone else admin first.", 'danger');
-      return;
-    }
-    reload();
-    push(m.status === 'invited' ? 'Invite pulled back.' : 'Removed.');
+  function remove(m: StudioMember) {
+    api
+      .removeMember(org!.id, m.id)
+      .then(() => {
+        reload();
+        push(m.status === 'invited' ? 'Invite pulled back.' : 'Removed.');
+      })
+      .catch((err) =>
+        push(
+          err instanceof ApiError && err.code === 'last_admin'
+            ? "You're the last admin. Make someone else admin first."
+            : 'Could not remove them.',
+          'danger',
+        ),
+      );
   }
 
-  function changeRole(m: LocalMember, r: OrgRole) {
-    const res = api.updateMember(org!.id, m.id, { role: r });
-    if (res && 'error' in res && res.error === 'last_admin') {
-      push("You're the last admin. Make someone else admin first.", 'danger');
-      return;
-    }
-    reload();
+  function changeRole(m: StudioMember, r: OrgRole) {
+    api
+      .updateMember(org!.id, m.id, { role: r })
+      .then(reload)
+      .catch((err) =>
+        push(
+          err instanceof ApiError && err.code === 'last_admin'
+            ? "You're the last admin. Make someone else admin first."
+            : 'Could not change the role.',
+          'danger',
+        ),
+      );
   }
 
   return (

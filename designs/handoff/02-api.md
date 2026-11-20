@@ -7,19 +7,22 @@ Roles: **F** any signed-in user · **A** org admin · **C** co-host · **G** gat
 ## Auth & account
 | Screen | Call | Returns | Errors |
 |---|---|---|---|
-| Create account | `POST /auth/signup {name,email,password,intent:"fan"|"host"}` | `{token,user,next:"personalize"|"create_org"}` | `email_taken`, `weak_password` |
-| Sign in | `POST /auth/signin {email,password}` | `{token,user,memberships[],landing:{mode:"personal"}|{mode:"org",org_id,role}}` | `bad_credentials`, `locked` |
-| Forgot / OTP / new pw | `POST /auth/reset/start`, `/auth/reset/verify {code}`, `/auth/reset/complete {password}` | 204 / `{reset_token}` | `code_invalid`, `code_expired` |
-| Personalize | `PATCH /me {city,interests[]}` | `user` | `interests_min_3` |
+| Phone or email (sign in = sign up) | `POST /auth/otp/start {contact}` | `{challenge_id,channel,resend_after}` | `contact_invalid`, `rate_limited` |
+| Enter the code | `POST /auth/otp/verify {challenge_id,code}` | `{token,user,is_new,memberships[],landing}` | `code_invalid`, `code_expired`, `too_many_attempts` |
+| Continue with Apple | `POST /auth/apple {identity_token}` | same as verify | `apple_invalid` |
+| Name (new accounts) | `PATCH /me {name}` | `user` | `name_required` |
+| What brings you here / city + interests | `PATCH /me {intent[],city,interests[]}` | `user` | none (all optional; skipped when the user came from a gated action) |
 | Profile switcher | `GET /me/memberships` | `[{org,role,event_scope,verification_status}]` | |
 | Switch profile | `PUT /me/mode {mode,org_id?}` | `{landing}`; server clears the checkout hold | `not_member` |
-| Edit profile / pw | `PATCH /me`, `POST /me/password {current,new}` | `user` / 204 (revokes other sessions) | `wrong_password` |
+| Edit profile | `PATCH /me` | `user` | changing email/phone requires a fresh OTP |
+| Sign-in methods | `GET /me/sessions`, `DELETE /me/sessions/{id}` | sessions | |
 | Delete account | `DELETE /me` | 204 | `has_tickets`, `has_listings`, `has_price_watches`, `has_balance`, `sole_admin` (rule A6) |
 
 ## Discovery
 | Screen | Call | Returns |
 |---|---|---|
-| For You | `GET /feed?city=` | `{sections:[{title,events[EventCard]}]}` |
+| For You | `GET /feed?city=` | `{invites_pending[],sections:[{title,events[EventCard]}]}` (works signed out) |
+| Web front door | `GET /home?city=` | `{featured[3],days:[{date,count}] (21 days),categories:[{name,count}],lineup[EventCard]}` (empty categories omitted) |
 | Search | `GET /search?q=&type=events|venues|artists` | results |
 | Event detail | `GET /events/{id}` | `Event + venue + tiers[{id,name,price,left,status,resale:{from_price,count}}] + my:{tickets,reminder,watch}` |
 | Tier picker (GA) | `GET /events/{id}/tiers/{tier}/listings` | `[{listing_id,price_each,qty,split_rule}]` cheapest first |
@@ -37,7 +40,7 @@ Roles: **F** any signed-in user · **A** org admin · **C** co-host · **G** gat
 ## Tickets (fan)
 | Screen | Call | Returns | Errors |
 |---|---|---|---|
-| Tickets tab | `GET /me/tickets` | `{upcoming:[grouped by event], past[], waiting:[PriceWatch], selling:[Listing]}` | |
+| Plans tab | `GET /me/plans` | `{waiting_on_you:[Invite], upcoming:[{kind:"ticket"|"rsvp"|"hosting", starts_at, …}] sorted by starts_at, waiting:[PriceWatch], past[]}` | |
 | Pass / QR | `GET /tickets/{id}/credential` | `{qr_payload,version,rotates_at}`; cache for offline use | `not_holder`, `void` |
 | Send | `POST /transfers {ticket_ids[],to}` | `transfer` | `self_transfer`, `listed`, `event_started` |
 | Claim | `POST /transfers/{id}/claim` | tickets (new credentials issued) | `expired`, `already_claimed` |
@@ -45,6 +48,19 @@ Roles: **F** any signed-in user · **A** org admin · **C** co-host · **G** gat
 | Stop selling | `DELETE /listings/{id}` | 204 | `already_sold` |
 | Set your price | `POST /price-watches {event_id,tier_id,qty,max_each,payment_method_id}` | `{watch}` or `{match:{listing_id}}` (go to checkout) | `above_cap`, `card_invalid` |
 | Cancel watch | `DELETE /price-watches/{id}` | 204 | |
+
+## Invites (personal hosting) · any signed-in user
+| Screen | Call | Returns | Errors |
+|---|---|---|---|
+| New invite | `POST /invites {title,starts_at,place_text,cover,note,approve_guests,allow_plus_ones,guest_cap,show_guest_list,hide_address_until_going}` | `{invite,link}` | `title_required`, `place_required`, `rate_limited` |
+| Invite page (guest or host) | `GET /invites/{code}` (**public**, works signed out) | `invite + host{name,initials} + counts + faces[] (if show_guest_list) + updates[] + my_rsvp`. `place_text` is omitted unless viewer is host or going (when hidden). | `not_found`, `cancelled` |
+| Reply | `POST /invites/{id}/rsvp {status,plus_ones}` | `{rsvp}` (status becomes `requested` when approval is on) | `full`, `plus_ones_not_allowed`, `host_cannot_rsvp` |
+| Host view | `GET /invites/{id}/guests` | `{going[],maybe[],requested[],no[],checked_in}` | host only |
+| Approve / decline | `POST /invites/{id}/rsvps/{user}/decision {approve:bool}` | rsvp | `not_requested` |
+| Check in | `POST/DELETE /invites/{id}/rsvps/{user}/check-in` | 204 | |
+| Message guests | `POST /invites/{id}/updates {body}` | `{recipients}` (going + maybe; push, SMS fallback) | `no_recipients`, `limit_reached` |
+| Edit / cancel | `PATCH /invites/{id}`, `POST /invites/{id}/cancel` | invite | |
+| Sell tickets instead | `POST /invites/{id}/move {org_id}` | `{event_id}` (draft; existing going guests become comp tickets) | `not_admin`, `already_moved` |
 
 ## Money (fan)
 | Screen | Call | Returns |
@@ -88,4 +104,4 @@ Roles: **F** any signed-in user · **A** org admin · **C** co-host · **G** gat
 | Broadcast | `POST /events/{id}/broadcasts {audience,channels,body}` | A C | `{recipients,sms_cost}` · `limit_reached`, `empty_audience` |
 
 ## Webhooks & jobs (no screen; required)
-`payment.succeeded/failed` → order state · `charge.dispute.created` → ledger chargeback · `hold.expire` (cron) · `event.ended` → release resale payouts and scheduled org payouts · `transfer.expire` · `price_watch.match` (on every new listing) · `verification.decided` · `credential.rotate` on transfer, resale, or refund.
+`otp.cleanup` (cron) · `invite.reminder` (day before, to going + maybe) · `rsvp.requested` → host push · `rsvp.decided` → guest push/SMS · `payment.succeeded/failed` → order state · `charge.dispute.created` → ledger chargeback · `hold.expire` (cron) · `event.ended` → release resale payouts and scheduled org payouts · `transfer.expire` · `price_watch.match` (on every new listing) · `verification.decided` · `credential.rotate` on transfer, resale, or refund.

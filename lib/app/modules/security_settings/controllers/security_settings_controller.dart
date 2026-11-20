@@ -3,13 +3,12 @@ import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:block_tix/app/services/api_service.dart';
 
-/// Sign-in & security, change password, sign out other devices, and the
-/// guarded account-deletion flow (rule A6).
+/// Sign-in & security: sessions (passwords are gone in v2 — sign-in is OTP
+/// or Apple), sign out other devices, and the guarded account-deletion
+/// flow (rule A6).
 class SecuritySettingsController extends GetxController {
   final RxInt otherSessions = 2.obs;
   final RxBool isDeleting = false.obs;
-
-  void changePassword() => Get.toNamed(Routes.CHANGE_PASSWORD);
 
   Future<void> signOutOthers() async {
     final ok = await showSahraConfirm(

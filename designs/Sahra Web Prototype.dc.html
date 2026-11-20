@@ -300,10 +300,12 @@ class Component extends DCLogic {
   timers = [];
   allRef = React.createRef(); heroRef = React.createRef(); cityRef = React.createRef(); bandRef = React.createRef();
   componentWillUnmount() { this.timers.forEach(clearTimeout); this.io && this.io.disconnect(); }
-  componentDidMount() { this.runHero(); }
-  componentDidUpdate(pp, ps) {
-    const home = this.state.surf !== 'studio' && this.state.fr === 'fHome', wasHome = ps.surf !== 'studio' && ps.fr === 'fHome';
-    if (home && !wasHome) this.runHero();
+  isHome() { return this.state.surf !== 'studio' && this.state.fr === 'fHome'; }
+  componentDidMount() { this._wasHome = this.isHome(); this.runHero(); }
+  componentDidUpdate() {
+    const home = this.isHome();
+    if (home && !this._wasHome) this.runHero();
+    this._wasHome = home;
   }
   calm() { return window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; }
   runHero() {

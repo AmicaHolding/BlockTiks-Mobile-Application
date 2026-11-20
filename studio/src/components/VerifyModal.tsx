@@ -26,7 +26,7 @@ export default function VerifyModal({
 
   if (!org) return null;
 
-  function submit() {
+  async function submit() {
     if (!legalName.trim()) {
       setError('Add the legal name on your trade licence.');
       return;
@@ -35,10 +35,15 @@ export default function VerifyModal({
       setError('Add your trade licence number.');
       return;
     }
-    api.submitVerification(org!.id, {
-      legalName: legalName.trim(),
-      licenceNo: licenceNo.trim(),
-    });
+    try {
+      await api.submitVerification(org!.id, {
+        legalName: legalName.trim(),
+        licenceNo: licenceNo.trim(),
+      });
+    } catch {
+      setError('Verification submission failed. Try again.');
+      return;
+    }
     refresh();
     onSubmitted();
     onClose();

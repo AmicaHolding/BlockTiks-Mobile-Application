@@ -24,11 +24,8 @@ class SecuritySettingsView extends GetView<SecuritySettingsController> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(children: [
-                  SahraRowLink(
-                      label: 'Change password',
-                      onTap: controller.changePassword),
                   Obx(() => SahraRowLink(
-                      label: 'Sign out other devices',
+                      label: 'Sign-out other sessions',
                       value: controller.otherSessions.value > 0
                           ? '${controller.otherSessions.value} active'
                           : 'None',

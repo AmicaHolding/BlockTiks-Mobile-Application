@@ -1,66 +1,98 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ApiError, api, setToken, type User } from '../lib/api';
 import { Button, Field, Input } from '../components/ui';
 
-type Mode = 'signup' | 'signin';
+type Step = 'contact' | 'code' | 'name';
 
 export default function LoginPage({
   onAuthenticated,
 }: {
   onAuthenticated: (user: User, isNewSignup: boolean) => void;
 }) {
-  const [mode, setMode] = useState<Mode>('signup');
+  const [step, setStep] = useState<Step>('contact');
+  const [contact, setContact] = useState('');
+  const [challengeId, setChallengeId] = useState('');
+  const [channel, setChannel] = useState('');
+  const [code, setCode] = useState('');
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const verifiedRef = useRef<{ user: User; isNew: boolean } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [serverError, setServerError] = useState('');
 
-  async function submit(e: React.FormEvent) {
+  function errMsg(err: unknown, fallback = 'Something went wrong. Try again.'): string {
+    return err instanceof ApiError ? err.message : fallback;
+  }
+
+  async function sendCode(e: React.FormEvent) {
     e.preventDefault();
     const next: Record<string, string> = {};
-    if (mode === 'signup' && !name.trim()) next.name = 'Add your name.';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) next.email = 'Enter a valid email.';
-    if (mode === 'signup' && password.length < 8) next.password = 'Password needs 8+ characters.';
-    if (mode === 'signin' && !password) next.password = 'Enter your password.';
+    if (!contact.trim()) next.contact = 'Enter an email or phone number.';
     setErrors(next);
     if (Object.keys(next).length > 0) return;
-
     setBusy(true);
     setServerError('');
     try {
-      if (mode === 'signup') {
-        const parts = name.trim().split(/\s+/);
-        const res = await api.signup({
-          firstName: parts[0],
-          lastName: parts.slice(1).join(' ') || undefined,
-          email: email.trim(),
-          password,
-          role: 'creator',
-        });
-        setToken(res.token);
-        onAuthenticated(res.user, true);
-      } else {
-        const res = await api.login(email.trim(), password);
-        setToken(res.token);
-        onAuthenticated(res.user, false);
-      }
+      const res = await api.otpStart(contact.trim());
+      setChallengeId(res.challenge_id);
+      setChannel(res.channel);
+      setStep('code');
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Something went wrong. Try again.';
-      if (err instanceof ApiError && (err.status === 409 || /registered|exists/i.test(err.message))) {
-        setErrors({ email: "There's already an account with this email." });
-      } else if (err instanceof ApiError && (err.status === 401 || /invalid|credentials/i.test(err.message))) {
-        setServerError('Email or password is wrong.');
+      if (err instanceof ApiError && err.code === 'rate_limited') {
+        setServerError('Too many codes. Wait a bit and try again.');
       } else {
-        setServerError(msg);
+        setErrors({ contact: errMsg(err, 'Enter an email or a phone number with country code.') });
       }
     } finally {
       setBusy(false);
     }
   }
 
-  const isSignup = mode === 'signup';
+  async function verify(e: React.FormEvent) {
+    e.preventDefault();
+    if (!code.trim()) {
+      setErrors({ code: 'Enter the 6-digit code.' });
+      return;
+    }
+    setBusy(true);
+    setServerError('');
+    try {
+      const res = await api.otpVerify(challengeId, code.trim());
+      setToken(res.token);
+      if (res.is_new || !(res.user.name ?? res.user.firstName)) {
+        verifiedRef.current = { user: res.user, isNew: res.is_new };
+        setStep('name');
+      } else {
+        onAuthenticated(res.user, false);
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'too_many_attempts') {
+        setServerError('Too many tries. Ask for a new code.');
+      } else {
+        setErrors({ code: errMsg(err, 'That code is not right.') });
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveName(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) {
+      setErrors({ name: 'Add your name.' });
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await api.updateProfile({ name: name.trim(), intent: ['running_events'] });
+      const v = verifiedRef.current;
+      onAuthenticated(res.user, v?.isNew ?? true);
+    } catch (err) {
+      setServerError(errMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-sand px-4 py-10">
@@ -71,87 +103,95 @@ export default function LoginPage({
         </div>
 
         <div className="rounded-2xl border border-dune bg-white p-8 shadow-[0_2px_12px_rgba(22,38,59,0.05)]">
-          {isSignup ? (
+          {step === 'contact' ? (
             <>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink/45">
-                Step 1 of 2 · Your account
-              </p>
-              <h1 className="mt-2 font-display text-3xl font-bold text-night">Host on Sahra</h1>
+              <h1 className="font-display text-3xl font-bold text-night">Host on Sahra</h1>
               <p className="mt-2 text-sm leading-relaxed text-ink/55">
-                One Sahra account for everything. You can still buy tickets with it.
+                Sign in or create an account. No password, just a code.
               </p>
+              <form onSubmit={sendCode} className="mt-7 space-y-4">
+                <Field label="Email or phone" error={errors.contact}>
+                  <Input
+                    value={contact}
+                    onChange={(e) => {
+                      setContact(e.target.value);
+                      setErrors({});
+                    }}
+                    placeholder="you@company.com or +9715…"
+                    autoComplete="email"
+                  />
+                </Field>
+                {serverError ? <p className="text-sm font-medium text-rumman">{serverError}</p> : null}
+                <Button type="submit" loading={busy} disabled={busy}>
+                  Send code
+                </Button>
+              </form>
             </>
-          ) : (
+          ) : null}
+
+          {step === 'code' ? (
             <>
-              <h1 className="font-display text-3xl font-bold text-night">Welcome back</h1>
+              <h1 className="font-display text-3xl font-bold text-night">Check your {channel === 'email' ? 'email' : 'phone'}</h1>
               <p className="mt-2 text-sm leading-relaxed text-ink/55">
-                Sign in to manage your events and payouts.
+                We sent a 6-digit code to {contact}. It expires in 10 minutes.
               </p>
-            </>
-          )}
-
-          <form onSubmit={submit} className="mt-7 space-y-4">
-            {isSignup ? (
-              <Field label="Your name" error={errors.name}>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Mazen Khoury"
-                  autoComplete="name"
-                />
-              </Field>
-            ) : null}
-            <Field label={isSignup ? 'Work email' : 'Email'} error={errors.email}>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                autoComplete="email"
-              />
-            </Field>
-            <Field label="Password" error={errors.password} hint={isSignup ? '8+ characters' : undefined}>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="8+ characters"
-                autoComplete={isSignup ? 'new-password' : 'current-password'}
-              />
-            </Field>
-
-            {serverError ? <p className="text-sm font-medium text-rumman">{serverError}</p> : null}
-
-            <Button type="submit" loading={busy} disabled={busy}>
-              {isSignup ? 'Create account' : 'Sign in'}
-            </Button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-ink/55">
-            {isSignup ? (
-              <>
-                Already hosting?{' '}
+              <form onSubmit={verify} className="mt-7 space-y-4">
+                <Field label="Code" error={errors.code}>
+                  <Input
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={code}
+                    onChange={(e) => {
+                      setCode(e.target.value.replace(/\D/g, ''));
+                      setErrors({});
+                    }}
+                    placeholder="123456"
+                    className="text-center font-mono text-2xl tracking-[0.4em]"
+                  />
+                </Field>
+                {serverError ? <p className="text-sm font-medium text-rumman">{serverError}</p> : null}
+                <Button type="submit" loading={busy} disabled={busy}>
+                  Verify
+                </Button>
                 <button
                   type="button"
-                  className="font-semibold text-ink underline underline-offset-2 hover:text-night"
-                  onClick={() => setMode('signin')}
+                  className="w-full text-center text-sm font-semibold text-ink/50 underline underline-offset-2 hover:text-ink"
+                  onClick={() => {
+                    setStep('contact');
+                    setCode('');
+                  }}
                 >
-                  Sign in
+                  Use a different email or phone
                 </button>
-              </>
-            ) : (
-              <>
-                New to Sahra?{' '}
-                <button
-                  type="button"
-                  className="font-semibold text-ink underline underline-offset-2 hover:text-night"
-                  onClick={() => setMode('signup')}
-                >
-                  Host on Sahra
-                </button>
-              </>
-            )}
-          </p>
+              </form>
+            </>
+          ) : null}
+
+          {step === 'name' ? (
+            <>
+              <h1 className="font-display text-3xl font-bold text-night">What's your name?</h1>
+              <p className="mt-2 text-sm leading-relaxed text-ink/55">
+                Fans see this on your events.
+              </p>
+              <form onSubmit={saveName} className="mt-7 space-y-4">
+                <Field label="Your name" error={errors.name}>
+                  <Input
+                    value={name}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      setErrors({});
+                    }}
+                    placeholder="Mazen Khoury"
+                    autoComplete="name"
+                  />
+                </Field>
+                {serverError ? <p className="text-sm font-medium text-rumman">{serverError}</p> : null}
+                <Button type="submit" loading={busy} disabled={busy}>
+                  Continue
+                </Button>
+              </form>
+            </>
+          ) : null}
         </div>
       </div>
     </div>
