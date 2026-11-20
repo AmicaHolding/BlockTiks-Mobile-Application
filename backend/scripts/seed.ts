@@ -154,7 +154,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     description: 'An all-night electronic music festival featuring live sets and immersive visuals.',
     category: 'Music',
     startsAt: daysFromNow(18, 20),
-    location: 'Riverside Arena',
+    location: 'Coca-Cola Arena, Dubai',
     address: '123 Harbor St',
     tiers: [
       { name: 'General Admission', priceCents: 4500, quantity: 200 },
@@ -167,7 +167,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     description: 'Intimate live music sessions on the rooftop every Friday.',
     category: 'Concerts',
     startsAt: daysFromNow(10),
-    location: 'Skyline Lounge',
+    location: 'Skyline Lounge, Dubai',
     tiers: [{ name: 'Entry', priceCents: 2500, quantity: 80 }],
   });
   const mixer = await createEventWithTiers({
@@ -176,7 +176,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     description: 'Meet founders, operators and investors over coffee and short talks.',
     category: 'Networking',
     startsAt: daysFromNow(25, 17),
-    location: 'The Hub Coworking',
+    location: 'The Hub Coworking, Dubai',
     tiers: [
       { name: 'Early Bird', priceCents: 1500, quantity: 30 },
       { name: 'Standard', priceCents: 2500, quantity: 70 },
@@ -188,7 +188,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     description: 'Five stand-up comics, one stage. Assigned seating.',
     category: 'Comedy',
     startsAt: daysFromNow(7, 21),
-    location: 'Grand Theatre',
+    location: 'Grand Theatre, Dubai',
     tiers: [{ name: 'Standing', priceCents: 3000, quantity: 40 }],
   });
   await setVenueLayout(comedy.event.id, users.creator2.id, 'CREATOR', {
@@ -204,7 +204,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     description: 'Local artists, live painting and a pop-up gallery.',
     category: 'Arts',
     startsAt: daysFromNow(40, 12),
-    location: 'Old Town Market',
+    location: 'Old Town Market, Dubai',
     tiers: [{ name: 'Day Pass', priceCents: 1000, quantity: 300 }],
   });
   for (const e of [neon, rooftop, mixer, comedy]) {
@@ -270,7 +270,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     description: 'Open-air desert rave under the stars.',
     category: 'Music',
     startsAt: daysFromNow(45, 22),
-    location: 'Al Marmoom',
+    location: 'Al Marmoom Desert, Dubai',
     tiers: [{ name: 'GA', priceCents: 20000, quantity: 100 }],
   });
   await linkEventToOrg(orgEvent.event.id, org.id);
@@ -334,7 +334,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     description: 'A one-night immersive set — doors in a few hours.',
     category: 'Music',
     startsAt: daysFromNow(0, 21),
-    location: 'Alserkal Avenue',
+    location: 'Alserkal Avenue, Dubai',
     tiers: [{ name: 'Entry', priceCents: 12000, quantity: 80 }],
   });
   await publishEvent(tonight.event.id, creator.id, 'CREATOR');
@@ -399,7 +399,7 @@ export async function seedExtraEvents(creator: User, creator2: User): Promise<nu
       description: 'A bilingual stand-up night with the region\'s sharpest comics.',
       category: 'Comedy',
       startsAt: daysFromNow(3, 21),
-      location: 'The Laughter Factory, JBR',
+      location: 'The Laughter Factory, JBR, Dubai',
       address: 'Jumeirah Beach Residence',
       country: 'AE',
       venueTimezone: 'Asia/Dubai',
@@ -415,7 +415,7 @@ export async function seedExtraEvents(creator: User, creator2: User): Promise<nu
       description: 'Live acoustic sets aboard a traditional dhow at golden hour.',
       category: 'Concerts',
       startsAt: daysFromNow(5, 18),
-      location: 'Abu Dhabi Corniche Marina',
+      location: 'Abu Dhabi Corniche Marina, Abu Dhabi',
       country: 'AE',
       venueTimezone: 'Asia/Dubai',
       currency: 'aed',
@@ -431,7 +431,7 @@ export async function seedExtraEvents(creator: User, creator2: User): Promise<nu
       category: 'Music',
       startsAt: daysFromNow(12, 23),
       doorsAt: daysFromNow(12, 22),
-      location: 'Warehouse 7, Industrial City',
+      location: 'Warehouse 7, Al Quoz, Dubai',
       country: 'SA',
       venueTimezone: 'Asia/Riyadh',
       currency: 'sar',
