@@ -1183,7 +1183,7 @@ export async function releaseOrder(
 export async function listExpiredIndex(
   nowIso: string,
   limit = 100
-): Promise<{ orderId?: string; holdId?: string; transferId?: string }[]> {
+): Promise<{ orderId?: string; holdId?: string; transferId?: string; feeRetries?: number }[]> {
   const res = await docClient.send(
     new QueryCommand({
       TableName: T(),
@@ -1193,7 +1193,7 @@ export async function listExpiredIndex(
       Limit: limit,
     })
   );
-  return (res.Items ?? []) as { orderId?: string; holdId?: string; transferId?: string }[];
+  return (res.Items ?? []) as { orderId?: string; holdId?: string; transferId?: string; feeRetries?: number }[];
 }
 
 export async function listExpiredPendingOrders(nowIso: string, limit = 100): Promise<string[]> {
@@ -1204,6 +1204,25 @@ export async function listExpiredPendingOrders(nowIso: string, limit = 100): Pro
 export async function deleteExpireIndex(orderId: string) {
   await docClient.send(
     new DeleteCommand({ TableName: T(), Key: { pk: expirePk(orderId), sk: 'INDEX' } })
+  );
+}
+
+// Re-enqueue an order whose post-payment settlement work isn't done — e.g.
+// the sweeper fulfilled it but Stripe hasn't exposed the card fee yet.
+export async function requeueExpireIndex(orderId: string, expiresAt: string, feeRetries = 0) {
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: expirePk(orderId),
+        sk: 'INDEX',
+        orderId,
+        expiresAt,
+        feeRetries,
+        gsi1pk: EXPIRE_GSI_PK,
+        gsi1sk: expiresAt,
+      },
+    })
   );
 }
 
