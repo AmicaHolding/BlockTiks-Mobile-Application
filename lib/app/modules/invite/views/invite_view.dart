@@ -1,5 +1,6 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
+import 'package:block_tix/app/data/widgets/sahra_v3.dart';
 import '../controllers/invite_controller.dart';
 
 /// `/i/{code}` — the personal-invite landing page (I-rules). Guests read the
@@ -59,6 +60,16 @@ class InviteView extends GetView<InviteController> {
                 ),
               ),
               const SizedBox(height: 24),
+              // PE2: open date poll — guests vote, the host locks a date.
+              if (inv['poll'] is Map && (inv['poll']['locked'] != true))
+                SahraInvitePoll(
+                    inviteId: inv['id']?.toString() ?? '',
+                    poll: Map<String, dynamic>.from(inv['poll'] as Map),
+                    isHost: controller.isHost.value,
+                    onChanged: () {
+                      final c = inv['code']?.toString() ?? '';
+                      if (c.isNotEmpty) controller.load(c);
+                    }),
               if (controller.isHost.value) ...[
                 _guestList(),
                 const SizedBox(height: 20),
@@ -73,6 +84,13 @@ class InviteView extends GetView<InviteController> {
               ] else ...[
                 _respond(),
               ],
+              // PE5/PE6: activity feed + photo album for everyone invited.
+              const SizedBox(height: 16),
+              SahraInvitePhotos(
+                  inviteId: inv['id']?.toString() ?? '',
+                  canAdd: controller.isHost.value ||
+                      controller.myResponse.value == 'going'),
+              SahraInviteActivity(inviteId: inv['id']?.toString() ?? ''),
             ],
           );
         }),
@@ -121,7 +139,7 @@ class InviteView extends GetView<InviteController> {
       SahraPillButton(
           label: controller.myResponse.value == 'requested'
               ? 'Requested'
-              : 'Count me in',
+              : (inv['rsvp_labels']?['going']?.toString() ?? 'Count me in'),
           enabled: !controller.isResponding.value &&
               controller.myResponse.value != 'going' &&
               controller.myResponse.value != 'requested',
@@ -140,7 +158,8 @@ class InviteView extends GetView<InviteController> {
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: const StadiumBorder(),
           ),
-          child: Text("Can't make it",
+          // PE3: hosts can rename the RSVP buttons (custom labels).
+          child: Text(inv['rsvp_labels']?['no']?.toString() ?? "Can't make it",
               style: sahraText(color: ColorConstant.whiteA700, size: 15)),
         )),
         const SizedBox(width: 8),
@@ -155,7 +174,7 @@ class InviteView extends GetView<InviteController> {
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: const StadiumBorder(),
           ),
-          child: Text('Maybe',
+          child: Text(inv['rsvp_labels']?['maybe']?.toString() ?? 'Maybe',
               style: sahraText(color: ColorConstant.whiteA700, size: 15)),
         )),
       ]),

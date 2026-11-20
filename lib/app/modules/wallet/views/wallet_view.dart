@@ -2,6 +2,7 @@ import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
+import 'package:block_tix/app/data/widgets/sahra_v3.dart';
 import 'package:block_tix/app/services/api_service.dart';
 
 import '../controllers/wallet_controller.dart';
@@ -36,6 +37,8 @@ class WalletView extends GetView<WalletController> {
                       onAction: controller.fetchTickets));
             return SliverList(
                 delegate: SliverChildListDelegate([
+              // W1: cash / pending / credits balances sit above the plan list.
+              const SahraWalletCard(),
               _summary(),
               // Plans: invites "waiting on you" come first (I-rules).
               if (controller.invites.isNotEmpty) ...[

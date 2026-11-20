@@ -1,6 +1,7 @@
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/widgets/sahra_ticket_card.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
+import 'package:block_tix/app/data/widgets/sahra_v3.dart';
 
 
 import '../controllers/purchased_ticket_controller.dart';
@@ -70,6 +71,9 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
               else
                 ..._ticketCards(),
               const SizedBox(height: 16),
+              // G1-G5: split the bill — friends pay their own share.
+              if (controller.orderId.isNotEmpty)
+                SahraGroupPay(orderId: controller.orderId),
               _walletHint(),
             ],
           ),
@@ -216,7 +220,17 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
             status: row['status']?.toString(),
           ),
         );
-      }).toList();
+      }).toList().cast<Widget>()
+        // Q1-Q3: live rotating QR for the first valid ticket (unlocks 24h
+        // before doors; refreshes on the 15s window).
+        .followedBy(
+            controller.ticketRows
+                .where((r) =>
+                    r['status']?.toString() == 'VALID' && r['code'] != null)
+                .take(1)
+                .map((r) =>
+                    Center(child: SahraLiveQr(ticketCode: r['code'].toString()))))
+        .toList();
     }
 
     // Preview/simulated path without order rows.
