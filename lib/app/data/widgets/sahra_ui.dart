@@ -233,7 +233,9 @@ class SahraEventTile extends StatelessWidget {
       for (final t in tiers.whereType<Map>()) {
         final p = t['price'];
         final c = t['priceCents'];
-        final v = p is num ? p : (c is num ? c / 100 : null);
+        // v3 all-in display: shown price includes the 7% fee.
+        final face = p is num ? p : (c is num ? c / 100 : null);
+        final v = face == null ? null : face * 1.07;
         if (v != null && (min == null || v < min)) min = v;
       }
       if (min != null)

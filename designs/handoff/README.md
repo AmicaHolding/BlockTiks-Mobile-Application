@@ -8,10 +8,14 @@ Read in this order:
 4. `04-open-decisions.md`: policy not yet decided. **Do not invent answers.** Build behind a config flag or stub, and mark it `TODO(decision-N)`.
 
 Reference (behaviour and visuals, not code to port):
-- `Sahra Mobile Prototype v2.dc.html`: fan app, Plans, personal invites, door mode (**current**)
-- `Sahra Web Prototype v2.dc.html`: new front door, invite links, code sign-in, Studio (**current**)
-- `Sahra Mobile Logic Map v2.dc.html`, `Sahra Web Logic Map v2.dc.html`: flows, branches, errors, roles (**current**)
-- v1 files (same names without "v2") are kept for history only. Where they disagree, v2 wins.
+- `05-v3-trust-and-money.md`: wallet, all-in prices + fee credits, fair access, live QR, group pay (**overrides 03 where they differ**)
+- `06-personal-events.md`: invite fields, date poll, activity feed, photo album, RSVP rules, no resale of invites, future list (**overrides the I-rules in 03**)
+- `Sahra Mobile Prototype v3.dc.html`: v2 + wallet, fee credits, waiting room/draw, live QR, split pay, full personal-event create/attend (**latest**)
+- `Sahra Web Prototype v3.dc.html`: same money features and personal-event flows as mobile v3, plus Studio (**latest**)
+- `Sahra Mobile Prototype v2.dc.html`: fan app, Plans, personal invites, door mode (v2, kept for history)
+- `Sahra Web Prototype v2.dc.html`: new front door, invite links, code sign-in, Studio (v2, kept for history)
+- `Sahra Mobile Logic Map v3.dc.html`, `Sahra Web Logic Map v3.dc.html`: flows, branches, errors, roles (**latest**; v2 maps kept for history)
+- v1/v2 files are kept for history only. Where they disagree, v3 wins.
 - `Screen Inventory.md`: route list and platform split
 - `brand/DESIGN.md`: tokens and type
 

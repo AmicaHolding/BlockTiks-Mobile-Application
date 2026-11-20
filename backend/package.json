@@ -2,10 +2,9 @@
   "name": "blocktiks-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "BlockTiks MVP backend — auth, events, ticketing, Stripe payments on Lambda + DynamoDB",
+  "description": "Sahra (BlockTiks) backend \u2014 auth, events, ticketing, Stripe payments on Cloudflare Workers + D1 (SQLite)",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "dev:local": "DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT:-http://localhost:8000} AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "build:lambda": "esbuild src/lambda.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/lambda.js --external:@aws-sdk/*",
@@ -13,13 +12,16 @@
     "typecheck": "tsc --noEmit",
     "typecheck:scripts": "tsc -p scripts",
     "stripe:listen": "stripe listen --forward-to localhost:4000/webhooks/stripe",
-    "db:up": "docker compose up -d dynamodb",
-    "db:down": "docker compose down",
-    "db:create": "DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT:-http://localhost:8000} AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local tsx scripts/create-table.ts",
-    "db:seed": "DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT:-http://localhost:8000} AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local tsx scripts/seed.ts",
-    "db:reset": "DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT:-http://localhost:8000} AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local tsx scripts/seed.ts --reset",
-    "db:seed:remote": "SEED_ALLOW_REMOTE=1 tsx scripts/seed.ts",
-    "db:more": "DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT:-http://localhost:8000} AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local tsx scripts/seed.ts --more"
+    "db:up": "tsx scripts/create-table.ts",
+    "db:down": "echo \"SQLite file db: delete backend/data/dev.db to reset\"",
+    "db:create": "tsx scripts/create-table.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:reset": "tsx scripts/seed.ts --reset",
+    "db:more": "tsx scripts/seed.ts --more",
+    "dev:local": "tsx watch src/index.ts",
+    "db:seed:remote": "wrangler d1 execute sahra-db --remote --file schema.sql",
+    "dev:worker": "wrangler dev",
+    "deploy:worker": "wrangler deploy"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.0.0",
@@ -30,15 +32,18 @@
     "@fastify/helmet": "^13.2.0",
     "@fastify/jwt": "^10.0.0",
     "@fastify/rate-limit": "^11.2.2",
+    "better-sqlite3": "^11.10.0",
     "fastify": "^5.6.0",
     "fastify-plugin": "^5.0.0",
     "stripe": "^18.5.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.0",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^22.0.0",
     "esbuild": "^0.25.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "wrangler": "^4.165.0"
   }
 }

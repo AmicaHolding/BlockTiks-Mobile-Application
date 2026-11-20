@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { allInPrice, feeInsidePrice } from '../db/v3';
 import {
   claimListingForCheckout,
   convertHold,
@@ -57,16 +58,22 @@ export function computeQuote(input: {
   currency: string;
   country?: string;
 }): QuoteShape {
-  const feeMinor = Math.round((input.subtotalCents * env.platformFeePercent) / 100);
   const taxable = Math.max(0, input.subtotalCents - input.discountCents);
   const rate = input.country ? env.taxRates[input.country.toUpperCase()] ?? 0 : 0;
   const taxMinor = rate > 0 ? Math.round((taxable * rate) / (100 + rate)) : 0;
+  // v3 all-in pricing (F1/F2): the shown subtotal is what the buyer pays;
+  // the 7% fee is inside it. Legacy mode keeps the additive 5% fee.
+  const feeMinor = env.allInPricing
+    ? feeInsidePrice(taxable)
+    : Math.round((input.subtotalCents * env.platformFeePercent) / 100);
   return {
     subtotal_minor: input.subtotalCents,
     fee_minor: feeMinor,
     discount_minor: input.discountCents,
     tax_minor: taxMinor,
-    total_minor: input.subtotalCents + feeMinor - input.discountCents,
+    total_minor: env.allInPricing
+      ? taxable
+      : input.subtotalCents + feeMinor - input.discountCents,
     currency: input.currency,
   };
 }
@@ -198,7 +205,8 @@ export async function holdRoutes(app: FastifyInstance) {
           holdLines.push({
             listingCode: line.listingCode,
             qty: 1,
-            unitPriceCents: listing.priceCents,
+            unitPriceCents: env.allInPricing ? allInPrice(listing.priceCents) : listing.priceCents,
+            faceUnitCents: listing.priceCents,
             tierName: listing.tierName,
           });
           continue;
@@ -232,7 +240,8 @@ export async function holdRoutes(app: FastifyInstance) {
             sectionName: section.name,
             tierName: section.name,
             qty: line.qty,
-            unitPriceCents: section.priceCents,
+            unitPriceCents: env.allInPricing ? allInPrice(section.priceCents) : section.priceCents,
+            faceUnitCents: section.priceCents,
             seatLabels: seatIds?.length ? seatIds : undefined,
           });
           continue;
@@ -259,7 +268,8 @@ export async function holdRoutes(app: FastifyInstance) {
             tierId: line.tierId,
             tierName: tier.name,
             qty: line.qty,
-            unitPriceCents: tier.priceCents,
+            unitPriceCents: env.allInPricing ? allInPrice(tier.priceCents) : tier.priceCents,
+            faceUnitCents: tier.priceCents,
           });
           continue;
         }
@@ -423,6 +433,7 @@ export async function holdRoutes(app: FastifyInstance) {
         tierName: line.tierName ?? line.sectionName ?? 'Ticket',
         quantity: line.qty,
         unitPriceCents: line.unitPriceCents,
+        faceUnitCents: line.faceUnitCents,
       }));
       const kind = hold.lines.some((l) => l.listingCode)
         ? 'RESALE'
@@ -442,6 +453,10 @@ export async function holdRoutes(app: FastifyInstance) {
           discountCents,
           feesCents: quote.fee_minor,
           taxCents: quote.tax_minor,
+          faceSubtotalCents: hold.lines.reduce(
+            (s, l) => s + (l.faceUnitCents ?? l.unitPriceCents) * l.qty,
+            0
+          ),
           totalCents: quote.total_minor,
           promoCodeText,
           currency: quote.currency,

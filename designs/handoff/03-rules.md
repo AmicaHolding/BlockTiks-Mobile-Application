@@ -22,6 +22,7 @@ Each rule is testable. **[P]** = taken from the prototype as built. **[R]** = re
 - **I7 [P]** "Sell tickets instead" moves an invite into an organisation as a draft event. Requires admin of that org (or creating one). Existing Going guests keep free spots as comp tickets. Selling still requires verification (O3).
 - **I8 [P]** Messages to guests go to Going + Maybe; push to app users, SMS to others. They also show on the invite page.
 - **I9 [P]** Cancelling notifies everyone who replied (except Can't go).
+- **I11 [P]** Personal RSVPs can never be sold or transferred, and plus-one spots can't be passed on. Guests can only update their own RSVP. Full v3 invite rules: `06-personal-events.md`.
 - **I10 [P]** Plans lists tickets, RSVPs (Going/Maybe/Requested) and hosted invites in one list sorted by start time. Unanswered invites sit above it under "Waiting on you".
 
 ## Organisations & team (O, T)

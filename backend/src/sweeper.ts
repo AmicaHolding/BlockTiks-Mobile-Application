@@ -37,6 +37,7 @@ export const handler = async () => {
     reservesReleased: 0,
     otpCleaned: 0,
     inviteReminders: 0,
+    pendingReleased: 0,
   };
 
   // hold.expire — release inventory reservations whose 10-min window passed.
@@ -72,6 +73,20 @@ export const handler = async () => {
         const pi = await getStripe().paymentIntents.retrieve(order.stripePaymentIntentId);
         if (pi.status === 'succeeded') {
           await fulfillOrder(orderId, pi.id);
+          // Same v3 side-effects as the webhook path (fee credit + pending).
+          try {
+            const { feeCreditMinor, estimateProcessingMinor, postWalletCredit, addWalletPending } = await import('./db/v3');
+            const { getListing } = await import('./db');
+            const paid = await getOrder(orderId);
+            if (paid) {
+              const credit = feeCreditMinor({ dueMinor: paid.totalCents, processingMinor: estimateProcessingMinor(paid.totalCents) });
+              if (credit > 0) await postWalletCredit({ userId: paid.userId, amountMinor: credit, source: 'fee_credit', orderId: paid.id }).catch(() => undefined);
+              if (paid.kind === 'RESALE' && paid.listingCode) {
+                const listing = await getListing(paid.listingCode);
+                if (listing) await addWalletPending({ userId: listing.sellerId, orderId: paid.id, eventId: paid.eventId, amountMinor: paid.faceSubtotalCents ?? paid.subtotalCents }).catch(() => undefined);
+              }
+            }
+          } catch { /* best-effort */ }
           stats.fulfilled++;
           continue;
         }
@@ -122,6 +137,17 @@ export const handler = async () => {
     }
   } catch (err) {
     console.error('sweeper: invite reminders failed', err);
+  }
+
+  // W2: resale pending → cash once the event has happened.
+  try {
+    const { releasePendingForEndedEvents } = await import('./db/v3');
+    const { getEventMeta } = await import('./db');
+    stats.pendingReleased = await releasePendingForEndedEvents(
+      async (eventId) => (await getEventMeta(eventId))?.endsAt ?? (await getEventMeta(eventId))?.startsAt
+    );
+  } catch (err) {
+    console.error('sweeper: wallet pending release failed', err);
   }
 
   console.log('sweeper:', JSON.stringify(stats));

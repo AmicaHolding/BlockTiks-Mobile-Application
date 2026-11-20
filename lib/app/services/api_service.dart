@@ -1307,4 +1307,67 @@ class ApiService {
       prefs.setLastMode(mode: mode);
     } catch (_) {}
   }
+
+  // ---------------------------------------------------------- v3 wallet
+
+  /// GET /wallet — cash, pending and credits balances.
+  static Future<Map<String, dynamic>> wallet() async {
+    try {
+      final res = await _dio.get('/wallet', options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /wallet/withdraw {amountMinor, instant}
+  static Future<Map<String, dynamic>> walletWithdraw(
+      int amountMinor, {bool instant = false}) async {
+    try {
+      final res = await _dio.post('/wallet/withdraw',
+          data: {'amountMinor': amountMinor, 'instant': instant},
+          options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  // ----------------------------------------------------------- v3 misc
+
+  /// GET /tickets/:code/qr — rotating live-QR payload (unlocks 24h before doors).
+  static Future<Map<String, dynamic>> ticketQr(String code) async {
+    try {
+      final res = await _dio.get('/tickets/$code/qr', options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// POST /events/:id/waiting-room — join the release waiting room.
+  static Future<Map<String, dynamic>> joinWaitingRoom(String eventId,
+      {String? deviceId}) async {
+    try {
+      final res = await _dio.post('/events/$eventId/waiting-room',
+          data: {if (deviceId != null) 'deviceId': deviceId},
+          options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// GET /events/:id/waiting-room — my queue position/status.
+  static Future<Map<String, dynamic>> waitingRoomStatus(String eventId) async {
+    try {
+      final res = await _dio.get('/events/$eventId/waiting-room', options: _authOptions);
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// v3 all-in display helper: shown price = round(face × 1.07).
+  static int allInPrice(int faceCents) => (faceCents * 1.07).round();
 }

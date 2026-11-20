@@ -44,3 +44,20 @@ export async function sendVerificationEmail(to: string, link: string): Promise<v
     text: `Confirm your email address by opening this link (valid for 24 hours):\n\n${link}\n\nIf you did not request this, you can ignore this email.`,
   });
 }
+
+export async function sendPasswordResetEmail(to: string, code: string): Promise<void> {
+  await sendEmail({
+    to,
+    subject: 'Your Sahra password reset code',
+    text: `Your Sahra password reset code is ${code}. It expires in 10 minutes.\n\nIf you did not request this, you can ignore this email.`,
+  });
+}
+
+export async function sendOtpEmail(to: string, code: string): Promise<void> {
+  await sendEmail({
+    to,
+    subject: 'Your Sahra code',
+    text: `Your Sahra sign-in code is ${code}. It expires in 10 minutes.`,
+    html: `<p>Your Sahra sign-in code is <strong style="font-size:24px;letter-spacing:4px">${code}</strong>.</p><p>It expires in 10 minutes.</p>`,
+  });
+}

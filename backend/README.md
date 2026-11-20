@@ -1,22 +1,30 @@
-# BlockTiks Backend (MVP)
+# Sahra Backend
 
-Node 22 + TypeScript + Fastify + **DynamoDB (single-table)** + Stripe test mode.
-Deploys as **AWS Lambda behind API Gateway HTTP API** via SAM.
-No blockchain, regular database, Stripe PaymentIntents, JWT auth.
+Node 22 + TypeScript + Fastify + **Cloudflare D1 (SQLite)** + Stripe test mode.
+Deploys as a **Cloudflare Worker** (`wrangler.toml` + `src/worker.ts`); the
+same code also builds for AWS Lambda via SAM (`DB_ENGINE=dynamo` keeps the
+legacy DynamoDB data path).
+No blockchain, SQL database, Stripe PaymentIntents, JWT auth.
+
+## The data layer
+
+`src/db.ts` issues DynamoDB-DocumentClient-style commands against a single
+table (`pk`/`sk` + two GSIs). `src/db/engine.ts` evaluates those commands
+(get/put/query/update/transact/batch + condition & update expressions) on a
+relational store — `src/db/local.ts` (better-sqlite3, local dev) or
+`src/db/d1.ts` (the D1 `DB` binding in the Worker). Schema: `schema.sql`.
 
 ## Local dev
-
-Fastest path · DynamoDB Local in Docker, no AWS account:
 
 ```bash
 cd backend
 npm install
-npm run db:up        # DynamoDB Local on :8000 (docker compose)
-npm run db:seed      # creates the table + demo data (skips if already seeded; if a seed run was interrupted, use `npm run db:reset`)
-npm run dev:local    # http://localhost:4000 against DynamoDB Local
+npm run db:seed      # creates data/dev.db + demo data (skips if already seeded; `npm run db:reset` wipes first)
+npm run dev          # http://localhost:4000 against the SQLite file
 ```
 
-Or from the repo root: `./dev.sh --local --seed`.
+Or from the repo root: `./dev.sh --local --seed` (`--local` is a no-op now —
+SQLite is the only local engine).
 
 No Docker? Use the DynamoDB Local jar (`java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -inMemory -port 8000`)
 and the same `db:create` / `db:seed` / `dev:local` scripts.

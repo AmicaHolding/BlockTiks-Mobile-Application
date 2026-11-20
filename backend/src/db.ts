@@ -109,6 +109,7 @@ export interface User {
   firstNameAr?: string;
   city?: string;
   interests?: string[];
+  phoneVerified?: boolean;
   dateOfBirth?: string;
   emailVerified?: boolean;
   notificationPrefs?: {
@@ -253,6 +254,9 @@ export interface OrderItem {
   tierName: string;
   quantity: number;
   unitPriceCents: number;
+  // v3 all-in pricing: the organiser's face value per unit (unitPriceCents
+  // is what the buyer paid, all-in). Falls back to unitPriceCents on legacy rows.
+  faceUnitCents?: number;
   // Seated orders: which venue section the tickets are for.
   sectionId?: string;
   sectionName?: string;
@@ -278,6 +282,9 @@ export interface Order {
   discountCents: number;
   feesCents: number;
   taxCents?: number; // P6: VAT extracted from the all-in price (decision-13)
+  // v3: organiser/seller earnings basis at face value (subtotal − in-price
+  // fee). Absent on legacy rows → subtotalCents is the basis.
+  faceSubtotalCents?: number;
   totalCents: number;
   promoCodeText?: string;
   stripePaymentIntentId?: string;
@@ -542,6 +549,7 @@ export async function updateUser(
       | 'emailVerified'
       | 'notificationPrefs'
       | 'lastMode'
+      | 'intent'
     >
   >
 ): Promise<User | null> {
@@ -678,7 +686,7 @@ export async function getTiersForEvent(eventId: string): Promise<TicketTier[]> {
       ExpressionAttributeValues: { ':pk': eventPk(eventId), ':prefix': 'TIER#' },
     })
   );
-  return (res.Items ?? []).map((item) => {
+  return (res.Items ?? []).map((item: Record<string, unknown>) => {
     const { pk, sk, ...rest } = item as Record<string, unknown>;
     return { id: (sk as string).slice(5), ...rest } as unknown as TicketTier;
   });
@@ -870,6 +878,7 @@ export async function createPendingOrder(input: {
   discountCents: number;
   feesCents: number;
   taxCents?: number;
+  faceSubtotalCents?: number;
   totalCents: number;
   promoCodeText?: string;
   currency?: string;
@@ -890,6 +899,7 @@ export async function createPendingOrder(input: {
     discountCents: input.discountCents,
     feesCents: input.feesCents,
     taxCents: input.taxCents,
+    faceSubtotalCents: input.faceSubtotalCents,
     totalCents: input.totalCents,
     promoCodeText: input.promoCodeText,
     currency: input.currency,
@@ -1233,7 +1243,7 @@ async function getOrderItems(orderId: string): Promise<OrderItem[]> {
       ExpressionAttributeValues: { ':pk': orderPk(orderId), ':prefix': 'ITEM#' },
     })
   );
-  return (res.Items ?? []).map((item) => {
+  return (res.Items ?? []).map((item: Record<string, unknown>) => {
     const { pk, sk, tierId, ...rest } = item as Record<string, unknown>;
     return { tierId: tierId as string, ...rest } as unknown as OrderItem;
   });
@@ -1438,7 +1448,7 @@ export async function fulfillOrder(orderId: string, paymentIntentId: string): Pr
             tierName: item.tierName,
             sectionName: item.sectionName,
             currency: order.currency ?? 'usd',
-            faceCents: item.unitPriceCents,
+            faceCents: item.faceUnitCents ?? item.unitPriceCents,
             userId: order.userId,
             status: 'VALID',
             createdAt,
@@ -1588,7 +1598,7 @@ export async function listCredentials(ticketCode: string): Promise<TicketCredent
       ExpressionAttributeValues: { ':pk': ticketPk(ticketCode), ':prefix': 'CRED#' },
     })
   );
-  return (res.Items ?? []).map((item) => stripCredKeys(item as Record<string, unknown>));
+  return (res.Items ?? []).map((item: Record<string, unknown>) => stripCredKeys(item as Record<string, unknown>));
 }
 
 export async function getCurrentCredential(ticketCode: string): Promise<TicketCredential | null> {
@@ -2551,7 +2561,7 @@ export async function listSections(eventId: string): Promise<SectionInventory[]>
       ExpressionAttributeValues: { ':pk': eventPk(eventId), ':prefix': 'SECTION#' },
     })
   );
-  return (res.Items ?? []).map((item) => {
+  return (res.Items ?? []).map((item: Record<string, unknown>) => {
     const { pk, sk, ...rest } = item as Record<string, unknown>;
     return { sectionId: (sk as string).slice(8), ...rest } as unknown as SectionInventory;
   });
@@ -2700,7 +2710,7 @@ async function fulfillSeatedOrder(
             sectionName: item.sectionName,
             seatLabel: item.seatLabels?.[i],
             currency: order.currency ?? 'usd',
-            faceCents: item.unitPriceCents,
+            faceCents: item.faceUnitCents ?? item.unitPriceCents,
             userId: order.userId,
             status: 'VALID',
             createdAt,
@@ -3195,7 +3205,7 @@ export async function listUserPromoGrants(userId: string): Promise<string[]> {
       ExpressionAttributeValues: { ':pk': userPk(userId), ':prefix': 'GRANT#PROMO#' },
     })
   );
-  return (res.Items ?? []).map((item) => item.code as string);
+  return (res.Items ?? []).map((item: Record<string, unknown>) => item.code as string);
 }
 
 // ---------- email verification tokens ----------
@@ -3677,7 +3687,8 @@ export interface HoldLine {
   listingCode?: string; // resale line — listings are keyed by ticket code
   seatLabels?: string[];
   qty: number;
-  unitPriceCents: number; // price snapshot at hold time
+  unitPriceCents: number; // price snapshot at hold time (all-in under v3)
+  faceUnitCents?: number; // v3: organiser's face per unit
   tierName?: string;
   sectionName?: string;
 }
@@ -4000,7 +4011,7 @@ export async function fulfillHoldOrder(
               sectionName: item.sectionName,
               seatLabel: item.seatLabels?.[i],
               currency: order.currency ?? 'usd',
-              faceCents: item.unitPriceCents,
+              faceCents: item.faceUnitCents ?? item.unitPriceCents,
               userId: order.userId,
               status: 'VALID',
               createdAt,
@@ -4965,7 +4976,7 @@ export async function listOrgEventIds(orgId: string): Promise<string[]> {
       ExpressionAttributeValues: { ':pk': orgPk(orgId), ':prefix': 'EVENT#' },
     })
   );
-  return (res.Items ?? []).map((i) => i.eventId as string);
+  return (res.Items ?? []).map((i: Record<string, unknown>) => i.eventId as string);
 }
 
 export async function listEventHosts(eventId: string): Promise<EventHost[]> {
@@ -5463,7 +5474,7 @@ export async function ledgerBalance(account: string): Promise<number> {
         ExclusiveStartKey: cursor,
       })
     );
-    sum += (res.Items ?? []).reduce((s, i) => s + (i.amountMinor as number), 0);
+    sum += (res.Items ?? []).reduce((s: number, i: Record<string, unknown>) => s + (i.amountMinor as number), 0);
     cursor = res.LastEvaluatedKey;
   } while (cursor);
   return sum;
@@ -5506,40 +5517,67 @@ export async function recordSaleLedger(order: Order): Promise<void> {
     eventId: order.eventId,
   };
 
+  // v3 all-in pricing (05): the earnings basis is the face-value subtotal,
+  // and the platform's take is the fee inside the paid price.
+  const basis = order.faceSubtotalCents ?? order.subtotalCents;
+
   if (order.kind === 'RESALE' && order.listingCode) {
-    // Resale: seller nets price - seller fee; the organiser royalty is
-    // carved out of that seller fee (TODO(decision-7)); the buyer fee is
-    // platform revenue.
     const listing = await getListing(order.listingCode);
-    const sellerFee = Math.round((order.subtotalCents * env.sellerFeePercent) / 100);
-    const royalty = Math.min(
-      sellerFee,
-      Math.round((order.subtotalCents * (event.royaltyPct ?? env.royaltyPercent)) / 100)
-    );
-    if (listing) {
+    if (env.allInPricing) {
+      // F7: seller gets the full listing price; the royalty (if configured)
+      // is carved out of the platform's in-price fee instead of a seller fee.
+      const royalty = Math.min(
+        order.feesCents,
+        Math.round((basis * (event.royaltyPct ?? 0)) / 100)
+      );
+      if (listing) {
+        entries.push({ ...base, account: `user:${listing.sellerId}`, amountMinor: basis, kind: 'sale' });
+      }
+      if (royalty > 0) {
+        entries.push({ ...base, account: saleAccount(event), amountMinor: royalty, kind: 'royalty' });
+      }
       entries.push({
         ...base,
-        account: `user:${listing.sellerId}`,
-        amountMinor: order.subtotalCents - sellerFee,
-        kind: 'sale',
+        account: 'platform:fees',
+        amountMinor: order.feesCents - royalty,
+        kind: 'fee',
+        memo: 'in-price buyer fee net of royalty',
+      });
+    } else {
+      // Legacy: seller nets price - seller fee; the organiser royalty is
+      // carved out of that seller fee (TODO(decision-7)); the buyer fee is
+      // platform revenue.
+      const sellerFee = Math.round((order.subtotalCents * env.sellerFeePercent) / 100);
+      const royalty = Math.min(
+        sellerFee,
+        Math.round((order.subtotalCents * (event.royaltyPct ?? env.royaltyPercent)) / 100)
+      );
+      if (listing) {
+        entries.push({
+          ...base,
+          account: `user:${listing.sellerId}`,
+          amountMinor: order.subtotalCents - sellerFee,
+          kind: 'sale',
+        });
+      }
+      if (royalty > 0) {
+        entries.push({ ...base, account: saleAccount(event), amountMinor: royalty, kind: 'royalty' });
+      }
+      entries.push({
+        ...base,
+        account: 'platform:fees',
+        amountMinor: order.feesCents + (sellerFee - royalty),
+        kind: 'fee',
+        memo: 'buyer fee + seller fee net of royalty',
       });
     }
-    if (royalty > 0) {
-      entries.push({ ...base, account: saleAccount(event), amountMinor: royalty, kind: 'royalty' });
-    }
-    entries.push({
-      ...base,
-      account: 'platform:fees',
-      amountMinor: order.feesCents + (sellerFee - royalty),
-      kind: 'fee',
-      memo: 'buyer fee + seller fee net of royalty',
-    });
   } else {
-    // Primary sale: organiser proceeds = subtotal (buyer fee is platform
-    // revenue on top). decision-3: a reserve slice is held until event+14d.
+    // Primary sale: organiser proceeds = basis (face under all-in pricing,
+    // subtotal on legacy orders). decision-3: a reserve slice is held until
+    // event+14d.
     const account = saleAccount(event);
-    const reserve = Math.round((order.subtotalCents * env.orgReservePct) / 100);
-    const net = order.subtotalCents - reserve;
+    const reserve = Math.round((basis * env.orgReservePct) / 100);
+    const net = basis - reserve;
     if (reserve > 0) {
       entries.push({
         ...base,
@@ -6438,7 +6476,7 @@ export async function listUserNotifications(userId: string, limit = 50): Promise
       Limit: limit,
     })
   );
-  return (res.Items ?? []).map((item) => stripItem<StoredNotification>(item));
+  return (res.Items ?? []).map((item: any) => stripItem<StoredNotification>(item));
 }
 
 // ---------- daily rate counters (decision-20) ----------
@@ -6772,7 +6810,7 @@ export async function listInviteRsvps(inviteId: string): Promise<InviteRsvp[]> {
         ExclusiveStartKey,
       })
     );
-    out.push(...(res.Items ?? []).map((item) => stripItem<InviteRsvp>(item)));
+    out.push(...(res.Items ?? []).map((item: any) => stripItem<InviteRsvp>(item)));
     ExclusiveStartKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
   } while (ExclusiveStartKey);
   return out;
@@ -6795,7 +6833,7 @@ export async function listUserRsvps(userId: string): Promise<InviteRsvp[]> {
       Limit: 500,
     })
   );
-  return (res.Items ?? []).map((item) => stripItem<InviteRsvp>(item));
+  return (res.Items ?? []).map((item: any) => stripItem<InviteRsvp>(item));
 }
 
 export async function listHostedInvites(userId: string): Promise<Invite[]> {
@@ -6809,7 +6847,7 @@ export async function listHostedInvites(userId: string): Promise<Invite[]> {
       Limit: 500,
     })
   );
-  return (res.Items ?? []).map((item) => stripItem<Invite>(item));
+  return (res.Items ?? []).map((item: any) => stripItem<Invite>(item));
 }
 
 export async function getInvites(ids: string[]): Promise<Invite[]> {
@@ -6991,7 +7029,7 @@ export async function listInviteUpdates(inviteId: string): Promise<InviteUpdate[
       Limit: 50,
     })
   );
-  return (res.Items ?? []).map((item) => stripItem<InviteUpdate>(item));
+  return (res.Items ?? []).map((item: any) => stripItem<InviteUpdate>(item));
 }
 
 // TODO(decision-20): report button on every invite page; reports land in a
@@ -7062,7 +7100,7 @@ export async function listInvitesStartingBetween(fromIso: string, toIso: string)
       Limit: 500,
     })
   );
-  return (res.Items ?? []).map((item) => stripItem<Invite>(item));
+  return (res.Items ?? []).map((item: any) => stripItem<Invite>(item));
 }
 
 export async function markInviteReminderSent(id: string): Promise<boolean> {

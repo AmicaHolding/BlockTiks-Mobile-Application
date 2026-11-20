@@ -1,0 +1,19 @@
+name = "sahra-api"
+main = "src/worker.ts"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 database binding. Create once with:
+#   npx wrangler d1 create sahra-db
+# then paste the database_id below, and apply the schema:
+#   npx wrangler d1 execute sahra-db --file schema.sql          (remote)
+#   npx wrangler d1 execute sahra-db --local --file schema.sql  (local dev)
+[[d1_databases]]
+binding = "DB"
+database_name = "sahra-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+[vars]
+NODE_ENV = "production"
+# Secrets go in `wrangler secret put`: JWT_SECRET, STRIPE_SECRET_KEY,
+# STRIPE_WEBHOOK_SECRET, SES_FROM_EMAIL, PUBLIC_WEB_URL, CORS_ORIGIN

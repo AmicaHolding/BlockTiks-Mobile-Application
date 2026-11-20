@@ -22,6 +22,7 @@ import { orgRoutes } from './routes/orgs';
 import { promoRoutes } from './routes/promos';
 import { ticketRoutes } from './routes/tickets';
 import { transferRoutes } from './routes/transfers';
+import { v3Routes } from './routes/v3';
 
 // Builds the Fastify app without listening, shared by the local dev server
 // (src/index.ts) and the Lambda handler (src/lambda.ts).
@@ -76,6 +77,7 @@ export function buildApp() {
   void app.register(orgRoutes);
   void app.register(moneyRoutes);
   void app.register(inviteRoutes);
+  void app.register(v3Routes);
 
   app.setErrorHandler((error: { statusCode?: number; message?: string }, _request, reply) => {
     const statusCode = error.statusCode ?? 500;

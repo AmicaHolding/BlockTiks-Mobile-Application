@@ -137,7 +137,8 @@ String formatMoney(num? cents, [String? currency]) {
   }
 }
 
-/// Lowest tier price in dollars for an event map, or null when unknown.
+/// Lowest tier all-in price in dollars for an event map (face × 1.07), or
+/// null when unknown. v3: displayed price = paid price.
 double? lowestTierPrice(Map<String, dynamic> event) {
   final tiers = event['tiers'];
   if (tiers is! List || tiers.isEmpty) return null;
@@ -153,6 +154,7 @@ double? lowestTierPrice(Map<String, dynamic> event) {
       v = cents.toDouble() / 100;
     }
     if (v == null) continue;
+    v *= 1.07; // all-in
     if (min == null || v < min) min = v;
   }
   return min;

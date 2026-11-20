@@ -29,6 +29,7 @@ import {
     type Order
 } from '../db';
 import { env } from '../env';
+import { allInPrice, feeInsidePrice, feeCreditMinor, estimateProcessingMinor, postWalletCredit, addWalletPending } from '../db/v3';
 import { getStripe } from '../stripe';
 
 export async function orderRoutes(app: FastifyInstance) {
@@ -80,8 +81,14 @@ export async function orderRoutes(app: FastifyInstance) {
         if (prior) return { ...prior.response, duplicate: true };
       }
 
+      // v3 all-in pricing (F1/F2): shown price = paid price, fee inside.
       const feesFor = (cents: number) =>
         Math.round((cents * env.platformFeePercent) / 100);
+      const priceFor = (face: number) => (env.allInPricing ? allInPrice(face) : face);
+      const totalFor = (subtotal: number, discount: number) =>
+        env.allInPricing ? subtotal - discount : subtotal - discount + feesFor(subtotal);
+      const feeFor = (due: number, subtotal: number, discount: number) =>
+        env.allInPricing ? feeInsidePrice(due) : due - subtotal + discount;
       const expiresAtFor = () =>
         new Date(Date.now() + env.reservationTtlMinutes * 60_000).toISOString();
 
@@ -94,13 +101,15 @@ export async function orderRoutes(app: FastifyInstance) {
         items: Parameters<typeof createPendingOrder>[0]['items'];
         subtotalCents: number;
         discountCents?: number;
+        feesCents: number;
+        faceSubtotalCents?: number;
         totalCents: number;
         promoCodeText?: string;
         currency?: string;
         compensate: () => Promise<void>;
       }) => {
         const discountCents = opts.discountCents ?? 0;
-        const feesCents = opts.totalCents - opts.subtotalCents + discountCents;
+        const feesCents = opts.feesCents;
         const currency = (opts.currency ?? 'usd').toLowerCase();
         let order: Order | undefined;
         try {
@@ -113,6 +122,7 @@ export async function orderRoutes(app: FastifyInstance) {
             subtotalCents: opts.subtotalCents,
             discountCents,
             feesCents,
+            faceSubtotalCents: opts.faceSubtotalCents,
             totalCents: opts.totalCents,
             promoCodeText: opts.promoCodeText,
             currency,
@@ -175,7 +185,11 @@ export async function orderRoutes(app: FastifyInstance) {
           return reply.status(409).send({ message: 'This ticket was just sold' });
         }
         const eventCurrency = listing.currency ?? 'usd';
-        const totalCents = listing.priceCents + feesFor(listing.priceCents);
+        // F7: buyer pays round(listing × 1.07); the seller gets the full
+        // listing price (no seller fee).
+        const resaleTotal = env.allInPricing
+          ? allInPrice(listing.priceCents)
+          : listing.priceCents + feesFor(listing.priceCents);
         return checkout({
           kind: 'RESALE',
           eventId: listing.eventId,
@@ -186,11 +200,14 @@ export async function orderRoutes(app: FastifyInstance) {
               ticketCode: body.listingCode,
               tierName: listing.tierName,
               quantity: 1,
-              unitPriceCents: listing.priceCents,
+              unitPriceCents: resaleTotal,
+              faceUnitCents: listing.priceCents,
             },
           ],
-          subtotalCents: listing.priceCents,
-          totalCents,
+          subtotalCents: resaleTotal,
+          feesCents: env.allInPricing ? feeInsidePrice(resaleTotal) : feesFor(listing.priceCents),
+          faceSubtotalCents: listing.priceCents,
+          totalCents: resaleTotal,
           compensate: () => releaseListingCheckout(body.listingCode!),
         });
       }
@@ -240,8 +257,9 @@ export async function orderRoutes(app: FastifyInstance) {
             return reply.status(409).send({ message: 'One or more seats are no longer available' });
           }
         }
-        const subtotalCents = section.priceCents * quantity;
-        const totalCents = subtotalCents + feesFor(subtotalCents);
+        const seatUnit = priceFor(section.priceCents);
+        const subtotalCents = seatUnit * quantity;
+        const totalCents = totalFor(subtotalCents, 0);
         return checkout({
           kind: 'SEATED',
           eventId,
@@ -252,11 +270,14 @@ export async function orderRoutes(app: FastifyInstance) {
               sectionName: section.name,
               tierName: section.name,
               quantity,
-              unitPriceCents: section.priceCents,
+              unitPriceCents: seatUnit,
+              faceUnitCents: section.priceCents,
               seatLabels: seatLabels?.length ? seatLabels : undefined,
             },
           ],
           subtotalCents,
+          feesCents: feeFor(totalCents, subtotalCents, 0),
+          faceSubtotalCents: section.priceCents * quantity,
           totalCents,
           compensate: async () => {
             if (seatLabels?.length) {
@@ -289,8 +310,10 @@ export async function orderRoutes(app: FastifyInstance) {
         return reply.status(400).send({ message: 'Ticket sales for this tier have ended' });
       }
 
-      // Server-side pricing, never trust client amounts.
-      const subtotalCents = tier.priceCents * quantity;
+      // Server-side pricing, never trust client amounts. Under all-in
+      // pricing the shown unit is round(face × 1.07) — the fee is inside.
+      const unitPrice = priceFor(tier.priceCents);
+      const subtotalCents = unitPrice * quantity;
       let discountCents = 0;
       let promoCodeText: string | undefined;
 
@@ -350,10 +373,9 @@ export async function orderRoutes(app: FastifyInstance) {
           : Math.min(amountOffCents ?? 0, subtotalCents);
       }
 
-      // P2: the promo discount applies to the subtotal only, the buyer fee
-      // is always computed on the FULL subtotal.
-      const feesCents = Math.round((subtotalCents * env.platformFeePercent) / 100);
-      const totalCents = subtotalCents - discountCents + feesCents;
+      // P2 + F1: the promo discount applies to the shown (all-in) price.
+      const totalCents = totalFor(subtotalCents, discountCents);
+      const feesCents = feeFor(totalCents, subtotalCents, discountCents);
 
       // Atomically reserve inventory before creating the PaymentIntent,       // the oversell guard. Buyers who lose the race get a 409 here.
       const held = await reserveTickets(eventId, tierId, quantity);
@@ -369,11 +391,14 @@ export async function orderRoutes(app: FastifyInstance) {
             tierId,
             tierName: tier.name,
             quantity,
-            unitPriceCents: tier.priceCents,
+            unitPriceCents: unitPrice,
+            faceUnitCents: tier.priceCents,
           },
         ],
         subtotalCents,
         discountCents,
+        feesCents,
+        faceSubtotalCents: tier.priceCents * quantity,
         totalCents,
         promoCodeText,
         compensate: () => releaseTierHold(eventId, tierId, quantity),
@@ -434,9 +459,8 @@ export async function orderRoutes(app: FastifyInstance) {
         // P5: fulfillOrder's transaction already increments promo usedCount;
         // do NOT increment here again (previously double-counted).
         await fulfillOrder(orderId, pi.id);
-        // Resale proceeds accrue to the seller's earnings balance and are
-        // paid out via /account/withdraw (Stripe Connect transfer), so no
-        // transfer happens here.
+        // v3: post the buyer's fee credit + the seller's wallet pending.
+        await afterOrderPaid(orderId, request.log);
       }
     } else if (
       event.type === 'payment_intent.payment_failed' ||
@@ -468,4 +492,34 @@ export async function orderRoutes(app: FastifyInstance) {
 
     return { received: true };
   });
+}
+
+// F4 + W2 side-effects of a paid order: the buyer's fee credit (estimated
+// processing until settlement data is wired, TODO(decision)) and the resale
+// seller's pending wallet balance. Both are best-effort and idempotent.
+async function afterOrderPaid(orderId: string, log: { warn: (o: unknown, m?: string) => void }) {
+  const order = await getOrder(orderId);
+  if (!order || order.status !== 'PAID') return;
+  if (env.allInPricing && order.feesCents > 0) {
+    const credit = feeCreditMinor({
+      dueMinor: order.totalCents,
+      processingMinor: estimateProcessingMinor(order.totalCents),
+    });
+    if (credit > 0) {
+      await postWalletCredit({
+        userId: order.userId, amountMinor: credit, source: 'fee_credit', orderId: order.id,
+      }).catch((e) => log.warn(e, 'fee credit post failed'));
+    }
+  }
+  if (order.kind === 'RESALE' && order.listingCode) {
+    const listing = await getListing(order.listingCode);
+    if (listing) {
+      await addWalletPending({
+        userId: listing.sellerId,
+        orderId: order.id,
+        eventId: order.eventId,
+        amountMinor: order.faceSubtotalCents ?? order.subtotalCents,
+      }).catch((e) => log.warn(e, 'wallet pending post failed'));
+    }
+  }
 }

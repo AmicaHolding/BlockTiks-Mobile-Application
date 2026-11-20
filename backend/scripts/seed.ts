@@ -77,9 +77,9 @@ async function clearAllItems(): Promise<number> {
         ExclusiveStartKey,
       })
     );
-    const keys = (page.Items ?? []).map((i) => ({ pk: i.pk, sk: i.sk }));
+    const keys = (page.Items ?? []).map((i: Record<string, unknown>) => ({ pk: i.pk, sk: i.sk }));
     for (let i = 0; i < keys.length; i += 25) {
-      let requests = keys.slice(i, i + 25).map((Key) => ({ DeleteRequest: { Key } }));
+      let requests = keys.slice(i, i + 25).map((Key: Record<string, unknown>) => ({ DeleteRequest: { Key } }));
       while (requests.length > 0) {
         const res = await docClient.send(
           new BatchWriteCommand({ RequestItems: { [env.tableName]: requests } })
@@ -227,6 +227,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
   await buy(users.fan2, rooftop.event, rooftop.tiers[0], 2, { code: 'WELCOME10', percentOff: 10 });
   await buy(users.fan2, mixer.event, mixer.tiers[0], 1);
 
+  // 4900 sits under the 110% resale cap on the 4500-face GA ticket (cap 4950).
   await createListing({ sellerId: users.fan.id, ticketCode: fanGa[0], priceCents: 4900 });
   await createOffer({
     buyerId: users.fan2.id,

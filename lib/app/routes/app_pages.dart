@@ -322,4 +322,5 @@ class AppPages {
       binding: BroadcastMessageBinding(),
     ),
   ];
+
 }

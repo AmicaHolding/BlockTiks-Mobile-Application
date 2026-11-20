@@ -35,6 +35,11 @@ export const env = {
   awsRegion: process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? 'us-east-1',
   tableName: required('TABLE_NAME', 'blocktiks'),
   dynamodbEndpoint: process.env.DYNAMODB_ENDPOINT ?? '',
+  // Storage engine: 'sqlite' (default; local better-sqlite3 file, same API as
+  // Cloudflare D1) or 'dynamo' (legacy DynamoDB path, kept for the AWS/SAM
+  // deployment). The Worker always uses the D1 binding regardless.
+  dbEngine: (process.env.DB_ENGINE ?? 'sqlite') as 'sqlite' | 'dynamo',
+  dbPath: process.env.DB_PATH ?? 'data/dev.db',
   jwtSecret: secret('JWT_SECRET', 'dev-only-secret-change-me'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
   stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? '',
@@ -51,8 +56,13 @@ export const env = {
         return {};
       })()
     : {}),
-  // Buyer fee percent of subtotal (P1: spec says 5).
+  // Buyer fee percent of subtotal (P1: spec says 5). Only used when
+  // allInPricing is off.
   platformFeePercent: parseInt(process.env.PLATFORM_FEE_PERCENT ?? '5', 10),
+  // v3 trust-and-money: prices are all-in, the 7% buyer fee is inside the
+  // shown price and its unused part comes back as Credits (05, F1-F4).
+  allInPricing: (process.env.ALL_IN_PRICING ?? '1') === '1',
+  buyerFeePct: parseFloat(process.env.BUYER_FEE_PCT ?? '7'),
   // Resale economics (R2/R3/R4, decisions 7-8). resaleCapPct is a multiplier
   // on face value in percent (110 = face x 1.10). The organiser royalty is
   // taken out of the seller fee, so the seller nets 95% (TODO(decision-7)).
