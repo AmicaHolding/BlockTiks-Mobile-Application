@@ -288,6 +288,10 @@ export interface Order {
   totalCents: number;
   promoCodeText?: string;
   stripePaymentIntentId?: string;
+  // True only when creation reserved inventory (reserveTickets / a hold).
+  // releaseOrder credits seats back solely under this flag so orders that
+  // never held seats can't phantom-release inventory on expiry.
+  inventoryHeld?: boolean;
   ticketCodes?: string[];
   currency?: string;
   expiresAt?: string; // reservation expiry for PENDING orders
@@ -910,6 +914,7 @@ export async function createPendingOrder(input: {
   promoCodeText?: string;
   currency?: string;
   expiresAt: string;
+  inventoryHeld?: boolean;
 }): Promise<Order> {
   const id = randomUUID();
   const createdAt = now();
@@ -931,6 +936,7 @@ export async function createPendingOrder(input: {
     promoCodeText: input.promoCodeText,
     currency: input.currency,
     expiresAt: input.expiresAt,
+    inventoryHeld: input.inventoryHeld,
     createdAt,
   };
   await docClient.send(
@@ -1092,9 +1098,11 @@ export async function releaseOrder(
   ];
 
   // Release whatever the order held: tier seats, venue-section seats, or a
-  // resale listing checkout claim. Only TICKET items carry tierId.
+  // resale listing checkout claim. Only TICKET items carry tierId. Tier and
+  // section counters are credited only when the order actually reserved
+  // them — an order created without a reservation must not invent seats.
   for (const item of items) {
-    if (item.tierId) {
+    if (item.tierId && order.inventoryHeld) {
       transactItems.push({
         Update: {
           TableName: T(),
@@ -1104,7 +1112,7 @@ export async function releaseOrder(
         },
       });
     }
-    if (item.sectionId) {
+    if (item.sectionId && order.inventoryHeld) {
       transactItems.push({
         Update: {
           TableName: T(),

@@ -128,6 +128,9 @@ export async function orderRoutes(app: FastifyInstance) {
             promoCodeText: opts.promoCodeText,
             currency,
             expiresAt: expiresAtFor(),
+            // Every caller of checkout() held inventory first (reserveTickets,
+            // a venue section, or a listing claim), so expiry can credit back.
+            inventoryHeld: true,
           });
 
           if (!env.stripeSecretKey) {
