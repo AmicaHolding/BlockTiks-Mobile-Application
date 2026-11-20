@@ -461,6 +461,8 @@ export async function holdRoutes(app: FastifyInstance) {
           promoCodeText,
           currency: quote.currency,
           expiresAt: new Date(Date.now() + env.reservationTtlMinutes * 60_000).toISOString(),
+          // The hold already reserved the seats this order now owns.
+          inventoryHeld: true,
         });
       } catch (err) {
         await releaseConvertedHold(hold.id).catch(() => undefined);

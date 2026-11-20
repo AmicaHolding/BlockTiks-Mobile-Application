@@ -128,6 +128,9 @@ export async function orderRoutes(app: FastifyInstance) {
             promoCodeText: opts.promoCodeText,
             currency,
             expiresAt: expiresAtFor(),
+            // Every caller of checkout() held inventory first (reserveTickets,
+            // a venue section, or a listing claim), so expiry can credit back.
+            inventoryHeld: true,
           });
 
           if (!env.stripeSecretKey) {
@@ -528,8 +531,15 @@ async function afterOrderPaid(orderId: string, log: { warn: (o: unknown, m?: str
     }
   }
   const breakdown = orderFeeBreakdown({ dueMinor: order.totalCents, actualCardFeeMinor });
-  await setOrderFeeBreakdown(order.id, breakdown).catch((e) => log.warn(e, 'fee breakdown write failed'));
-  if (env.allInPricing && order.feesCents > 0 && breakdown.creditMinor > 0) {
+  // Only record a credit-carrying breakdown when the order is eligible
+  // (all-in pricing with a fee actually charged) — otherwise a stored
+  // positive creditMinor misleads the sweeper into posting a credit the
+  // purchase never earned.
+  const creditEligible = order.creditEligible === true;
+  if (creditEligible || breakdown.creditMinor === 0) {
+    await setOrderFeeBreakdown(order.id, breakdown).catch((e) => log.warn(e, 'fee breakdown write failed'));
+  }
+  if (creditEligible && breakdown.creditMinor > 0) {
     await postOrderFeeCredit({
       userId: order.userId, orderId: order.id, amountMinor: breakdown.creditMinor,
     }).catch((e) => log.warn(e, 'fee credit post failed'));
