@@ -191,6 +191,8 @@ export interface EventItem {
   minAge?: number; // decision-15: DOB on account + confirm at checkout
   // ISO 4217 currency for all prices on this event (default 'usd').
   currency?: string;
+  // Once set, the day-before reminder to ticket holders has gone out.
+  reminderSentAt?: string;
   createdAt: string;
 }
 
@@ -1175,7 +1177,7 @@ export async function releaseOrder(
 export async function listExpiredIndex(
   nowIso: string,
   limit = 100
-): Promise<{ orderId?: string; holdId?: string; transferId?: string }[]> {
+): Promise<{ orderId?: string; holdId?: string; transferId?: string; feeRetries?: number }[]> {
   const res = await docClient.send(
     new QueryCommand({
       TableName: T(),
@@ -1185,7 +1187,7 @@ export async function listExpiredIndex(
       Limit: limit,
     })
   );
-  return (res.Items ?? []) as { orderId?: string; holdId?: string; transferId?: string }[];
+  return (res.Items ?? []) as { orderId?: string; holdId?: string; transferId?: string; feeRetries?: number }[];
 }
 
 export async function listExpiredPendingOrders(nowIso: string, limit = 100): Promise<string[]> {
@@ -1196,6 +1198,25 @@ export async function listExpiredPendingOrders(nowIso: string, limit = 100): Pro
 export async function deleteExpireIndex(orderId: string) {
   await docClient.send(
     new DeleteCommand({ TableName: T(), Key: { pk: expirePk(orderId), sk: 'INDEX' } })
+  );
+}
+
+// Re-enqueue an order whose post-payment settlement work isn't done — e.g.
+// the sweeper fulfilled it but Stripe hasn't exposed the card fee yet.
+export async function requeueExpireIndex(orderId: string, expiresAt: string, feeRetries = 0) {
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: expirePk(orderId),
+        sk: 'INDEX',
+        orderId,
+        expiresAt,
+        feeRetries,
+        gsi1pk: EXPIRE_GSI_PK,
+        gsi1sk: expiresAt,
+      },
+    })
   );
 }
 
@@ -1411,6 +1432,34 @@ export async function fulfillOrder(orderId: string, paymentIntentId: string): Pr
       await recordSaleLedger(order).catch((e) =>
         console.error(`fulfillOrder: ledger post failed for ${orderId}`, e)
       );
+      // Confirmation to the buyer (inbox + SMS) — best-effort, never blocks.
+      const { notifyUser } = await import('./notify');
+      const event = await getEventMeta(order.eventId).catch(() => null);
+      await notifyUser(order.userId, {
+        type: 'order.confirmed',
+        title: 'You’re in',
+        body: `${event?.title ?? 'Your event'} is booked — ticket${(order.ticketCodes?.length ?? 1) > 1 ? 's' : ''} in Plans.`,
+        link: '/plans',
+      }, { sms: true }).catch(() => undefined);
+      // On resale, the seller gets a sold notice too (payout lands at event end).
+      // Hold-checkout resale orders carry the listing code on the order item
+      // instead of order.listingCode.
+      const listingCode =
+        order.listingCode ??
+        (order.kind === 'RESALE'
+          ? (await getOrderItems(orderId).catch(() => [])).find((i) => i.ticketCode)?.ticketCode
+          : undefined);
+      if (order.kind === 'RESALE' && listingCode) {
+        const listing = await getListing(listingCode).catch(() => null);
+        if (listing) {
+          await notifyUser(listing.sellerId, {
+            type: 'resale.sold',
+            title: 'Your ticket sold',
+            body: `${event?.title ?? 'The event'} — payout releases after the event.`,
+            link: '/plans',
+          }, { sms: true }).catch(() => undefined);
+        }
+      }
     }
     return result;
   };
@@ -2168,17 +2217,24 @@ export async function checkInTicket(
 // Every ticket issued for an event, via the GSI1 EVENTTIX# feed written at
 // fulfillment. (Tickets issued before this index existed won't appear.)
 export async function listEventTickets(eventId: string): Promise<Ticket[]> {
-  const res = await docClient.send(
-    new QueryCommand({
-      TableName: T(),
-      IndexName: 'gsi1',
-      KeyConditionExpression: 'gsi1pk = :pk',
-      ExpressionAttributeValues: { ':pk': eventTicketsGsiPk(eventId) },
-      ScanIndexForward: true,
-      Limit: 1000,
-    })
-  );
-  return ((res.Items ?? []) as Record<string, unknown>[]).map((item) => {
+  const items: Record<string, unknown>[] = [];
+  let lastKey: Record<string, unknown> | undefined;
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: T(),
+        IndexName: 'gsi1',
+        KeyConditionExpression: 'gsi1pk = :pk',
+        ExpressionAttributeValues: { ':pk': eventTicketsGsiPk(eventId) },
+        ScanIndexForward: true,
+        Limit: 1000,
+        ExclusiveStartKey: lastKey,
+      })
+    );
+    items.push(...((res.Items ?? []) as Record<string, unknown>[]));
+    lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (lastKey);
+  return items.map((item) => {
     const { pk, sk, gsi1pk, gsi1sk, gsi2pk, gsi2sk, ...rest } = item;
     return rest as unknown as Ticket;
   });
@@ -7172,6 +7228,43 @@ export async function listInvitesStartingBetween(fromIso: string, toIso: string)
     })
   );
   return (res.Items ?? []).map((item: any) => stripItem<Invite>(item));
+}
+
+// Published events starting in a window (sweeper's ticket-holder reminders).
+export async function listEventsStartingBetween(fromIso: string, toIso: string): Promise<EventItem[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi1',
+      KeyConditionExpression: 'gsi1pk = :pk AND gsi1sk BETWEEN :from AND :to',
+      ExpressionAttributeValues: {
+        ':pk': EVENT_FEED_PK,
+        ':from': eventFeedSk(fromIso),
+        ':to': eventFeedSk(toIso),
+      },
+      Limit: 500,
+    })
+  );
+  return (res.Items ?? []).map((item: any) => stripItem<EventItem>(item));
+}
+
+export async function markEventReminderSent(id: string): Promise<boolean> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: eventPk(id), sk: 'METADATA' },
+        UpdateExpression: 'SET reminderSentAt = :at',
+        ConditionExpression: 'attribute_not_exists(reminderSentAt) AND #status = :published',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':at': now(), ':published': 'PUBLISHED' },
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
 }
 
 export async function markInviteReminderSent(id: string): Promise<boolean> {
