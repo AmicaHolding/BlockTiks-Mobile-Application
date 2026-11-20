@@ -41,6 +41,7 @@ import {
   setOrgVerificationStatus,
   setVenueLayout,
   submitOrgVerification,
+  updateUser,
   type EventItem,
   type TicketTier,
   type User,
@@ -53,11 +54,13 @@ import { ensureTable, isLocal, target } from './table';
 // (default 000000) whenever the backend runs against DynamoDB Local.
 export const SEED_OTP_CODE = env.otpDevCode;
 
+const img = (id: string, w = 1600) => `https://images.unsplash.com/photo-${id}?w=${w}&auto=format&q=80`;
+
 export const SEED_USERS = [
-  { key: 'creator', email: 'creator@test.com', firstName: 'Demo', lastName: 'Creator', role: 'CREATOR' },
-  { key: 'creator2', email: 'layla@test.com', firstName: 'Layla', lastName: 'Haddad', role: 'CREATOR' },
-  { key: 'fan', email: 'fan@test.com', phone: '+971500000001', firstName: 'Sam', lastName: 'Rivera', role: 'FAN' },
-  { key: 'fan2', email: 'noor@test.com', firstName: 'Noor', lastName: 'Ali', role: 'FAN' },
+  { key: 'creator', email: 'creator@test.com', firstName: 'Demo', lastName: 'Creator', role: 'CREATOR', avatarUrl: img('1500648767791-00dcc994a43e', 200) },
+  { key: 'creator2', email: 'layla@test.com', firstName: 'Layla', lastName: 'Haddad', role: 'CREATOR', avatarUrl: img('1438761681033-6461ffad8d80', 200) },
+  { key: 'fan', email: 'fan@test.com', phone: '+971500000001', firstName: 'Sam', lastName: 'Rivera', role: 'FAN', avatarUrl: img('1507003211169-0a1dd7228f2d', 200) },
+  { key: 'fan2', email: 'noor@test.com', firstName: 'Noor', lastName: 'Ali', role: 'FAN', avatarUrl: img('1494790108377-be9c29b29330', 200) },
 ] as const;
 
 type UserKey = (typeof SEED_USERS)[number]['key'];
@@ -142,6 +145,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
       name: `${u.firstName} ${u.lastName}`,
       role: u.role,
     });
+    await updateUser(user.id, { avatarUrl: u.avatarUrl });
     if (user.referralCode) await registerReferralCode(user.id, user.referralCode);
     users[u.key] = user;
   }
@@ -156,6 +160,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     startsAt: daysFromNow(18, 20),
     location: 'Coca-Cola Arena, Dubai',
     address: '123 Harbor St',
+    imageUrl: img('1470229722913-7c0e2dbbafd3'),
     tiers: [
       { name: 'General Admission', priceCents: 4500, quantity: 200 },
       { name: 'VIP', description: 'Fast-lane entry and lounge access', priceCents: 12000, quantity: 50 },
@@ -168,6 +173,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     category: 'Concerts',
     startsAt: daysFromNow(10),
     location: 'Skyline Lounge, Dubai',
+    imageUrl: img('1533174072545-7a4b6ad7a6c3'),
     tiers: [{ name: 'Entry', priceCents: 2500, quantity: 80 }],
   });
   const mixer = await createEventWithTiers({
@@ -177,6 +183,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     category: 'Networking',
     startsAt: daysFromNow(25, 17),
     location: 'The Hub Coworking, Dubai',
+    imageUrl: img('1540575467063-178a50c2df87'),
     tiers: [
       { name: 'Early Bird', priceCents: 1500, quantity: 30 },
       { name: 'Standard', priceCents: 2500, quantity: 70 },
@@ -189,6 +196,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     category: 'Comedy',
     startsAt: daysFromNow(7, 21),
     location: 'Grand Theatre, Dubai',
+    imageUrl: img('1478737270239-2f02b77fc618'),
     tiers: [{ name: 'Standing', priceCents: 3000, quantity: 40 }],
   });
   await setVenueLayout(comedy.event.id, users.creator2.id, 'CREATOR', {
@@ -205,6 +213,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     category: 'Arts',
     startsAt: daysFromNow(40, 12),
     location: 'Old Town Market, Dubai',
+    imageUrl: img('1494791368093-85217fbbf8de'),
     tiers: [{ name: 'Day Pass', priceCents: 1000, quantity: 300 }],
   });
   for (const e of [neon, rooftop, mixer, comedy]) {
@@ -271,6 +280,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     category: 'Music',
     startsAt: daysFromNow(45, 22),
     location: 'Al Marmoom Desert, Dubai',
+    imageUrl: img('1551024506-0bccd828d307'),
     tiers: [{ name: 'GA', priceCents: 20000, quantity: 100 }],
   });
   await linkEventToOrg(orgEvent.event.id, org.id);
@@ -288,7 +298,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     tz: 'Asia/Dubai',
     placeText: 'Marina Gate 2, Apt 3104',
     area: 'Dubai Marina',
-    cover: { tone: 'gold' },
+    cover: { tone: 'gold', image_url: img('1414235077428-338989a2e8c0') },
     note: 'Bring something sweet.',
     approveGuests: false,
     allowPlusOnes: true,
@@ -305,6 +315,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     tz: 'Asia/Dubai',
     placeText: 'JLT Cluster D, 1402',
     area: 'JLT',
+    cover: { image_url: img('1523875194681-bedd468c58bf') },
     approveGuests: true,
     allowPlusOnes: false,
     guestCap: null,
@@ -335,6 +346,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     category: 'Music',
     startsAt: daysFromNow(0, 21),
     location: 'Alserkal Avenue, Dubai',
+    imageUrl: img('1490750967868-88aa4486c946'),
     tiers: [{ name: 'Entry', priceCents: 12000, quantity: 80 }],
   });
   await publishEvent(tonight.event.id, creator.id, 'CREATOR');
@@ -370,6 +382,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     tz: 'Asia/Dubai',
     placeText: 'Meet at Last Exit, Al Qudra',
     area: 'Al Qudra',
+    cover: { image_url: img('1509316785289-025f5b846b35') },
     pollOptions: [
       { id: 'p1', startsAt: daysFromNow(6, 17) },
       { id: 'p2', startsAt: daysFromNow(7, 10) },
@@ -387,7 +400,11 @@ export async function seed(): Promise<{ skipped: boolean }> {
   // PE5/PE6: the dinner invite has an activity post and a photo so the
   // feed and album are not empty.
   await createInvitePost({ invite: dinner, authorId: users.fan2.id, kind: 'comment', body: 'Making my famous kunafa — see you all at 8!' });
-  await addInvitePhotos(dinner, users.fan2.id, ['https://images.unsplash.com/photo-1519671482749-fd09d7e2b5c9?w=800']);
+  await addInvitePhotos(dinner, users.fan2.id, [
+    'https://images.unsplash.com/photo-1519671482749-fd09d7e2b5c9?w=800',
+    img('1517248135467-4c7edcad34c4', 800),
+    img('1504674900247-0877df9cc836', 800),
+  ]);
 
   return { skipped: false };
 }
@@ -406,6 +423,7 @@ export async function seedExtraEvents(creator: User, creator2: User): Promise<nu
       startsAt: daysFromNow(3, 21),
       location: 'The Laughter Factory, JBR, Dubai',
       address: 'Jumeirah Beach Residence',
+      imageUrl: img('1485579149621-3123dd979885'),
       country: 'AE',
       venueTimezone: 'Asia/Dubai',
       currency: 'aed',
@@ -421,6 +439,7 @@ export async function seedExtraEvents(creator: User, creator2: User): Promise<nu
       category: 'Concerts',
       startsAt: daysFromNow(5, 18),
       location: 'Abu Dhabi Corniche Marina, Abu Dhabi',
+      imageUrl: img('1510511459019-5dda7724fd87'),
       country: 'AE',
       venueTimezone: 'Asia/Dubai',
       currency: 'aed',
@@ -437,6 +456,7 @@ export async function seedExtraEvents(creator: User, creator2: User): Promise<nu
       startsAt: daysFromNow(12, 23),
       doorsAt: daysFromNow(12, 22),
       location: 'Warehouse 7, Al Quoz, Dubai',
+      imageUrl: img('1531058020387-3be344556be6'),
       country: 'AE',
       venueTimezone: 'Asia/Dubai',
       currency: 'aed',
