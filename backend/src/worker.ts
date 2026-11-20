@@ -14,14 +14,31 @@ interface Env {
 
 let ready: Promise<unknown> | undefined;
 
+async function init(env: Env): Promise<void> {
+  if (!ready) {
+    const db = openD1(env.DB);
+    useDocClient(new SqlDocClient(db));
+    ready = db.exec(SCHEMA_SQL);
+  }
+  await ready;
+}
+
 export default {
+  // Cron Trigger (wrangler.toml [triggers]): the expiry/settlement sweeper —
+  // releases holds & stale orders, fulfills recovered payments, sends
+  // reminders, expires shares/transfers. Without this nothing times out.
+  async scheduled(_event: unknown, env: Env, ctx: { waitUntil: (p: Promise<unknown>) => void }): Promise<void> {
+    ctx.waitUntil(
+      (async () => {
+        await init(env);
+        const { handler } = await import('./sweeper');
+        await handler();
+      })()
+    );
+  },
+
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (!ready) {
-      const db = openD1(env.DB);
-      useDocClient(new SqlDocClient(db));
-      ready = db.exec(SCHEMA_SQL);
-    }
-    await ready;
+    await init(env);
 
     const app = buildApp();
     await app.ready();
