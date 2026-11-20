@@ -1,36 +1,54 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { randomUUID } from 'crypto';
 import {
+  addInvitePhotos,
   bumpDailyCounter,
   claimInviteMove,
   createEventWithTiers,
   createInvite,
+  createInvitePost,
   createInviteReport,
   createInviteRsvp,
   createInviteUpdate,
+  deleteInvitePhoto,
+  deleteInvitePost,
   flagInviteForReview,
   getInvite,
   getInviteRsvp,
   getMembership,
   getInvites,
   getUserById,
+  INVITE_PHOTO_MAX_PER_UPLOAD,
+  INVITE_POST_MAX,
   InviteError,
+  inviteRsvpDeadlineIso,
   issueCompTickets,
   linkEventToOrg,
+  listInvitePhotos,
+  listInvitePollVotes,
+  listInvitePosts,
+  listInvitePostLikes,
   listInviteRsvps,
   listInviteUpdates,
   listUserRsvps,
+  lockInvitePoll,
   markInviteSeen,
   putInviteRsvp,
   releaseInviteMove,
   resolveInvite,
   rsvpSeats,
   setEventHost,
+  setInvitePollVotes,
   setInviteStatus,
   setRsvpCheckIn,
+  toggleInvitePostLike,
   updateInviteFields,
   type Invite,
+  type InviteReminderOffset,
   type InviteRsvp,
+  type InviteRsvpDeadline,
   type InviteRsvpStatus,
+  type InviteRsvpStyle,
   type User,
 } from '../db';
 import { env } from '../env';
@@ -76,9 +94,29 @@ export function inviteBody(invite: Invite, viewer: { isHost: boolean; myStatus?:
     spots_left: invite.guestCap != null ? Math.max(0, invite.guestCap - (invite.goingSeats ?? 0)) : null,
     status: invite.status,
     moved_to_event_id: invite.movedToEventId ?? null,
+    // V3 fields (handoff/06).
+    rsvp_deadline: invite.rsvpDeadline ?? 'none',
+    rsvp_deadline_iso: inviteRsvpDeadlineIso(invite),
+    rsvp_style: invite.rsvpStyle ?? 'words',
+    rsvp_labels: invite.rsvpLabels ?? { going: 'Going', maybe: 'Maybe', no: "Can't go" },
+    reminders: invite.reminders ?? ['1d', '2h'],
+    has_date: Boolean(invite.startsAt),
+    date_to_be_decided: Boolean(invite.pollOptions) && !invite.pollLockedAt,
     is_host: viewer.isHost,
     created_at: invite.createdAt,
   };
+}
+
+// PE5: "invited and signed in" = host or has an RSVP row (the seen marker
+// written by GET /invites/:code counts — opening the link signed in makes
+// you an invitee).
+export async function inviteeAccess(
+  invite: Invite,
+  userId: string
+): Promise<{ isHost: boolean; rsvp: InviteRsvp | null } | null> {
+  if (invite.hostUserId === userId) return { isHost: true, rsvp: null };
+  const rsvp = await getInviteRsvp(invite.id, userId);
+  return rsvp ? { isHost: false, rsvp } : null;
 }
 
 export function rsvpBody(r: InviteRsvp) {
@@ -120,6 +158,24 @@ const inviteFieldsSchema = {
   guest_cap: { type: ['integer', 'null'], minimum: 1, maximum: 10000 },
   show_guest_list: { type: 'boolean' },
   hide_address_until_going: { type: 'boolean' },
+  // V3 (handoff/06).
+  poll_options: {
+    type: ['array', 'null'],
+    minItems: 2,
+    maxItems: 4,
+    items: { type: 'object', required: ['starts_at'], properties: { starts_at: { type: 'string' } } },
+  },
+  rsvp_deadline: { type: 'string', enum: ['none', '1d', '3d', '1w'] },
+  rsvp_style: { type: 'string', enum: ['words', 'emoji', 'custom'] },
+  rsvp_labels: {
+    type: 'object',
+    properties: {
+      going: { type: 'string', maxLength: 16 },
+      maybe: { type: 'string', maxLength: 16 },
+      no: { type: 'string', maxLength: 16 },
+    },
+  },
+  reminders: { type: 'array', items: { type: 'string', enum: ['1w', '1d', '2h'] }, maxItems: 3 },
 };
 
 type InviteFieldsBody = {
@@ -135,6 +191,21 @@ type InviteFieldsBody = {
   guest_cap?: number | null;
   show_guest_list?: boolean;
   hide_address_until_going?: boolean;
+  poll_options?: { starts_at: string }[] | null;
+  rsvp_deadline?: InviteRsvpDeadline;
+  rsvp_style?: InviteRsvpStyle;
+  rsvp_labels?: { going?: string; maybe?: string; no?: string };
+  reminders?: InviteReminderOffset[];
+};
+
+const normRsvpLabels = (l: InviteFieldsBody['rsvp_labels']) => {
+  if (!l) return undefined;
+  const defaults = { going: 'Going', maybe: 'Maybe', no: "Can't go" };
+  return {
+    going: (l.going ?? defaults.going).slice(0, 16),
+    maybe: (l.maybe ?? defaults.maybe).slice(0, 16),
+    no: (l.no ?? defaults.no).slice(0, 16),
+  };
 };
 
 const normCover = (c: InviteFieldsBody['cover']) => {
@@ -176,6 +247,16 @@ export async function inviteRoutes(app: FastifyInstance) {
       if (b.starts_at && Number.isNaN(Date.parse(b.starts_at))) {
         return specError(reply, 400, 'starts_at_invalid', 'Pick a valid date and time', 'starts_at');
       }
+      // PE4: one date OR a 2-4 option poll — never both.
+      const pollOptions = b.poll_options ?? undefined;
+      if (pollOptions?.length && b.starts_at) {
+        return specError(reply, 400, 'poll_conflict', 'Pick one date or a date poll', 'starts_at');
+      }
+      for (const o of pollOptions ?? []) {
+        if (Number.isNaN(Date.parse(o.starts_at))) {
+          return specError(reply, 400, 'starts_at_invalid', 'Pick valid poll dates', 'poll_options');
+        }
+      }
       // TODO(decision-20): max INVITES_PER_DAY new invites per host per day.
       if (!(await bumpDailyCounter(`INVITE#${request.user.sub}`, env.invitesPerDay))) {
         return specError(reply, 429, 'rate_limited', `You can create up to ${env.invitesPerDay} invites a day`);
@@ -194,6 +275,11 @@ export async function inviteRoutes(app: FastifyInstance) {
         guestCap: b.guest_cap ?? null,
         showGuestList: b.show_guest_list ?? true,
         hideAddressUntilGoing: b.hide_address_until_going ?? false,
+        pollOptions: pollOptions?.map((o) => ({ id: randomUUID(), startsAt: new Date(o.starts_at).toISOString() })),
+        rsvpDeadline: b.rsvp_deadline,
+        rsvpStyle: b.rsvp_style,
+        rsvpLabels: normRsvpLabels(b.rsvp_labels),
+        reminders: b.reminders,
       });
       return reply.status(201).send({ invite: inviteBody(invite, { isHost: true }), link: inviteLink(invite.code) });
     }
@@ -211,10 +297,11 @@ export async function inviteRoutes(app: FastifyInstance) {
     }
     const viewerId = request.user?.sub;
     const isHost = viewerId === invite.hostUserId;
-    const [rsvps, updates, host] = await Promise.all([
+    const [rsvps, updates, host, votes] = await Promise.all([
       listInviteRsvps(invite.id),
       listInviteUpdates(invite.id),
       getUserById(invite.hostUserId),
+      invite.pollOptions ? listInvitePollVotes(invite.id) : Promise.resolve([]),
     ]);
     const mine = viewerId ? rsvps.find((r) => r.userId === viewerId) ?? null : null;
     if (viewerId && !isHost && !mine && invite.status === 'active') {
@@ -244,6 +331,22 @@ export async function inviteRoutes(app: FastifyInstance) {
       ...(faces ? { faces } : {}),
       updates: updates.map((u) => ({ id: u.id, body: u.body, sent_at: u.sentAt })),
       my_rsvp: mine && replied(mine) ? rsvpBody(mine) : null,
+      // PE4: poll options carry vote counts for everyone (the prototype
+      // shows the bars to all invitees); voter ids go to the host only.
+      ...(invite.pollOptions
+        ? {
+            poll: {
+              locked: Boolean(invite.pollLockedAt),
+              options: invite.pollOptions.map((o) => ({
+                id: o.id,
+                starts_at: o.startsAt,
+                votes: votes.filter((v) => v.optionId === o.id).length,
+                ...(isHost ? { voter_ids: votes.filter((v) => v.optionId === o.id).map((v) => v.userId) } : {}),
+              })),
+              my_option_ids: viewerId ? votes.filter((v) => v.userId === viewerId).map((v) => v.optionId) : [],
+            },
+          }
+        : {}),
     };
   });
 
@@ -284,6 +387,12 @@ export async function inviteRoutes(app: FastifyInstance) {
       }
 
       const prev = await getInviteRsvp(invite.id, userId);
+      // PE2/PE3: after the RSVP-by date only a change to "Can't go" is
+      // allowed. The host edits via PATCH, not this route.
+      const deadlineIso = inviteRsvpDeadlineIso(invite);
+      if (deadlineIso && Date.parse(deadlineIso) < Date.now() && body.status !== 'no') {
+        return specError(reply, 409, 'rsvp_closed', 'RSVPs are closed');
+      }
       // I3: with approval on, Going becomes Requested until the host approves.
       // An approved guest stays Going; a declined guest stays declined
       // (except switching to Can't go).
@@ -431,6 +540,10 @@ export async function inviteRoutes(app: FastifyInstance) {
         if (channel !== 'none') channels.add(channel);
       }
       const update = await createInviteUpdate(invite.id, text, recipients.length, [...channels]);
+      // PE5: blasts join the Activity feed as kind='blast' posts.
+      await createInvitePost({ invite, authorId: request.user.sub, kind: 'blast', body: text }).catch((e) =>
+        request.log.warn(e, 'blast activity post failed')
+      );
       return { recipients: recipients.length, channels: update.channels, update: { id: update.id, body: update.body, sent_at: update.sentAt } };
     }
   );
@@ -468,6 +581,10 @@ export async function inviteRoutes(app: FastifyInstance) {
           guestCap: b.guest_cap,
           showGuestList: b.show_guest_list,
           hideAddressUntilGoing: b.hide_address_until_going,
+          rsvpDeadline: b.rsvp_deadline,
+          rsvpStyle: b.rsvp_style,
+          rsvpLabels: normRsvpLabels(b.rsvp_labels),
+          reminders: b.reminders,
         });
         return { invite: inviteBody(updated ?? invite, { isHost: true }) };
       } catch (e) {
@@ -591,6 +708,288 @@ export async function inviteRoutes(app: FastifyInstance) {
   };
   app.post('/invites/:id/move', moveOpts, moveHandler);
   app.post('/invites/:id/convert', moveOpts, moveHandler);
+
+  // ---------- V3 date poll (PE4) ----------
+  // PUT /invites/:id/poll/votes {option_ids} — replace my vote set.
+  app.put(
+    '/invites/:id/poll/votes',
+    {
+      preHandler: app.authenticate,
+      schema: {
+        body: {
+          type: 'object',
+          required: ['option_ids'],
+          properties: { option_ids: { type: 'array', items: { type: 'string' }, maxItems: 4 } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const { option_ids: optionIds } = request.body as { option_ids: string[] };
+      const invite = await resolveInvite(id);
+      if (!invite) return specError(reply, 404, 'not_found', 'Invite not found');
+      if (!invite.pollOptions || invite.pollLockedAt) return specError(reply, 409, 'poll_closed', 'The poll is closed');
+      const access = await inviteeAccess(invite, request.user.sub);
+      if (!access) return specError(reply, 403, 'not_invited', 'Only people invited can vote');
+      const valid = new Set(invite.pollOptions.map((o) => o.id));
+      const ids = [...new Set(optionIds)];
+      if (ids.some((o) => !valid.has(o))) return specError(reply, 400, 'bad_option', 'Unknown date option', 'option_ids');
+      try {
+        await setInvitePollVotes(invite, request.user.sub, ids);
+      } catch (e) {
+        return inviteErr(reply, e);
+      }
+      const votes = await listInvitePollVotes(invite.id);
+      return {
+        poll: {
+          locked: false,
+          options: invite.pollOptions.map((o) => ({
+            id: o.id,
+            starts_at: o.startsAt,
+            votes: votes.filter((v) => v.optionId === o.id).length,
+          })),
+          my_option_ids: ids,
+        },
+      };
+    }
+  );
+
+  // POST /invites/:id/poll/lock {option_id} — host locks the date in (PE4).
+  app.post(
+    '/invites/:id/poll/lock',
+    {
+      preHandler: app.authenticate,
+      schema: {
+        body: { type: 'object', required: ['option_id'], properties: { option_id: { type: 'string' } } },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const { option_id: optionId } = request.body as { option_id: string };
+      const invite = await hostInvite(id, request.user.sub, reply);
+      if (!invite) return reply;
+      if (!invite.pollOptions) return specError(reply, 409, 'no_poll', 'This invite has no date poll');
+      let locked: Invite;
+      try {
+        locked = await lockInvitePoll(invite, optionId);
+      } catch (e) {
+        return inviteErr(reply, e);
+      }
+      // PE4: locking posts a host blast to Activity and notifies invitees.
+      const blastBody = `Date locked in: ${new Date(locked.startsAt!).toUTCString()}`;
+      await createInvitePost({ invite: locked, authorId: request.user.sub, kind: 'blast', body: blastBody }).catch(
+        (e) => request.log.warn(e, 'poll-lock blast failed')
+      );
+      // PE4: "everyone invited" — including the 'seen' marker rows that
+      // signed-in link-openers get; Can't-go/declined are excluded.
+      const recipients = (await listInviteRsvps(locked.id)).filter(
+        (r) => r.status !== 'no' && r.status !== 'declined'
+      );
+      for (const r of recipients) {
+        await notifyUser(
+          r.userId,
+          { type: 'invite.poll_locked', title: invite.title, body: blastBody, link: `/i/${invite.code}` },
+          { sms: true }
+        ).catch(() => undefined);
+      }
+      return { invite: inviteBody(locked, { isHost: true }), notified: recipients.length };
+    }
+  );
+
+  // ---------- V3 activity feed (PE5) ----------
+  // One list, newest first: host blasts + guest comments with one-level
+  // replies and likes. Invitees only.
+  const requireInvitee = async (id: string, userId: string, reply: FastifyReply) => {
+    const invite = await resolveInvite(id);
+    if (!invite) {
+      specError(reply, 404, 'not_found', 'Invite not found');
+      return null;
+    }
+    const access = await inviteeAccess(invite, userId);
+    if (!access) {
+      specError(reply, 403, 'not_invited', 'Only people invited can see this');
+      return null;
+    }
+    return { invite, access };
+  };
+
+  app.get('/invites/:id/activity', { preHandler: app.authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const ctx = await requireInvitee(id, request.user.sub, reply);
+    if (!ctx) return reply;
+    const [posts, legacy, liked] = await Promise.all([
+      listInvitePosts(ctx.invite.id),
+      listInviteUpdates(ctx.invite.id),
+      listInvitePostLikes(ctx.invite.id, request.user.sub),
+    ]);
+    const users = await usersById(posts.map((p) => p.authorId));
+    const likedSet = new Set(liked);
+    const bodyOf = (p: (typeof posts)[number]) => {
+      const name = displayName(users.get(p.authorId));
+      return {
+        id: p.id,
+        kind: p.kind,
+        body: p.body,
+        parent_id: p.parentId ?? null,
+        author: { id: p.authorId, name, initials: initials(name), is_host: p.authorId === ctx.invite.hostUserId },
+        like_count: p.likeCount,
+        liked_by_me: likedSet.has(p.id),
+        created_at: p.createdAt,
+      };
+    };
+    // One level: replies attach to their parent, never nest deeper.
+    const replies = posts.filter((p) => p.parentId);
+    const top = posts.filter((p) => !p.parentId);
+    // Legacy host blasts (pre-PE5 UPDATE rows) show as non-deletable blasts.
+    const legacyPosts = legacy.map((u) => ({
+      id: `upd-${u.id}`,
+      kind: 'blast' as const,
+      body: u.body,
+      parent_id: null,
+      author: { id: ctx.invite.hostUserId, name: displayName(users.get(ctx.invite.hostUserId)), initials: '', is_host: true },
+      like_count: 0,
+      liked_by_me: false,
+      created_at: u.sentAt,
+      legacy: true,
+    }));
+    const feed = [
+      ...top.map((p) => ({ ...bodyOf(p), replies: replies.filter((r) => r.parentId === p.id).map(bodyOf) })),
+      ...legacyPosts.map((p) => ({ ...p, replies: [] as unknown[] })),
+    ].sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return { posts: feed };
+  });
+
+  app.post(
+    '/invites/:id/activity',
+    {
+      preHandler: app.authenticate,
+      schema: {
+        body: {
+          type: 'object',
+          required: ['body'],
+          properties: { body: { type: 'string', maxLength: INVITE_POST_MAX }, parent_id: { type: 'string' } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const { body, parent_id: parentId } = request.body as { body: string; parent_id?: string };
+      const ctx = await requireInvitee(id, request.user.sub, reply);
+      if (!ctx) return reply;
+      if (ctx.invite.status !== 'active') return specError(reply, 409, ctx.invite.status, 'This invite is no longer active');
+      const text = body.trim();
+      if (!text) return specError(reply, 400, 'body_required', 'Write something', 'body');
+      let post;
+      try {
+        post = await createInvitePost({
+          invite: ctx.invite,
+          authorId: request.user.sub,
+          kind: 'comment',
+          body: text,
+          parentId,
+        });
+      } catch (e) {
+        return inviteErr(reply, e);
+      }
+      const me = await getUserById(request.user.sub);
+      const name = displayName(me);
+      return reply.status(201).send({
+        post: {
+          id: post.id,
+          kind: post.kind,
+          body: post.body,
+          parent_id: post.parentId ?? null,
+          author: { id: post.authorId, name, initials: initials(name), is_host: ctx.access.isHost },
+          like_count: 0,
+          liked_by_me: false,
+          created_at: post.createdAt,
+        },
+      });
+    }
+  );
+
+  app.delete('/invites/:id/activity/:postId', { preHandler: app.authenticate }, async (request, reply) => {
+    const { id, postId } = request.params as { id: string; postId: string };
+    const ctx = await requireInvitee(id, request.user.sub, reply);
+    if (!ctx) return reply;
+    const result = await deleteInvitePost(ctx.invite, postId, request.user.sub);
+    if (result === 'not_found') return specError(reply, 404, 'not_found', 'Post not found');
+    if (result === 'forbidden') return specError(reply, 403, 'forbidden', 'You can only delete your own comments');
+    return reply.status(204).send();
+  });
+
+  app.post('/invites/:id/activity/:postId/like', { preHandler: app.authenticate }, async (request, reply) => {
+    const { id, postId } = request.params as { id: string; postId: string };
+    const ctx = await requireInvitee(id, request.user.sub, reply);
+    if (!ctx) return reply;
+    let liked: boolean;
+    try {
+      liked = await toggleInvitePostLike(ctx.invite, postId, request.user.sub);
+    } catch (e) {
+      return inviteErr(reply, e);
+    }
+    return { liked };
+  });
+
+  // ---------- V3 photo album (PE6) ----------
+  app.get('/invites/:id/photos', { preHandler: app.authenticate }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const ctx = await requireInvitee(id, request.user.sub, reply);
+    if (!ctx) return reply;
+    const photos = await listInvitePhotos(ctx.invite.id);
+    const users = await usersById(photos.map((p) => p.uploaderId));
+    return {
+      photos: photos.map((p) => ({
+        id: p.id,
+        url: p.url,
+        uploader_id: p.uploaderId,
+        uploader_name: displayName(users.get(p.uploaderId)),
+        created_at: p.createdAt,
+      })),
+      album_link: inviteLink(ctx.invite.code), // PE6: share link = invite link (guest list only)
+    };
+  });
+
+  app.post(
+    '/invites/:id/photos',
+    {
+      preHandler: app.authenticate,
+      schema: {
+        body: {
+          type: 'object',
+          required: ['urls'],
+          properties: { urls: { type: 'array', items: { type: 'string', maxLength: 1000 }, minItems: 1, maxItems: INVITE_PHOTO_MAX_PER_UPLOAD } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const { urls } = request.body as { urls: string[] };
+      const ctx = await requireInvitee(id, request.user.sub, reply);
+      if (!ctx) return reply;
+      // PE6: host and Going guests add; everyone invited views.
+      if (!ctx.access.isHost && ctx.access.rsvp?.status !== 'going') {
+        return specError(reply, 403, 'not_going', 'Only the host and Going guests can add photos');
+      }
+      let photos;
+      try {
+        photos = await addInvitePhotos(ctx.invite, request.user.sub, urls);
+      } catch (e) {
+        return inviteErr(reply, e);
+      }
+      return reply.status(201).send({ photos: photos.map((p) => ({ id: p.id, url: p.url, created_at: p.createdAt })) });
+    }
+  );
+
+  app.delete('/invites/:id/photos/:photoId', { preHandler: app.authenticate }, async (request, reply) => {
+    const { id, photoId } = request.params as { id: string; photoId: string };
+    const ctx = await requireInvitee(id, request.user.sub, reply);
+    if (!ctx) return reply;
+    const result = await deleteInvitePhoto(ctx.invite, photoId, request.user.sub);
+    if (result === 'not_found') return specError(reply, 404, 'not_found', 'Photo not found');
+    if (result === 'forbidden') return specError(reply, 403, 'forbidden', 'You can only remove your own photos');
+    return reply.status(204).send();
+  });
 
   // ---------- POST /invites/:id/report (decision-20) ----------
   app.post(
