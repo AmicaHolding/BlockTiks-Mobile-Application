@@ -23,6 +23,7 @@ import {
 } from './db';
 import { notifyUser } from './notify';
 import { getStripe } from './stripe';
+import { env } from './env';
 
 export const handler = async () => {
   const nowIso = new Date().toISOString();
@@ -85,7 +86,10 @@ export const handler = async () => {
       // buyer credit have both landed. Enters when the breakdown is missing
       // or claims a credit that may not be posted yet; both writes are
       // first-write-wins so re-entering is a no-op once they're in.
+      // Eligibility matches the webhook path: all-in pricing only, and only
+      // orders that actually charged a fee earn a credit.
       if (order?.status === 'PAID' && order.stripePaymentIntentId &&
+          env.allInPricing && (order.feesCents ?? 0) > 0 &&
           (!order.feeBreakdown || (order.feeBreakdown.creditMinor ?? 0) > 0)) {
         const retries = indexByOrder.get(orderId) ?? 0;
         const { orderFeeBreakdown, postOrderFeeCredit } = await import('./db/v3');
@@ -143,16 +147,22 @@ export const handler = async () => {
               // Seller proceeds first — a requeue failure below must not skip
               // them (fulfillOrder already deleted the index, so a lost
               // requeue only costs the fee-settle retry, never the proceeds).
-              if (paid.kind === 'RESALE' && paid.listingCode) {
-                const listing = await getListing(paid.listingCode);
-                if (listing) await addWalletPending({ userId: listing.sellerId, orderId: paid.id, eventId: paid.eventId, amountMinor: paid.faceSubtotalCents ?? paid.subtotalCents }).catch(() => undefined);
-              }
+              // Its own try: a getListing failure can't strand the fee settle.
+              try {
+                if (paid.kind === 'RESALE' && paid.listingCode) {
+                  const listing = await getListing(paid.listingCode);
+                  if (listing) await addWalletPending({ userId: listing.sellerId, orderId: paid.id, eventId: paid.eventId, amountMinor: paid.faceSubtotalCents ?? paid.subtotalCents }).catch(() => undefined);
+                }
+              } catch { /* listing lookup failed — proceeds retry via webhook */ }
               const actualCardFeeMinor = settledCardFee(pi, paid.currency);
               // Only settle the credit when the real fee is known — posting an
               // estimate here would lock the webhook out of correcting it
               // (setOrderFeeBreakdown/postOrderFeeCredit are first-write-wins).
               // Unknown → requeue so a later sweep retries instead of losing it.
-              if (typeof actualCardFeeMinor === 'number') {
+              // Ineligible (no all-in fee charged) → nothing to settle.
+              if (!env.allInPricing || (paid.feesCents ?? 0) <= 0) {
+                // no credit eligibility — leave the credit path to the webhook
+              } else if (typeof actualCardFeeMinor === 'number') {
                 const breakdown = orderFeeBreakdown({ dueMinor: paid.totalCents, actualCardFeeMinor });
                 await setOrderFeeBreakdown(paid.id, breakdown).catch(() => undefined);
                 if (breakdown.creditMinor > 0) await postOrderFeeCredit({ userId: paid.userId, orderId: paid.id, amountMinor: breakdown.creditMinor }).catch(() => undefined);
