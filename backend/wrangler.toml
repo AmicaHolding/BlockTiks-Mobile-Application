@@ -13,6 +13,12 @@ binding = "DB"
 database_name = "sahra-db"
 database_id = "00000000-0000-0000-0000-000000000000"
 
+# Expiry/settlement sweeper — runs every minute. Delivers OTP/code cleanup,
+# hold + order expiry, payment recovery, share/transfer expiry, wallet
+# pending releases, and event/invite reminders.
+[triggers]
+crons = ["* * * * *"]
+
 [vars]
 NODE_ENV = "production"
 # Secrets go in `wrangler secret put`: JWT_SECRET, STRIPE_SECRET_KEY,
