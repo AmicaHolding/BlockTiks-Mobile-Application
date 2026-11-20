@@ -2,7 +2,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
+import Fastify, { type FastifyBaseLogger } from 'fastify';
 import { env } from './env';
 import { authPlugin } from './plugins/auth';
 import { accountRoutes } from './routes/account';
@@ -28,8 +28,8 @@ import { v3Routes } from './routes/v3';
 // (src/index.ts) and the Lambda handler (src/lambda.ts).
 // app.register() calls are intentionally not awaited: avvio loads plugins in
 // registration order, and listen()/ready() resolves them all.
-export function buildApp() {
-  const app = Fastify({ logger: true });
+export function buildApp(opts: { loggerInstance?: FastifyBaseLogger } = {}) {
+  const app = opts.loggerInstance ? Fastify({ loggerInstance: opts.loggerInstance, pluginTimeout: 0 }) : Fastify({ logger: true });
 
   // Keep the raw body for Stripe webhook signature verification.
   app.addContentTypeParser(

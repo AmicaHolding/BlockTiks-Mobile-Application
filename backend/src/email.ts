@@ -1,40 +1,23 @@
-import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { env } from './env';
 
-// Transactional email via AWS SES. When SES_FROM_EMAIL is not configured
-// (local dev), messages are logged instead of sent, callers still work and
-// dev-only fallbacks (e.g. devCode) remain available in development.
-
-let ses: SESClient | null = null;
-
-function sesClient(): SESClient {
-  if (!ses) ses = new SESClient({ region: env.sesRegion });
-  return ses;
-}
+// Transactional email via Resend. When RESEND_API_KEY / EMAIL_FROM are not
+// configured (local dev), messages are logged instead of sent.
 
 export function emailConfigured(): boolean {
-  return Boolean(env.sesFromEmail);
+  return Boolean(env.resendApiKey && env.emailFrom);
 }
 
 export async function sendEmail(input: { to: string; subject: string; text: string; html?: string }): Promise<void> {
   if (!emailConfigured()) {
-    // Dev fallback: log the message body so local flows remain testable.
     console.log(`[email:dev] to=${input.to} subject=${input.subject}\n${input.text}`);
     return;
   }
-  await sesClient().send(
-    new SendEmailCommand({
-      Source: env.sesFromEmail,
-      Destination: { ToAddresses: [input.to] },
-      Message: {
-        Subject: { Data: input.subject },
-        Body: {
-          Text: { Data: input.text },
-          ...(input.html ? { Html: { Data: input.html } } : {}),
-        },
-      },
-    })
-  );
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.resendApiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: env.emailFrom, to: [input.to], subject: input.subject, text: input.text, html: input.html }),
+  });
+  if (!res.ok) throw new Error(`Resend send failed: ${res.status} ${await res.text()}`);
 }
 
 export async function sendVerificationEmail(to: string, link: string): Promise<void> {
