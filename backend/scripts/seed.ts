@@ -467,9 +467,14 @@ export async function seedExtraEvents(creator: User, creator2: User): Promise<nu
       ],
     },
   ];
+  // Retitled events map to their old names so re-running on an older db
+  // doesn't publish a duplicate.
+  const legacyTitle: Record<string, string> = {
+    'Bassment Dubai: Warehouse Night': 'Bassment Riyadh: Warehouse Night',
+  };
   let created = 0;
   for (const def of defs) {
-    if (existing.has(def.title)) continue;
+    if (existing.has(def.title) || (legacyTitle[def.title] && existing.has(legacyTitle[def.title]))) continue;
     const e = await createEventWithTiers(def);
     await publishEvent(e.event.id, def.creatorId, 'CREATOR');
     created++;
