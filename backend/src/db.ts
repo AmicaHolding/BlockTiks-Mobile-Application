@@ -191,6 +191,8 @@ export interface EventItem {
   minAge?: number; // decision-15: DOB on account + confirm at checkout
   // ISO 4217 currency for all prices on this event (default 'usd').
   currency?: string;
+  // Once set, the day-before reminder to ticket holders has gone out.
+  reminderSentAt?: string;
   createdAt: string;
 }
 
@@ -1411,6 +1413,27 @@ export async function fulfillOrder(orderId: string, paymentIntentId: string): Pr
       await recordSaleLedger(order).catch((e) =>
         console.error(`fulfillOrder: ledger post failed for ${orderId}`, e)
       );
+      // Confirmation to the buyer (inbox + SMS) — best-effort, never blocks.
+      const { notifyUser } = await import('./notify');
+      const event = await getEventMeta(order.eventId).catch(() => null);
+      await notifyUser(order.userId, {
+        type: 'order.confirmed',
+        title: 'You’re in',
+        body: `${event?.title ?? 'Your event'} is booked — ticket${(order.ticketCodes?.length ?? 1) > 1 ? 's' : ''} in Plans.`,
+        link: '/plans',
+      }, { sms: true }).catch(() => undefined);
+      // On resale, the seller gets a sold notice too (payout lands at event end).
+      if (order.kind === 'RESALE' && order.listingCode) {
+        const listing = await getListing(order.listingCode).catch(() => null);
+        if (listing) {
+          await notifyUser(listing.sellerId, {
+            type: 'resale.sold',
+            title: 'Your ticket sold',
+            body: `${event?.title ?? 'The event'} — payout releases after the event.`,
+            link: '/plans',
+          }, { sms: true }).catch(() => undefined);
+        }
+      }
     }
     return result;
   };
@@ -7172,6 +7195,43 @@ export async function listInvitesStartingBetween(fromIso: string, toIso: string)
     })
   );
   return (res.Items ?? []).map((item: any) => stripItem<Invite>(item));
+}
+
+// Published events starting in a window (sweeper's ticket-holder reminders).
+export async function listEventsStartingBetween(fromIso: string, toIso: string): Promise<EventItem[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      IndexName: 'gsi1',
+      KeyConditionExpression: 'gsi1pk = :pk AND gsi1sk BETWEEN :from AND :to',
+      ExpressionAttributeValues: {
+        ':pk': EVENT_FEED_PK,
+        ':from': eventFeedSk(fromIso),
+        ':to': eventFeedSk(toIso),
+      },
+      Limit: 500,
+    })
+  );
+  return (res.Items ?? []).map((item: any) => stripItem<EventItem>(item));
+}
+
+export async function markEventReminderSent(id: string): Promise<boolean> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: T(),
+        Key: { pk: eventPk(id), sk: 'METADATA' },
+        UpdateExpression: 'SET reminderSentAt = :at',
+        ConditionExpression: 'attribute_not_exists(reminderSentAt) AND #status = :published',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':at': now(), ':published': 'PUBLISHED' },
+      })
+    );
+    return true;
+  } catch (e) {
+    if (isConditionalCheck(e)) return false;
+    throw e;
+  }
 }
 
 export async function markInviteReminderSent(id: string): Promise<boolean> {

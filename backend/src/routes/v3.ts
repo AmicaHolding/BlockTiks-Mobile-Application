@@ -58,6 +58,7 @@ import {
   getWaitingEntry,
   assignWaitingPositions,
   admitWaitingRoom,
+  WAITING_HOLD_MINUTES,
   expireWaitingHold,
   removeWaitingEntry,
   runWaitingRoomDraw,
@@ -331,6 +332,19 @@ export async function v3Routes(app: FastifyInstance) {
     }
     const admitted = await admitWaitingRoom(id, count ?? 1);
     const result = { admitted: admitted.length, holdUntil: admitted[0]?.holdUntil };
+    // Partiful-style "your turn" text — each admitted guest gets 10 min to buy.
+    if (admitted.length) {
+      const { notifyUser } = await import('../notify');
+      const ev = await getEventMeta(id).catch(() => null);
+      for (const entry of admitted) {
+        await notifyUser(entry.userId, {
+          type: 'waiting.your_turn',
+          title: 'It’s your turn',
+          body: `${ev?.title ?? 'The event'} — you have ${WAITING_HOLD_MINUTES} minutes to buy.`,
+          link: `/events/${id}`,
+        }, { sms: true }).catch(() => undefined);
+      }
+    }
     if (idemKey) await setWaitingRoomConfig(id, { lastNextKey: idemKey, lastNextResult: result });
     return { ok: true, ...result };
   });
