@@ -21,6 +21,9 @@ import {
   createInviteRsvp,
   createUser,
   markInviteSeen,
+  createInvitePost,
+  addInvitePhotos,
+  setInvitePollVotes,
   deleteExpireIndex,
   fulfillOrder,
   getOrder,
@@ -309,6 +312,77 @@ export async function seed(): Promise<{ skipped: boolean }> {
     hideAddressUntilGoing: false,
   });
   await createInviteRsvp(games, users.fan2.id, { status: 'requested', plusOnes: 0 });
+
+  // --- V3 demo data so every V3 screen has something real to render: ---
+  const v3 = await import('../src/db/v3');
+
+  // Wallet (W1): fan has withdrawable cash, resale proceeds pending until
+  // the event ends, and an earned fee credit.
+  await v3.addWalletCash(users.fan.id, 24500);
+  await v3.addWalletPending({ userId: users.fan.id, orderId: 'seed-resale-1', eventId: neon.event.id, amountMinor: 4900 });
+  await v3.postWalletCredit({ userId: users.fan.id, amountMinor: 675, source: 'fee_credit', orderId: 'seed-order-1' });
+
+  // B4: Neon Nights' waiting room is open with two fans already in line.
+  await v3.setWaitingRoomConfig(neon.event.id, { open: true, mode: 'queue' });
+  await v3.joinWaitingRoom(neon.event.id, users.fan2.id, 'seed-device-fan2');
+  await v3.joinWaitingRoom(neon.event.id, users.creator2.id, 'seed-device-layla');
+
+  // Q1: a show tonight — inside the 24h window so the live QR is unlocked.
+  const tonight = await createEventWithTiers({
+    creatorId: creator.id,
+    title: 'Tonight: Desert Bloom',
+    description: 'A one-night immersive set — doors in a few hours.',
+    category: 'Music',
+    startsAt: daysFromNow(0, 21),
+    location: 'Alserkal Avenue',
+    tiers: [{ name: 'Entry', priceCents: 12000, quantity: 80 }],
+  });
+  await publishEvent(tonight.event.id, creator.id, 'CREATOR');
+  await buy(users.fan, tonight.event, tonight.tiers[0], 1);
+
+  // G1-G3: an unpaid group-pay order for the fan, one share already sent.
+  const shareFees = Math.round((rooftop.tiers[0].priceCents * 3 * env.platformFeePercent) / 100);
+  const gpOrder = await createPendingOrder({
+    userId: users.fan.id,
+    eventId: rooftop.event.id,
+    items: [{ tierId: rooftop.tiers[0].id, tierName: rooftop.tiers[0].name, quantity: 3, unitPriceCents: rooftop.tiers[0].priceCents }],
+    subtotalCents: rooftop.tiers[0].priceCents * 3,
+    discountCents: 0,
+    feesCents: shareFees,
+    totalCents: rooftop.tiers[0].priceCents * 3 + shareFees,
+    currency: rooftop.event.currency,
+    expiresAt: new Date(Date.now() + 6 * 60 * 60_000).toISOString(),
+  });
+  await v3.createOrderShares({
+    orderId: gpOrder.id,
+    shares: [{ shareId: 'seed-share-1', amountMinor: 2500, contact: 'sam@test.com' }],
+  });
+
+  // PE4: a date-poll invite (no fixed date) with one vote cast.
+  const drive = await createInvite({
+    hostUserId: users.fan.id,
+    title: 'Desert drive — vote the date',
+    tz: 'Asia/Dubai',
+    placeText: 'Meet at Last Exit, Al Qudra',
+    area: 'Al Qudra',
+    pollOptions: [
+      { id: 'p1', startsAt: daysFromNow(6, 17) },
+      { id: 'p2', startsAt: daysFromNow(7, 10) },
+      { id: 'p3', startsAt: daysFromNow(8, 16) },
+    ],
+    approveGuests: false,
+    allowPlusOnes: true,
+    guestCap: 10,
+    showGuestList: true,
+    hideAddressUntilGoing: false,
+  });
+  await createInviteRsvp(drive, users.fan2.id, { status: 'maybe', plusOnes: 0 });
+  await setInvitePollVotes(drive, users.fan2.id, ['p1', 'p3']);
+
+  // PE5/PE6: the dinner invite has an activity post and a photo so the
+  // feed and album are not empty.
+  await createInvitePost({ invite: dinner, authorId: users.fan2.id, kind: 'comment', body: 'Making my famous kunafa — see you all at 8!' });
+  await addInvitePhotos(dinner, users.fan2.id, ['https://images.unsplash.com/photo-1519671482749-fd09d7e2b5c9?w=800']);
 
   return { skipped: false };
 }
