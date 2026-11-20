@@ -535,7 +535,7 @@ async function afterOrderPaid(orderId: string, log: { warn: (o: unknown, m?: str
   // (all-in pricing with a fee actually charged) — otherwise a stored
   // positive creditMinor misleads the sweeper into posting a credit the
   // purchase never earned.
-  const creditEligible = env.allInPricing && order.feesCents > 0;
+  const creditEligible = order.creditEligible === true;
   if (creditEligible || breakdown.creditMinor === 0) {
     await setOrderFeeBreakdown(order.id, breakdown).catch((e) => log.warn(e, 'fee breakdown write failed'));
   }

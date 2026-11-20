@@ -23,7 +23,6 @@ import {
 } from './db';
 import { notifyUser } from './notify';
 import { getStripe } from './stripe';
-import { env } from './env';
 
 export const handler = async () => {
   const nowIso = new Date().toISOString();
@@ -86,10 +85,11 @@ export const handler = async () => {
       // buyer credit have both landed. Enters when the breakdown is missing
       // or claims a credit that may not be posted yet; both writes are
       // first-write-wins so re-entering is a no-op once they're in.
-      // Eligibility matches the webhook path: all-in pricing only, and only
-      // orders that actually charged a fee earn a credit.
+      // Eligibility is what the order recorded at purchase time
+      // (creditEligible) — not today's flag, so a pricing rollback can't
+      // un-earn an owed credit.
       if (order?.status === 'PAID' && order.stripePaymentIntentId &&
-          env.allInPricing && (order.feesCents ?? 0) > 0 &&
+          order.creditEligible === true &&
           (!order.feeBreakdown || (order.feeBreakdown.creditMinor ?? 0) > 0)) {
         const retries = indexByOrder.get(orderId) ?? 0;
         const { orderFeeBreakdown, postOrderFeeCredit } = await import('./db/v3');
@@ -159,8 +159,8 @@ export const handler = async () => {
               // estimate here would lock the webhook out of correcting it
               // (setOrderFeeBreakdown/postOrderFeeCredit are first-write-wins).
               // Unknown → requeue so a later sweep retries instead of losing it.
-              // Ineligible (no all-in fee charged) → nothing to settle.
-              if (!env.allInPricing || (paid.feesCents ?? 0) <= 0) {
+              // Ineligible (no all-in fee charged at purchase) → nothing to settle.
+              if (paid.creditEligible !== true) {
                 // no credit eligibility — leave the credit path to the webhook
               } else if (typeof actualCardFeeMinor === 'number') {
                 const breakdown = orderFeeBreakdown({ dueMinor: paid.totalCents, actualCardFeeMinor });

@@ -282,6 +282,10 @@ export interface Order {
   discountCents: number;
   feesCents: number;
   taxCents?: number; // P6: VAT extracted from the all-in price (decision-13)
+  // Captured at purchase time: all-in pricing was on AND a fee was charged.
+  // Settlement paths (webhook, sweeper retries) gate on this — not the
+  // current env flag — so a pricing rollback can't un-earn an owed credit.
+  creditEligible?: boolean;
   // v3: organiser/seller earnings basis at face value (subtotal − in-price
   // fee). Absent on legacy rows → subtotalCents is the basis.
   faceSubtotalCents?: number;
@@ -935,6 +939,7 @@ export async function createPendingOrder(input: {
     totalCents: input.totalCents,
     promoCodeText: input.promoCodeText,
     currency: input.currency,
+    creditEligible: env.allInPricing && input.feesCents > 0,
     expiresAt: input.expiresAt,
     inventoryHeld: input.inventoryHeld,
     createdAt,
