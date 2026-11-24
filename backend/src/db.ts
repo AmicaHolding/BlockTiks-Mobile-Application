@@ -7256,36 +7256,51 @@ export async function flagInviteForReview(invite: Invite): Promise<void> {
     });
 }
 
-// invite.reminder: active invites starting within [fromIso, toIso].
+// invite.reminder: active invites starting within [fromIso, toIso]. Pages
+// through the window — a busy week can hold more than one page of starts.
 export async function listInvitesStartingBetween(fromIso: string, toIso: string): Promise<Invite[]> {
-  const res = await docClient.send(
-    new QueryCommand({
-      TableName: T(),
-      IndexName: 'gsi1',
-      KeyConditionExpression: 'gsi1pk = :pk AND gsi1sk BETWEEN :from AND :to',
-      ExpressionAttributeValues: { ':pk': INVITES_ACTIVE_GSI_PK, ':from': fromIso, ':to': toIso },
-      Limit: 500,
-    })
-  );
-  return (res.Items ?? []).map((item: any) => stripItem<Invite>(item));
+  const out: Invite[] = [];
+  let lastKey: Record<string, unknown> | undefined;
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: T(),
+        IndexName: 'gsi1',
+        KeyConditionExpression: 'gsi1pk = :pk AND gsi1sk BETWEEN :from AND :to',
+        ExpressionAttributeValues: { ':pk': INVITES_ACTIVE_GSI_PK, ':from': fromIso, ':to': toIso },
+        Limit: 500,
+        ExclusiveStartKey: lastKey,
+      })
+    );
+    out.push(...(res.Items ?? []).map((item: any) => stripItem<Invite>(item)));
+    lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (lastKey);
+  return out;
 }
 
 // Published events starting in a window (sweeper's ticket-holder reminders).
 export async function listEventsStartingBetween(fromIso: string, toIso: string): Promise<EventItem[]> {
-  const res = await docClient.send(
-    new QueryCommand({
-      TableName: T(),
-      IndexName: 'gsi1',
-      KeyConditionExpression: 'gsi1pk = :pk AND gsi1sk BETWEEN :from AND :to',
-      ExpressionAttributeValues: {
-        ':pk': EVENT_FEED_PK,
-        ':from': eventFeedSk(fromIso),
-        ':to': eventFeedSk(toIso),
-      },
-      Limit: 500,
-    })
-  );
-  return (res.Items ?? []).map((item: any) => stripItem<EventItem>(item));
+  const out: EventItem[] = [];
+  let lastKey: Record<string, unknown> | undefined;
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: T(),
+        IndexName: 'gsi1',
+        KeyConditionExpression: 'gsi1pk = :pk AND gsi1sk BETWEEN :from AND :to',
+        ExpressionAttributeValues: {
+          ':pk': EVENT_FEED_PK,
+          ':from': eventFeedSk(fromIso),
+          ':to': eventFeedSk(toIso),
+        },
+        Limit: 500,
+        ExclusiveStartKey: lastKey,
+      })
+    );
+    out.push(...(res.Items ?? []).map((item: any) => stripItem<EventItem>(item)));
+    lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (lastKey);
+  return out;
 }
 
 export async function markEventReminderSent(id: string): Promise<boolean> {
