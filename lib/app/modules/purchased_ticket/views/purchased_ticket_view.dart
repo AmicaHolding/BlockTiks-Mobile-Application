@@ -301,15 +301,25 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
     var tier = controller.ticketTier;
     var section = '';
     var seat = '';
-    for (final row in controller.ticketRows) {
-      final rowCode = row['code']?.toString() ?? '';
-      if (rowCode.isEmpty) continue;
-      code = rowCode;
+    Map<String, dynamic>? rowFor(String wanted) {
+      for (final row in controller.ticketRows) {
+        final rowCode = row['code']?.toString() ?? '';
+        if (rowCode.isEmpty) continue;
+        if (wanted.isNotEmpty && rowCode != wanted) continue;
+        return row;
+      }
+      return null;
+    }
+
+    // The ticket the wallet tile opened wins over the order's first row.
+    final row =
+        rowFor(controller.focusTicketCode) ?? rowFor('');
+    if (row != null) {
+      code = row['code']?.toString() ?? '';
       final rowTier = row['tier']?.toString() ?? '';
       if (rowTier.isNotEmpty) tier = rowTier;
       section = row['section']?.toString() ?? '';
       seat = row['seat']?.toString() ?? '';
-      break;
     }
     Get.toNamed(Routes.SEND_TICKETS, arguments: {
       'title': controller.eventTitle,

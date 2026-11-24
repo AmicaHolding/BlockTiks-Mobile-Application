@@ -19,11 +19,30 @@ class InviteView extends StatefulWidget {
 }
 
 class _InviteViewState extends State<InviteView> {
-  late final InviteController controller = Get.put(InviteController());
+  String _code = '';
+  InviteController? _controller;
+  bool _ownsController = false;
+
+  /// Controllers are tagged by invite code: stacked invite pages must not
+  /// share state — the second open would overwrite the first page's data.
+  String get _tag => _code.isEmpty ? '__no_code' : _code;
+
+  InviteController _controllerFor(String code) {
+    if (_controller != null) return _controller!;
+    if (Get.isRegistered<InviteController>(tag: _tag)) {
+      _controller = Get.find<InviteController>(tag: _tag);
+    } else {
+      _controller = Get.put(InviteController(), tag: _tag);
+      _ownsController = true;
+    }
+    return _controller!;
+  }
+
+  InviteController get controller => _controllerFor(_code);
 
   @override
   void dispose() {
-    Get.delete<InviteController>();
+    if (_ownsController) Get.delete<InviteController>(tag: _tag);
     super.dispose();
   }
 
@@ -42,6 +61,7 @@ class _InviteViewState extends State<InviteView> {
       final segs = Uri.tryParse(name)?.pathSegments;
       if (segs != null && segs.isNotEmpty) code = segs.last;
     }
+    _code = code;
     if (code.isNotEmpty && code != controller.code) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (controller.code != code && !controller.isLoading.value) {

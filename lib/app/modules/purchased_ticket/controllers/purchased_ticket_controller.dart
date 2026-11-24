@@ -23,6 +23,10 @@ class PurchasedTicketController extends GetxController {
   final Rxn<String> orderError = Rxn<String>();
   bool isPreview = false;
   bool isSimulated = false;
+  // The specific ticket the wallet tile opened — Send uses its row, not
+  // the first ticket of a multi-ticket order.
+  String focusTicketCode = '';
+  Map<String, dynamic>? _passedTicket;
 
   String _readString(dynamic data, String key, String fallback) {
     if (data is Map && data[key] != null) return data[key].toString();
@@ -49,6 +53,9 @@ class PurchasedTicketController extends GetxController {
       venue = _readString(data, 'venue', venue);
       isPreview = data['preview'] == true;
       isSimulated = data['simulated'] == true;
+      focusTicketCode = data['ticketCode']?.toString() ?? '';
+      final t = data['ticket'];
+      if (t is Map) _passedTicket = Map<String, dynamic>.from(t);
     }
     super.onInit();
     _loadOrders(data);
@@ -96,10 +103,54 @@ class PurchasedTicketController extends GetxController {
         rxBoolList = List.generate(tickets, (index) => false.obs);
       }
     } catch (e) {
-      orderError.value = e.toString().replaceFirst('Exception: ', '');
+      // Gifted tickets: /orders/:id only serves the buyer, so a
+      // recipient's lookup fails — render the ticket the wallet passed.
+      final t = _passedTicket;
+      if (t != null && t['code'] != null) {
+        _applyTicketHeader(t);
+        ticketRows.value = [_rowFromTicket(t)];
+      } else {
+        orderError.value = e.toString().replaceFirst('Exception: ', '');
+      }
     } finally {
       isLoadingOrder.value = false;
     }
+  }
+
+  void _applyTicketHeader(Map<String, dynamic> ticket) {
+    eventTitle = ticket['eventTitle']?.toString() ?? eventTitle;
+    final tz = ticket['venueTimezone']?.toString();
+    final startsAt = ticket['eventStartsAt']?.toString() ?? '';
+    if (startsAt.isNotEmpty) {
+      ticketDate = formatEventDate(startsAt, includeTime: false, tz: tz);
+      ticketTime = formatEventTime(startsAt, tz: tz);
+    }
+    final loc = ticket['eventLocation']?.toString() ?? '';
+    if (loc.isNotEmpty) venue = loc;
+    orderId = ticket['orderId']?.toString() ?? orderId;
+  }
+
+  /// One display row from a /me/tickets entry — same shape _rowsFromOrder
+  /// produces so the view renders identically.
+  Map<String, dynamic> _rowFromTicket(Map<String, dynamic> t) {
+    final tz = t['venueTimezone']?.toString();
+    final startsAt = t['eventStartsAt']?.toString() ?? '';
+    return {
+      'code': t['code']?.toString() ?? '',
+      'title': t['eventTitle']?.toString().isNotEmpty == true
+          ? t['eventTitle'].toString()
+          : eventTitle,
+      'tier': t['tierName']?.toString() ?? '',
+      'date': formatEventDate(startsAt, includeTime: false, tz: tz),
+      'time': formatEventTime(startsAt, tz: tz),
+      'venue': t['eventLocation']?.toString().isNotEmpty == true
+          ? t['eventLocation'].toString()
+          : venue,
+      'section': t['sectionName']?.toString() ?? '',
+      'seat': t['seatLabel']?.toString() ?? '',
+      'status': t['status']?.toString() ?? '',
+      'orderId': t['orderId']?.toString() ?? '',
+    };
   }
 
   void _applyOrderHeader(Map<String, dynamic> order) {

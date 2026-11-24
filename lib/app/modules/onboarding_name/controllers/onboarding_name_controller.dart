@@ -28,9 +28,13 @@ class OnboardingNameController extends GetxController {
         if (intent.value.isNotEmpty) 'intent': [intent.value],
       });
       // A2: a gated action skips optional onboarding and resumes the
-      // action's screen (still on the stack behind sign-in).
+      // action's screen — it's still on the stack behind sign-in/OTP/name
+      // (afterAuth pushed this page instead of clearing the stack).
       if (comingFrom.isNotEmpty) {
-        Get.back();
+        Get.until((route) =>
+            route.settings.name != Routes.SIGN_IN &&
+            route.settings.name != Routes.OTP_VERIFICATION_SCREEN &&
+            route.settings.name != Routes.ONBOARDING_NAME);
       } else {
         Get.offAllNamed(Routes.PERSONALIZE);
       }

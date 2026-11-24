@@ -141,7 +141,13 @@ class WalletView extends GetView<WalletController> {
             onTap: orderId.isEmpty
                 ? null
                 : () => Get.toNamed(Routes.PURCHASED_TICKET,
-                    arguments: {'orderId': orderId}),
+                    arguments: {
+                      'orderId': orderId,
+                      'ticketCode': ticket['code']?.toString() ?? '',
+                      // The ticket itself — /orders/:id only serves the
+                      // buyer, so a gift recipient renders from this.
+                      'ticket': ticket,
+                    }),
             child: SahraCard(
             padding: const EdgeInsets.all(14),
             child: Row(children: [

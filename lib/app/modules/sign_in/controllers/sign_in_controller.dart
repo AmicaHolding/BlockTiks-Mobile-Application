@@ -73,8 +73,15 @@ class SignInController extends GetxController {
       {String comingFrom = ''}) async {
     final isNew = res['is_new'] == true;
     if (isNew) {
-      Get.offAllNamed(Routes.ONBOARDING_NAME,
-          arguments: {'comingFrom': comingFrom});
+      // A gated action: push (not offAll) so the gated screen stays on the
+      // stack — saveName pops the auth screens back to it.
+      if (comingFrom.isNotEmpty) {
+        Get.toNamed(Routes.ONBOARDING_NAME,
+            arguments: {'comingFrom': comingFrom});
+      } else {
+        Get.offAllNamed(Routes.ONBOARDING_NAME,
+            arguments: {'comingFrom': comingFrom});
+      }
       return;
     }
     _land(res, comingFrom);
