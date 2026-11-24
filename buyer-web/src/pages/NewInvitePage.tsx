@@ -87,7 +87,7 @@ export default function NewInvitePage() {
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (title.trim().length < 3) return setError('Give it a name (3+ characters)');
+    if (title.trim().length < 2) return setError('Give it a name');
     if (!place.trim()) return setError('Add a place');
     if (mode === 'one' && (!date || !time)) return setError('Pick a date and time');
     setBusy(true);
