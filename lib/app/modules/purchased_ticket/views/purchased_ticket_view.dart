@@ -20,7 +20,9 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          child: Row(
+          child: SizedBox(
+            height: 52,
+            child: Row(
             children: [
               Expanded(
                 child: _secondaryButton('Send', () => _sendTicket()),
@@ -43,6 +45,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
                 ),
               ),
             ],
+          ),
           ),
         ),
       ),
@@ -185,7 +188,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
             style: sahraText(color: ColorConstant.nightMuted, size: 13),
           ),
           const SizedBox(height: 10),
-          Text('Order ${controller.orderId}',
+          Text('Order ${_shortOrderRef(controller.orderId)}',
               style: sahraText(
                   color: ColorConstant.gold,
                   size: 12,
@@ -213,7 +216,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
               'Gate': rowStr('section', 'Main'),
               'Zone': rowStr('tier', controller.ticketTier),
               'Seat': rowStr('seat', '-'),
-              'Order': rowStr('orderId', controller.orderId),
+              'Order': _shortOrderRef(rowStr('orderId', controller.orderId)),
             },
             code: row['code']?.toString(),
             qrData: row['code']?.toString(),
@@ -243,7 +246,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
               '${controller.venue} · ${controller.ticketDate} · ${controller.ticketTime}',
           fields: {
             'Zone': controller.ticketTier,
-            'Order': controller.orderId,
+            'Order': _shortOrderRef(controller.orderId),
           },
           code: controller.isSimulated ? 'SIM-${index + 1}' : null,
           qrData: controller.isSimulated ? 'SIM-${index + 1}' : null,
@@ -275,6 +278,9 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
       ),
     );
   }
+
+  String _shortOrderRef(String orderId) =>
+      orderId.length > 12 ? orderId.substring(0, 8) : orderId;
 
   Widget _secondaryButton(String label, VoidCallback onTap) {
     return GestureDetector(

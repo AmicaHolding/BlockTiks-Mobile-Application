@@ -146,7 +146,7 @@ class WalletView extends GetView<WalletController> {
                       'ticketCode': ticket['code']?.toString() ?? '',
                       // The ticket itself — /orders/:id only serves the
                       // buyer, so a gift recipient renders from this.
-                      'ticket': ticket,
+                      'ticketRow': ticket,
                     }),
             child: SahraCard(
             padding: const EdgeInsets.all(14),

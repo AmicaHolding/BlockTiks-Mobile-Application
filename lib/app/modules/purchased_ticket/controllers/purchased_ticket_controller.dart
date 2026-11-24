@@ -40,7 +40,7 @@ class PurchasedTicketController extends GetxController {
       if (data[Constants.paramShowBack] != null) {
         showBack = data[Constants.paramShowBack];
       }
-      if (data[Constants.paramTicket] != null) {
+      if (data[Constants.paramTicket] is int) {
         tickets = data[Constants.paramTicket];
         rxBoolList = List.generate(tickets, (index) => false.obs);
       }
@@ -54,7 +54,7 @@ class PurchasedTicketController extends GetxController {
       isPreview = data['preview'] == true;
       isSimulated = data['simulated'] == true;
       focusTicketCode = data['ticketCode']?.toString() ?? '';
-      final t = data['ticket'];
+      final t = data['ticketRow'];
       if (t is Map) _passedTicket = Map<String, dynamic>.from(t);
     }
     super.onInit();
