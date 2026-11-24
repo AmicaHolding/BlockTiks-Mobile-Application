@@ -98,6 +98,7 @@ export default function InvitePage() {
       const page = await api.invite(code);
       const invite = (page.invite ?? page) as Invite;
       setData({ invite, page });
+      setPlus(page.my_rsvp?.plus_ones ?? 0);
     } catch (e) {
       setLoadErr(
         e instanceof ApiError
@@ -107,9 +108,12 @@ export default function InvitePage() {
     }
   }, [code]);
 
+  // Refetch when auth changes: sign-in reveals my_rsvp, the hidden
+  // address and host tools (GET is viewer-scoped).
+  const userId = user?.id;
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, userId]);
 
   if (loadErr) {
     const cancelled = loadErr?.code === 'cancelled';
@@ -161,7 +165,8 @@ export default function InvitePage() {
       setBusy(false);
     }
   }
-  const answer = (status: RsvpStatus) => requireAuth('rsvp', () => void submit(status, plus));
+  const answer = (status: RsvpStatus) =>
+    requireAuth('rsvp', () => void submit(status, status === 'going' ? plus : 0));
 
   const dayNum = invite.starts_at ? new Date(invite.starts_at).getDate() : null;
   const link = inviteLink(invite.code);
