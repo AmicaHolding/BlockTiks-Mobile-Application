@@ -6702,6 +6702,9 @@ export interface Invite {
   // Going guests + their plus-ones (I4 cap counter, updated transactionally).
   goingSeats: number;
   reminderSentAt?: string;
+  // Which of the host's chosen offsets already fired (reminderSentAt stays
+  // the last-send timestamp for older rows that only tracked '1d').
+  reminderSentOffsets?: InviteReminderOffset[];
   reviewFlaggedAt?: string;
   cancelledAt?: string;
   createdAt: string;
@@ -6864,7 +6867,7 @@ export async function updateInviteFields(
     sets.push('gsi1pk = :gpk', 'gsi1sk = :gsk');
     values[':gpk'] = INVITES_ACTIVE_GSI_PK;
     values[':gsk'] = fields.startsAt;
-    removes.push('reminderSentAt');
+    removes.push('reminderSentAt', 'reminderSentOffsets');
   }
   try {
     await docClient.send(
@@ -7304,16 +7307,25 @@ export async function markEventReminderSent(id: string): Promise<boolean> {
   }
 }
 
-export async function markInviteReminderSent(id: string): Promise<boolean> {
+// Claims one reminder offset on an invite: first writer wins, so a reminder
+// of each kind fires at most once even if two sweeper ticks race.
+export async function markInviteReminderSent(id: string, offset: InviteReminderOffset): Promise<boolean> {
   try {
     await docClient.send(
       new UpdateCommand({
         TableName: T(),
         Key: { pk: invitePk(id), sk: 'METADATA' },
-        UpdateExpression: 'SET reminderSentAt = :at',
-        ConditionExpression: 'attribute_not_exists(reminderSentAt) AND #status = :active',
+        UpdateExpression:
+          'SET reminderSentOffsets = list_append(if_not_exists(reminderSentOffsets, :empty), :off), reminderSentAt = :at',
+        ConditionExpression: 'NOT contains(reminderSentOffsets, :oc) AND #status = :active',
         ExpressionAttributeNames: { '#status': 'status' },
-        ExpressionAttributeValues: { ':at': now(), ':active': 'active' },
+        ExpressionAttributeValues: {
+          ':at': now(),
+          ':empty': [],
+          ':off': [offset],
+          ':oc': offset,
+          ':active': 'active',
+        },
       })
     );
     return true;
@@ -7381,18 +7393,50 @@ export interface InvitePhoto {
   deletedAt?: string;
 }
 
-// PE2/PE3: RSVP-by = event start minus the offset (venue end-of-day
-// approximated as UTC end of day). With a poll it counts from the locked date
-// — startsAt only exists post-lock, so the same formula covers both.
+// PE2/PE3: RSVP-by = event start minus the offset, at end of that day in the
+// venue timezone. With a poll it counts from the locked date — startsAt only
+// exists post-lock, so the same formula covers both.
+
+function validTz(tz: string | undefined | null): string {
+  if (!tz) return 'UTC';
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return tz;
+  } catch {
+    return 'UTC';
+  }
+}
+
+// Offset (ms) of `tz` wall-clock ahead of UTC at the instant `at`.
+function tzOffsetMs(at: number, tz: string): number {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(at);
+  const v = (t: Intl.DateTimeFormatPartTypes) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  return Date.UTC(v('year'), v('month') - 1, v('day'), v('hour') % 24, v('minute'), v('second')) - (at - (at % 1000));
+}
+
+// The UTC instant of 23:59:59.999 local on (y, m, d) in `tz`.
+function endOfDayUtc(y: number, m: number, d: number, tz: string): number {
+  let utc = Date.UTC(y, m - 1, d, 23, 59, 59, 999) - tzOffsetMs(Date.UTC(y, m - 1, d, 23, 59, 59, 999), tz);
+  // A second pass absorbs a rare offset change exactly at the day boundary.
+  utc = Date.UTC(y, m - 1, d, 23, 59, 59, 999) - tzOffsetMs(utc, tz);
+  return utc;
+}
+
 export function inviteRsvpDeadlineIso(invite: Invite): string | null {
   const d = invite.rsvpDeadline ?? 'none';
   if (d === 'none' || !invite.startsAt) return null;
   const days = d === '1d' ? 1 : d === '3d' ? 3 : 7;
-  const base = Date.parse(invite.startsAt);
-  // End of (start day minus offset) in UTC.
-  const endOfDay = new Date(base - days * 24 * 60 * 60 * 1000);
-  endOfDay.setUTCHours(23, 59, 59, 999);
-  return endOfDay.toISOString();
+  const tz = validTz(invite.tz);
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' })
+    .formatToParts(Date.parse(invite.startsAt));
+  const v = (t: Intl.DateTimeFormatPartTypes) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  // End of (venue start day minus the offset) in venue time.
+  return new Date(endOfDayUtc(v('year'), v('month'), v('day') - days, tz)).toISOString();
 }
 
 // ---- date poll (PE4) ----
@@ -7475,7 +7519,7 @@ export async function lockInvitePoll(invite: Invite, optionId: string): Promise<
         TableName: T(),
         Key: { pk: invitePk(invite.id), sk: 'METADATA' },
         UpdateExpression:
-          'SET startsAt = :s, pollLockedAt = :at, updatedAt = :at, gsi1pk = :gpk, gsi1sk = :gsk REMOVE pollOptions, reminderSentAt',
+          'SET startsAt = :s, pollLockedAt = :at, updatedAt = :at, gsi1pk = :gpk, gsi1sk = :gsk REMOVE pollOptions, reminderSentAt, reminderSentOffsets',
         ConditionExpression: 'attribute_not_exists(pollLockedAt) AND #status = :active',
         ExpressionAttributeNames: { '#status': 'status' },
         ExpressionAttributeValues: {

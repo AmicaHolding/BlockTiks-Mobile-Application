@@ -210,20 +210,30 @@ export const handler = async () => {
     console.error('sweeper: otp cleanup failed', err);
   }
 
-  // invite.reminder — the day before, to Going + Maybe (once per invite).
+  // invite.reminder — the host's chosen offsets (1w / 1d / 2h before start),
+  // to Going + Maybe, each at most once.
   try {
-    const soon = await listInvitesStartingBetween(nowIso, new Date(Date.now() + 24 * 3600_000).toISOString());
+    const offsetMs: Record<string, number> = { '1w': 7 * 24 * 3600_000, '1d': 24 * 3600_000, '2h': 2 * 3600_000 };
+    const label: Record<string, string> = { '1w': 'One week away', '1d': 'Happening tomorrow', '2h': 'Happening soon' };
+    const soon = await listInvitesStartingBetween(nowIso, new Date(Date.now() + 7 * 24 * 3600_000).toISOString());
     for (const invite of soon) {
-      if (invite.reminderSentAt || !(await markInviteReminderSent(invite.id))) continue;
-      const rsvps = await listInviteRsvps(invite.id);
-      for (const r of rsvps) {
-        if (r.status !== 'going' && r.status !== 'maybe') continue;
-        await notifyUser(
-          r.userId,
-          { type: 'invite.reminder', title: invite.title, body: 'Happening tomorrow', link: `/i/${invite.code}` },
-          { sms: true }
-        ).catch(() => undefined);
-        stats.inviteReminders++;
+      if (!invite.startsAt) continue;
+      const startMs = Date.parse(invite.startsAt);
+      const sent = new Set<string>(invite.reminderSentOffsets ?? []);
+      if (invite.reminderSentAt) sent.add('1d'); // rows from before per-offset tracking
+      for (const off of invite.reminders ?? ['1d', '2h']) {
+        if (sent.has(off) || Date.now() < startMs - (offsetMs[off] ?? 0)) continue;
+        if (!(await markInviteReminderSent(invite.id, off))) continue;
+        const rsvps = await listInviteRsvps(invite.id);
+        for (const r of rsvps) {
+          if (r.status !== 'going' && r.status !== 'maybe') continue;
+          await notifyUser(
+            r.userId,
+            { type: 'invite.reminder', title: invite.title, body: label[off] ?? 'Happening soon', link: `/i/${invite.code}` },
+            { sms: true }
+          ).catch(() => undefined);
+          stats.inviteReminders++;
+        }
       }
     }
   } catch (err) {
