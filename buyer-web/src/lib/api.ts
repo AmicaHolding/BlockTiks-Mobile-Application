@@ -1001,15 +1001,20 @@ export interface InvitePageResponse extends Partial<Invite> {
 
 export interface NewInviteBody {
   title: string;
-  starts_at: string;
+  starts_at?: string;
   place_text: string;
-  cover: string | null;
+  cover: { tone?: string; image_url?: string } | null;
   note: string;
   approve_guests: boolean;
   allow_plus_ones: boolean;
   guest_cap: number | null;
   show_guest_list: boolean;
   hide_address_until_going: boolean;
+  poll_options?: { starts_at: string }[];
+  rsvp_deadline?: 'none' | '1d' | '3d' | '1w';
+  rsvp_style?: 'words' | 'emoji' | 'custom';
+  rsvp_labels?: { going?: string; maybe?: string; no?: string };
+  reminders?: ('1w' | '1d' | '2h')[];
 }
 
 export interface InviteGuests {
