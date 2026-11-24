@@ -14,6 +14,16 @@ class OnboardingNameController extends GetxController {
   /// what-brings-you-here options (A3). Empty = skipped.
   static const intents = ['going_out', 'hosting_friends', 'running_events'];
 
+  /// Pop sign-in/OTP/name off the stack, landing back on the gated
+  /// screen — used by both saveName and the form's Back affordance (a
+  /// plain Get.back would strand the user on the used OTP screen).
+  void popAuthScreens() {
+    Get.until((route) =>
+        route.settings.name != Routes.SIGN_IN &&
+        route.settings.name != Routes.OTP_VERIFICATION_SCREEN &&
+        route.settings.name != Routes.ONBOARDING_NAME);
+  }
+
   Future<void> saveName() async {
     final name = nameController.text.trim();
     if (name.isEmpty) {
@@ -28,9 +38,10 @@ class OnboardingNameController extends GetxController {
         if (intent.value.isNotEmpty) 'intent': [intent.value],
       });
       // A2: a gated action skips optional onboarding and resumes the
-      // action's screen (still on the stack behind sign-in).
+      // action's screen — it's still on the stack behind sign-in/OTP/name
+      // (afterAuth pushed this page instead of clearing the stack).
       if (comingFrom.isNotEmpty) {
-        Get.back();
+        popAuthScreens();
       } else {
         Get.offAllNamed(Routes.PERSONALIZE);
       }

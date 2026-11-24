@@ -65,12 +65,21 @@ export const SEED_USERS = [
 
 type UserKey = (typeof SEED_USERS)[number]['key'];
 
-const daysFromNow = (days: number, hourUtc = 19) => {
+// Demo venues are all Asia/Dubai (UTC+4, no DST) — schedule in Dubai-local
+// time so e.g. a "tonight" event lands tonight on the venue's clock.
+const daysFromNow = (days: number, hourDubai = 19) => {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + days);
-  d.setUTCHours(hourUtc, 0, 0, 0);
+  d.setUTCHours(hourDubai - 4, 0, 0, 0);
   return d.toISOString();
 };
+
+// Next upcoming occurrence of a Dubai hour — today if it's still ahead,
+// tomorrow once it has passed (keeps "tonight"-style fixtures upcoming).
+const nextDubaiHour = (hourDubai: number) =>
+  Date.now() < new Date(daysFromNow(0, hourDubai)).getTime()
+    ? daysFromNow(0, hourDubai)
+    : daysFromNow(1, hourDubai);
 
 async function clearAllItems(): Promise<number> {
   let deleted = 0;
@@ -156,6 +165,8 @@ export async function seed(): Promise<{ skipped: boolean }> {
   const neon = await createEventWithTiers({
     creatorId: creator.id,
     title: 'Neon Nights Festival',
+    currency: 'aed',
+    venueTimezone: 'Asia/Dubai',
     description: 'An all-night electronic music festival featuring live sets and immersive visuals.',
     category: 'Music',
     startsAt: daysFromNow(18, 20),
@@ -170,6 +181,8 @@ export async function seed(): Promise<{ skipped: boolean }> {
   const rooftop = await createEventWithTiers({
     creatorId: creator.id,
     title: 'Rooftop Sessions',
+    currency: 'aed',
+    venueTimezone: 'Asia/Dubai',
     description: 'Intimate live music sessions on the rooftop every Friday.',
     category: 'Concerts',
     startsAt: daysFromNow(10),
@@ -180,6 +193,8 @@ export async function seed(): Promise<{ skipped: boolean }> {
   const mixer = await createEventWithTiers({
     creatorId: creator.id,
     title: 'Founders Mixer',
+    currency: 'aed',
+    venueTimezone: 'Asia/Dubai',
     description: 'Meet founders, operators and investors over coffee and short talks.',
     category: 'Networking',
     startsAt: daysFromNow(25, 17),
@@ -193,6 +208,8 @@ export async function seed(): Promise<{ skipped: boolean }> {
   const comedy = await createEventWithTiers({
     creatorId: users.creator2.id,
     title: 'Comedy Night Live',
+    currency: 'aed',
+    venueTimezone: 'Asia/Dubai',
     description: 'Five stand-up comics, one stage. Assigned seating.',
     category: 'Comedy',
     startsAt: daysFromNow(7, 21),
@@ -210,6 +227,8 @@ export async function seed(): Promise<{ skipped: boolean }> {
   await createEventWithTiers({
     creatorId: creator.id,
     title: 'Winter Art Fair',
+    currency: 'aed',
+    venueTimezone: 'Asia/Dubai',
     description: 'Local artists, live painting and a pop-up gallery.',
     category: 'Arts',
     startsAt: daysFromNow(40, 12),
@@ -277,6 +296,8 @@ export async function seed(): Promise<{ skipped: boolean }> {
     creatorId: creator.id,
     ownerOrgId: org.id,
     title: 'Desert Sessions',
+    currency: 'aed',
+    venueTimezone: 'Asia/Dubai',
     description: 'Open-air desert rave under the stars.',
     category: 'Music',
     startsAt: daysFromNow(45, 22),
@@ -343,9 +364,11 @@ export async function seed(): Promise<{ skipped: boolean }> {
   const tonight = await createEventWithTiers({
     creatorId: creator.id,
     title: 'Tonight: Desert Bloom',
+    currency: 'aed',
+    venueTimezone: 'Asia/Dubai',
     description: 'A one-night immersive set — doors in a few hours.',
     category: 'Music',
-    startsAt: daysFromNow(0, 21),
+    startsAt: nextDubaiHour(21),
     location: 'Alserkal Avenue, Dubai',
     imageUrl: img('1490750967868-88aa4486c946'),
     tiers: [{ name: 'Entry', priceCents: 12000, quantity: 80 }],

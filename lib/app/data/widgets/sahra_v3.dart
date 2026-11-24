@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/widgets/custom_snackbar.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:block_tix/app/services/api_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -396,7 +397,10 @@ class _SahraGroupPayState extends State<SahraGroupPay> {
         },
       ]);
       _load();
-    } catch (_) {}
+    } catch (e) {
+      CustomSnackBar.showCustomErrorToast(
+          message: e.toString().replaceFirst('Exception: ', ''));
+    }
   }
 
   Future<void> _act(String shareId, String action) async {
@@ -404,7 +408,10 @@ class _SahraGroupPayState extends State<SahraGroupPay> {
       if (action == 'pay') await ApiService.payShare(widget.orderId, shareId);
       if (action == 'cover') await ApiService.coverShare(widget.orderId, shareId);
       if (action == 'release') await ApiService.releaseShare(widget.orderId, shareId);
-    } catch (_) {}
+    } catch (e) {
+      CustomSnackBar.showCustomErrorToast(
+          message: e.toString().replaceFirst('Exception: ', ''));
+    }
     _load();
   }
 
@@ -628,7 +635,12 @@ class _SahraInviteActivityState extends State<SahraInviteActivity> {
           Row(children: [
             Expanded(
               child: Text(
-                  (p['authorName'] ?? p['author'] ?? 'Guest').toString() +
+                  (p['authorName'] ??
+                          (p['author'] is Map
+                              ? (p['author'] as Map)['name']
+                              : p['author']) ??
+                          'Guest')
+                      .toString() +
                       (p['kind'] == 'blast' ? ' · host' : ''),
                   style: sahraText(size: 12, weight: FontWeight.w700)),
             ),

@@ -124,6 +124,8 @@ class _ForYouViewState extends State<ForYouView> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(child: _header()),
+            SliverToBoxAdapter(child: _greeting()),
+            SliverToBoxAdapter(child: _inviteCards()),
             Obx(() {
               if (controller.isLoading.value)
                 return SliverToBoxAdapter(
@@ -150,7 +152,7 @@ class _ForYouViewState extends State<ForYouView> {
                   delegate: SliverChildListDelegate([
                 _heroCarousel(featured),
                 if (rest.isNotEmpty) ...[
-                  const SahraSectionLabel('More coming up'),
+                  const SahraSectionLabel('Coming up'),
                   ...rest.map(_eventRow),
                 ],
                 const SizedBox(height: 28),
@@ -162,8 +164,8 @@ class _ForYouViewState extends State<ForYouView> {
     );
   }
 
-  /// Header · Sahra logo, city pill (opens the city sheet), bell w/ unread
-  /// dot that opens Inbox.
+  /// Header · Sahra logo, "Sign in" pill for guests (spec isGuest), city
+  /// pill (opens the city sheet), bell w/ unread dot that opens Inbox.
   Widget _header() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
@@ -171,6 +173,27 @@ class _ForYouViewState extends State<ForYouView> {
         CustomImageView(
             imagePath: ImageConstant.logoGold, width: 64, fit: BoxFit.fitWidth),
         const Spacer(),
+        Obx(() => !controller.isGuest.value
+            ? const SizedBox.shrink()
+            : Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => Get.toNamed(Routes.SIGN_IN,
+                      arguments: {'comingFrom': 'home'}),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 9),
+                    decoration: BoxDecoration(
+                        color: ColorConstant.gold,
+                        borderRadius: BorderRadius.circular(999)),
+                    child: Text('Sign in',
+                        style: sahraText(
+                            color: ColorConstant.night,
+                            size: 14,
+                            weight: FontWeight.w600)),
+                  ),
+                ),
+              )),
         GestureDetector(
           onTap: _pickCity,
           child: Container(
@@ -208,7 +231,7 @@ class _ForYouViewState extends State<ForYouView> {
                           width: 8,
                           height: 8,
                           decoration: BoxDecoration(
-                              color: ColorConstant.rumman,
+                              color: ColorConstant.gold,
                               shape: BoxShape.circle)))
                   : const SizedBox.shrink()),
             ]),
@@ -216,6 +239,118 @@ class _ForYouViewState extends State<ForYouView> {
         ),
       ]),
     );
+  }
+
+  /// Spec home: muted greeting + "For you in {city}" 28px heading.
+  Widget _greeting() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+      child: Obx(() {
+        final name = controller.firstName.value;
+        return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                  controller.isGuest.value || name.isEmpty
+                      ? 'Marhaba'
+                      : 'Marhaba, $name',
+                  style: sahraText(
+                      color: ColorConstant.nightMuted, size: 15)),
+              const SizedBox(height: 2),
+              Obx(() => Text('For you in ${controller.city.value}',
+                  style: sahraText(
+                      size: 28,
+                      weight: FontWeight.w700,
+                      letterSpacing: -0.5))),
+            ]);
+      }),
+    );
+  }
+
+  /// Spec home: personal invites waiting on your reply — gold-bordered
+  /// cards with the host's initials, tapping opens the invite to RSVP.
+  Widget _inviteCards() {
+    return Obx(() {
+      if (controller.invites.isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        child: Column(
+          children: controller.invites.map((iv) {
+            final host = iv['host'] is Map ? iv['host'] as Map : const {};
+            final hostName = host['name']?.toString() ?? '';
+            final initials = host['initials']?.toString() ?? '';
+            final title = iv['title']?.toString() ?? 'An invite';
+            final code = iv['code']?.toString() ?? '';
+            final date = formatEventDate(iv['starts_at']?.toString(),
+                tz: iv['tz']?.toString());
+            final place = iv['place_hidden'] == true
+                ? 'Place hidden until you say Going'
+                : (iv['place_text'] ?? '').toString();
+            final detail = [date, place]
+                .where((s) => s.isNotEmpty)
+                .join(' · ');
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: GestureDetector(
+                onTap: code.isEmpty ? null : () => Get.toNamed('/i/$code'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                      color: ColorConstant.nightSurface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                          color: ColorConstant.gold, width: 1.5)),
+                  child: Row(children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                          color: ColorConstant.gold,
+                          shape: BoxShape.circle),
+                      child: Text(initials,
+                          style: sahraText(
+                              color: ColorConstant.night,
+                              size: 14,
+                              weight: FontWeight.w800)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('$hostName invited you',
+                                style: sahraText(
+                                    color: ColorConstant.gold,
+                                    size: 13,
+                                    weight: FontWeight.w600)),
+                            const SizedBox(height: 2),
+                            Text(title,
+                                style: sahraText(
+                                    size: 15, weight: FontWeight.w700)),
+                            if (detail.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(detail,
+                                  style: sahraText(
+                                      color: ColorConstant.nightMuted,
+                                      size: 13)),
+                            ],
+                          ]),
+                    ),
+                    Text('RSVP ›',
+                        style: sahraText(
+                            color: ColorConstant.gold,
+                            size: 13,
+                            weight: FontWeight.w600)),
+                  ]),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      );
+    });
   }
 
   /// Hero carousel · swipes through the featured events (top [_heroMax]),

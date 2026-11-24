@@ -342,6 +342,7 @@ export interface Ticket {
   eventTitle: string;
   eventStartsAt: string;
   eventLocation: string;
+  venueTimezone?: string;
   tierId?: string; // absent on seated tickets (sectionName used instead)
   tierName: string;
   sectionName?: string; // seated events
@@ -1554,6 +1555,7 @@ export async function fulfillOrder(orderId: string, paymentIntentId: string): Pr
             eventTitle: event?.title ?? '',
             eventStartsAt: event?.startsAt ?? '',
             eventLocation: event?.location ?? '',
+            venueTimezone: event?.venueTimezone,
             tierId: item.tierId,
             tierName: item.tierName,
             sectionName: item.sectionName,
@@ -2309,6 +2311,7 @@ export interface Listing {
   eventTitle: string;
   eventStartsAt: string;
   eventLocation: string;
+  venueTimezone?: string;
   tierId?: string;
   tierName: string;
   priceCents: number;
@@ -2401,6 +2404,7 @@ export async function createListing(input: {
     eventTitle: ticket.eventTitle,
     eventStartsAt: ticket.eventStartsAt,
     eventLocation: ticket.eventLocation,
+    venueTimezone: ticket.venueTimezone,
     tierId: ticket.tierId,
     tierName: ticket.tierName,
     priceCents: input.priceCents,
@@ -2846,6 +2850,7 @@ async function fulfillSeatedOrder(
             eventTitle: event?.title ?? '',
             eventStartsAt: event?.startsAt ?? '',
             eventLocation: event?.location ?? '',
+            venueTimezone: event?.venueTimezone,
             tierName: item.sectionName ?? item.tierName,
             sectionName: item.sectionName,
             seatLabel: item.seatLabels?.[i],
@@ -4148,6 +4153,7 @@ export async function fulfillHoldOrder(
               eventTitle: event?.title ?? '',
               eventStartsAt: event?.startsAt ?? '',
               eventLocation: event?.location ?? '',
+            venueTimezone: event?.venueTimezone,
               tierId: item.tierId,
               tierName: item.tierName,
               sectionName: item.sectionName,

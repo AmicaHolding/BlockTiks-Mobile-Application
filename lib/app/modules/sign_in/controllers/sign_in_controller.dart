@@ -73,8 +73,15 @@ class SignInController extends GetxController {
       {String comingFrom = ''}) async {
     final isNew = res['is_new'] == true;
     if (isNew) {
-      Get.offAllNamed(Routes.ONBOARDING_NAME,
-          arguments: {'comingFrom': comingFrom});
+      // A gated action: push (not offAll) so the gated screen stays on the
+      // stack — saveName pops the auth screens back to it.
+      if (comingFrom.isNotEmpty) {
+        Get.toNamed(Routes.ONBOARDING_NAME,
+            arguments: {'comingFrom': comingFrom});
+      } else {
+        Get.offAllNamed(Routes.ONBOARDING_NAME,
+            arguments: {'comingFrom': comingFrom});
+      }
       return;
     }
     _land(res, comingFrom);
@@ -93,7 +100,10 @@ class SignInController extends GetxController {
     // A2: a gated action (checkout / invite / gated tab) returns to the
     // screen that asked for sign-in — it's still on the stack.
     if (comingFrom.isNotEmpty) {
-      Get.back();
+      // The stack is [gated screen] → sign-in → OTP: pop both auth screens.
+      Get.until((route) =>
+          route.settings.name != Routes.SIGN_IN &&
+          route.settings.name != Routes.OTP_VERIFICATION_SCREEN);
       return;
     }
     if (mode == 'org' && screen == 'door_scan') {

@@ -20,7 +20,9 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          child: Row(
+          child: SizedBox(
+            height: 52,
+            child: Row(
             children: [
               Expanded(
                 child: _secondaryButton('Send', () => _sendTicket()),
@@ -43,6 +45,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
                 ),
               ),
             ],
+          ),
           ),
         ),
       ),
@@ -72,7 +75,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
                 ..._ticketCards(),
               const SizedBox(height: 16),
               // G1-G5: split the bill — friends pay their own share.
-              if (controller.orderId.isNotEmpty)
+              if (controller.orderAccessible)
                 SahraGroupPay(orderId: controller.orderId),
               _walletHint(),
             ],
@@ -185,7 +188,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
             style: sahraText(color: ColorConstant.nightMuted, size: 13),
           ),
           const SizedBox(height: 10),
-          Text('Order ${controller.orderId}',
+          Text('Order ${_shortOrderRef(controller.orderId)}',
               style: sahraText(
                   color: ColorConstant.gold,
                   size: 12,
@@ -213,7 +216,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
               'Gate': rowStr('section', 'Main'),
               'Zone': rowStr('tier', controller.ticketTier),
               'Seat': rowStr('seat', '-'),
-              'Order': rowStr('orderId', controller.orderId),
+              'Order': _shortOrderRef(rowStr('orderId', controller.orderId)),
             },
             code: row['code']?.toString(),
             qrData: row['code']?.toString(),
@@ -243,7 +246,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
               '${controller.venue} · ${controller.ticketDate} · ${controller.ticketTime}',
           fields: {
             'Zone': controller.ticketTier,
-            'Order': controller.orderId,
+            'Order': _shortOrderRef(controller.orderId),
           },
           code: controller.isSimulated ? 'SIM-${index + 1}' : null,
           qrData: controller.isSimulated ? 'SIM-${index + 1}' : null,
@@ -276,6 +279,9 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
     );
   }
 
+  String _shortOrderRef(String orderId) =>
+      orderId.length > 12 ? orderId.substring(0, 8) : orderId;
+
   Widget _secondaryButton(String label, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
@@ -301,15 +307,25 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
     var tier = controller.ticketTier;
     var section = '';
     var seat = '';
-    for (final row in controller.ticketRows) {
-      final rowCode = row['code']?.toString() ?? '';
-      if (rowCode.isEmpty) continue;
-      code = rowCode;
+    Map<String, dynamic>? rowFor(String wanted) {
+      for (final row in controller.ticketRows) {
+        final rowCode = row['code']?.toString() ?? '';
+        if (rowCode.isEmpty) continue;
+        if (wanted.isNotEmpty && rowCode != wanted) continue;
+        return row;
+      }
+      return null;
+    }
+
+    // The ticket the wallet tile opened wins over the order's first row.
+    final row =
+        rowFor(controller.focusTicketCode) ?? rowFor('');
+    if (row != null) {
+      code = row['code']?.toString() ?? '';
       final rowTier = row['tier']?.toString() ?? '';
       if (rowTier.isNotEmpty) tier = rowTier;
       section = row['section']?.toString() ?? '';
       seat = row['seat']?.toString() ?? '';
-      break;
     }
     Get.toNamed(Routes.SEND_TICKETS, arguments: {
       'title': controller.eventTitle,

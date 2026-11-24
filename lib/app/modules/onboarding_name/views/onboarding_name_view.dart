@@ -16,6 +16,11 @@ class OnboardingNameView extends GetView<OnboardingNameController> {
   @override
   Widget build(BuildContext context) {
     return SahraAuthScaffold(
+      // A gated sign-up: Back must return past the used OTP/sign-in
+      // screens to the gated action, not strand the user mid-auth.
+      onBack: controller.comingFrom.isNotEmpty
+          ? controller.popAuthScreens
+          : null,
       title: 'What should we call you?',
       subtitle: 'Your name on tickets and invites.',
       child: Column(

@@ -23,7 +23,12 @@ class InviteController extends GetxController {
     final c = (arg is Map ? arg['code'] : null)?.toString() ??
         Get.parameters['code'] ??
         '';
-    if (c.isNotEmpty) load(c);
+    if (c.isNotEmpty) {
+      load(c);
+    } else {
+      // No code — nothing to fetch; without this the view spins forever.
+      isLoading.value = false;
+    }
   }
 
   Future<void> load(String code) async {
@@ -46,8 +51,14 @@ class InviteController extends GetxController {
             await ApiService.inviteGuests(invite['id'].toString());
       }
     } catch (e) {
-      CustomSnackBar.showCustomErrorToast(
-          message: e.toString().replaceFirst('Exception: ', ''));
+      debugPrint('InviteController.load("$code") failed: $e');
+      try {
+        CustomSnackBar.showCustomErrorToast(
+            message: e.toString().replaceFirst('Exception: ', ''));
+      } catch (_) {
+        // No Overlay while the OS pushes a route mid-navigation — skip the
+        // toast; the view already shows the not-found state.
+      }
     } finally {
       isLoading.value = false;
     }

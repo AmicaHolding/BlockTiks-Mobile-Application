@@ -1,4 +1,5 @@
 import 'package:block_tix/app/data/core/app_export.dart';
+import 'package:block_tix/app/data/utils/event_format.dart';
 import 'package:block_tix/app/data/widgets/sahra_ui.dart';
 import 'package:block_tix/app/data/widgets/sahra_v3.dart';
 import '../controllers/invite_controller.dart';
@@ -6,11 +7,68 @@ import '../controllers/invite_controller.dart';
 /// `/i/{code}` — the personal-invite landing page (I-rules). Guests read the
 /// invite and reply; hosts see the guest list and the "Sell tickets instead"
 /// handoff to Studio (I7).
-class InviteView extends GetView<InviteController> {
+///
+/// Owns its controller: a `sahra://` OS push plus an app_links delivery can
+/// both create this page, and the shared lazyPut instance's lifecycle gets
+/// tangled between them. A per-page controller sidesteps that race.
+class InviteView extends StatefulWidget {
   const InviteView({Key? key}) : super(key: key);
 
   @override
+  State<InviteView> createState() => _InviteViewState();
+}
+
+class _InviteViewState extends State<InviteView> {
+  String _code = '';
+  InviteController? _controller;
+  bool _ownsController = false;
+
+  /// Controllers are tagged by invite code: stacked invite pages must not
+  /// share state — the second open would overwrite the first page's data.
+  String get _tag => _code.isEmpty ? '__no_code' : _code;
+
+  InviteController _controllerFor(String code) {
+    if (_controller != null) return _controller!;
+    if (Get.isRegistered<InviteController>(tag: _tag)) {
+      _controller = Get.find<InviteController>(tag: _tag);
+    } else {
+      _controller = Get.put(InviteController(), tag: _tag);
+      _ownsController = true;
+    }
+    return _controller!;
+  }
+
+  InviteController get controller => _controllerFor(_code);
+
+  @override
+  void dispose() {
+    if (_ownsController) Get.delete<InviteController>(tag: _tag);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Params can arrive empty — the OS also pushes the raw `sahra://i/<code>`
+    // URI as a route name — so fall back to the name's last segment and to
+    // the arguments the deep-link handler attaches.
+    var code = Get.parameters['code'] ?? '';
+    if (code.isEmpty) {
+      final arg = Get.arguments;
+      if (arg is Map && arg['code'] != null) code = arg['code'].toString();
+    }
+    if (code.isEmpty) {
+      final name = ModalRoute.of(context)?.settings.name ?? '';
+      final segs = Uri.tryParse(name)?.pathSegments;
+      if (segs != null && segs.isNotEmpty) code = segs.last;
+    }
+    _code = code;
+    if (code.isNotEmpty && code != controller.code) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (controller.code != code && !controller.isLoading.value) {
+          controller.load(code);
+        }
+      });
+    }
     return Scaffold(
       backgroundColor: ColorConstant.night,
       body: SafeArea(
@@ -25,9 +83,25 @@ class InviteView extends GetView<InviteController> {
                 child: Text('Invite not found or expired.',
                     style: sahraText(color: ColorConstant.nightMuted)));
           }
+          final cover = inv['cover'] is Map
+              ? (inv['cover'] as Map)['image_url']?.toString() ?? ''
+              : inv['cover_url']?.toString() ?? inv['cover']?.toString() ?? '';
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
             children: [
+              if (cover.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: AspectRatio(
+                      aspectRatio: 21 / 9,
+                      child: Image.network(cover, fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                              color: ColorConstant.nightSurface)),
+                    ),
+                  ),
+                ),
               Text('You are invited',
                   style: sahraText(
                       color: ColorConstant.gold, size: 13, weight: FontWeight.w600)),
@@ -45,8 +119,11 @@ class InviteView extends GetView<InviteController> {
                                 ? inv['host']['name']?.toString() ?? ''
                                 : '')),
                     if (inv['starts_at'] != null || inv['when'] != null)
-                      _row('When',
-                          (inv['starts_at'] ?? inv['when'])?.toString() ?? ''),
+                      _row(
+                          'When',
+                          formatEventDate(
+                              (inv['starts_at'] ?? inv['when'])?.toString(),
+                              tz: inv['tz']?.toString())),
                     if (inv['place_text'] != null || inv['where'] != null || inv['place_hidden'] == true)
                       _row('Where',
                           inv['place_hidden'] == true

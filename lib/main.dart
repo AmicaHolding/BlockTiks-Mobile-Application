@@ -10,6 +10,7 @@ import 'package:block_tix/app/data/utils/check_internet_connection.dart';
 
 import 'app/data/core/app_export.dart';
 import 'app/data/localization/app_localization.dart';
+import 'app/modules/invite/controllers/invite_controller.dart';
 import 'app/data/utils/logger.dart';
 
 // Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -92,6 +93,58 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
+/// Catch-all for route names the OS pushes that aren't GetX pages —
+/// currently `sahra://...` custom-scheme links. Parses the URI, forwards it
+/// to the same handler as app_links, and falls back to the dashboard.
+class _DeepLinkRedirect extends StatefulWidget {
+  const _DeepLinkRedirect();
+
+  @override
+  State<_DeepLinkRedirect> createState() => _DeepLinkRedirectState();
+}
+
+class _DeepLinkRedirectState extends State<_DeepLinkRedirect> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // The settings name carries the URI the OS pushed; Get.routing.current
+      // only reports this page's own name once the frame lands.
+      final raw = ModalRoute.of(context)?.settings.name ?? '';
+
+      final uri = Uri.tryParse(raw);
+      if (uri != null && uri.scheme == 'sahra') {
+        if (_MyAppState._splashUp) {
+          // Splash is still up — queue the link; pushing now would be
+          // wiped by splash's landing navigation. Close this overlay.
+          _MyAppState._openWhenSplashLands(uri);
+          if (context.mounted) Navigator.of(context).pop();
+          return;
+        }
+        if (_MyAppState._handleDeepLink(uri)) return;
+      }
+      // GetX rewrites settings.name to the page's declared name, so the URI
+      // may be gone — but app_links delivers the same link to
+      // _handleDeepLink, which already pushed the target page under us.
+      final last = _MyAppState.lastLink;
+      if (last != null &&
+          DateTime.now().difference(last.$2).inSeconds < 5) {
+        // Navigator.pop, not Get.back() — GetX's back() closes a snackbar
+        // queue that hasn't initialized during the OS route push and throws.
+        if (context.mounted) Navigator.of(context).pop();
+        return;
+      }
+      Get.offAllNamed(Routes.USER_DASHBOARD);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+        body: Center(child: CircularProgressIndicator()));
+  }
+}
+
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
@@ -105,28 +158,83 @@ class _MyAppState extends State<MyApp> {
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSub;
 
+  /// The last sahra:// URI this app handled and when — lets the
+  /// unknown-route redirect tell its delivery apart from app_links'.
+  static (Uri, DateTime)? lastLink;
+
   /// Routes `sahra://event/<id>` and `sahra://i/<code>` invite links.
-  void _handleDeepLink(Uri uri) {
-    if (uri.scheme != 'sahra') return;
+  /// Returns true when the URI was recognised.
+  static bool _handleDeepLink(Uri uri) {
+    if (uri.scheme != 'sahra') return false;
+    lastLink = (uri, DateTime.now());
     if (uri.host == 'event' && uri.pathSegments.isNotEmpty) {
       Get.toNamed(Routes.EVENT_DETAIL,
           arguments: {'id': uri.pathSegments.first});
-    } else if (uri.host == 'i' && uri.pathSegments.isNotEmpty) {
-      Get.toNamed('/i/${uri.pathSegments.first}');
+      return true;
     }
+    if (uri.host == 'i' && uri.pathSegments.isNotEmpty) {
+      // arguments too — Get.parameters is still empty while the pushed
+      // route's controller is running onInit (GetX resolves params later).
+      final code = uri.pathSegments.first;
+      Get.toNamed('/i/$code', arguments: {'code': code});
+      // When the invite page is already on the stack GetX dedupes the push,
+      // so refresh whatever controller is live — that also retries a page
+      // that failed while the backend was unreachable.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (Get.isRegistered<InviteController>(tag: code)) {
+          Get.find<InviteController>(tag: code).load(code);
+        }
+      });
+      return true;
+    }
+    return false;
+  }
+
+  /// True while the app is still starting: splash, or the transient
+  /// unknown-route page the OS pushes for sahra:// links — that page sits
+  /// on top of whatever is underneath, so look one route down.
+  static bool get _splashUp {
+    final r = Get.routing;
+    if (r.current.isEmpty || r.current == Routes.SPLASH) return true;
+    if (r.current == '/__deep_link') {
+      return r.previous.isEmpty || r.previous == Routes.SPLASH;
+    }
+    return false;
+  }
+
+  /// Polls until the splash route has navigated away, then opens the link.
+  /// Capped so a stuck splash can't loop forever.
+  static void _openWhenSplashLands(Uri uri) {
+    var tries = 0;
+    void tick() {
+      tries++;
+      if (tries > 60 || !_splashUp) {
+        _handleDeepLink(uri);
+        return;
+      }
+      Future.delayed(const Duration(milliseconds: 200), tick);
+    }
+
+    Future.delayed(const Duration(milliseconds: 400), tick);
   }
 
   @override
   void initState() {
     super.initState();
-    _linkSub = _appLinks.uriLinkStream.listen(_handleDeepLink,
-        onError: (_) {});
-    _appLinks.getInitialLink().then((uri) {
-      // Cold start: wait for the splash redirect to settle before pushing.
-      if (uri != null) {
-        Future.delayed(
-            const Duration(milliseconds: 1600), () => _handleDeepLink(uri));
+    _linkSub = _appLinks.uriLinkStream.listen((uri) {
+      // On a cold launch the stream can fire while splash is still up —
+      // a page pushed now is wiped by splash's landing navigation, so
+      // defer it like the initial link.
+      if (_splashUp) {
+        _openWhenSplashLands(uri);
+      } else {
+        _handleDeepLink(uri);
       }
+    }, onError: (_) {});
+    _appLinks.getInitialLink().then((uri) {
+      // Cold start: push the link's route only after the splash landing
+      // navigation completes, so offAllNamed can't pop the pushed screen.
+      if (uri != null) _openWhenSplashLands(uri);
     }).catchError((_) {});
 
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -226,6 +334,11 @@ class _MyAppState extends State<MyApp> {
         // showSemanticsDebugger: true,
         initialRoute: AppPages.INITIAL,
         getPages: AppPages.routes,
+        // iOS pushes `sahra://...` links through the platform route channel
+        // (didPushRouteInformation) as the raw URI, which matches no named
+        // route — land it here and forward to the deep-link handler.
+        unknownRoute: GetPage(
+            name: '/__deep_link', page: () => const _DeepLinkRedirect()),
         builder: (context, child) {
           return MediaQuery(
               data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.0)),
