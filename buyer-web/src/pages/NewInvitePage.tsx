@@ -71,24 +71,25 @@ export default function NewInvitePage() {
   const [error, setError] = useState<string | null>(null);
 
   const today = new Date().toISOString().slice(0, 10);
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Dubai';
   const rsvpLabels = {
     going: labels.going || (style === 'emoji' ? '👍' : 'Going'),
     maybe: labels.maybe || (style === 'emoji' ? '🤔' : 'Maybe'),
     no: labels.no || (style === 'emoji' ? '🙅' : "Can't go"),
   };
   const previewWhen =
-    mode === 'one' && date
-      ? venueDateTime(new Date(`${date}T${time}`).toISOString())
-      : mode === 'poll'
-        ? 'Guests vote on the date'
+    mode === 'poll'
+      ? 'Guests vote on the date'
+      : date && time
+        ? venueDateTime(new Date(`${date}T${time}`).toISOString(), tz)
         : 'Pick a date';
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!title.trim()) return setError('Give it a name');
+    if (title.trim().length < 3) return setError('Give it a name (3+ characters)');
     if (!place.trim()) return setError('Add a place');
-    if (mode === 'one' && !date) return setError('Pick a date and time');
+    if (mode === 'one' && (!date || !time)) return setError('Pick a date and time');
     setBusy(true);
     try {
       const body: Parameters<typeof api.createInvite>[0] = {
@@ -104,6 +105,7 @@ export default function NewInvitePage() {
         rsvp_deadline: deadline,
         rsvp_style: style,
         reminders,
+        tz,
       };
       if (mode === 'one') {
         body.starts_at = new Date(`${date}T${time}`).toISOString();
@@ -113,8 +115,12 @@ export default function NewInvitePage() {
           setBusy(false);
           return setError('Add at least 2 dates for guests to vote on');
         }
+        if (filled.some((o) => !o.t)) {
+          setBusy(false);
+          return setError('Add a time for each date');
+        }
         body.poll_options = filled.map((o) => ({
-          starts_at: new Date(`${o.d}T${o.t || '20:00'}`).toISOString(),
+          starts_at: new Date(`${o.d}T${o.t}`).toISOString(),
         }));
       }
       if (style === 'custom') {
@@ -123,6 +129,8 @@ export default function NewInvitePage() {
           maybe: labels.maybe || undefined,
           no: labels.no || undefined,
         };
+      } else if (style === 'emoji') {
+        body.rsvp_labels = { going: '👍', maybe: '🤔', no: '🙅' };
       }
       const res = await api.createInvite(body);
       navigate(`/i/${res.invite.code}`, { replace: true });
@@ -320,7 +328,7 @@ export default function NewInvitePage() {
             <button
               type="button"
               aria-label="Raise limit"
-              onClick={() => setCap(Math.min(10000, cap + 5))}
+              onClick={() => setCap(Math.min(300, cap + 5))}
               className="h-[34px] w-[34px] rounded-full border-none bg-gold text-[18px] text-night cursor-pointer"
             >
               +

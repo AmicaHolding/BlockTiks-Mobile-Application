@@ -1015,6 +1015,7 @@ export interface NewInviteBody {
   rsvp_style?: 'words' | 'emoji' | 'custom';
   rsvp_labels?: { going?: string; maybe?: string; no?: string };
   reminders?: ('1w' | '1d' | '2h')[];
+  tz?: string;
 }
 
 export interface InviteGuests {
