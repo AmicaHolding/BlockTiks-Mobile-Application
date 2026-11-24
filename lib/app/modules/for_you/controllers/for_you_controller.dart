@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:block_tix/app/Shared_prefrences/app_prefrences.dart';
 import 'package:block_tix/app/data/core/app_export.dart';
 import 'package:block_tix/app/data/utils/event_format.dart';
@@ -52,6 +54,8 @@ class ForYouController extends GetxController {
     return tzToCity[(e['venueTimezone'] ?? '').toString()] ?? '';
   }
 
+  Timer? _authTimer;
+
   @override
   void onInit() {
     super.onInit();
@@ -59,25 +63,60 @@ class ForYouController extends GetxController {
     fetchEvents();
     _checkUnread();
     _loadSession();
+    // A gated sign-in pops back onto the existing dashboard — this controller
+    // isn't recreated, so poll prefs to flip the guest pill / greeting /
+    // invite cards without a manual refresh.
+    _authTimer =
+        Timer.periodic(const Duration(seconds: 2), (_) => _syncAuthState());
   }
 
-  /// Greeting name + pending personal invites. Guests skip the call —
-  /// /me/plans needs auth and the spec hides RSVP cards for signed-out.
+  @override
+  void onClose() {
+    _authTimer?.cancel();
+    super.onClose();
+  }
+
   Future<void> _loadSession() async {
+    await _syncAuthState();
+  }
+
+  /// Cheap local-only auth sync: guest flag + greeting name from prefs.
+  /// Fetches pending invites only when the state actually changes.
+  Future<void> _syncAuthState() async {
     try {
       final prefs = AppPreferences();
       await prefs.isPreferenceReady;
       final loggedIn = await prefs.getIsLoggedIn() ?? false;
+      final wasGuest = isGuest.value;
       isGuest.value = !loggedIn;
-      if (!loggedIn) return;
+      if (!loggedIn) {
+        if (firstName.value.isNotEmpty) firstName.value = '';
+        if (invites.isNotEmpty) invites.value = [];
+        return;
+      }
       final name = (await prefs.getUserName()).trim();
       firstName.value = name.split(' ').first;
+      if (wasGuest || !_invitesLoaded) {
+        _invitesLoaded = true;
+        await _fetchInvites();
+      }
+    } catch (_) {}
+  }
+
+  bool _invitesLoaded = false;
+
+  /// /me/plans needs auth — unanswered personal invites drive the spec's
+  /// gold-bordered "RSVP ›" cards.
+  Future<void> _fetchInvites() async {
+    try {
       final plans = await ApiService.mePlansFull();
       invites.value = (plans['waiting_on_you'] as List? ?? [])
           .whereType<Map>()
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
-    } catch (_) {}
+    } catch (_) {
+      invites.value = [];
+    }
   }
 
   Future<void> _restoreCity() async {

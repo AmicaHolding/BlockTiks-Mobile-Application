@@ -239,8 +239,8 @@ class SahraEventTile extends StatelessWidget {
         if (v != null && (min == null || v < min)) min = v;
       }
       if (min != null)
-        price =
-            '\$${min % 1 == 0 ? min.toStringAsFixed(0) : min.toStringAsFixed(2)}';
+        price = formatMoney(
+            (min * 100).round(), event['currency']?.toString());
     }
     return GestureDetector(
       onTap: onTap,

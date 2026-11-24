@@ -628,7 +628,12 @@ class _SahraInviteActivityState extends State<SahraInviteActivity> {
           Row(children: [
             Expanded(
               child: Text(
-                  (p['authorName'] ?? p['author'] ?? 'Guest').toString() +
+                  (p['authorName'] ??
+                          (p['author'] is Map
+                              ? (p['author'] as Map)['name']
+                              : p['author']) ??
+                          'Guest')
+                      .toString() +
                       (p['kind'] == 'blast' ? ' · host' : ''),
                   style: sahraText(size: 12, weight: FontWeight.w700)),
             ),

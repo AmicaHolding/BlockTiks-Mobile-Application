@@ -51,8 +51,14 @@ class InviteController extends GetxController {
             await ApiService.inviteGuests(invite['id'].toString());
       }
     } catch (e) {
-      CustomSnackBar.showCustomErrorToast(
-          message: e.toString().replaceFirst('Exception: ', ''));
+      debugPrint('InviteController.load("$code") failed: $e');
+      try {
+        CustomSnackBar.showCustomErrorToast(
+            message: e.toString().replaceFirst('Exception: ', ''));
+      } catch (_) {
+        // No Overlay while the OS pushes a route mid-navigation — skip the
+        // toast; the view already shows the not-found state.
+      }
     } finally {
       isLoading.value = false;
     }
