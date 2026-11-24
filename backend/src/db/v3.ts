@@ -1413,7 +1413,7 @@ export async function postOrderFeeCredit(input: {
         ConditionExpression: 'attribute_not_exists(pk)',
       })
     );
-    recordWalletActivity({
+    await recordWalletActivity({
       userId: input.userId,
       kind: 'credit',
       label: 'Fee credit earned',
@@ -1441,7 +1441,7 @@ export async function reverseOrderFeeCredit(
   const reversed = row.remainingMinor ?? 0;
   const spent = (row.amountMinor ?? 0) - reversed;
   if (reversed > 0) {
-    recordWalletActivity({
+    await recordWalletActivity({
       userId,
       kind: 'credit',
       label: 'Fee credit reversed on refund',
