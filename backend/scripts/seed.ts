@@ -74,6 +74,13 @@ const daysFromNow = (days: number, hourDubai = 19) => {
   return d.toISOString();
 };
 
+// Next upcoming occurrence of a Dubai hour — today if it's still ahead,
+// tomorrow once it has passed (keeps "tonight"-style fixtures upcoming).
+const nextDubaiHour = (hourDubai: number) =>
+  Date.now() < new Date(daysFromNow(0, hourDubai)).getTime()
+    ? daysFromNow(0, hourDubai)
+    : daysFromNow(1, hourDubai);
+
 async function clearAllItems(): Promise<number> {
   let deleted = 0;
   let ExclusiveStartKey: Record<string, unknown> | undefined;
@@ -361,7 +368,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     venueTimezone: 'Asia/Dubai',
     description: 'A one-night immersive set — doors in a few hours.',
     category: 'Music',
-    startsAt: daysFromNow(0, 21),
+    startsAt: nextDubaiHour(21),
     location: 'Alserkal Avenue, Dubai',
     imageUrl: img('1490750967868-88aa4486c946'),
     tiers: [{ name: 'Entry', priceCents: 12000, quantity: 80 }],
