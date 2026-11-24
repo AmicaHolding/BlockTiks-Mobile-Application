@@ -11,7 +11,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "sahra-db"
-database_id = "1a826894-67a9-4086-a3ab-11d0ec3d9f80"
+database_id = "ea620167-5389-4e33-96da-1c34e44e269d"
 
 # Expiry/settlement sweeper — runs every minute. Delivers OTP/code cleanup,
 # hold + order expiry, payment recovery, share/transfer expiry, wallet
@@ -21,8 +21,8 @@ crons = ["* * * * *"]
 
 [vars]
 NODE_ENV = "production"
-CORS_ORIGIN = "https://sahra-web.pages.dev,https://sahra-studio.pages.dev"
-PUBLIC_WEB_URL = "https://sahra-web.pages.dev"
+CORS_ORIGIN = "https://sahra-web-bik.pages.dev,https://sahra-studio-axi.pages.dev"
+PUBLIC_WEB_URL = "https://sahra-web-bik.pages.dev"
 # Secrets go in `wrangler secret put`: JWT_SECRET (set once, persists across deploys), STRIPE_SECRET_KEY,
 # STRIPE_WEBHOOK_SECRET, RESEND_API_KEY, EMAIL_FROM
 
