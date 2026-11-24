@@ -134,11 +134,11 @@ export default function InvitePage() {
   }
 
   const { invite, page } = data;
-  const isHost = Boolean(user && (page.is_host || invite.host_user_id === user.id));
+  const isHost = Boolean(user && invite.is_host);
   const my = page.my_rsvp ?? null;
   const counts = page.counts ?? {};
   const going = counts.going ?? 0;
-  const seatsTaken = going + (counts.plus_ones ?? 0);
+  const seatsTaken = counts.going_with_plus_ones ?? going;
   const cap = invite.guest_cap ?? null;
   const cancelled = invite.status === 'cancelled';
   const moved = invite.status === 'moved';
@@ -165,7 +165,7 @@ export default function InvitePage() {
 
   const dayNum = invite.starts_at ? new Date(invite.starts_at).getDate() : null;
   const link = inviteLink(invite.code);
-  const custom = (page as { rsvp_labels?: Record<string, string> }).rsvp_labels;
+  const custom = invite.rsvp_labels;
 
   return (
     <div className="mx-auto grid max-w-[1200px] grid-cols-1 items-start gap-11 px-6 pb-14 pt-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,1fr)] lg:px-14">
@@ -195,10 +195,10 @@ export default function InvitePage() {
 
         <div
           className="relative h-[380px] overflow-hidden rounded-[26px]"
-          style={{ background: STRIPES(toneOf(invite.code ?? invite.id)) }}
+          style={{ background: STRIPES(invite.cover?.tone ?? toneOf(invite.code ?? invite.id)) }}
         >
-          {invite.cover ? (
-            <img src={invite.cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          {invite.cover?.image_url ? (
+            <img src={invite.cover.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
           ) : null}
           <div className="absolute bottom-[22px] left-[22px] flex items-center gap-2.5 rounded-2xl bg-[#16263bdd] px-4 py-3">
             {dayNum != null ? (
@@ -430,7 +430,7 @@ export default function InvitePage() {
               ['Going', going],
               ['Maybe', counts.maybe ?? 0],
               ['Can’t', counts.no ?? 0],
-              ['+1s', counts.plus_ones ?? 0],
+              ['+1s', (counts.going_with_plus_ones ?? 0) - going],
             ] as const
           ).map(([label, n]) => (
             <div key={label} className="flex flex-col items-center gap-0.5 rounded-2xl bg-night px-1.5 py-3">

@@ -136,7 +136,7 @@ function NewInviteModal({ onClose }: { onClose: () => void }) {
         title: title.trim(),
         starts_at: startsAt.toISOString(),
         place_text: place.trim(),
-        cover,
+        cover: cover ? { tone: cover } : null,
         note: note.trim(),
         approve_guests: approve,
         allow_plus_ones: plusOnes,

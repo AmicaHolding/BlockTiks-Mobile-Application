@@ -964,7 +964,7 @@ export interface Invite {
   tz?: string;
   place_text?: string;
   area?: string;
-  cover?: string | null;
+  cover?: { tone?: string; image_url?: string } | null;
   note?: string;
   approve_guests: boolean;
   allow_plus_ones: boolean;
@@ -973,6 +973,9 @@ export interface Invite {
   hide_address_until_going: boolean;
   status: 'active' | 'cancelled' | 'moved' | string;
   moved_to_event_id?: string;
+  is_host?: boolean;
+  rsvp_labels?: Record<string, string>;
+  place_hidden?: boolean;
 }
 
 export type RsvpStatus = 'going' | 'maybe' | 'no' | 'requested' | 'declined';
@@ -989,7 +992,7 @@ export interface InviteRsvp {
 export interface InvitePageResponse extends Partial<Invite> {
   invite?: Invite;
   host: { name: string; initials: string };
-  counts?: Partial<Record<'going' | 'maybe' | 'requested' | 'no', number>> & { plus_ones?: number };
+  counts?: Partial<Record<'going' | 'maybe' | 'requested' | 'no', number>> & { going_with_plus_ones?: number };
   faces?: (string | { initials?: string; name?: string })[];
   updates?: { id?: string; body: string; sent_at: string }[];
   my_rsvp?: InviteRsvp | null;
