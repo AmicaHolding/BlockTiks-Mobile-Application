@@ -341,6 +341,11 @@ export async function seed(): Promise<{ skipped: boolean }> {
   await buy(users.fan, tonight.event, tonight.tiers[0], 1);
 
   // G1-G3: an unpaid group-pay order for the fan, one share already sent.
+  // Reserve the seats first (like real checkout) so a later share release
+  // doesn't return inventory that was never held.
+  if (!(await reserveTickets(rooftop.event.id, rooftop.tiers[0].id, 3))) {
+    throw new Error(`Seed: not enough inventory on ${rooftop.event.title} / ${rooftop.tiers[0].name}`);
+  }
   const shareFees = Math.round((rooftop.tiers[0].priceCents * 3 * env.platformFeePercent) / 100);
   const gpOrder = await createPendingOrder({
     userId: users.fan.id,
@@ -426,15 +431,15 @@ export async function seedExtraEvents(creator: User, creator2: User): Promise<nu
     },
     {
       creatorId: creator.id,
-      title: 'Bassment Riyadh: Warehouse Night',
+      title: 'Bassment Dubai: Warehouse Night',
       description: 'Underground warehouse rave, international headliner TBA. 21+ only, ID at the door.',
       category: 'Music',
       startsAt: daysFromNow(12, 23),
       doorsAt: daysFromNow(12, 22),
       location: 'Warehouse 7, Al Quoz, Dubai',
-      country: 'SA',
-      venueTimezone: 'Asia/Riyadh',
-      currency: 'sar',
+      country: 'AE',
+      venueTimezone: 'Asia/Dubai',
+      currency: 'aed',
       minAge: 21,
       tiers: [
         { name: 'Early Entry', priceCents: 12000, quantity: 150 },
