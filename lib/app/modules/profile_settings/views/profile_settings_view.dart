@@ -9,7 +9,7 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorConstant.sand,
+      backgroundColor: ColorConstant.night,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -17,12 +17,12 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
             Row(children: [
               IconButton(
                 onPressed: Get.back,
-                icon: Icon(Icons.arrow_back_rounded, color: ColorConstant.ink),
+                icon: Icon(Icons.arrow_back_rounded, color: ColorConstant.whiteA700),
               ),
               Expanded(
                 child: Text('Settings',
                     style: sahraText(
-                        color: ColorConstant.ink,
+                        color: ColorConstant.whiteA700,
                         size: 26,
                         weight: FontWeight.w800)),
               ),
@@ -30,7 +30,7 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
             const SizedBox(height: 8),
             Text('Account, payments, promos and support.',
                 style: sahraText(
-                    color: ColorConstant.ink.withValues(alpha: .62), size: 14)),
+                    color: ColorConstant.nightMuted, size: 14)),
             const SizedBox(height: 20),
             _section('Personal', [
               _tile(
@@ -117,7 +117,6 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
             const SizedBox(height: 18),
             SahraPillButton(
               label: 'Sign out',
-              dark: true,
               onTap: () => Get.offAllNamed(Routes.GET_STARTED),
             ),
           ],
@@ -136,13 +135,13 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
             padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
             child: Text(title.toUpperCase(),
                 style: sahraText(
-                    color: ColorConstant.ink.withValues(alpha: .55),
+                    color: ColorConstant.nightMuted,
                     size: 11,
                     weight: FontWeight.w700,
                     letterSpacing: 1.2)),
           ),
           SahraCard(
-            color: ColorConstant.lightCard,
+            color: ColorConstant.nightSurface,
             padding: EdgeInsets.zero,
             radius: 18,
             child: Column(children: children),
@@ -167,10 +166,10 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: ColorConstant.dune,
+              color: ColorConstant.nightElevated,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: ColorConstant.ink, size: 20),
+            child: Icon(icon, color: ColorConstant.gold, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -179,19 +178,19 @@ class ProfileSettingsView extends GetView<ProfileSettingsController> {
               children: [
                 Text(title,
                     style: sahraText(
-                        color: ColorConstant.ink,
+                        color: ColorConstant.whiteA700,
                         size: 15,
                         weight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(subtitle,
                     style: sahraText(
-                        color: ColorConstant.ink.withValues(alpha: .58),
+                        color: ColorConstant.nightMuted,
                         size: 12)),
               ],
             ),
           ),
           Icon(Icons.chevron_right_rounded,
-              color: ColorConstant.ink.withValues(alpha: .45), size: 22),
+              color: ColorConstant.nightMuted, size: 22),
         ]),
       ),
     );

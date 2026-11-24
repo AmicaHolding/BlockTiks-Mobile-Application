@@ -156,6 +156,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
   const neon = await createEventWithTiers({
     creatorId: creator.id,
     title: 'Neon Nights Festival',
+    currency: 'aed',
     description: 'An all-night electronic music festival featuring live sets and immersive visuals.',
     category: 'Music',
     startsAt: daysFromNow(18, 20),
@@ -170,6 +171,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
   const rooftop = await createEventWithTiers({
     creatorId: creator.id,
     title: 'Rooftop Sessions',
+    currency: 'aed',
     description: 'Intimate live music sessions on the rooftop every Friday.',
     category: 'Concerts',
     startsAt: daysFromNow(10),
@@ -180,6 +182,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
   const mixer = await createEventWithTiers({
     creatorId: creator.id,
     title: 'Founders Mixer',
+    currency: 'aed',
     description: 'Meet founders, operators and investors over coffee and short talks.',
     category: 'Networking',
     startsAt: daysFromNow(25, 17),
@@ -193,6 +196,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
   const comedy = await createEventWithTiers({
     creatorId: users.creator2.id,
     title: 'Comedy Night Live',
+    currency: 'aed',
     description: 'Five stand-up comics, one stage. Assigned seating.',
     category: 'Comedy',
     startsAt: daysFromNow(7, 21),
@@ -210,6 +214,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
   await createEventWithTiers({
     creatorId: creator.id,
     title: 'Winter Art Fair',
+    currency: 'aed',
     description: 'Local artists, live painting and a pop-up gallery.',
     category: 'Arts',
     startsAt: daysFromNow(40, 12),
@@ -277,6 +282,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
     creatorId: creator.id,
     ownerOrgId: org.id,
     title: 'Desert Sessions',
+    currency: 'aed',
     description: 'Open-air desert rave under the stars.',
     category: 'Music',
     startsAt: daysFromNow(45, 22),
@@ -343,6 +349,7 @@ export async function seed(): Promise<{ skipped: boolean }> {
   const tonight = await createEventWithTiers({
     creatorId: creator.id,
     title: 'Tonight: Desert Bloom',
+    currency: 'aed',
     description: 'A one-night immersive set — doors in a few hours.',
     category: 'Music',
     startsAt: daysFromNow(0, 21),

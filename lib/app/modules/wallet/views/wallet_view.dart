@@ -134,9 +134,15 @@ class WalletView extends GetView<WalletController> {
     final section = ticket['sectionName']?.toString() ?? '';
     final location = ticket['eventLocation']?.toString() ?? '';
     final sellable = status == 'VALID';
+    final orderId = ticket['orderId']?.toString() ?? '';
     return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: SahraCard(
+        child: GestureDetector(
+            onTap: orderId.isEmpty
+                ? null
+                : () => Get.toNamed(Routes.PURCHASED_TICKET,
+                    arguments: {'orderId': orderId}),
+            child: SahraCard(
             padding: const EdgeInsets.all(14),
             child: Row(children: [
               Expanded(
@@ -204,7 +210,7 @@ class WalletView extends GetView<WalletController> {
                                 size: 13,
                                 weight: FontWeight.w700)))),
               ],
-            ])));
+            ]))));
   }
 
   Widget _listingTile(Map<String, dynamic> listing) {

@@ -116,17 +116,33 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
+  /// Polls until the splash route has navigated away, then opens the link.
+  /// Capped so a stuck splash can't loop forever.
+  void _openWhenSplashLands(Uri uri) {
+    var tries = 0;
+    void tick() {
+      tries++;
+      final current = Get.routing.current;
+      if (tries > 60 ||
+          (current.isNotEmpty && current != Routes.SPLASH)) {
+        _handleDeepLink(uri);
+        return;
+      }
+      Future.delayed(const Duration(milliseconds: 200), tick);
+    }
+
+    Future.delayed(const Duration(milliseconds: 400), tick);
+  }
+
   @override
   void initState() {
     super.initState();
     _linkSub = _appLinks.uriLinkStream.listen(_handleDeepLink,
         onError: (_) {});
     _appLinks.getInitialLink().then((uri) {
-      // Cold start: wait for the splash redirect to settle before pushing.
-      if (uri != null) {
-        Future.delayed(
-            const Duration(milliseconds: 1600), () => _handleDeepLink(uri));
-      }
+      // Cold start: push the link's route only after the splash landing
+      // navigation completes, so offAllNamed can't pop the pushed screen.
+      if (uri != null) _openWhenSplashLands(uri);
     }).catchError((_) {});
 
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(

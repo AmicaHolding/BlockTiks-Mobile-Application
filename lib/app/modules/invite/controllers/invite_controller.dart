@@ -23,7 +23,12 @@ class InviteController extends GetxController {
     final c = (arg is Map ? arg['code'] : null)?.toString() ??
         Get.parameters['code'] ??
         '';
-    if (c.isNotEmpty) load(c);
+    if (c.isNotEmpty) {
+      load(c);
+    } else {
+      // No code — nothing to fetch; without this the view spins forever.
+      isLoading.value = false;
+    }
   }
 
   Future<void> load(String code) async {

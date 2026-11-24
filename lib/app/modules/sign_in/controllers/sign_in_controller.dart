@@ -93,7 +93,10 @@ class SignInController extends GetxController {
     // A2: a gated action (checkout / invite / gated tab) returns to the
     // screen that asked for sign-in — it's still on the stack.
     if (comingFrom.isNotEmpty) {
-      Get.back();
+      // The stack is [gated screen] → sign-in → OTP: pop both auth screens.
+      Get.until((route) =>
+          route.settings.name != Routes.SIGN_IN &&
+          route.settings.name != Routes.OTP_VERIFICATION_SCREEN);
       return;
     }
     if (mode == 'org' && screen == 'door_scan') {

@@ -80,8 +80,7 @@ class EventDetailView extends GetView<EventDetailController> {
                 : SahraPillButton(
                     label:
                         controller.isSeated ? 'Choose seats' : 'Get tickets',
-                    enabled: !controller.isFromCreator &&
-                        controller.selectedCount > 0,
+                    enabled: !controller.isFromCreator,
                     onTap: _continueToCheckout,
                   )),
           ),

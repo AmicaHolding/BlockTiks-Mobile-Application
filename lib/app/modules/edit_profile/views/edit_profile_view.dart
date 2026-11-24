@@ -9,12 +9,12 @@ class EditProfileView extends GetView<EditProfileController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorConstant.sand,
+      backgroundColor: ColorConstant.night,
       body: SafeArea(
         child: Obx(() {
           if (controller.isLoading.value) {
             return Center(
-                child: CircularProgressIndicator(color: ColorConstant.night));
+                child: CircularProgressIndicator(color: ColorConstant.gold));
           }
           return Column(children: [
             Padding(
@@ -25,10 +25,10 @@ class EditProfileView extends GetView<EditProfileController> {
                     IconButton(
                         onPressed: () => Get.back(closeOverlays: true),
                         icon: Icon(Icons.arrow_back_ios_new,
-                            color: ColorConstant.ink)),
+                            color: ColorConstant.whiteA700)),
                     Text('Edit profile',
                         style: sahraText(
-                            color: ColorConstant.ink,
+                            color: ColorConstant.whiteA700,
                             size: 17,
                             weight: FontWeight.w700)),
                     TextButton(
@@ -36,7 +36,7 @@ class EditProfileView extends GetView<EditProfileController> {
                             controller.isSaving.value ? null : controller.save,
                         child: Text('Save',
                             style: sahraText(
-                                color: ColorConstant.rumman,
+                                color: ColorConstant.gold,
                                 size: 16,
                                 weight: FontWeight.w700))),
                   ]),
@@ -48,7 +48,7 @@ class EditProfileView extends GetView<EditProfileController> {
                     Center(
                         child: CircleAvatar(
                             radius: 48,
-                            backgroundColor: ColorConstant.night,
+                            backgroundColor: ColorConstant.nightElevated,
                             child: Text(controller.initials,
                                 style: sahraText(
                                     color: ColorConstant.gold,
@@ -58,7 +58,7 @@ class EditProfileView extends GetView<EditProfileController> {
                     Center(
                         child: Text('Change photo',
                             style: sahraText(
-                                color: ColorConstant.ink,
+                                color: ColorConstant.gold,
                                 size: 14,
                                 weight: FontWeight.w600,
                                 letterSpacing: 0.2))),
@@ -92,7 +92,7 @@ class EditProfileView extends GetView<EditProfileController> {
                     Text(
                         'Date of birth is used for 18+ events only. Never shown.',
                         style: sahraText(
-                            color: ColorConstant.ink.withValues(alpha: 0.55),
+                            color: ColorConstant.nightMuted,
                             size: 12)),
                     const SizedBox(height: 26),
                     Center(
@@ -123,29 +123,29 @@ class EditProfileView extends GetView<EditProfileController> {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label,
           style: sahraText(
-              color: ColorConstant.ink, size: 13, weight: FontWeight.w600)),
+              color: ColorConstant.whiteA700, size: 13, weight: FontWeight.w600)),
       const SizedBox(height: 6),
       TextField(
         controller: controller,
         keyboardType: keyboard,
         style: arabic
-            ? sahraArabic(color: ColorConstant.ink, size: 16)
-            : sahraText(color: ColorConstant.ink, size: 16),
+            ? sahraArabic(color: ColorConstant.whiteA700, size: 16)
+            : sahraText(color: ColorConstant.whiteA700, size: 16),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: sahraText(
-              color: ColorConstant.ink.withValues(alpha: 0.35), size: 16),
+              color: ColorConstant.nightMuted, size: 16),
           filled: true,
-          fillColor: ColorConstant.lightCard,
+          fillColor: ColorConstant.nightSurface,
           border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: ColorConstant.dune, width: 1.5)),
+              borderSide: BorderSide(color: ColorConstant.nightBorder, width: 1.5)),
           enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: ColorConstant.dune, width: 1.5)),
+              borderSide: BorderSide(color: ColorConstant.nightBorder, width: 1.5)),
           focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: ColorConstant.night, width: 1.5)),
+              borderSide: BorderSide(color: ColorConstant.gold, width: 1.5)),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         ),
@@ -162,14 +162,14 @@ class EditProfileView extends GetView<EditProfileController> {
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
-            color: ColorConstant.lightCard,
+            color: ColorConstant.nightSurface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: ColorConstant.dune, width: 1.5)),
+            border: Border.all(color: ColorConstant.nightBorder, width: 1.5)),
         child: Row(children: [
           Expanded(
               child: Text(controller.emailController.text,
                   style: sahraText(
-                      color: ColorConstant.ink.withValues(alpha: 0.6),
+                      color: ColorConstant.whiteA700,
                       size: 16))),
           Obx(() => controller.emailVerified.value.isEmpty
               ? const SizedBox.shrink()

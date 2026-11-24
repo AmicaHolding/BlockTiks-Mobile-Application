@@ -11,6 +11,17 @@ class InviteView extends GetView<InviteController> {
 
   @override
   Widget build(BuildContext context) {
+    // The controller is a lazyPut singleton: a second `/i/<code>` push
+    // reuses it, so refetch when the route's code differs from the loaded
+    // invite.
+    final code = Get.parameters['code'] ?? '';
+    if (code.isNotEmpty && controller.code != code) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (controller.code != code && !controller.isLoading.value) {
+          controller.load(code);
+        }
+      });
+    }
     return Scaffold(
       backgroundColor: ColorConstant.night,
       body: SafeArea(

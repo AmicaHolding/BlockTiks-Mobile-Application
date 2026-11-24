@@ -12,6 +12,12 @@ class ForYouController extends GetxController {
   final RxString city = 'Dubai'.obs;
   final RxBool hasUnread = false.obs;
 
+  /// Spec home: greeting name (empty for guests) and the personal invites
+  /// still waiting on your reply — they drive the RSVP cards.
+  final RxString firstName = ''.obs;
+  final RxBool isGuest = false.obs;
+  final RxList<Map<String, dynamic>> invites = <Map<String, dynamic>>[].obs;
+
   static const cities = ['Dubai', 'Abu Dhabi', 'Riyadh', 'Doha', 'Kuwait City'];
 
   /// Feed filtered by the selected city (matches the prototype, where
@@ -52,6 +58,26 @@ class ForYouController extends GetxController {
     _restoreCity();
     fetchEvents();
     _checkUnread();
+    _loadSession();
+  }
+
+  /// Greeting name + pending personal invites. Guests skip the call —
+  /// /me/plans needs auth and the spec hides RSVP cards for signed-out.
+  Future<void> _loadSession() async {
+    try {
+      final prefs = AppPreferences();
+      await prefs.isPreferenceReady;
+      final loggedIn = await prefs.getIsLoggedIn() ?? false;
+      isGuest.value = !loggedIn;
+      if (!loggedIn) return;
+      final name = (await prefs.getUserName()).trim();
+      firstName.value = name.split(' ').first;
+      final plans = await ApiService.mePlansFull();
+      invites.value = (plans['waiting_on_you'] as List? ?? [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } catch (_) {}
   }
 
   Future<void> _restoreCity() async {
