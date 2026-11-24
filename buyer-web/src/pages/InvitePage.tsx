@@ -252,6 +252,7 @@ export default function InvitePage() {
           inviteId={invite.id ?? ''}
           isHost={isHost}
           poll={(page as { poll?: InvitePoll }).poll}
+          tz={invite.tz}
           going={my?.status === 'going' || isHost}
           onChanged={() => void load()}
         />
@@ -610,12 +611,14 @@ function InviteExtras({
   inviteId,
   isHost,
   poll,
+  tz,
   going,
   onChanged,
 }: {
   inviteId: string;
   isHost: boolean;
   poll?: InvitePoll;
+  tz?: string | null;
   going?: boolean;
   onChanged: () => void;
 }) {
@@ -681,7 +684,7 @@ function InviteExtras({
                       : 'border-night-border text-sand hover:border-gold/50'
                   }`}
                 >
-                  <span>{venueDateTime(o.starts_at)}</span>
+                  <span>{venueDateTime(o.starts_at, tz)}</span>
                   <span className="text-night-muted">{o.votes} {o.votes === 1 ? 'vote' : 'votes'}</span>
                 </button>
                 {isHost ? (
