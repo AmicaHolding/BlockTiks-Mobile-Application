@@ -213,16 +213,21 @@ export const handler = async () => {
   // invite.reminder — the host's chosen offsets (1w / 1d / 2h before start),
   // to Going + Maybe, each at most once.
   try {
-    const offsetMs: Record<string, number> = { '1w': 7 * 24 * 3600_000, '1d': 24 * 3600_000, '2h': 2 * 3600_000 };
+    const offsetMs: Record<'1w' | '1d' | '2h', number> = { '1w': 7 * 24 * 3600_000, '1d': 24 * 3600_000, '2h': 2 * 3600_000 };
     const label: Record<string, string> = { '1w': 'One week away', '1d': 'Happening tomorrow', '2h': 'Happening soon' };
     const soon = await listInvitesStartingBetween(nowIso, new Date(Date.now() + 7 * 24 * 3600_000).toISOString());
     for (const invite of soon) {
       if (!invite.startsAt) continue;
       const startMs = Date.parse(invite.startsAt);
       const sent = new Set<string>(invite.reminderSentOffsets ?? []);
-      if (invite.reminderSentAt) sent.add('1d'); // rows from before per-offset tracking
+      // Rows written before per-offset tracking only ever sent the day-before.
+      if (invite.reminderSentAt && !invite.reminderSentOffsets) sent.add('1d');
       for (const off of invite.reminders ?? ['1d', '2h']) {
-        if (sent.has(off) || Date.now() < startMs - (offsetMs[off] ?? 0)) continue;
+        const win = offsetMs[off] ?? 0;
+        const remaining = startMs - Date.now();
+        // Skip when it's not time yet — or the window already passed, e.g. a
+        // poll locked 2 days out shouldn't send "One week away".
+        if (sent.has(off) || remaining > win || remaining <= win / 2) continue;
         if (!(await markInviteReminderSent(invite.id, off))) continue;
         const rsvps = await listInviteRsvps(invite.id);
         for (const r of rsvps) {
