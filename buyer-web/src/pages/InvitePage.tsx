@@ -50,14 +50,22 @@ function OutlineBtn({ children, onClick, href }: { children: React.ReactNode; on
 }
 
 function icsHref(invite: Invite): string {
-  const start = invite.starts_at.replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const stamp = (d: Date) =>
+    `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}T${String(d.getUTCHours()).padStart(2, '0')}${String(d.getUTCMinutes()).padStart(2, '0')}00Z`;
+  const esc = (v: string) => v.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+  const start = new Date(invite.starts_at);
+  const end = new Date(start.getTime() + 3 * 3_600_000);
   const body = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
+    'PRODID:-//Sahra//Invite//EN',
     'BEGIN:VEVENT',
-    `DTSTART:${start}`,
-    `SUMMARY:${invite.title}`,
-    invite.place_text ? `LOCATION:${invite.place_text}` : '',
+    `UID:${invite.code}@sahra`,
+    `DTSTAMP:${stamp(new Date())}`,
+    `DTSTART:${stamp(start)}`,
+    `DTEND:${stamp(end)}`,
+    `SUMMARY:${esc(invite.title)}`,
+    invite.place_text ? `LOCATION:${esc(invite.place_text)}` : '',
     'END:VEVENT',
     'END:VCALENDAR',
   ]
@@ -134,7 +142,9 @@ export default function InvitePage() {
   const cap = invite.guest_cap ?? null;
   const cancelled = invite.status === 'cancelled';
   const moved = invite.status === 'moved';
-  const past = new Date(invite.starts_at).getTime() < Date.now() - 6 * 3_600_000;
+  const past = invite.starts_at
+    ? new Date(invite.starts_at).getTime() < Date.now() - 6 * 3_600_000
+    : false;
   const closed = cancelled || moved || past;
   const full = cap != null && seatsTaken >= cap && my?.status !== 'going';
   const placeHidden = invite.hide_address_until_going && !invite.place_text;
@@ -153,7 +163,7 @@ export default function InvitePage() {
   }
   const answer = (status: RsvpStatus) => requireAuth('rsvp', () => void submit(status, plus));
 
-  const dayNum = new Date(invite.starts_at).getDate();
+  const dayNum = invite.starts_at ? new Date(invite.starts_at).getDate() : null;
   const link = inviteLink(invite.code);
   const custom = (page as { rsvp_labels?: Record<string, string> }).rsvp_labels;
 
@@ -191,9 +201,11 @@ export default function InvitePage() {
             <img src={invite.cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
           ) : null}
           <div className="absolute bottom-[22px] left-[22px] flex items-center gap-2.5 rounded-2xl bg-[#16263bdd] px-4 py-3">
-            <span className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full bg-gold text-[15px] font-extrabold text-night">
-              {dayNum}
-            </span>
+            {dayNum != null ? (
+              <span className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full bg-gold text-[15px] font-extrabold text-night">
+                {dayNum}
+              </span>
+            ) : null}
             <span className="text-[32px] font-extrabold leading-[0.98] tracking-[-0.04em] text-sand lg:text-[44px]">
               {invite.title}
             </span>
@@ -203,12 +215,12 @@ export default function InvitePage() {
         <div className="flex max-w-[620px] flex-col gap-3.5">
           <div className="flex flex-wrap items-center justify-between gap-3.5">
             <div className="flex flex-col gap-0.5 text-[18px] font-semibold text-sand">
-              {venueDateTime(invite.starts_at, invite.tz)}
+              {invite.starts_at ? venueDateTime(invite.starts_at, invite.tz) : 'Date to be decided'}
               <span className="text-[15px] font-normal text-night-muted">
                 Hosted by {page.host.name}
               </span>
             </div>
-            <OutlineBtn href={icsHref(invite)}>Add to calendar</OutlineBtn>
+            {invite.starts_at ? <OutlineBtn href={icsHref(invite)}>Add to calendar</OutlineBtn> : null}
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3.5">
             <div className="flex flex-col gap-0.5 text-[18px] font-semibold text-sand">
