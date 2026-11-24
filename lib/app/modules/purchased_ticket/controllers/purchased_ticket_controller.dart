@@ -27,6 +27,10 @@ class PurchasedTicketController extends GetxController {
   // the first ticket of a multi-ticket order.
   String focusTicketCode = '';
   Map<String, dynamic>? _passedTicket;
+  // True only when /orders/:id actually answered — a gift recipient gets a
+  // 404 and falls back to the passed ticket, so buyer-only UI (group pay)
+  // must key off this, not orderId.
+  bool orderAccessible = false;
 
   String _readString(dynamic data, String key, String fallback) {
     if (data is Map && data[key] != null) return data[key].toString();
@@ -98,6 +102,7 @@ class PurchasedTicketController extends GetxController {
         rows.addAll(_rowsFromOrder(order));
       }
       ticketRows.value = rows;
+      orderAccessible = rows.isNotEmpty;
       if (rows.isNotEmpty) {
         tickets = rows.length;
         rxBoolList = List.generate(tickets, (index) => false.obs);

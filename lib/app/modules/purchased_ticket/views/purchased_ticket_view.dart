@@ -75,7 +75,7 @@ class PurchasedTicketView extends GetView<PurchasedTicketController> {
                 ..._ticketCards(),
               const SizedBox(height: 16),
               // G1-G5: split the bill — friends pay their own share.
-              if (controller.orderId.isNotEmpty)
+              if (controller.orderAccessible)
                 SahraGroupPay(orderId: controller.orderId),
               _walletHint(),
             ],
