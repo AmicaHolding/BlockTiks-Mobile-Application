@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, ApiError, type Earnings, type Listing, type Offer, type Ticket } from '../lib/api';
-import { formatCents, formatShortDateTime, parseIso } from '../lib/format';
+import { allIn, formatCents, formatShortDateTime, parseIso } from '../lib/format';
 import TicketPass from '../components/TicketPass';
 import { Badge, Button, Card, EmptyState, Spinner } from '../components/ui';
 import { SendIcon, TagIcon } from '../components/icons';
@@ -191,13 +191,13 @@ export default function TicketsPage() {
                         {offer.sectionName ? ` · ${offer.sectionName}` : ''}
                       </div>
                       <div className="mt-1 text-sm text-night-muted">
-                        Auto-buy up to {formatCents(offer.maxPriceCents)} each × {offer.quantity}
+                        Auto-buy up to {formatCents(allIn(offer.maxPriceCents))} each × {offer.quantity}
                         {offer.matchedCount > 0 ? ` · ${offer.matchedCount} listing${offer.matchedCount === 1 ? '' : 's'} matched` : ''}
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <Link
-                        to={`/offers/new?eventId=${offer.eventId}&tierName=${encodeURIComponent(offer.tierName)}${offer.sectionName ? `&sectionName=${encodeURIComponent(offer.sectionName)}` : ''}&quantity=${offer.quantity}&maxPrice=${Math.round(offer.maxPriceCents / 100)}`}
+                        to={`/offers/new?eventId=${offer.eventId}&tierName=${encodeURIComponent(offer.tierName)}${offer.sectionName ? `&sectionName=${encodeURIComponent(offer.sectionName)}` : ''}&quantity=${offer.quantity}&maxPrice=${Math.round(allIn(offer.maxPriceCents) / 100)}`}
                       >
                         <Button variant="ghost" className="px-4 py-2 text-xs">Edit</Button>
                       </Link>
