@@ -123,25 +123,33 @@ export default function CheckoutPage() {
   }
 
   if (done) {
+    const paid = done === 'paid';
     return (
-      <div className="mx-auto max-w-xl px-6 py-24 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-          <CheckIcon size={30} className="text-emerald-700" />
-        </div>
-        <h1 className="mt-6 font-display text-3xl font-extrabold text-ink">
-          {done === 'paid' ? 'You’re in. See you there.' : 'Payment received'}
-        </h1>
-        <p className="mt-2 text-ink/60">
-          {done === 'paid'
-            ? 'Your tickets are ready in My tickets, the QR goes live 24 hours before doors.'
-            : 'We’re confirming your payment, your tickets will appear in My tickets shortly.'}
-        </p>
-        <div className="mt-8 flex justify-center gap-3">
-          <Link to="/tickets">
-            <Button variant="night">View tickets</Button>
+      <div className="flex min-h-[calc(100vh-76px)] flex-col items-center gap-3.5 bg-night px-8 py-[60px] text-center">
+        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-gold text-[30px] font-extrabold text-night">
+          <CheckIcon size={30} />
+        </span>
+        <strong className="text-[34px] font-extrabold tracking-[-0.03em] text-sand">
+          {paid ? 'You’re in.' : 'Payment received'}
+        </strong>
+        <span className="max-w-[480px] text-[16px] leading-[1.5] text-night-muted">
+          Order {intent?.orderId ? `#${intent.orderId.slice(0, 8)}` : ''}.{' '}
+          {paid
+            ? 'Your tickets are in Plans — the QR goes live 24 hours before doors.'
+            : 'We’re confirming your payment, your tickets will appear in Plans shortly.'}
+        </span>
+        <div className="flex gap-2.5 pt-2">
+          <Link
+            to="/plans"
+            className="rounded-full bg-gold px-[22px] py-[13px] text-[15px] font-semibold text-night transition hover:brightness-95"
+          >
+            View plans
           </Link>
-          <Link to={`/events/${selection.eventId}`}>
-            <Button variant="outline" tone="light">Back to event</Button>
+          <Link
+            to="/"
+            className="rounded-full border-[1.5px] border-night-border px-[22px] py-[12px] text-[14px] font-semibold text-sand transition hover:bg-night-surface"
+          >
+            Keep browsing
           </Link>
         </div>
       </div>
