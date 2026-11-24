@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError, api, type PlanItem, type PlansResponse } from '../lib/api';
-import { allIn, formatMinor, formatMoney, venueDateTime, venueTime } from '../lib/format';
+import { allIn, formatMinor, formatMoney, venueDateTime } from '../lib/format';
 import { cardStart, cardTz, cardVenue } from '../lib/cards';
 import { Spinner } from '../components/ui';
 import { useHost } from '../components/HostFlow';
@@ -172,7 +172,7 @@ export default function PlansPage() {
                   <span className="text-[14px] text-night-muted">
                     {[
                       p.qty ? `${p.qty} × ${p.tier ?? 'ticket'}` : p.tier,
-                      venueTime(p.starts_at, tz),
+                      venueDateTime(p.starts_at, tz),
                       itemPlace(p),
                     ]
                       .filter(Boolean)
@@ -181,19 +181,19 @@ export default function PlansPage() {
                 </span>
                 <span className="flex flex-wrap gap-2">
                   <Link
-                    to="/tickets"
+                    to={`/tickets?event=${p.event_id ?? ''}`}
                     className="rounded-full bg-gold px-4 py-2.5 text-[15px] font-semibold text-night transition hover:brightness-95"
                   >
                     Show QR
                   </Link>
                   <Link
-                    to="/tickets"
+                    to={`/tickets?event=${p.event_id ?? ''}&action=send`}
                     className="rounded-full border-[1.5px] border-night-border px-4 py-[9px] text-[14px] font-semibold text-sand transition hover:bg-night-surface"
                   >
                     Send
                   </Link>
                   <Link
-                    to="/sell"
+                    to={`/sell?eventId=${p.event_id ?? ''}`}
                     className="rounded-full border-[1.5px] border-night-border px-4 py-[9px] text-[14px] font-semibold text-sand transition hover:bg-night-surface"
                   >
                     Sell
@@ -225,7 +225,7 @@ export default function PlansPage() {
                       p.kind === 'hosting' && p.counts
                         ? `${p.counts.going ?? 0} going${p.counts.requested ? ` · ${p.counts.requested} to approve` : ''}`
                         : '',
-                      venueTime(p.starts_at, tz),
+                      venueDateTime(p.starts_at, tz),
                       itemPlace(p),
                     ]
                       .filter(Boolean)

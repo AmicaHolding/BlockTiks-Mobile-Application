@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { api, ApiError, type Earnings, type Listing, type Offer, type Ticket } from '../lib/api';
 import { allIn, formatCents, formatShortDateTime, parseIso } from '../lib/format';
@@ -17,6 +18,9 @@ interface EventGroup {
 }
 
 export default function TicketsPage() {
+  const [params] = useSearchParams();
+  const eventFilter = params.get('event');
+  const sendFirst = params.get('action') === 'send';
   const [tab, setTab] = useState<Tab>('upcoming');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
@@ -83,7 +87,8 @@ export default function TicketsPage() {
           tickets: [ticket],
         });
     }
-    const list = [...map.values()];
+    let list = [...map.values()];
+    if (eventFilter) list = list.filter((g) => g.eventId === eventFilter);
     const now = Date.now();
     const filtered = list.filter((g) => {
       const start = parseIso(g.startsAt)?.getTime() ?? 0;
@@ -316,7 +321,14 @@ export default function TicketsPage() {
                           </Card>
                         );
                       }
-                      return <TicketPass key={ticket.code} ticket={ticket} onChanged={load} />;
+                      return (
+                        <TicketPass
+                          key={ticket.code}
+                          ticket={ticket}
+                          onChanged={load}
+                          initialShowTransfer={sendFirst && !listing && ticket.status === 'VALID' && group.tickets.find((t) => t.status === 'VALID' && !listedByCode.has(t.code)) === ticket}
+                        />
+                      );
                     })}
                   </div>
 
