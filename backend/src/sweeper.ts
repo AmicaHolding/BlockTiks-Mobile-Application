@@ -16,7 +16,10 @@ import {
   listExpiredIndex,
   listInviteRsvps,
   requeueExpireIndex,
+  listEventsStartingBetween,
+  listEventTickets,
   listInvitesStartingBetween,
+  markEventReminderSent,
   markInviteReminderSent,
   releaseOrder,
   releaseReservesForEndedEvents,
@@ -38,6 +41,7 @@ export const handler = async () => {
     reservesReleased: 0,
     otpCleaned: 0,
     inviteReminders: 0,
+    eventReminders: 0,
     pendingReleased: 0,
   };
 
@@ -224,6 +228,28 @@ export const handler = async () => {
     }
   } catch (err) {
     console.error('sweeper: invite reminders failed', err);
+  }
+
+  // event.reminder — the day before, to everyone holding a valid ticket
+  // (Partiful-style: text/push + inbox, once per event).
+  try {
+    const soonEvents = await listEventsStartingBetween(nowIso, new Date(Date.now() + 24 * 3600_000).toISOString());
+    for (const ev of soonEvents) {
+      if (ev.reminderSentAt || !(await markEventReminderSent(ev.id))) continue;
+      const reminded = new Set<string>(); // one reminder per holder, not per ticket
+      for (const ticket of await listEventTickets(ev.id)) {
+        if (ticket.status !== 'VALID' || reminded.has(ticket.userId)) continue;
+        reminded.add(ticket.userId);
+        await notifyUser(
+          ticket.userId,
+          { type: 'event.reminder', title: ev.title, body: 'Happening tomorrow — your ticket is in Plans.', link: '/plans' },
+          { sms: true }
+        ).catch(() => undefined);
+        stats.eventReminders++;
+      }
+    }
+  } catch (err) {
+    console.error('sweeper: event reminders failed', err);
   }
 
   // G3: group-pay shares past their 30-min hold get released; the seat goes
