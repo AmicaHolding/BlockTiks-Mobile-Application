@@ -155,7 +155,8 @@ const inviteFieldsSchema = {
   note: { type: ['string', 'null'], maxLength: 2000 },
   approve_guests: { type: 'boolean' },
   allow_plus_ones: { type: 'boolean' },
-  guest_cap: { type: ['integer', 'null'], minimum: 1, maximum: 10000 },
+  // handoff/06: guest limit is steps of 5, max 300.
+  guest_cap: { type: ['integer', 'null'], minimum: 1, maximum: 300 },
   show_guest_list: { type: 'boolean' },
   hide_address_until_going: { type: 'boolean' },
   // V3 (handoff/06).

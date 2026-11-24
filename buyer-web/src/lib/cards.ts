@@ -1,5 +1,5 @@
 import type { EventCardData } from './api';
-import { formatMinor, formatMoney } from './format';
+import { allIn, formatMinor, formatMoney } from './format';
 
 export function cardStart(e: EventCardData): string {
   return e.starts_at ?? e.startsAt ?? '';
@@ -25,7 +25,10 @@ export function cardSoldOut(e: EventCardData): boolean {
 }
 
 export function cardPrice(e: EventCardData): string {
-  if (e.from_price) return e.from_price.amount_minor > 0 ? `From ${formatMinor(e.from_price)}` : 'Free';
-  if (e.fromPriceCents != null) return e.fromPriceCents > 0 ? `From ${formatMoney(e.fromPriceCents, e.currency)}` : 'Free';
+  if (e.from_price) {
+    const m = e.from_price;
+    return m.amount_minor > 0 ? `From ${formatMinor({ ...m, amount_minor: allIn(m.amount_minor) })}` : 'Free';
+  }
+  if (e.fromPriceCents != null) return e.fromPriceCents > 0 ? `From ${formatMoney(allIn(e.fromPriceCents), e.currency)}` : 'Free';
   return '';
 }

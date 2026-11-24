@@ -745,6 +745,9 @@ export const api = {
   wallet() {
     return request<{ wallet: Wallet }>('/wallet');
   },
+  walletActivity() {
+    return request<{ rows: WalletActivity[] }>('/wallet/activity');
+  },
   walletWithdraw(amountMinor: number, instant = false) {
     return request<{ ok: boolean; feeMinor: number }>('/wallet/withdraw', {
       method: 'POST',
@@ -832,6 +835,13 @@ export interface Wallet {
   pendingMinor: number;
   creditsMinor: number;
   credits?: { id: string; remainingMinor: number; expiresAt?: string }[];
+}
+
+export interface WalletActivity {
+  kind: 'credit' | 'pending' | 'cash_in' | 'withdraw' | 'spend';
+  label: string;
+  amountMinor: number;
+  at: string;
 }
 
 export interface WaitingRoomEntry {
@@ -954,7 +964,7 @@ export interface Invite {
   tz?: string;
   place_text?: string;
   area?: string;
-  cover?: string | null;
+  cover?: { tone?: string; image_url?: string } | null;
   note?: string;
   approve_guests: boolean;
   allow_plus_ones: boolean;
@@ -963,6 +973,9 @@ export interface Invite {
   hide_address_until_going: boolean;
   status: 'active' | 'cancelled' | 'moved' | string;
   moved_to_event_id?: string;
+  is_host?: boolean;
+  rsvp_labels?: Record<string, string>;
+  place_hidden?: boolean;
 }
 
 export type RsvpStatus = 'going' | 'maybe' | 'no' | 'requested' | 'declined';
@@ -979,7 +992,7 @@ export interface InviteRsvp {
 export interface InvitePageResponse extends Partial<Invite> {
   invite?: Invite;
   host: { name: string; initials: string };
-  counts?: Partial<Record<'going' | 'maybe' | 'requested' | 'no', number>> & { plus_ones?: number };
+  counts?: Partial<Record<'going' | 'maybe' | 'requested' | 'no', number>> & { going_with_plus_ones?: number };
   faces?: (string | { initials?: string; name?: string })[];
   updates?: { id?: string; body: string; sent_at: string }[];
   my_rsvp?: InviteRsvp | null;
@@ -988,15 +1001,21 @@ export interface InvitePageResponse extends Partial<Invite> {
 
 export interface NewInviteBody {
   title: string;
-  starts_at: string;
+  starts_at?: string;
   place_text: string;
-  cover: string | null;
+  cover: { tone?: string; image_url?: string } | null;
   note: string;
   approve_guests: boolean;
   allow_plus_ones: boolean;
   guest_cap: number | null;
   show_guest_list: boolean;
   hide_address_until_going: boolean;
+  poll_options?: { starts_at: string }[];
+  rsvp_deadline?: 'none' | '1d' | '3d' | '1w';
+  rsvp_style?: 'words' | 'emoji' | 'custom';
+  rsvp_labels?: { going?: string; maybe?: string; no?: string };
+  reminders?: ('1w' | '1d' | '2h')[];
+  tz?: string;
 }
 
 export interface InviteGuests {

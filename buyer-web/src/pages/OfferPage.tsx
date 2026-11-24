@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError, type Listing, type SahraEvent } from '../lib/api';
 import { MAX_PER_ORDER, RESALE_CAP_PCT } from '../lib/config';
-import { formatEventDateTime, formatMoney } from '../lib/format';
+import { allIn, formatEventDateTime, formatMoney } from '../lib/format';
 import type { CheckoutSelection } from './EventPage';
 import { Button, Card, Input, Spinner } from '../components/ui';
 import { ArrowLeftIcon, CheckIcon, MinusIcon, PlusIcon, TicketIcon } from '../components/icons';
@@ -57,10 +57,12 @@ export default function OfferPage() {
   })();
 
   const maxCents = Math.round((Number(maxPrice) || 0) * 100);
+  // Buyers think in the all-in price they pay; listings/matching run on face.
+  const faceMaxCents = Math.round(maxCents / 1.07);
   const currency = event?.currency;
   // W3/R2, a watch above the resale cap can never match; block it.
   const capCents = faceCents != null ? Math.round(faceCents * (1 + RESALE_CAP_PCT / 100)) : null;
-  const aboveCap = capCents != null && maxCents > capCents;
+  const aboveCap = capCents != null && faceMaxCents > capCents;
   const valid = Boolean(eventId && tierName && maxCents >= 1 && !aboveCap);
 
   // W1, if a live listing already matches, go straight to checkout instead.
@@ -70,7 +72,7 @@ export default function OfferPage() {
           .filter(
             (l) =>
               l.status === 'ACTIVE' &&
-              l.priceCents <= maxCents &&
+              l.priceCents <= faceMaxCents &&
               (l.tierName === tierName || (sectionName && l.tierName === sectionName))
           )
           .sort((a, b) => a.priceCents - b.priceCents)[0] ?? null
@@ -102,7 +104,7 @@ export default function OfferPage() {
         eventId,
         tierName,
         sectionName,
-        maxPriceCents: maxCents,
+        maxPriceCents: faceMaxCents,
         quantity,
       });
       setDone(true);
@@ -212,8 +214,8 @@ export default function OfferPage() {
           <div className="mt-2 flex flex-wrap gap-4 text-xs text-night-muted">
             {faceCents != null ? (
               <span>
-                Face value {formatMoney(faceCents, currency)}
-                {capCents != null ? ` · capped at ${formatMoney(capCents, currency)} (face +${RESALE_CAP_PCT}%)` : ''}
+                Face value {formatMoney(allIn(faceCents), currency)}
+                {capCents != null ? ` · capped at ${formatMoney(allIn(capCents), currency)} (face +${RESALE_CAP_PCT}%)` : ''}
               </span>
             ) : null}
             <span>Offers stay active until the event starts</span>
@@ -221,7 +223,7 @@ export default function OfferPage() {
           {aboveCap ? (
             <p className="mt-2 text-xs font-semibold text-red-300">
               Above the resale cap, listings can’t exceed face +{RESALE_CAP_PCT}%, so no watch over{' '}
-              {formatMoney(capCents, currency)} can match.
+              {formatMoney(allIn(capCents), currency)} can match.
             </p>
           ) : null}
         </div>
@@ -230,7 +232,7 @@ export default function OfferPage() {
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-gold bg-gold/10 px-4 py-3">
             <div className="text-sm text-sand">
               <span className="font-bold">One matches right now</span>, a fan is selling at{' '}
-              {formatMoney(matchingListing.priceCents, currency)}.
+              {formatMoney(allIn(matchingListing.priceCents), currency)}.
             </div>
             <Button variant="primary" className="px-4 py-2 text-xs" onClick={() => buyNow(matchingListing)}>
               Buy it now

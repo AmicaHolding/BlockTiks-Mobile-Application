@@ -102,7 +102,7 @@ export default function LoginPage({
           <span className="font-display text-2xl font-bold text-night">Sahra Studio</span>
         </div>
 
-        <div className="rounded-2xl border border-dune bg-white p-8 shadow-[0_2px_12px_rgba(22,38,59,0.05)]">
+        <div className="rounded-2xl border border-dune bg-[#fff9ef] p-8 shadow-[0_2px_12px_rgba(22,38,59,0.05)]">
           {step === 'contact' ? (
             <>
               <h1 className="font-display text-3xl font-bold text-night">Host on Sahra</h1>

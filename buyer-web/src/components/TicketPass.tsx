@@ -23,13 +23,15 @@ export default function TicketPass({
   ticket,
   listed,
   onChanged,
+  initialShowTransfer = false,
 }: {
   ticket: Ticket;
   listed?: boolean;
   onChanged?: () => void;
+  initialShowTransfer?: boolean;
 }) {
   const { user } = useAuth();
-  const [showTransfer, setShowTransfer] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(initialShowTransfer);
   const [recipient, setRecipient] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

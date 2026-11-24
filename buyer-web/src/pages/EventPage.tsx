@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError, getToken, type Listing, type SahraEvent, type Tier, type VenueSection, type WaitingRoomEntry } from '../lib/api';
 import { MAX_PER_ORDER, RESALE_CAP_PCT } from '../lib/config';
-import { formatEventDate, formatMoney } from '../lib/format';
+import { allIn, formatEventDate, formatMoney } from '../lib/format';
 import { useAuth } from '../lib/auth';
 import { EmptyState, Spinner, Badge, countdownLine } from '../components/ui';
 import { ArrowLeftIcon, MinusIcon, PlusIcon, TicketIcon } from '../components/icons';
@@ -105,9 +105,9 @@ export default function EventPage() {
 
   const totalCents =
     selection?.kind === 'tier'
-      ? selection.tier.priceCents * (tierQty[selection.tier.id] ?? 0)
+      ? allIn(selection.tier.priceCents) * (tierQty[selection.tier.id] ?? 0)
       : selection?.kind === 'listing'
-        ? selection.listing.priceCents
+        ? allIn(selection.listing.priceCents)
         : 0;
 
   async function remindMe() {
@@ -237,12 +237,12 @@ export default function EventPage() {
                 const tierListings = listingsByTier.get(tier.name) ?? [];
                 const qty = tierQty[tier.id] ?? 0;
                 return (
-                  <div key={tier.id} className="flex flex-col gap-2.5">
+                  <div key={tier.id} className="flex flex-col gap-2.5 border-b border-night-border/60 py-3 last:border-b-0">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <div className="truncate font-semibold text-sand">{tier.name}</div>
                         <div className={`tnum text-[13px] ${out ? 'text-night-muted' : 'text-gold'}`}>
-                          {out ? '' : `${formatMoney(tier.priceCents, event.currency)}`}
+                          {out ? '' : `${formatMoney(allIn(tier.priceCents), event.currency)}`}
                           {saleNote(tier) ? ` · ${saleNote(tier)}` : ''}
                         </div>
                       </div>
@@ -276,7 +276,7 @@ export default function EventPage() {
                         >
                           <span className="min-w-0">
                             <span className="block text-sm font-semibold text-sand">
-                              {formatMoney(listing.priceCents, event.currency)}
+                              {formatMoney(allIn(listing.priceCents), event.currency)}
                               <span className="ml-2 rounded-full bg-night-border px-2 py-0.5 text-[11px] font-medium text-sand/80">
                                 Resale
                               </span>
@@ -301,7 +301,7 @@ export default function EventPage() {
                     <div className="min-w-0">
                       <div className="truncate font-semibold text-sand">{section.name}</div>
                       <div className="tnum text-[13px] text-gold">
-                        {formatMoney(section.priceCents, event.currency)}
+                        {formatMoney(allIn(section.priceCents), event.currency)}
                         <span className="text-night-muted">
                           {' '}
                           · {section.remaining ?? section.available ?? 0} left
@@ -386,7 +386,10 @@ export default function EventPage() {
             <TicketIcon size={17} />
             {user ? 'Checkout' : 'Sign in to buy'}
           </button>
-          <p className="pt-3 text-center text-xs leading-relaxed text-night-muted">
+          <p className="pt-3 text-[13px] leading-[1.5] text-[#c9d3df]">
+            Prices include the 7% Sahra fee. What you see is what you pay.
+          </p>
+          <p className="pt-1 text-xs leading-relaxed text-night-muted">
             Max {MAX_PER_ORDER} per order · resale capped at face +{RESALE_CAP_PCT}%
           </p>
         </aside>

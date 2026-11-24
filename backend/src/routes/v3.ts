@@ -70,6 +70,8 @@ import {
   releaseShareSeat,
   withdrawalsThisWeek,
   recordWithdrawal,
+  recordWalletActivity,
+  listWalletActivity,
   InviteError,
   rsvpDeadlineIso,
   type Invite,
@@ -114,6 +116,12 @@ export async function v3Routes(app: FastifyInstance) {
     return { wallet };
   });
 
+  // W1 activity feed for the Wallet page (fWallet).
+  app.get('/wallet/activity', { preHandler: app.authenticate }, async (request) => {
+    const rows = await listWalletActivity(request.user.sub);
+    return { rows };
+  });
+
   // W5: withdrawals take Cash only. One free standard withdrawal per
   // calendar week; instant costs 1% (min 300 fils).
   app.post(
@@ -147,6 +155,12 @@ export async function v3Routes(app: FastifyInstance) {
         currency: 'aed',
       }).catch(() => null);
       await recordWithdrawal(request.user.sub).catch(() => undefined);
+      await recordWalletActivity({
+        userId: request.user.sub,
+        kind: 'withdraw',
+        label: instant ? 'Instant withdrawal' : 'Withdrawal to bank',
+        amountMinor: -amountMinor,
+      });
       return { ok: true, withdrawal, feeMinor: fee, etaDays: instant ? 0 : 3, weeklyFreeUsed: usedFree };
     }
   );

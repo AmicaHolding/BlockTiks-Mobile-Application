@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { api, ApiError, type Earnings, type Listing, type Offer, type Ticket } from '../lib/api';
-import { formatCents, formatShortDateTime, parseIso } from '../lib/format';
+import { allIn, formatCents, formatShortDateTime, parseIso } from '../lib/format';
 import TicketPass from '../components/TicketPass';
 import { Badge, Button, Card, EmptyState, Spinner } from '../components/ui';
 import { SendIcon, TagIcon } from '../components/icons';
@@ -17,6 +18,9 @@ interface EventGroup {
 }
 
 export default function TicketsPage() {
+  const [params] = useSearchParams();
+  const eventFilter = params.get('event');
+  const sendFirst = params.get('action') === 'send';
   const [tab, setTab] = useState<Tab>('upcoming');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
@@ -83,7 +87,8 @@ export default function TicketsPage() {
           tickets: [ticket],
         });
     }
-    const list = [...map.values()];
+    let list = [...map.values()];
+    if (eventFilter) list = list.filter((g) => g.eventId === eventFilter);
     const now = Date.now();
     const filtered = list.filter((g) => {
       const start = parseIso(g.startsAt)?.getTime() ?? 0;
@@ -191,13 +196,13 @@ export default function TicketsPage() {
                         {offer.sectionName ? ` · ${offer.sectionName}` : ''}
                       </div>
                       <div className="mt-1 text-sm text-night-muted">
-                        Auto-buy up to {formatCents(offer.maxPriceCents)} each × {offer.quantity}
+                        Auto-buy up to {formatCents(allIn(offer.maxPriceCents))} each × {offer.quantity}
                         {offer.matchedCount > 0 ? ` · ${offer.matchedCount} listing${offer.matchedCount === 1 ? '' : 's'} matched` : ''}
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <Link
-                        to={`/offers/new?eventId=${offer.eventId}&tierName=${encodeURIComponent(offer.tierName)}${offer.sectionName ? `&sectionName=${encodeURIComponent(offer.sectionName)}` : ''}&quantity=${offer.quantity}&maxPrice=${Math.round(offer.maxPriceCents / 100)}`}
+                        to={`/offers/new?eventId=${offer.eventId}&tierName=${encodeURIComponent(offer.tierName)}${offer.sectionName ? `&sectionName=${encodeURIComponent(offer.sectionName)}` : ''}&quantity=${offer.quantity}&maxPrice=${Math.round(allIn(offer.maxPriceCents) / 100)}`}
                       >
                         <Button variant="ghost" className="px-4 py-2 text-xs">Edit</Button>
                       </Link>
@@ -316,7 +321,14 @@ export default function TicketsPage() {
                           </Card>
                         );
                       }
-                      return <TicketPass key={ticket.code} ticket={ticket} onChanged={load} />;
+                      return (
+                        <TicketPass
+                          key={ticket.code}
+                          ticket={ticket}
+                          onChanged={load}
+                          initialShowTransfer={sendFirst && !listing && ticket.status === 'VALID' && group.tickets.find((t) => t.status === 'VALID' && !listedByCode.has(t.code)) === ticket}
+                        />
+                      );
                     })}
                   </div>
 

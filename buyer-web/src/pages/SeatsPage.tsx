@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, type SahraEvent, type Seat, type VenueSection } from '../lib/api';
 import { MAX_PER_ORDER } from '../lib/config';
-import { formatMoney, formatShortDateTime } from '../lib/format';
+import { allIn, formatMoney, formatShortDateTime } from '../lib/format';
 import type { CheckoutSelection } from './EventPage';
 import { Badge, Button, Card, EmptyState, Spinner } from '../components/ui';
 import { ArrowLeftIcon, CheckIcon, ClockIcon, MapIcon, MinusIcon, PlusIcon, TicketIcon } from '../components/icons';
@@ -225,7 +225,7 @@ export default function SeatsPage() {
                   ) : null}
                   <span className="text-sm font-bold">{section.name}</span>
                   <span className="font-display text-base font-extrabold text-gold">
-                    {formatMoney(section.priceCents, event.currency)}
+                    {formatMoney(allIn(section.priceCents), event.currency)}
                   </span>
                   <span className="text-[11px] text-night-muted">
                     {soldOut ? 'Sold out' : `${left} left`}
@@ -241,7 +241,7 @@ export default function SeatsPage() {
           {selected ? (
             <>
               <div className="text-xs font-bold uppercase tracking-[0.16em] text-night-muted">
-                {selected.name} · {formatMoney(selected.priceCents, event.currency)} each
+                {selected.name} · {formatMoney(allIn(selected.priceCents), event.currency)} each
               </div>
               <div className="mt-2 text-sm text-night-muted">
                 {remaining(selected)} seats left
@@ -277,7 +277,7 @@ export default function SeatsPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-night-muted">Total</span>
                   <span className="font-display text-2xl font-extrabold text-sand">
-                    {formatMoney(selected.priceCents * quantity, event.currency)}
+                    {formatMoney(allIn(selected.priceCents) * quantity, event.currency)}
                   </span>
                 </div>
                 <div className="mt-1 text-[11px] text-night-muted">Fees calculated at checkout</div>
