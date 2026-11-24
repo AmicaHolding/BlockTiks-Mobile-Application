@@ -745,6 +745,9 @@ export const api = {
   wallet() {
     return request<{ wallet: Wallet }>('/wallet');
   },
+  walletActivity() {
+    return request<{ rows: WalletActivity[] }>('/wallet/activity');
+  },
   walletWithdraw(amountMinor: number, instant = false) {
     return request<{ ok: boolean; feeMinor: number }>('/wallet/withdraw', {
       method: 'POST',
@@ -832,6 +835,13 @@ export interface Wallet {
   pendingMinor: number;
   creditsMinor: number;
   credits?: { id: string; remainingMinor: number; expiresAt?: string }[];
+}
+
+export interface WalletActivity {
+  kind: 'credit' | 'pending' | 'cash_in' | 'withdraw' | 'spend';
+  label: string;
+  amountMinor: number;
+  at: string;
 }
 
 export interface WaitingRoomEntry {

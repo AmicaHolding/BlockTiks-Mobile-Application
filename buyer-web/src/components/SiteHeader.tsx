@@ -107,6 +107,17 @@ export default function SiteHeader({ user }: { user: User | null }) {
           ))}
 
           {user ? (
+            <NavLink
+              to="/wallet"
+              className={({ isActive }) =>
+                `transition ${isActive ? 'text-gold' : 'text-sand/85 hover:text-sand'}`
+              }
+            >
+              Wallet
+            </NavLink>
+          ) : null}
+
+          {user ? (
             <Link
               to="/account?section=notifications"
               className="relative text-sand/85 transition hover:text-sand"

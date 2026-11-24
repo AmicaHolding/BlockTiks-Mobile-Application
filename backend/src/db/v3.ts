@@ -830,6 +830,7 @@ export async function postWalletCredit(input: {
       Item: { pk: walletPk(input.userId), sk: `CREDIT#${credit.earnedAt}#${credit.id}`, ...credit },
     })
   );
+  await recordWalletActivity({ userId: input.userId, kind: 'credit', label: 'Fee credit earned', amountMinor: input.amountMinor });
   return credit;
 }
 
@@ -919,6 +920,50 @@ export async function takeWalletCash(userId: string, amountMinor: number): Promi
   }
 }
 
+// Wallet activity feed (web fWallet): append-only ACT# rows per movement.
+export async function recordWalletActivity(input: {
+  userId: string; kind: 'credit' | 'pending' | 'cash_in' | 'withdraw' | 'spend';
+  label: string; amountMinor: number;
+}): Promise<void> {
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: walletPk(input.userId),
+        sk: `ACT#${now()}#${randomUUID()}`,
+        kind: input.kind,
+        label: input.label,
+        amountMinor: input.amountMinor,
+      },
+    })
+  ).catch(() => undefined); // activity is best-effort; never block money movement
+}
+
+export interface WalletActivityRow {
+  kind: 'credit' | 'pending' | 'cash_in' | 'withdraw' | 'spend';
+  label: string;
+  amountMinor: number;
+  at: string;
+}
+
+export async function listWalletActivity(userId: string, limit = 50): Promise<WalletActivityRow[]> {
+  const res = await docClient.send(
+    new QueryCommand({
+      TableName: T(),
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :p)',
+      ExpressionAttributeValues: { ':pk': walletPk(userId), ':p': 'ACT#' },
+      ScanIndexForward: false,
+      Limit: limit,
+    })
+  );
+  return ((res.Items ?? []) as Record<string, unknown>[]).map((i) => ({
+    kind: i.kind as WalletActivityRow['kind'],
+    label: (i.label as string) ?? '',
+    amountMinor: (i.amountMinor as number) ?? 0,
+    at: (i.sk as string).split('#')[1] ?? '',
+  }));
+}
+
 // W2: resale proceeds land in Pending until the event ends. Each order's
 // proceeds get their own row (PENDING#<orderId>) so they can be released
 // per-event; gsi1 lets the sweeper find pending rows by event.
@@ -941,6 +986,7 @@ export async function addWalletPending(input: {
       ConditionExpression: 'attribute_not_exists(pk)',
     })
   );
+  await recordWalletActivity({ userId: input.userId, kind: 'pending', label: 'Resale proceeds pending', amountMinor: input.amountMinor });
 }
 
 export async function releaseWalletPending(userId: string, orderId: string): Promise<void> {
@@ -964,6 +1010,7 @@ export async function releaseWalletPending(userId: string, orderId: string): Pro
       ],
     })
   );
+  await recordWalletActivity({ userId, kind: 'cash_in', label: 'Resale proceeds settled', amountMinor: row.pendingMinor });
 }
 
 // Sweeper step: release pending rows whose event has ended (W2 → Cash).
