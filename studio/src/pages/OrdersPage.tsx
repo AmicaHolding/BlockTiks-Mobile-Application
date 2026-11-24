@@ -100,7 +100,7 @@ export default function OrdersPage() {
           body="They'll land here as tickets sell."
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-dune bg-white">
+        <div className="overflow-hidden rounded-xl border border-dune bg-[#fff9ef]">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-dune text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/40">

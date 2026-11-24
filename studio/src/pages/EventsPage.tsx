@@ -48,7 +48,7 @@ export default function EventsPage() {
           action={<Button to="/events/new">+ New event</Button>}
         />
       ) : (
-        <div className="rounded-xl border border-dune bg-white">
+        <div className="rounded-xl border border-dune bg-[#fff9ef]">
           <div className="border-b border-dune px-5 py-3">
             <input
               value={query}
