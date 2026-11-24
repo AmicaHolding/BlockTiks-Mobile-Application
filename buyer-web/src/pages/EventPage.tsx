@@ -237,7 +237,7 @@ export default function EventPage() {
                 const tierListings = listingsByTier.get(tier.name) ?? [];
                 const qty = tierQty[tier.id] ?? 0;
                 return (
-                  <div key={tier.id} className="flex flex-col gap-2.5">
+                  <div key={tier.id} className="flex flex-col gap-2.5 border-b border-night-border/60 py-3 last:border-b-0">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <div className="truncate font-semibold text-sand">{tier.name}</div>
@@ -386,7 +386,10 @@ export default function EventPage() {
             <TicketIcon size={17} />
             {user ? 'Checkout' : 'Sign in to buy'}
           </button>
-          <p className="pt-3 text-center text-xs leading-relaxed text-night-muted">
+          <p className="pt-3 text-[13px] leading-[1.5] text-[#c9d3df]">
+            Prices include the 7% Sahra fee. What you see is what you pay.
+          </p>
+          <p className="pt-1 text-xs leading-relaxed text-night-muted">
             Max {MAX_PER_ORDER} per order · resale capped at face +{RESALE_CAP_PCT}%
           </p>
         </aside>

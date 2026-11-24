@@ -7,6 +7,7 @@ import { inTz, venueDateTime, venueDayKey } from '../lib/format';
 import { useHost } from '../components/HostFlow';
 import { EmptyState, Spinner } from '../components/ui';
 
+const CITIES = ['Dubai', 'Abu Dhabi', 'Riyadh', 'Jeddah', 'Doha', 'Manama'];
 const HERO_MS = 6500;
 
 /** Stripe tones for hero/lineup textures (spec: repeating 135deg stripes). */
@@ -85,7 +86,7 @@ export default function HomePage() {
   const { user } = useAuth();
   const { openHost } = useHost();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const city = params.get('city') ?? user?.city ?? 'Dubai';
   const [data, setData] = useState<HomeResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -128,6 +129,7 @@ export default function HomePage() {
   }
 
   const hasFilter = Boolean(day || category || q.trim());
+  const hasHero = (data?.featured?.length ?? 0) > 0;
   const allTitle = day
     ? inTz(`${day}T12:00:00Z`, 'UTC', { weekday: 'long', day: 'numeric', month: 'short' })
     : `The lineup in ${city}`;
@@ -149,7 +151,7 @@ export default function HomePage() {
       {/* Floating search bar — overlaps hero bottom */}
       <form
         onSubmit={onSearch}
-        className="relative z-[2] mx-4 -mt-11 flex flex-wrap items-center gap-4 rounded-3xl bg-sand px-6 py-2.5 text-ink shadow-[0_30px_70px_rgba(11,20,32,.6)] lg:mx-14 lg:pe-2.5 lg:ps-7"
+        className={`relative z-[2] mx-4 ${hasHero ? '-mt-11' : 'mt-6'} flex flex-wrap items-center gap-4 rounded-3xl bg-sand px-6 py-2.5 text-ink shadow-[0_30px_70px_rgba(11,20,32,.6)] lg:mx-14 lg:pe-2.5 lg:ps-7`}
       >
         <span className="flex min-w-[220px] flex-1 flex-col gap-0.5">
           <span className="text-xs font-semibold tracking-[0.06em] opacity-60">WHAT ARE YOU AFTER?</span>
@@ -187,7 +189,25 @@ export default function HomePage() {
             <span className="text-xs font-semibold uppercase tracking-[0.16em] text-gold">The next three weeks</span>
             <h2 id="pick-night" className="font-display text-[44px] font-extrabold leading-none tracking-[-0.035em] text-sand">Pick a night.</h2>
           </div>
-          <span className="text-sm text-night-muted">{dayHint}</span>
+          <span className="flex items-center gap-4">
+            <select
+              aria-label="City"
+              value={city}
+              onChange={(ev) => {
+                const next = new URLSearchParams(params);
+                next.set('city', ev.target.value);
+                setParams(next, { replace: true });
+                setDay(null);
+                setCategory(null);
+              }}
+              className="cursor-pointer rounded-full border-[1.5px] border-night-border bg-transparent px-3 py-1.5 text-sm font-semibold text-sand outline-none"
+            >
+              {CITIES.map((c) => (
+                <option key={c} value={c} className="bg-night text-sand">{c}</option>
+              ))}
+            </select>
+            <span className="text-sm text-night-muted">{dayHint}</span>
+          </span>
         </div>
         <div className="grid grid-cols-7 gap-1.5 sm:grid-cols-[repeat(21,minmax(0,1fr))]">
           {days.slice(0, 21).map((d) => {
@@ -257,8 +277,10 @@ export default function HomePage() {
           {lineup.length ? (
             lineup.map((e) => {
               const tz = cardTz(e) ?? 'UTC';
-              const out = e.sold_out || (e.left ?? 1) <= 0;
-              const low = !out && (e.left ?? 99) < 20;
+              const st = e.state ?? '';
+              const out = e.sold_out === true || st === 'sold_out' || (e.left ?? 1) <= 0;
+              const notLive = out || st === 'ended' || st === 'cancelled' || st === 'live';
+              const low = !notLive && (e.left ?? 99) < 20;
               return (
                 <button
                   key={e.id}
@@ -282,7 +304,7 @@ export default function HomePage() {
                       className="rounded-full px-2.5 py-1 text-xs font-semibold"
                       style={out ? { background: '#b8323a33', color: '#e0626a' } : low ? { background: '#f2d9a022', color: '#f2d9a0' } : { background: '#22344d', color: '#9fb0c6' }}
                     >
-                      {out ? 'Sold out' : low ? 'Selling fast' : 'On sale'}
+                      {out ? 'Sold out' : st === 'ended' ? 'Ended' : st === 'cancelled' ? 'Cancelled' : st === 'live' ? 'Happening now' : low ? 'Selling fast' : 'On sale'}
                     </span>
                     <strong className="text-[17px]">{cardPrice(e) ?? 'Free'}</strong>
                   </span>
