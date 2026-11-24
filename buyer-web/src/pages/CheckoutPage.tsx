@@ -4,7 +4,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { api, ApiError, type OrderShare } from '../lib/api';
 import { ALL_IN_PRICING, BUYER_FEE_PCT, CHECKOUT_HOLD_COUNTDOWN } from '../lib/config';
-import { displayName, formatMoney, formatShortDateTime } from '../lib/format';
+import { allIn, displayName, formatMoney, formatShortDateTime } from '../lib/format';
 import type { CheckoutSelection } from './EventPage';
 import { Badge, Button, Card, EmptyState, Input, Spinner } from '../components/ui';
 import { ArrowLeftIcon, CheckIcon, ClockIcon, ShieldIcon, TicketIcon } from '../components/icons';
@@ -148,7 +148,7 @@ export default function CheckoutPage() {
     );
   }
 
-  const faceTotal = intent?.subtotalCents ?? selection.priceCents * (selection.kind === 'resale' ? 1 : selection.quantity);
+  const faceTotal = intent?.subtotalCents ?? allIn(selection.priceCents) * (selection.kind === 'resale' ? 1 : selection.quantity);
   const discount = intent?.discountCents ?? 0;
   const fees = intent?.feesCents ?? null;
   const total = intent?.amountCents ?? null;

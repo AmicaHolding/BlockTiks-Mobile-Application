@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError, getToken, type Listing, type SahraEvent, type Tier, type VenueSection, type WaitingRoomEntry } from '../lib/api';
 import { MAX_PER_ORDER, RESALE_CAP_PCT } from '../lib/config';
-import { formatEventDate, formatMoney } from '../lib/format';
+import { allIn, formatEventDate, formatMoney } from '../lib/format';
 import { useAuth } from '../lib/auth';
 import { EmptyState, Spinner, Badge, countdownLine } from '../components/ui';
 import { ArrowLeftIcon, MinusIcon, PlusIcon, TicketIcon } from '../components/icons';
@@ -105,9 +105,9 @@ export default function EventPage() {
 
   const totalCents =
     selection?.kind === 'tier'
-      ? selection.tier.priceCents * (tierQty[selection.tier.id] ?? 0)
+      ? allIn(selection.tier.priceCents) * (tierQty[selection.tier.id] ?? 0)
       : selection?.kind === 'listing'
-        ? selection.listing.priceCents
+        ? allIn(selection.listing.priceCents)
         : 0;
 
   async function remindMe() {
@@ -242,7 +242,7 @@ export default function EventPage() {
                       <div className="min-w-0">
                         <div className="truncate font-semibold text-sand">{tier.name}</div>
                         <div className={`tnum text-[13px] ${out ? 'text-night-muted' : 'text-gold'}`}>
-                          {out ? '' : `${formatMoney(tier.priceCents, event.currency)}`}
+                          {out ? '' : `${formatMoney(allIn(tier.priceCents), event.currency)}`}
                           {saleNote(tier) ? ` · ${saleNote(tier)}` : ''}
                         </div>
                       </div>
@@ -276,7 +276,7 @@ export default function EventPage() {
                         >
                           <span className="min-w-0">
                             <span className="block text-sm font-semibold text-sand">
-                              {formatMoney(listing.priceCents, event.currency)}
+                              {formatMoney(allIn(listing.priceCents), event.currency)}
                               <span className="ml-2 rounded-full bg-night-border px-2 py-0.5 text-[11px] font-medium text-sand/80">
                                 Resale
                               </span>
@@ -301,7 +301,7 @@ export default function EventPage() {
                     <div className="min-w-0">
                       <div className="truncate font-semibold text-sand">{section.name}</div>
                       <div className="tnum text-[13px] text-gold">
-                        {formatMoney(section.priceCents, event.currency)}
+                        {formatMoney(allIn(section.priceCents), event.currency)}
                         <span className="text-night-muted">
                           {' '}
                           · {section.remaining ?? section.available ?? 0} left

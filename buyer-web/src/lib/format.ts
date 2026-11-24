@@ -1,3 +1,9 @@
+/** V3 all-in pricing (handoff/05): stored `priceCents` is face; buyers pay
+ *  face × 1.07 (the 7% Sahra fee inside). Display = what they pay. */
+export function allIn(cents: number): number {
+  return Math.round(cents * 1.07);
+}
+
 export function formatMoney(cents: number | null | undefined, currency?: string | null): string {
   if (cents == null || Number.isNaN(cents)) return '';
   const code = (currency ?? 'usd').toUpperCase();
