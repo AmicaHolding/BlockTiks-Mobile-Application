@@ -65,10 +65,12 @@ export const SEED_USERS = [
 
 type UserKey = (typeof SEED_USERS)[number]['key'];
 
-const daysFromNow = (days: number, hourUtc = 19) => {
+// Demo venues are all Asia/Dubai (UTC+4, no DST) — schedule in Dubai-local
+// time so e.g. a "tonight" event lands tonight on the venue's clock.
+const daysFromNow = (days: number, hourDubai = 19) => {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + days);
-  d.setUTCHours(hourUtc, 0, 0, 0);
+  d.setUTCHours(hourDubai - 4, 0, 0, 0);
   return d.toISOString();
 };
 
