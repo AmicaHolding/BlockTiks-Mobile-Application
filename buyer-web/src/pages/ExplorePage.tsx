@@ -4,6 +4,7 @@ import type { SahraEvent } from '../lib/api';
 import { isThisWeekendDate, parseIso } from '../lib/format';
 import { fetchAvailableEvents } from '../lib/events';
 import EventCard, { lowestPrice } from '../components/EventCard';
+import { allIn } from '../lib/format';
 import { Badge, Button, Card, EmptyState, Input, Spinner } from '../components/ui';
 
 const CATEGORIES = ['All', 'Concerts', 'Comedy', 'Football', 'Theatre', 'Family', 'Nightlife', 'Arts'];
@@ -85,7 +86,7 @@ export default function ExplorePage() {
     if (maxPrice != null) {
       list = list.filter((e) => {
         const p = lowestPrice(e.tiers);
-        return p == null || p <= maxPrice;
+        return p == null || allIn(p) <= maxPrice;
       });
     }
     if (hideSoldOut) {

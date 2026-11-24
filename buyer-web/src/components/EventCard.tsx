@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { SahraEvent, Tier } from '../lib/api';
-import { formatEventDate, formatMoney } from '../lib/format';
+import { allIn, formatEventDate, formatMoney } from '../lib/format';
 import { Badge } from './ui';
 
 export const EVENT_MEDIA_GRADIENT = 'from-night-elevated via-night-surface to-night-deep';
@@ -68,7 +68,7 @@ export default function EventCard({ event, compact = false }: { event: SahraEven
           {formatEventDate(event.startsAt)} · {event.location}
         </div>
         <div className="tnum pt-1 text-[15px] font-semibold text-gold">
-          {soldOut ? 'Sold out' : free ? 'Free' : price != null ? `From ${formatMoney(price, event.currency)}` : ''}
+          {soldOut ? 'Sold out' : free ? 'Free' : price != null ? `From ${formatMoney(allIn(price), event.currency)}` : ''}
         </div>
       </div>
     </Link>

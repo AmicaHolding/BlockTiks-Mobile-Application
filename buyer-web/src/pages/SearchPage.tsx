@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { SahraEvent } from '../lib/api';
-import { formatCents, formatShortDateTime } from '../lib/format';
+import { allIn, formatCents, formatShortDateTime } from '../lib/format';
 import { fetchAvailableEvents } from '../lib/events';
 import { Badge, Card, EmptyState, Input, Spinner } from '../components/ui';
 import { SearchIcon } from '../components/icons';
@@ -181,7 +181,7 @@ export default function SearchPage() {
                           <div className="font-display text-lg font-extrabold text-gold">
                             {(() => {
                               const p = lowestPrice(event.tiers);
-                              return p === 0 ? 'Free' : p != null ? formatCents(p) : '-';
+                              return p === 0 ? 'Free' : p != null ? formatCents(allIn(p)) : '-';
                             })()}
                           </div>
                           <div className="mt-1 text-xs font-semibold text-gold">Tickets</div>
