@@ -141,9 +141,11 @@ class PaymentPageController extends GetxController {
     return legacyCount * 40500;
   }
 
-  /// Mirrors the backend default platform fee (5%) until the intent
-  /// response returns the authoritative feesCents/totalCents.
-  int get estimatedFeesCents => (displaySubtotalCents * 5 / 100).round();
+  /// v3 all-in pricing: the 7% fee is inside the shown price — this is the
+  /// informational "includes" amount, never added on top. The intent
+  /// response's feesCents/totalCents stays authoritative.
+  int get estimatedFeesCents =>
+      displaySubtotalCents - (displaySubtotalCents / 1.07).round();
 
   // Promo code input, validated/applied server-side at intent creation.
   final TextEditingController promoController = TextEditingController();
@@ -168,7 +170,8 @@ class PaymentPageController extends GetxController {
     promoController.clear();
   }
 
-  int get estimatedTotalCents => displaySubtotalCents + estimatedFeesCents - promoDiscountCents;
+  // v3: shown = paid. The promo discount, when any, is applied server-side.
+  int get estimatedTotalCents => displaySubtotalCents - promoDiscountCents;
 
   /// Currency-aware money label for checkout totals.
   String money(int cents) => formatMoney(cents, currency);

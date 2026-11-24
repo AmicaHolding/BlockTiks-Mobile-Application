@@ -79,6 +79,12 @@ export const env = {
   orgReserveDays: parseInt(process.env.ORG_RESERVE_DAYS ?? '14', 10),
   // SMS broadcast cost per recipient in fils (M2: AED 0.12).
   smsCostFils: parseInt(process.env.SMS_COST_FILS ?? '12', 10),
+  // SMS/WhatsApp delivery via Twilio REST (no SDK — a plain POST). When the
+  // credentials are absent, sendSms falls back to logging (local dev).
+  twilioAccountSid: process.env.TWILIO_ACCOUNT_SID ?? '',
+  twilioAuthToken: process.env.TWILIO_AUTH_TOKEN ?? '',
+  twilioFrom: process.env.TWILIO_FROM ?? '',           // e.g. +15005550006
+  twilioMessagingSid: process.env.TWILIO_MESSAGING_SID ?? '', // optional Messaging Service
   // Door undo window (seconds) — TODO(decision): undo allowed briefly
   // after admission so mis-scans can be corrected at the door.
   doorUndoSeconds: parseInt(process.env.DOOR_UNDO_SECONDS ?? '300', 10),

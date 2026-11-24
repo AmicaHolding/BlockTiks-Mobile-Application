@@ -1,6 +1,6 @@
 import 'package:intl/intl.dart';
 
-/// Small formatting helpers for BlockTiks MVP API payloads (events, orders,
+/// Small formatting helpers for Sahra API payloads (events, orders,
 /// tickets). All functions are defensive, they return '' / null rather than
 /// throwing when backend fields are missing or malformed.
 

@@ -26,22 +26,20 @@ npm run dev          # http://localhost:4000 against the SQLite file
 Or from the repo root: `./dev.sh --local --seed` (`--local` is a no-op now —
 SQLite is the only local engine).
 
-No Docker? Use the DynamoDB Local jar (`java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -inMemory -port 8000`)
-and the same `db:create` / `db:seed` / `dev:local` scripts.
-
 **Signing in locally (no passwords):** `POST /auth/otp/start {"contact":"fan@test.com"}` returns a
-`challenge_id`; verify it with `POST /auth/otp/verify {"challenge_id","code":"000000"}`. Against DynamoDB
-Local (or `NODE_ENV=development`) the real code is logged and `OTP_DEV_CODE` (default `000000`) is also
-accepted. SMS/WhatsApp delivery is a logging stub (`TODO(decision-17)`); email goes through SES when
-`SES_FROM_EMAIL` is set.
+`challenge_id`; verify it with `POST /auth/otp/verify {"challenge_id","code":"000000"}`. In development
+the real code is logged and `OTP_DEV_CODE` (default `000000`) is also accepted. Email goes through SES
+when `SES_FROM_EMAIL` is set; SMS/WhatsApp goes through Twilio when `TWILIO_ACCOUNT_SID`,
+`TWILIO_AUTH_TOKEN` and `TWILIO_FROM` (or `TWILIO_MESSAGING_SID`) are set — otherwise it logs a stub
+(`TODO(decision-17)`).
 
 | Script | What it does |
 |--------|--------------|
-| `db:up` / `db:down` | Start / stop DynamoDB Local (`db:down -- -v` also deletes its data) |
-| `db:create` | Create the `blocktiks` table if missing |
-| `db:seed` | Seed demo users, events, tickets, listing, offer, promo, referral |
-| `db:reset` | Delete every item, then seed |
-| `db:seed:remote` | Seed a real AWS table (`TABLE_NAME`, `AWS_REGION`, your AWS creds) |
+| `db:seed` / `db:reset` | Seed (or wipe + seed) the local SQLite file `data/dev.db` |
+| `dev` / `dev:local` | Run the API on :4000 against `data/dev.db` |
+| `dev:worker` | Run the Worker build locally via `wrangler dev` (D1 local) |
+| `deploy:worker` | Deploy to Cloudflare Workers + apply `schema.sql` to D1 |
+| `db:seed:remote` | Apply `schema.sql` to the remote `sahra-db` D1 database |
 
 The seed (`scripts/seed.ts`) writes through `src/db.ts`, so seeded rows have exactly the
 shape the API writes. It refuses to touch a remote table unless `SEED_ALLOW_REMOTE=1`, and

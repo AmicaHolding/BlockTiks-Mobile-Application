@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api, type EventOrder, type StudioEvent } from '../lib/api';
+import { api, type EventOrder, type StudioEvent, type WaitingRoomEntry } from '../lib/api';
 import { FLAGS } from '../lib/flags';
 import { useOrg } from '../lib/org';
 import type { LocalEventHost } from '../lib/store';
@@ -51,6 +51,11 @@ export default function ManageEventPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [cohostName, setCohostName] = useState('');
   const [cohostShare, setCohostShare] = useState('');
+  // V3 fair access: waiting room state for this event (org-side endpoints).
+  const [room, setRoom] = useState<{ entries: WaitingRoomEntry[]; flaggedCount?: number; mode: 'queue' | 'draw'; open: boolean } | null>(null);
+  const [roomBusy, setRoomBusy] = useState(false);
+  const [admitCount, setAdmitCount] = useState('1');
+  const [drawWinners, setDrawWinners] = useState('100');
 
   const isAdmin = role === 'admin';
   const canManage = role === 'admin' || role === 'cohost';
@@ -65,6 +70,7 @@ export default function ManageEventPage() {
       })
       .catch(() => setNotFound(true));
     api.eventOrders(id).then((r) => setOrders(r.orders)).catch(() => undefined);
+    api.waitingRoom(id).then(setRoom).catch(() => setRoom(null));
     setMeta(api.eventMeta(id));
     if (org) setHosts(api.eventHosts(id, org.id, org.name));
   }, [id, org]);
@@ -94,6 +100,27 @@ export default function ManageEventPage() {
   if (!event || !meta || !org) return <LoadingBlock />;
 
   const currency = event.currency ?? org.currency;
+
+  function queueCounts(entries: WaitingRoomEntry[]): string {
+    const inLine = entries.filter((e) => e.status === 'waiting' || e.status === 'queued').length;
+    const admitted = entries.filter((e) => e.status === 'admitted').length;
+    return `${inLine} in line · ${admitted} admitted · ${entries.length} total`;
+  }
+
+  async function runRoom(fn: () => Promise<unknown>, okMsg: string) {
+    if (!event) return;
+    setRoomBusy(true);
+    try {
+      await fn();
+      push(okMsg);
+      const next = await api.waitingRoom(event.id);
+      setRoom(next);
+    } catch (e) {
+      push(e instanceof Error ? e.message : 'Action failed');
+    } finally {
+      setRoomBusy(false);
+    }
+  }
 
   function publish() {
     if (!event || !org) return;
@@ -381,6 +408,143 @@ export default function ManageEventPage() {
                 {meta.resaleEnabled ? 'Block resale' : 'Allow resale'}
               </button>
             ) : null}
+          </Card>
+
+          {/* Fair access — v3 waiting room (B4–B8). Organiser enables the
+              room ~30 min before sales, opens it (random order), then admits
+              fans in batches; a draw is the fallback for very high demand. */}
+          <Card title="Fair access">
+            {!room?.open && !(room?.entries.length ?? 0) ? (
+              <div>
+                <p className="text-sm text-ink/60">
+                  No waiting room yet. Enable it so fans can line up — everyone present when
+                  you open gets a random place, then you admit them in turns.
+                </p>
+                {canManage ? (
+                  <div className="mt-3">
+                    <Button
+                      variant="dark"
+                      small
+                      disabled={roomBusy}
+                      onClick={() =>
+                        runRoom(() => api.waitingRoomEnable(event.id), 'Waiting room enabled')
+                      }
+                    >
+                      Enable waiting room
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <Badge tone="gold">{room?.mode === 'draw' ? 'Draw' : 'Queue'}</Badge>
+                  <span className="text-ink/60">
+                    {queueCounts(room?.entries ?? [])}
+                  </span>
+                  {(room?.flaggedCount ?? 0) > 0 ? (
+                    <Badge tone="danger">{room?.flaggedCount} flagged</Badge>
+                  ) : null}
+                </div>
+                {canManage ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="dark"
+                      small
+                      disabled={roomBusy}
+                      onClick={() =>
+                        runRoom(() => api.waitingRoomOpen(event.id), 'Positions assigned')
+                      }
+                    >
+                      Open sales
+                    </Button>
+                    <span className="flex items-center gap-1.5">
+                      <Input
+                        className="w-16"
+                        value={admitCount}
+                        onChange={(e) => setAdmitCount(e.target.value)}
+                      />
+                      <Button
+                        variant="outline"
+                        small
+                        disabled={roomBusy}
+                        onClick={() =>
+                          runRoom(
+                            () => api.waitingRoomNext(event.id, Number(admitCount) || 1),
+                            'Next fans admitted',
+                          )
+                        }
+                      >
+                        Admit next
+                      </Button>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Input
+                        className="w-20"
+                        value={drawWinners}
+                        onChange={(e) => setDrawWinners(e.target.value)}
+                      />
+                      <Button
+                        variant="outline"
+                        small
+                        disabled={roomBusy}
+                        onClick={() =>
+                          runRoom(
+                            () => api.waitingRoomDraw(event.id, Number(drawWinners) || 100),
+                            'Draw complete',
+                          )
+                        }
+                      >
+                        Run draw
+                      </Button>
+                    </span>
+                  </div>
+                ) : null}
+                {(room?.entries.length ?? 0) > 0 ? (
+                  <div className="-mx-2 max-h-64 divide-y divide-dune/70 overflow-y-auto">
+                    {(room?.entries ?? []).map((e) => (
+                      <div key={e.userId} className="flex items-center gap-3 px-2 py-2 text-sm">
+                        <span className="w-8 shrink-0 text-center tabular-nums text-ink/40">
+                          {e.position ?? '—'}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-ink">{e.userId}</span>
+                        {e.flagged ? <Badge tone="danger">flagged</Badge> : <Badge>{e.status}</Badge>}
+                        {isAdmin && (e.status === 'waiting' || e.status === 'queued') ? (
+                          <>
+                            <button
+                              type="button"
+                              className="text-xs font-semibold text-rumman underline"
+                              disabled={roomBusy}
+                              onClick={() =>
+                                runRoom(
+                                  () => api.waitingRoomFlag(event.id, e.userId),
+                                  'Account flagged',
+                                )
+                              }
+                            >
+                              Flag
+                            </button>
+                            <button
+                              type="button"
+                              className="text-xs font-semibold text-ink/60 underline"
+                              disabled={roomBusy}
+                              onClick={() =>
+                                runRoom(
+                                  () => api.waitingRoomRemove(event.id, e.userId),
+                                  'Entry removed',
+                                )
+                              }
+                            >
+                              Remove
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            )}
           </Card>
 
           {/* Recent orders */}

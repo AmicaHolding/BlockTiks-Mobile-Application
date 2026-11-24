@@ -191,7 +191,7 @@ class PaymentPageView extends GetView<PaymentPageController> {
                 ),
               )),
           Divider(height: 22, color: ColorConstant.dune),
-          _feeRow('Service fee (5%)',
+          _feeRow('Includes service fee (7%)',
               controller.money(controller.estimatedFeesCents)),
           Obx(() => controller.appliedPromo.value == null
               ? const SizedBox.shrink()

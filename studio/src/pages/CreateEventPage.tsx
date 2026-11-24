@@ -511,7 +511,7 @@ export default function CreateEventPage() {
                   </div>
                 </Field>
                 <p className="rounded-lg border border-dune bg-sand px-4 py-3 text-sm text-ink/60">
-                  You earn a 5% royalty on every resale.
+                  Resale buyers pay the all-in price (7% inside); sellers keep their full listing.
                 </p>
               </>
             ) : null}

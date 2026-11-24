@@ -1036,9 +1036,10 @@ export function feeInsidePrice(dueCents: number): number {
 }
 
 // F3/F4: credit back = max(0, fee − processing − 2% × base). Processing cost
-// comes from the payment provider's settlement data where available; until
-// then we estimate card cost at env.processingRatePct + fixed fils.
-// TODO(decision): wire actual Stripe balance-transaction fees on settlement.
+// comes from the charge's balance_transaction.fee where settled (sweeper +
+// orders fetch it with `expand: latest_charge.balance_transaction`); this
+// estimate is the fallback when the charge hasn't settled or Stripe isn't
+// configured locally.
 export function feeCreditMinor(input: {
   dueMinor: number;          // all-in total paid
   processingMinor: number;   // actual or estimated processing cost
@@ -1208,6 +1209,12 @@ export interface WaitingRoomEntry {
   leftAt?: string;        // B5: place kept 5 min after leaving
   admittedAt?: string;
   holdUntil?: string;     // B6: 10-min buy window; B8: 30-min draw window
+  flagged?: boolean;      // B7: flagged entries are silently excluded
+  // B2: device-attestation token (App Attest / Play Integrity). Stored
+  // opaquely — verification needs the providers' server keys
+  // TODO(provider-gap): assert the token before trusting `attested`.
+  attestation?: string;
+  attested?: boolean;
 }
 
 // WAITING#<eventId> / CONFIG — the room exists (joinable, and shown in
@@ -1223,7 +1230,7 @@ export interface WaitingRoomConfig {
 
 const roomPk = (eventId: string) => `WAITING#${eventId}`;
 
-export async function joinWaitingRoom(eventId: string, userId: string, deviceId?: string): Promise<WaitingRoomEntry> {
+export async function joinWaitingRoom(eventId: string, userId: string, deviceId?: string, attestation?: string): Promise<WaitingRoomEntry> {
   // B4: the room takes joins only while open; B5: one place per device —
   // the same check rejoinWaitingRoom runs, applied to fresh joins too.
   const config = await getWaitingRoomConfig(eventId);
@@ -1235,8 +1242,16 @@ export async function joinWaitingRoom(eventId: string, userId: string, deviceId?
     );
     if (clash) throw new InviteError('This device already has a place in line', 'device_in_use');
   }
+  // B7: an account flagged by the organiser still "joins" — the entry is
+  // born removed so the fan sees a normal join but never gets a place.
+  const prof = await docClient.send(
+    new GetCommand({ TableName: T(), Key: { pk: `USER#${userId}`, sk: 'PROFILE' } })
+  ).catch(() => ({ Item: undefined }));
+  const flagged = Boolean((prof.Item as { riskFlaggedAt?: string } | undefined)?.riskFlaggedAt);
   const entry: WaitingRoomEntry = {
-    eventId, userId, deviceId, joinedAt: now(), status: 'waiting',
+    eventId, userId, deviceId, joinedAt: now(), status: flagged ? 'removed' : 'waiting',
+    ...(flagged ? { flagged: true } : {}),
+    ...(attestation ? { attestation, attested: true } : {}),
   };
   await docClient.send(
     new PutCommand({
@@ -1275,7 +1290,7 @@ export async function listWaitingRoom(eventId: string): Promise<WaitingRoomEntry
 // go to the back. Fisher-Yates over the member list, persisted via batch.
 export async function assignWaitingPositions(eventId: string): Promise<number> {
   const entries = await listWaitingRoom(eventId);
-  const waiting = entries.filter((e) => e.status === 'waiting');
+  const waiting = entries.filter((e) => e.status === 'waiting' && !e.flagged);
   for (let i = waiting.length - 1; i > 0; i--) {
     const j = randomInt(0, i + 1);
     [waiting[i], waiting[j]] = [waiting[j], waiting[i]];
@@ -1716,7 +1731,9 @@ export async function removeWaitingEntry(eventId: string, userId: string): Promi
 // each gets 30 minutes to buy. Others are marked not_selected.
 export async function runWaitingRoomDraw(eventId: string, winners: number): Promise<WaitingRoomEntry[]> {
   const entries = await listWaitingRoom(eventId);
-  const pool = entries.filter((e) => e.status === 'waiting' || e.status === 'queued' || e.status === 'left');
+  const pool = entries.filter(
+    (e) => (e.status === 'waiting' || e.status === 'queued' || e.status === 'left') && !e.flagged
+  );
   for (let i = pool.length - 1; i > 0; i--) {
     const j = randomInt(0, i + 1);
     [pool[i], pool[j]] = [pool[j], pool[i]];
@@ -1749,4 +1766,31 @@ export async function runWaitingRoomDraw(eventId: string, winners: number): Prom
   }
   await setWaitingRoomMode(eventId, 'draw');
   return picked.map((e) => ({ ...e, status: 'admitted' as const, holdUntil }));
+}
+
+// B7: flag an account during a release — the entry is removed and the flag
+// follows the account (future joins anywhere are silently excluded).
+export async function flagWaitingEntry(eventId: string, userId: string): Promise<boolean> {
+  const at = now();
+  const res = await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: roomPk(eventId), sk: `USER#${userId}` },
+      UpdateExpression: 'SET #status = :r, flagged = :f',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: { ':r': 'removed', ':f': true },
+      ConditionExpression: 'attribute_exists(pk)',
+      ReturnValues: 'ALL_NEW',
+    })
+  ).catch(() => ({ Attributes: undefined }));
+  if (!res.Attributes) return false;
+  await docClient.send(
+    new UpdateCommand({
+      TableName: T(),
+      Key: { pk: `USER#${userId}`, sk: 'PROFILE' },
+      UpdateExpression: 'SET riskFlaggedAt = :t',
+      ExpressionAttributeValues: { ':t': at },
+    })
+  ).catch(() => undefined);
+  return true;
 }

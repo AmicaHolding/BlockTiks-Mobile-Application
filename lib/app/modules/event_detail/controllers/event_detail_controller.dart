@@ -10,7 +10,7 @@ class EventDetailController extends GetxController {
 
   bool isFromCreator = false;
 
-  // Real event state (BlockTiks MVP backend).
+  // Real event state (Sahra backend).
   final RxMap<String, dynamic> event = <String, dynamic>{}.obs;
   final RxMap<String, int> tierCounts = <String, int>{}.obs;
   final RxBool isLoading = false.obs;

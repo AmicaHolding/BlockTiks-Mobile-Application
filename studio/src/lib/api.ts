@@ -704,6 +704,52 @@ export const api = {
   eventGuests(id: string) {
     return request<EventGuestsResponse>(`/events/${id}/guests`);
   },
+
+  // ---- waiting room / fair access (real, org-scoped v3) ----------------------
+  waitingRoom(eventId: string) {
+    return request<{
+      entries: WaitingRoomEntry[];
+      flaggedCount: number;
+      mode: 'queue' | 'draw';
+      open: boolean;
+    }>(`/events/${encodeURIComponent(eventId)}/waiting-room/entries`);
+  },
+  waitingRoomEnable(eventId: string) {
+    return request<{ ok: boolean; open: boolean }>(
+      `/events/${encodeURIComponent(eventId)}/waiting-room/enable`,
+      { method: 'POST', idempotencyKey: newIdempotencyKey() },
+    );
+  },
+  waitingRoomOpen(eventId: string) {
+    return request<{ ok: boolean; assigned: number }>(
+      `/events/${encodeURIComponent(eventId)}/waiting-room/open`,
+      { method: 'POST', idempotencyKey: newIdempotencyKey() },
+    );
+  },
+  waitingRoomNext(eventId: string, count = 1) {
+    return request<{ ok: boolean; admitted: number; holdUntil?: string }>(
+      `/events/${encodeURIComponent(eventId)}/waiting-room/next`,
+      { method: 'POST', body: JSON.stringify({ count }), idempotencyKey: newIdempotencyKey() },
+    );
+  },
+  waitingRoomDraw(eventId: string, winners = 100) {
+    return request<{ ok: boolean; mode: string; winners: number; holdUntil?: string }>(
+      `/events/${encodeURIComponent(eventId)}/waiting-room/draw`,
+      { method: 'POST', body: JSON.stringify({ winners }), idempotencyKey: newIdempotencyKey() },
+    );
+  },
+  waitingRoomFlag(eventId: string, userId: string) {
+    return request<{ ok: boolean }>(
+      `/events/${encodeURIComponent(eventId)}/waiting-room/${encodeURIComponent(userId)}/flag`,
+      { method: 'POST', idempotencyKey: newIdempotencyKey() },
+    );
+  },
+  waitingRoomRemove(eventId: string, userId: string) {
+    return request<{ ok: boolean }>(
+      `/events/${encodeURIComponent(eventId)}/waiting-room/${encodeURIComponent(userId)}`,
+      { method: 'DELETE' },
+    );
+  },
   // POST /orders/{id}/refund — real endpoint (decision-2: full refunds).
   async refundOrder(orderId: string, reason?: string) {
     const res = await request<{ ok: boolean }>(`/orders/${encodeURIComponent(orderId)}/refund`, {
@@ -760,3 +806,16 @@ export const api = {
     });
   },
 };
+
+export interface WaitingRoomEntry {
+  eventId: string;
+  userId: string;
+  deviceId?: string;
+  joinedAt: string;
+  position?: number;
+  status: 'waiting' | 'queued' | 'admitted' | 'left' | 'expired' | 'not_selected' | 'done' | 'removed';
+  leftAt?: string;
+  admittedAt?: string;
+  holdUntil?: string;
+  flagged?: boolean;
+}

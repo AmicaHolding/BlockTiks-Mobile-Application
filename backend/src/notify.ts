@@ -1,12 +1,35 @@
 import { createNotification, getUserById, type User } from './db';
+import { env } from './env';
 
 // Outbound messaging. Push and SMS have no provider wired yet: both log and
 // return so callers (invite updates, RSVP decisions, OTP) work end to end.
 
-// TODO(decision-17): SMS vs WhatsApp per country is still open, and no SMS
-// provider is connected. This stub only logs.
+// TODO(decision-17): SMS vs WhatsApp per country is still open — the caller
+// picks the channel, Twilio delivers both (whatsapp: prefix for whatsapp).
 export async function sendSms(to: string, body: string, channel: 'sms' | 'whatsapp' = 'sms'): Promise<void> {
-  console.log(`[${channel}:stub] to=${to} ${body}`);
+  if (!env.twilioAccountSid || !env.twilioAuthToken || (!env.twilioFrom && !env.twilioMessagingSid)) {
+    console.log(`[${channel}:stub] to=${to} ${body}`);
+    return;
+  }
+  const addr = channel === 'whatsapp' ? `whatsapp:${to}` : to;
+  const params = new URLSearchParams({ To: addr, Body: body });
+  if (env.twilioMessagingSid) params.set('MessagingServiceSid', env.twilioMessagingSid);
+  else params.set('From', channel === 'whatsapp' ? `whatsapp:${env.twilioFrom}` : env.twilioFrom);
+  const res = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${env.twilioAccountSid}/Messages.json`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${env.twilioAccountSid}:${env.twilioAuthToken}`).toString('base64')}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.text().catch(() => '');
+    throw new Error(`twilio ${res.status}: ${err.slice(0, 200)}`);
+  }
 }
 
 // TODO(api-gap): no push provider (APNs/FCM) yet; device tokens are not stored.

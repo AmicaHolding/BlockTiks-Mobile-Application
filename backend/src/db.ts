@@ -110,6 +110,9 @@ export interface User {
   city?: string;
   interests?: string[];
   phoneVerified?: boolean;
+  // B7: set when the organiser flags the account during a release — silently
+  // excludes the account from waiting rooms and draws.
+  riskFlaggedAt?: string;
   dateOfBirth?: string;
   emailVerified?: boolean;
   notificationPrefs?: {
@@ -587,6 +590,7 @@ export async function updateUser(
       | 'notificationPrefs'
       | 'lastMode'
       | 'intent'
+      | 'riskFlaggedAt'
     >
   >
 ): Promise<User | null> {

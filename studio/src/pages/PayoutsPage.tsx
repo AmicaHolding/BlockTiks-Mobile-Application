@@ -21,7 +21,7 @@ import {
 
 /** Spec: min payout AED 1,000 → 100000 minor units. */
 const MIN_PAYOUT_MINOR = 100000;
-/** Organiser keeps 95%, platform takes 5% (prototype copy). */
+/** All-in pricing: the 7% fee lives inside the shown price; the org receives the face amount. */
 const ORG_SHARE = 0.95;
 
 export default function PayoutsPage() {
@@ -135,7 +135,7 @@ export default function PayoutsPage() {
     <div>
       <PageHeader
         title="Payouts"
-        subtitle="Ticket money, minus 5% fees, lands here. Refunds come out of the next payout."
+        subtitle="Ticket money at face value lands here — the 7% fee was inside the price fans paid. Refunds come out of the next payout."
       />
 
       {!hasBank ? (

@@ -53,6 +53,7 @@ import {
   coverShare,
   releaseShare,
   joinWaitingRoom,
+  listWaitingRoom,
   rejoinWaitingRoom,
   leaveWaitingRoom,
   getWaitingEntry,
@@ -62,6 +63,7 @@ import {
   expireWaitingHold,
   removeWaitingEntry,
   runWaitingRoomDraw,
+  flagWaitingEntry,
   getWaitingRoomMode,
   getWaitingRoomConfig,
   setWaitingRoomConfig,
@@ -236,7 +238,7 @@ export async function v3Routes(app: FastifyInstance) {
   // ============================ WAITING ROOM (B4-B8) ============================
   app.post('/events/:id/waiting-room', { preHandler: app.authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const { deviceId } = (request.body ?? {}) as { deviceId?: string };
+    const { deviceId, attestation } = (request.body ?? {}) as { deviceId?: string; attestation?: string };
     try {
       // B6: a stale admitted/expired/left entry rejoins at the back — but
       // only while the room is open (B4).
@@ -250,7 +252,7 @@ export async function v3Routes(app: FastifyInstance) {
         return reply.status(201).send({ entry, rejoined: true });
       }
       if (existing) return { entry: existing, alreadyJoined: true };
-      const entry = await joinWaitingRoom(id, request.user.sub, deviceId);
+      const entry = await joinWaitingRoom(id, request.user.sub, deviceId, attestation);
       return reply.status(201).send({ entry });
     } catch (e) {
       if (e instanceof InviteError) {
@@ -347,6 +349,26 @@ export async function v3Routes(app: FastifyInstance) {
     }
     if (idemKey) await setWaitingRoomConfig(id, { lastNextKey: idemKey, lastNextResult: result });
     return { ok: true, ...result };
+  });
+
+  // Org-side: queue listing for Studio's fair-access panel (B7 review).
+  app.get('/events/:id/waiting-room/entries', { preHandler: app.authenticate }, async (request, reply) => {
+    if (!(await requireEventManager(request, reply))) return;
+    const { id } = request.params as { id: string };
+    const entries = await listWaitingRoom(id);
+    const config = await getWaitingRoomConfig(id);
+    // B8: surfaced so the organiser sees the flagged share of the room —
+    // the spec leaves the draw-switch threshold to them (open decision).
+    const flaggedCount = entries.filter((e) => e.flagged).length;
+    return { entries, flaggedCount, mode: config?.mode ?? 'queue', open: Boolean(config?.open) };
+  });
+
+  // Org-side: B7 — flag an account; removed here and excluded everywhere.
+  app.post('/events/:id/waiting-room/:userId/flag', { preHandler: app.authenticate }, async (request, reply) => {
+    if (!(await requireEventManager(request, reply))) return;
+    const { id, userId } = request.params as { id: string; userId: string };
+    const ok = await flagWaitingEntry(id, userId);
+    return ok ? { ok: true } : reply.status(409).send({ code: 'not_found', message: 'Entry not found' });
   });
 
   // Org-side: B7 — remove a flagged account from the line.
