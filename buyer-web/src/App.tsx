@@ -17,6 +17,7 @@ import AccountPage from './pages/AccountPage';
 import InvitePage from './pages/InvitePage';
 import PlansPage from './pages/PlansPage';
 import WalletPage from './pages/WalletPage';
+import NewInvitePage from './pages/NewInvitePage';
 import { Spinner } from './components/ui';
 
 function reasonFor(path: string): SignInReason {
@@ -126,6 +127,14 @@ function SiteLayout() {
             element={
               <Protected>
                 <PlansPage />
+              </Protected>
+            }
+          />
+          <Route
+            path="/new-invite"
+            element={
+              <Protected>
+                <NewInvitePage />
               </Protected>
             }
           />
