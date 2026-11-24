@@ -100,9 +100,9 @@ export const env = {
       return {} as Record<string, number>;
     }
   })(),
-  // Transactional email (SES). Empty = log-only dev mode.
-  sesFromEmail: process.env.SES_FROM_EMAIL ?? '',
-  sesRegion: process.env.SES_REGION ?? process.env.AWS_REGION ?? 'us-east-1',
+  // Transactional email (Resend). Empty = log-only dev mode.
+  emailFrom: process.env.EMAIL_FROM ?? '',
+  resendApiKey: process.env.RESEND_API_KEY ?? '',
   // Public base URL of the buyer web app (verification links, payout onboarding returns).
   publicWebUrl: process.env.PUBLIC_WEB_URL ?? 'http://localhost:5174',
   // Referral bonus paid to the referrer per successful referral (cents). 0 = tracking only.
