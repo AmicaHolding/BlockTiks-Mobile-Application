@@ -13,7 +13,7 @@ export function PageHeader({
   return (
     <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="font-display text-3xl font-bold text-night">{title}</h1>
+        <h1 className="font-display text-[26px] font-bold text-night">{title}</h1>
         {subtitle ? <p className="mt-2 max-w-2xl text-sm text-ink/60">{subtitle}</p> : null}
       </div>
       {action ? <div className="flex items-center gap-3">{action}</div> : null}
@@ -34,12 +34,12 @@ export function Card({
 }) {
   return (
     <section
-      className={`rounded-xl border border-dune bg-white p-6 shadow-[0_1px_2px_rgba(22,38,59,0.04)] ${className}`}
+      className={`rounded-2xl border border-dune bg-[#fff9ef] px-[18px] py-4 ${className}`}
     >
       {title || action ? (
         <div className="mb-4 flex items-center justify-between gap-3">
           {title ? (
-            <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
+            <h2 className="font-display text-[17px] font-bold text-night">
               {title}
             </h2>
           ) : (
@@ -108,7 +108,7 @@ export function Button({
     small ? 'px-4 py-2 text-xs' : 'px-5 py-2.5 text-sm'
   }`;
   const styles: Record<string, string> = {
-    primary: 'bg-gold text-ink hover:bg-gold/90',
+    primary: 'bg-night text-gold hover:bg-night/90',
     outline: 'border border-ink/15 text-ink hover:border-ink/30',
     ghost: 'text-ink/60 hover:text-ink',
     danger: 'bg-rumman text-white hover:bg-rumman/90',
@@ -208,9 +208,9 @@ export function Stat({
   hint?: string;
 }) {
   return (
-    <div className="rounded-xl border border-dune bg-white p-5">
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">{label}</p>
-      <p className="mt-2 font-display text-3xl font-bold text-night tabular-nums">{value}</p>
+    <div className="rounded-2xl border border-dune bg-[#fff9ef] px-[18px] py-4">
+      <p className="text-[13px] text-ink/65">{label}</p>
+      <p className="mt-1 font-display text-[26px] font-bold tracking-[-0.02em] text-night tabular-nums">{value}</p>
       {hint ? <p className="mt-1 text-xs text-ink/50">{hint}</p> : null}
     </div>
   );

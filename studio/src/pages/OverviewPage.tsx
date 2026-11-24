@@ -86,41 +86,47 @@ export default function OverviewPage() {
 
       {/* "Get ready to sell" checklist, shown until org is fully set up */}
       {showChecklist ? (
-        <Card title="Get ready to sell" className="mb-6">
-          <div className="space-y-1">
-            <ChecklistRow done label={`Create ${org.name}`} />
-            <ChecklistRow
-              done={checklistDone.event}
-              label="Draft your first event"
-              action={!checklistDone.event ? () => navigate('/events/new') : undefined}
-            />
-            <ChecklistRow
-              done={checklistDone.verified}
-              label="Verify ID & trade licence"
-              note={
-                org.verificationStatus === 'submitted'
-                  ? 'Waiting on Sahra, usually a day or two.'
-                  : org.verificationStatus === 'rejected'
-                    ? 'Rejected, resubmit in Settings.'
-                    : 'Needed before you can publish or get paid.'
-              }
-              action={
-                org.verificationStatus === 'none'
-                  ? () => setVerifyOpen(true)
-                  : undefined
-              }
-            />
-            <ChecklistRow
-              done={checklistDone.bank}
-              label="Add a bank account"
-              note="Ticket money is held until you do."
-              action={
-                !checklistDone.bank && isAdmin ? () => navigate('/payouts') : undefined
-              }
-            />
-            <ChecklistRow done={false} label="Invite your team" action={() => navigate('/team')} optional />
-          </div>
-        </Card>
+        <section className="mb-6 flex flex-col gap-1 rounded-2xl border-[1.5px] border-night bg-[#fff9ef] px-5 py-[18px]">
+          <h2 className="pb-1.5 font-display text-lg font-bold text-night">Get ready to sell</h2>
+          <ChecklistRow n={1} done label={`Create ${org.name}`} />
+          <ChecklistRow
+            n={2}
+            done={checklistDone.event}
+            label="Draft your first event"
+            action={!checklistDone.event ? () => navigate('/events/new') : undefined}
+            actionLabel="New event"
+          />
+          <ChecklistRow
+            n={3}
+            done={checklistDone.verified}
+            label="Verify ID & trade licence"
+            note={
+              org.verificationStatus === 'submitted'
+                ? 'Waiting on Sahra, usually a day or two.'
+                : org.verificationStatus === 'rejected'
+                  ? 'Rejected, resubmit in Settings.'
+                  : 'Needed before you can publish or get paid.'
+            }
+            action={org.verificationStatus === 'none' ? () => setVerifyOpen(true) : undefined}
+            actionLabel="Verify"
+          />
+          <ChecklistRow
+            n={4}
+            done={checklistDone.bank}
+            label="Add a bank account"
+            note="Ticket money is held until you do."
+            action={!checklistDone.bank && isAdmin ? () => navigate('/payouts') : undefined}
+            actionLabel="Add bank"
+          />
+          <ChecklistRow
+            n={5}
+            done={false}
+            label="Invite your team"
+            note="Optional — co-hosts and gate staff."
+            action={() => navigate('/team')}
+            actionLabel="Invite"
+          />
+        </section>
       ) : null}
 
       {/* KPIs */}
@@ -252,43 +258,40 @@ export default function OverviewPage() {
 }
 
 function ChecklistRow({
+  n,
   done,
   label,
   note,
   action,
-  optional,
+  actionLabel,
 }: {
+  n: number;
   done: boolean;
   label: string;
   note?: string;
   action?: () => void;
-  optional?: boolean;
+  actionLabel?: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg px-2 py-2.5">
+    <div className={`flex items-center gap-3.5 border-t border-dune py-2.5 ${done ? 'opacity-50' : ''}`}>
       <span
-        className={`flex h-5 w-5 items-center justify-center rounded-full border ${
-          done ? 'border-gold bg-gold text-ink' : 'border-ink/20 text-transparent'
+        className={`flex h-6 w-6 flex-none items-center justify-center rounded-full text-[13px] font-extrabold ${
+          done ? 'bg-gold text-night' : 'bg-night text-sand'
         }`}
       >
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M20 6L9 17l-5-5" />
-        </svg>
+        {done ? '✓' : n}
       </span>
       <div className="min-w-0 flex-1">
-        <p className={`text-sm font-medium ${done ? 'text-ink/40 line-through' : 'text-ink'}`}>
-          {label}
-          {optional ? <span className="ml-2 text-xs font-normal text-ink/40">optional</span> : null}
-        </p>
-        {note && !done ? <p className="text-xs text-ink/45">{note}</p> : null}
+        <p className="text-[15px] font-semibold text-night">{label}</p>
+        {note && !done ? <p className="text-[13px] text-ink/55">{note}</p> : null}
       </div>
       {action && !done ? (
         <button
           type="button"
           onClick={action}
-          className="text-xs font-semibold text-ink underline underline-offset-2 hover:text-night"
+          className="rounded-full bg-night px-3.5 py-2 text-[13px] font-semibold text-gold"
         >
-          Do it
+          {actionLabel ?? 'Do it'}
         </button>
       ) : null}
     </div>
