@@ -15,6 +15,7 @@ import {
   getOrder,
   listExpiredIndex,
   listInviteRsvps,
+  requeueExpireIndex,
   listInvitesStartingBetween,
   markInviteReminderSent,
   releaseOrder,
@@ -61,30 +62,112 @@ export const handler = async () => {
     }
   }
 
+  // Settled card fee in the order's checkout currency only — a
+  // balance_transaction in a different settlement currency can't be
+  // subtracted from the checkout amount without conversion.
+  const settledCardFee = (pi: { latest_charge?: unknown }, currency?: string): number | undefined => {
+    const bt = (pi.latest_charge as { balance_transaction?: { fee?: number; currency?: string } } | null)?.balance_transaction;
+    if (typeof bt?.fee !== 'number') return undefined;
+    if ((bt.currency ?? '').toLowerCase() !== (currency ?? 'usd').toLowerCase()) return undefined;
+    return bt.fee;
+  };
+  const indexByOrder = new Map(
+    expired.filter((i) => i.orderId).map((i) => [i.orderId as string, i.feeRetries ?? 0])
+  );
+  const FEE_RETRY_MINUTES = 30;
+  const FEE_MAX_RETRIES = 48; // ~24h of retries, then fall back to the estimate
+
   for (const orderId of expiredOrderIds) {
     try {
       const order = await getOrder(orderId);
+
+      // Paid but not confirmed settled — retry until the breakdown AND the
+      // buyer credit have both landed. Enters when the breakdown is missing
+      // or claims a credit that may not be posted yet; both writes are
+      // first-write-wins so re-entering is a no-op once they're in.
+      // Eligibility is what the order recorded at purchase time
+      // (creditEligible) — not today's flag, so a pricing rollback can't
+      // un-earn an owed credit.
+      if (order?.status === 'PAID' && order.stripePaymentIntentId &&
+          order.creditEligible === true &&
+          (!order.feeBreakdown || (order.feeBreakdown.creditMinor ?? 0) > 0)) {
+        const retries = indexByOrder.get(orderId) ?? 0;
+        const { orderFeeBreakdown, postOrderFeeCredit } = await import('./db/v3');
+        const { setOrderFeeBreakdown } = await import('./db');
+        let breakdown = order.feeBreakdown;
+        let feeMinor: number | undefined;
+        if (!breakdown) {
+          const pi = await getStripe().paymentIntents.retrieve(order.stripePaymentIntentId, {
+            expand: ['latest_charge.balance_transaction'],
+          });
+          feeMinor = settledCardFee(pi, order.currency);
+          if (typeof feeMinor === 'number' || retries >= FEE_MAX_RETRIES) {
+            breakdown = orderFeeBreakdown({ dueMinor: order.totalCents, actualCardFeeMinor: feeMinor });
+          }
+        }
+        if (breakdown) {
+          await setOrderFeeBreakdown(order.id, breakdown).catch(() => undefined);
+          if (breakdown.creditMinor > 0) {
+            // Throws on a real write failure → requeue instead of deleting,
+            // so the credit isn't lost when the sweep job is dropped.
+            try {
+              await postOrderFeeCredit({ userId: order.userId, orderId: order.id, amountMinor: breakdown.creditMinor });
+              await deleteExpireIndex(orderId);
+            } catch {
+              await requeueExpireIndex(orderId, new Date(Date.now() + FEE_RETRY_MINUTES * 60_000).toISOString(), retries + 1);
+            }
+          } else {
+            await deleteExpireIndex(orderId);
+          }
+        } else {
+          await requeueExpireIndex(orderId, new Date(Date.now() + FEE_RETRY_MINUTES * 60_000).toISOString(), retries + 1);
+        }
+        continue;
+      }
+
       if (!order || order.status !== 'PENDING') {
         await deleteExpireIndex(orderId); // stale index leftover, clean up
         continue;
       }
 
       if (order.stripePaymentIntentId) {
-        const pi = await getStripe().paymentIntents.retrieve(order.stripePaymentIntentId);
+        const pi = await getStripe().paymentIntents.retrieve(order.stripePaymentIntentId, {
+          expand: ['latest_charge.balance_transaction'],
+        });
         if (pi.status === 'succeeded') {
           await fulfillOrder(orderId, pi.id);
           // Same v3 side-effects as the webhook path (fee credit + pending).
+          // Use the settled card fee so the webhook doesn't get locked out
+          // of posting the corrected credit later.
           try {
             const { orderFeeBreakdown, postOrderFeeCredit, addWalletPending } = await import('./db/v3');
             const { getListing, setOrderFeeBreakdown } = await import('./db');
             const paid = await getOrder(orderId);
             if (paid) {
-              const breakdown = orderFeeBreakdown({ dueMinor: paid.totalCents });
-              await setOrderFeeBreakdown(paid.id, breakdown).catch(() => undefined);
-              if (breakdown.creditMinor > 0) await postOrderFeeCredit({ userId: paid.userId, orderId: paid.id, amountMinor: breakdown.creditMinor }).catch(() => undefined);
-              if (paid.kind === 'RESALE' && paid.listingCode) {
-                const listing = await getListing(paid.listingCode);
-                if (listing) await addWalletPending({ userId: listing.sellerId, orderId: paid.id, eventId: paid.eventId, amountMinor: paid.faceSubtotalCents ?? paid.subtotalCents }).catch(() => undefined);
+              // Seller proceeds first — a requeue failure below must not skip
+              // them (fulfillOrder already deleted the index, so a lost
+              // requeue only costs the fee-settle retry, never the proceeds).
+              // Its own try: a getListing failure can't strand the fee settle.
+              try {
+                if (paid.kind === 'RESALE' && paid.listingCode) {
+                  const listing = await getListing(paid.listingCode);
+                  if (listing) await addWalletPending({ userId: listing.sellerId, orderId: paid.id, eventId: paid.eventId, amountMinor: paid.faceSubtotalCents ?? paid.subtotalCents }).catch(() => undefined);
+                }
+              } catch { /* listing lookup failed — proceeds retry via webhook */ }
+              const actualCardFeeMinor = settledCardFee(pi, paid.currency);
+              // Only settle the credit when the real fee is known — posting an
+              // estimate here would lock the webhook out of correcting it
+              // (setOrderFeeBreakdown/postOrderFeeCredit are first-write-wins).
+              // Unknown → requeue so a later sweep retries instead of losing it.
+              // Ineligible (no all-in fee charged at purchase) → nothing to settle.
+              if (paid.creditEligible !== true) {
+                // no credit eligibility — leave the credit path to the webhook
+              } else if (typeof actualCardFeeMinor === 'number') {
+                const breakdown = orderFeeBreakdown({ dueMinor: paid.totalCents, actualCardFeeMinor });
+                await setOrderFeeBreakdown(paid.id, breakdown).catch(() => undefined);
+                if (breakdown.creditMinor > 0) await postOrderFeeCredit({ userId: paid.userId, orderId: paid.id, amountMinor: breakdown.creditMinor }).catch(() => undefined);
+              } else {
+                await requeueExpireIndex(orderId, new Date(Date.now() + FEE_RETRY_MINUTES * 60_000).toISOString(), 1).catch(() => undefined);
               }
             }
           } catch { /* best-effort */ }
@@ -95,6 +178,9 @@ export const handler = async () => {
           stats.skipped++; // payment still in flight, don't release yet
           continue;
         }
+        // Expired with a live intent: cancel it so Stripe can't capture money
+        // for an order that will never fulfill.
+        await getStripe().paymentIntents.cancel(order.stripePaymentIntentId).catch(() => undefined);
       }
 
       await releaseOrder(orderId, 'EXPIRED');

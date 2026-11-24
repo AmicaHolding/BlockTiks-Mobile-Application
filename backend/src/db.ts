@@ -282,12 +282,20 @@ export interface Order {
   discountCents: number;
   feesCents: number;
   taxCents?: number; // P6: VAT extracted from the all-in price (decision-13)
+  // Captured at purchase time: all-in pricing was on AND a fee was charged.
+  // Settlement paths (webhook, sweeper retries) gate on this — not the
+  // current env flag — so a pricing rollback can't un-earn an owed credit.
+  creditEligible?: boolean;
   // v3: organiser/seller earnings basis at face value (subtotal − in-price
   // fee). Absent on legacy rows → subtotalCents is the basis.
   faceSubtotalCents?: number;
   totalCents: number;
   promoCodeText?: string;
   stripePaymentIntentId?: string;
+  // True only when creation reserved inventory (reserveTickets / a hold).
+  // releaseOrder credits seats back solely under this flag so orders that
+  // never held seats can't phantom-release inventory on expiry.
+  inventoryHeld?: boolean;
   ticketCodes?: string[];
   currency?: string;
   expiresAt?: string; // reservation expiry for PENDING orders
@@ -910,6 +918,7 @@ export async function createPendingOrder(input: {
   promoCodeText?: string;
   currency?: string;
   expiresAt: string;
+  inventoryHeld?: boolean;
 }): Promise<Order> {
   const id = randomUUID();
   const createdAt = now();
@@ -930,7 +939,9 @@ export async function createPendingOrder(input: {
     totalCents: input.totalCents,
     promoCodeText: input.promoCodeText,
     currency: input.currency,
+    creditEligible: env.allInPricing && input.feesCents > 0,
     expiresAt: input.expiresAt,
+    inventoryHeld: input.inventoryHeld,
     createdAt,
   };
   await docClient.send(
@@ -1108,9 +1119,11 @@ export async function releaseOrder(
   ];
 
   // Release whatever the order held: tier seats, venue-section seats, or a
-  // resale listing checkout claim. Only TICKET items carry tierId.
+  // resale listing checkout claim. Only TICKET items carry tierId. Tier and
+  // section counters are credited only when the order actually reserved
+  // them — an order created without a reservation must not invent seats.
   for (const item of items) {
-    if (item.tierId) {
+    if (item.tierId && order.inventoryHeld) {
       transactItems.push({
         Update: {
           TableName: T(),
@@ -1120,7 +1133,7 @@ export async function releaseOrder(
         },
       });
     }
-    if (item.sectionId) {
+    if (item.sectionId && order.inventoryHeld) {
       transactItems.push({
         Update: {
           TableName: T(),
@@ -1191,7 +1204,7 @@ export async function releaseOrder(
 export async function listExpiredIndex(
   nowIso: string,
   limit = 100
-): Promise<{ orderId?: string; holdId?: string; transferId?: string }[]> {
+): Promise<{ orderId?: string; holdId?: string; transferId?: string; feeRetries?: number }[]> {
   const res = await docClient.send(
     new QueryCommand({
       TableName: T(),
@@ -1201,7 +1214,7 @@ export async function listExpiredIndex(
       Limit: limit,
     })
   );
-  return (res.Items ?? []) as { orderId?: string; holdId?: string; transferId?: string }[];
+  return (res.Items ?? []) as { orderId?: string; holdId?: string; transferId?: string; feeRetries?: number }[];
 }
 
 export async function listExpiredPendingOrders(nowIso: string, limit = 100): Promise<string[]> {
@@ -1212,6 +1225,25 @@ export async function listExpiredPendingOrders(nowIso: string, limit = 100): Pro
 export async function deleteExpireIndex(orderId: string) {
   await docClient.send(
     new DeleteCommand({ TableName: T(), Key: { pk: expirePk(orderId), sk: 'INDEX' } })
+  );
+}
+
+// Re-enqueue an order whose post-payment settlement work isn't done — e.g.
+// the sweeper fulfilled it but Stripe hasn't exposed the card fee yet.
+export async function requeueExpireIndex(orderId: string, expiresAt: string, feeRetries = 0) {
+  await docClient.send(
+    new PutCommand({
+      TableName: T(),
+      Item: {
+        pk: expirePk(orderId),
+        sk: 'INDEX',
+        orderId,
+        expiresAt,
+        feeRetries,
+        gsi1pk: EXPIRE_GSI_PK,
+        gsi1sk: expiresAt,
+      },
+    })
   );
 }
 
