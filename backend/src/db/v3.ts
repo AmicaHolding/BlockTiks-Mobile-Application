@@ -1413,6 +1413,12 @@ export async function postOrderFeeCredit(input: {
         ConditionExpression: 'attribute_not_exists(pk)',
       })
     );
+    recordWalletActivity({
+      userId: input.userId,
+      kind: 'credit',
+      label: 'Fee credit earned',
+      amountMinor: input.amountMinor,
+    });
     return true;
   } catch (e) {
     if (isConditionalCheck(e)) return false; // already posted
@@ -1435,6 +1441,12 @@ export async function reverseOrderFeeCredit(
   const reversed = row.remainingMinor ?? 0;
   const spent = (row.amountMinor ?? 0) - reversed;
   if (reversed > 0) {
+    recordWalletActivity({
+      userId,
+      kind: 'credit',
+      label: 'Fee credit reversed on refund',
+      amountMinor: -reversed,
+    });
     await docClient.send(
       new UpdateCommand({
         TableName: T(),
